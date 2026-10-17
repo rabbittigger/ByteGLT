@@ -1,6 +1,27 @@
-漏洞类型	完整合约地址	正文缩写
-locked-ether	0xae3ca20c71acf54c8926d26d8c97548f8b0a4a51	0xae3...a4a51
-reentrancy-eth	0x07c89cc845d046aead377dddc61114aa9d920ac0	0x07c...20ac0
-reentrancy-eth	0x09de7e9932926d98298d1ecf50015bbeb9089678	0x09d...89678
-locked-ether	0x353cafd02131ca5b69211bbc3899f556bc62b7e3	0x353...2b7e3
-locked-ether	0x07147220fa6c06295464d695e4ec012f6aebc275	0x071...bc275
+# Slither标签人工核验：典型争议样本完整地址
+
+本文对人工核验中发现的5个Slither标签分歧样本进行案例分析。以下列出各样本的漏洞类型、完整合约地址及论文正文使用的缩写，便于审稿人查阅和复现实验分析。
+
+## 1. 典型样本地址
+
+| 序号 | 漏洞类型 | 完整合约地址 | 正文缩写 |
+|---:|---|---|---|
+| 1 | locked-ether | `0xae3ca20c71acf54c8926d26d8c97548f8b0a4a51` | `0xae3...a4a51` |
+| 2 | reentrancy-eth | `0x07c89cc845d046aead377dddc61114aa9d920ac0` | `0x07c...20ac0` |
+| 3 | reentrancy-eth | `0x09de7e9932926d98298d1ecf50015bbeb9089678` | `0x09d...89678` |
+| 4 | locked-ether | `0x353cafd02131ca5b69211bbc3899f556bc62b7e3` | `0x353...2b7e3` |
+| 5 | locked-ether | `0x07147220fa6c06295464d695e4ec012f6aebc275` | `0x071...bc275` |
+
+## 2. 标签与模型预测说明
+
+上述5个样本均具有以下标签关系：
+
+- Slither标签：1
+- 人工核验标签：0
+- 完整ByteGLT学生网络预测：0
+
+这5个样本用于分析ByteGLT在Slither标签与人工判断存在分歧时的判别表现，并结合组件级消融结果讨论不同结构与语义组件的作用。
+
+## 3. 说明
+
+正文表格为便于排版使用缩写地址，本文在此提供对应的完整合约地址，以支持案例检索与结果核查。
