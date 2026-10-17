@@ -1,0 +1,88 @@
+{
+  "nodes": [
+    {
+      "id": "Bait.receive",
+      "is_core": true,
+      "node_id": 0,
+      "description": "receive() external payable fallback that accepts plain Ether transfers and holds funds in the contract.",
+      "type": "function"
+    },
+    {
+      "id": "Bait.bait",
+      "is_core": true,
+      "node_id": 1,
+      "description": "external bait(address) function that delegatecalls into an attacker-supplied contract address and requires success.",
+      "type": "function"
+    },
+    {
+      "id": "_pickpocket",
+      "is_core": false,
+      "node_id": 2,
+      "description": "attacker-controlled address parameter of bait(address), used both as the delegatecall target and as the call argument.",
+      "type": "parameter"
+    },
+    {
+      "id": "success",
+      "is_core": false,
+      "node_id": 3,
+      "description": "boolean local variable capturing the return status of the delegatecall.",
+      "type": "local_var"
+    },
+    {
+      "id": "delegatecall(_pickpocket)",
+      "is_core": true,
+      "node_id": 4,
+      "description": "Low-level _pickpocket.delegatecall(abi.encodeWithSignature(\"finesse(address)\", _pickpocket)) executing untrusted code in the context of Bait and exposing its storage/funds.",
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 1,
+      "to_id": 2,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "bait() consumes the externally supplied address _pickpocket as its only input with no validation or allowlist."
+    },
+    {
+      "from_id": 1,
+      "to_id": 4,
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "reason": "bait() unconditionally transfers execution to the delegatecall unsafe operation."
+    },
+    {
+      "from_id": 2,
+      "to_id": 4,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "Attacker-controlled _pickpocket is used directly as the delegatecall target, so arbitrary external code runs in Bait's storage context (arbitrary delegatecall)."
+    },
+    {
+      "from_id": 4,
+      "to_id": 3,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The delegatecall return status is assigned to the success local variable and checked by require."
+    },
+    {
+      "from_id": 4,
+      "to_id": 0,
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "reason": "The delegatecall into untrusted code can re-enter Bait, including its payable receive() function holding Ether, before bait() completes."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "_pickpocket",
+      "merge_into": "delegatecall(_pickpocket)",
+      "reason": "The parameter is a pure data dependency whose only semantic role is to feed the attacker-controlled delegatecall target, so it should be normalized into the unsafe_operation node."
+    },
+    {
+      "normal_node": "success",
+      "merge_into": "delegatecall(_pickpocket)",
+      "reason": "The local variable merely stores the delegatecall result flag and carries no independent semantics, so it should be merged into the unsafe_operation that produces it."
+    }
+  ]
+}

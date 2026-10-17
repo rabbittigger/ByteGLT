@@ -1,0 +1,769 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "function",
+      "description": "SigUtils internal pure helper that splits a 65-byte signature via assembly and recovers the signing address with ecrecover.",
+      "is_core": true,
+      "id": "fn.sigutils.ecrecover2"
+    },
+    {
+      "node_id": 1,
+      "type": "parameter",
+      "description": "bytes32 message hash passed to SigUtils.ecrecover2.",
+      "is_core": false,
+      "id": "param.ecrecover2._hash"
+    },
+    {
+      "node_id": 2,
+      "type": "parameter",
+      "description": "Packed 65-byte signature (r,s,v) supplied by the caller of ecrecover2.",
+      "is_core": false,
+      "id": "param.ecrecover2._signature"
+    },
+    {
+      "node_id": 3,
+      "type": "unsafe_operation",
+      "description": "Raw ecrecover call: returns address(0) on malformed signatures and is invoked directly in the relay signature check.",
+      "is_core": true,
+      "id": "unsafe.ecrecover_call"
+    },
+    {
+      "node_id": 4,
+      "type": "local_var",
+      "description": "Assembly-extracted signature parts r, s and v (v normalized to 27/28).",
+      "is_core": false,
+      "id": "local.ecrecover2_rsv"
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "description": "Constant burn address; if the stored signer equals it the wallet is permanently disabled (relay always throws).",
+      "is_core": true,
+      "id": "state.INVALID_ADDRESS"
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "description": "Constant storage slot (keccak256 of 'marmo.wallet.signer') holding the wallet signer, read/written with assembly sload/sstore.",
+      "is_core": true,
+      "id": "state.SIGNER_SLOT"
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "description": "mapping(bytes32=>bytes32) packing canceled(1 bit) + block(95 bits) + relayer(160 bits) for each intent id; doubles as replay/cancellation guard.",
+      "is_core": true,
+      "id": "state.intentReceipt"
+    },
+    {
+      "node_id": 8,
+      "type": "function",
+      "description": "Payable fallback that lets the wallet receive ETH.",
+      "is_core": true,
+      "id": "fn.fallback"
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "description": "Initializes the wallet signer; callable by anyone (msg.sender is not checked) as long as the signer slot is still empty.",
+      "is_core": true,
+      "id": "fn.init"
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "description": "Public view returning the stored signer read from SIGNER_SLOT via assembly.",
+      "is_core": true,
+      "id": "fn.signer"
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "description": "View that decodes the intent receipt and returns the relayer address of an intent.",
+      "is_core": true,
+      "id": "fn.relayedBy"
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "description": "View that decodes the intent receipt and returns the block number at which the intent was relayed.",
+      "is_core": true,
+      "id": "fn.relayedAt"
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "description": "View that decodes the intent receipt and returns whether the intent was canceled.",
+      "is_core": true,
+      "id": "fn.isCanceled"
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "description": "Core entry point: recomputes the intent id, enforces replay/cancel checks, validates signer or signature, stores the receipt and delegatecalls _implementation with the id prepended to _data.",
+      "is_core": true,
+      "id": "fn.relay"
+    },
+    {
+      "node_id": 15,
+      "type": "function",
+      "description": "Marks an unrelayed intent as canceled; restricted to calls originating from the wallet itself (msg.sender == address(this)).",
+      "is_core": true,
+      "id": "fn.cancel"
+    },
+    {
+      "node_id": 16,
+      "type": "function",
+      "description": "Internal pure assembly routine that packs canceled/block/relayer into one bytes32 receipt.",
+      "is_core": true,
+      "id": "fn._encodeReceipt"
+    },
+    {
+      "node_id": 17,
+      "type": "function",
+      "description": "Internal pure assembly routine that unpacks a bytes32 receipt into canceled/block/relayer.",
+      "is_core": true,
+      "id": "fn._decodeReceipt"
+    },
+    {
+      "node_id": 18,
+      "type": "function",
+      "description": "ERC721 receiver hook returning the magic selector 0x150b7a02.",
+      "is_core": true,
+      "id": "fn.onERC721Received"
+    },
+    {
+      "node_id": 19,
+      "type": "untrusted_input",
+      "description": "msg.sender: used as the relay authorizer/signature fallback and stored as the intent relayer; also the only authority for cancel().",
+      "is_core": true,
+      "id": "input.msg_sender"
+    },
+    {
+      "node_id": 20,
+      "type": "untrusted_input",
+      "description": "Block/time context: block.number is written into the intent receipt (timestamp/ordering dependency, 95-bit field).",
+      "is_core": true,
+      "id": "input.block_timestamp"
+    },
+    {
+      "node_id": 21,
+      "type": "unsafe_operation",
+      "description": "delegatecall to the caller-supplied _implementation executed in the wallet's storage context; arbitrary external code runs before the result is checked.",
+      "is_core": true,
+      "id": "unsafe.delegatecall_implementation"
+    },
+    {
+      "node_id": 22,
+      "type": "unsafe_operation",
+      "description": "Inline assembly sstore writing _signer into SIGNER_SLOT during an unauthenticated init().",
+      "is_core": true,
+      "id": "unsafe.assembly_sstore_init"
+    },
+    {
+      "node_id": 23,
+      "type": "unsafe_operation",
+      "description": "Inline assembly bit packing/unpacking (shl/shr/or/and) of the receipt; the block field is truncated to 95 bits without validation.",
+      "is_core": true,
+      "id": "unsafe.assembly_receipt_bitops"
+    },
+    {
+      "node_id": 24,
+      "type": "parameter",
+      "description": "Signer address supplied to init() and written into SIGNER_SLOT.",
+      "is_core": false,
+      "id": "param.init._signer"
+    },
+    {
+      "node_id": 25,
+      "type": "parameter",
+      "description": "Intent id used as the intentReceipt lookup key in relayedBy().",
+      "is_core": false,
+      "id": "param.relayedBy._id"
+    },
+    {
+      "node_id": 26,
+      "type": "parameter",
+      "description": "Intent id used as the intentReceipt lookup key in relayedAt().",
+      "is_core": false,
+      "id": "param.relayedAt._id"
+    },
+    {
+      "node_id": 27,
+      "type": "parameter",
+      "description": "Intent id used as the intentReceipt lookup key in isCanceled().",
+      "is_core": false,
+      "id": "param.isCanceled._id"
+    },
+    {
+      "node_id": 28,
+      "type": "parameter",
+      "description": "Target contract address that relay() delegatecalls into.",
+      "is_core": false,
+      "id": "param.relay._implementation"
+    },
+    {
+      "node_id": 29,
+      "type": "parameter",
+      "description": "Calldata forwarded to _implementation; its keccak256 hash is part of the intent id.",
+      "is_core": false,
+      "id": "param.relay._data"
+    },
+    {
+      "node_id": 30,
+      "type": "parameter",
+      "description": "Signature over the intent id, verified through SigUtils.ecrecover2 when msg.sender is not the signer.",
+      "is_core": false,
+      "id": "param.relay._signature"
+    },
+    {
+      "node_id": 31,
+      "type": "parameter",
+      "description": "Intent id being canceled by the wallet itself.",
+      "is_core": false,
+      "id": "param.cancel._id"
+    },
+    {
+      "node_id": 32,
+      "type": "parameter",
+      "description": "Boolean cancel flag packed into bit 255 of the receipt.",
+      "is_core": false,
+      "id": "param._encodeReceipt._canceled"
+    },
+    {
+      "node_id": 33,
+      "type": "parameter",
+      "description": "Block number packed into bits 160-254 of the receipt (silently truncated if larger than 95 bits).",
+      "is_core": false,
+      "id": "param._encodeReceipt._block"
+    },
+    {
+      "node_id": 34,
+      "type": "parameter",
+      "description": "Relayer address packed into the low 160 bits of the receipt.",
+      "is_core": false,
+      "id": "param._encodeReceipt._relayer"
+    },
+    {
+      "node_id": 35,
+      "type": "parameter",
+      "description": "Raw bytes32 receipt to be unpacked.",
+      "is_core": false,
+      "id": "param._decodeReceipt._receipt"
+    },
+    {
+      "node_id": 36,
+      "type": "parameter",
+      "description": "Unnamed (operator, from, tokenId, data) arguments of the ERC721 receiver hook.",
+      "is_core": false,
+      "id": "param.onERC721Received.args"
+    },
+    {
+      "node_id": 37,
+      "type": "local_var",
+      "description": "Local copy of SIGNER_SLOT used for the sload/sstore assembly operations in init().",
+      "is_core": false,
+      "id": "local.init.signerSlot"
+    },
+    {
+      "node_id": 38,
+      "type": "local_var",
+      "description": "Intent id computed as keccak256(abi.encodePacked(address(this), _implementation, keccak256(_data))).",
+      "is_core": false,
+      "id": "local.relay.id"
+    },
+    {
+      "node_id": 39,
+      "type": "local_var",
+      "description": "Cached signer value read once from storage to avoid multiple sloads in relay().",
+      "is_core": false,
+      "id": "local.relay._signer"
+    },
+    {
+      "node_id": 40,
+      "type": "local_var",
+      "description": "Success flag returned by the delegatecall; on failure the return data is reverted verbatim.",
+      "is_core": false,
+      "id": "local.relay.success"
+    },
+    {
+      "node_id": 41,
+      "type": "local_var",
+      "description": "Locals canceled and relayer produced by _decodeReceipt when a pre-existing receipt is found in relay().",
+      "is_core": false,
+      "id": "local.relay.receipt_decoded"
+    },
+    {
+      "node_id": 42,
+      "type": "local_var",
+      "description": "Return locals _canceled, _block and _relayer produced by _decodeReceipt().",
+      "is_core": false,
+      "id": "local.decodeReceipt_returns"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The message hash is passed into ecrecover as the signed digest.",
+      "from_id": 1
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "Signature bytes are decoded and forwarded to ecrecover.",
+      "from_id": 2
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "Assembly mload extracts r, s and v from the supplied signature bytes.",
+      "from_id": 2
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "Locally decoded r, s, v are supplied to the ecrecover call.",
+      "from_id": 4
+    },
+    {
+      "to_id": 22,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "The attacker-controlled _signer parameter flows straight into the sstore that defines the wallet signer.",
+      "from_id": 24
+    },
+    {
+      "to_id": 21,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "Caller-supplied _implementation is the delegatecall target, giving arbitrary code execution in wallet storage context.",
+      "from_id": 28
+    },
+    {
+      "to_id": 21,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "User-supplied _data is ABI-encoded with the intent id and forwarded to the delegatecall.",
+      "from_id": 29
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The relay signature parameter is recovered through ecrecover.",
+      "from_id": 30
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The locally computed intent id is passed as the hash to SigUtils.ecrecover2.",
+      "from_id": 38
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The relay signature parameter is passed to SigUtils.ecrecover2 for recovery.",
+      "from_id": 30
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "msg.sender is the primary authorization input of relay(): signer equality check and receipt relayer value.",
+      "from_id": 19
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "cancel() authorizes solely on msg.sender == address(this), a self-call based authority check.",
+      "from_id": 19
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "msg.sender is packed into the intent receipt as the relayer field.",
+      "from_id": 19
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "block.number (block/time context) is written into the receipt, making relayedAt time-dependent on miner-controllable ordering.",
+      "from_id": 20
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "relay() writes the freshly encoded receipt for the intent id before the delegatecall (replay guard).",
+      "from_id": 14
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "cancel() writes the canceled receipt into intentReceipt.",
+      "from_id": 15
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "relayedBy() reads the stored receipt to return the relayer.",
+      "from_id": 7
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "relayedAt() reads the stored receipt to return the block number.",
+      "from_id": 7
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "isCanceled() reads the stored receipt to return the cancel bit.",
+      "from_id": 7
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The _id parameter is the mapping key used to look up the receipt in relayedBy().",
+      "from_id": 25
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The _id parameter is the mapping key used to look up the receipt in relayedAt().",
+      "from_id": 26
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The _id parameter is the mapping key used to look up the receipt in isCanceled().",
+      "from_id": 27
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The _id parameter keys both the receipt read and the canceled receipt write in cancel().",
+      "from_id": 31
+    },
+    {
+      "to_id": 17,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The raw receipt bytes are the assembly input of _decodeReceipt().",
+      "from_id": 35
+    },
+    {
+      "to_id": 16,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The canceled flag is shifted into bit 255 of the encoded receipt.",
+      "from_id": 32
+    },
+    {
+      "to_id": 16,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The block number is shifted into bits 160-254 of the encoded receipt without length validation.",
+      "from_id": 33
+    },
+    {
+      "to_id": 16,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The relayer address occupies the low 160 bits of the encoded receipt.",
+      "from_id": 34
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The encoded receipt produced by _encodeReceipt() is the value stored in intentReceipt.",
+      "from_id": 16
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "The INVALID_ADDRESS constant gates relay(): a wallet whose signer equals it always reverts, disabling the wallet.",
+      "from_id": 5
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "signer() sloads the signer value from SIGNER_SLOT.",
+      "from_id": 10
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "init() writes the signer into SIGNER_SLOT.",
+      "from_id": 9
+    },
+    {
+      "to_id": 37,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "init() copies the SIGNER_SLOT constant into a local for assembly use.",
+      "from_id": 6
+    },
+    {
+      "to_id": 22,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The local slot key drives the assembly sload/sstore in init().",
+      "from_id": 37
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "The unauthenticated assembly sstore defines the value of the signer storage slot, i.e. wallet ownership.",
+      "from_id": 22
+    },
+    {
+      "to_id": 18,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "ERC721 hook arguments are consumed (ignored) by onERC721Received.",
+      "from_id": 36
+    },
+    {
+      "to_id": 22,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "init() unconditionally executes the assembly storage write; with no caller check anyone can seize an uninitialized wallet.",
+      "from_id": 9
+    },
+    {
+      "to_id": 21,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "relay() reaches the delegatecall after signature checks, executing attacker-provided code with the wallet's storage.",
+      "from_id": 14
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "relay() calls signer() to cache the stored signer.",
+      "from_id": 14
+    },
+    {
+      "to_id": 17,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "relay() calls _decodeReceipt() when a non-zero receipt already exists.",
+      "from_id": 14
+    },
+    {
+      "to_id": 16,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "relay() calls _encodeReceipt() to persist the new receipt.",
+      "from_id": 14
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "relay() calls SigUtils.ecrecover2 when msg.sender is not the signer.",
+      "from_id": 14
+    },
+    {
+      "to_id": 17,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "relayedBy() delegates decoding of the receipt to _decodeReceipt().",
+      "from_id": 11
+    },
+    {
+      "to_id": 17,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "relayedAt() delegates decoding of the receipt to _decodeReceipt().",
+      "from_id": 12
+    },
+    {
+      "to_id": 17,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "isCanceled() delegates decoding of the receipt to _decodeReceipt().",
+      "from_id": 13
+    },
+    {
+      "to_id": 17,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "cancel() decodes the existing receipt before marking the intent canceled.",
+      "from_id": 15
+    },
+    {
+      "to_id": 16,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "cancel() encodes the canceled receipt via _encodeReceipt().",
+      "from_id": 15
+    },
+    {
+      "to_id": 23,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "_encodeReceipt() performs its packing through inline assembly bit operations.",
+      "from_id": 16
+    },
+    {
+      "to_id": 23,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "_decodeReceipt() performs its unpacking through inline assembly bit operations.",
+      "from_id": 17
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "SigUtils.ecrecover2 performs the raw ecrecover call.",
+      "from_id": 0
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "The delegatecall transfers control to arbitrary external code inside the wallet's context after the receipt is written but before relay() returns, allowing reentrancy into relay()/cancel() flows.",
+      "from_id": 21
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "fn.sigutils.ecrecover2",
+      "normal_node": "param.ecrecover2._hash",
+      "reason": "Function parameter belongs to and should be folded into the ecrecover2 signature node."
+    },
+    {
+      "merge_into": "fn.sigutils.ecrecover2",
+      "normal_node": "param.ecrecover2._signature",
+      "reason": "Function parameter belongs to and should be folded into the ecrecover2 signature node."
+    },
+    {
+      "merge_into": "unsafe.ecrecover_call",
+      "normal_node": "local.ecrecover2_rsv",
+      "reason": "Temporary r/s/v values only exist to feed the ecrecover call."
+    },
+    {
+      "merge_into": "fn.init",
+      "normal_node": "param.init._signer",
+      "reason": "Parameter only affects the init() write of the signer slot."
+    },
+    {
+      "merge_into": "fn.relayedBy",
+      "normal_node": "param.relayedBy._id",
+      "reason": "Parameter is the lookup key of the relayedBy() view."
+    },
+    {
+      "merge_into": "fn.relayedAt",
+      "normal_node": "param.relayedAt._id",
+      "reason": "Parameter is the lookup key of the relayedAt() view."
+    },
+    {
+      "merge_into": "fn.isCanceled",
+      "normal_node": "param.isCanceled._id",
+      "reason": "Parameter is the lookup key of the isCanceled() view."
+    },
+    {
+      "merge_into": "unsafe.delegatecall_implementation",
+      "normal_node": "param.relay._implementation",
+      "reason": "Parameter is exactly the delegatecall target that constitutes the unsafe operation."
+    },
+    {
+      "merge_into": "unsafe.delegatecall_implementation",
+      "normal_node": "param.relay._data",
+      "reason": "Parameter is the calldata payload forwarded through the delegatecall."
+    },
+    {
+      "merge_into": "fn.relay",
+      "normal_node": "param.relay._signature",
+      "reason": "Parameter is only consumed by the relay() authorization path."
+    },
+    {
+      "merge_into": "fn.cancel",
+      "normal_node": "param.cancel._id",
+      "reason": "Parameter only drives the cancel() receipt read/write."
+    },
+    {
+      "merge_into": "fn._encodeReceipt",
+      "normal_node": "param._encodeReceipt._canceled",
+      "reason": "Parameter is a field of the receipt produced by _encodeReceipt()."
+    },
+    {
+      "merge_into": "fn._encodeReceipt",
+      "normal_node": "param._encodeReceipt._block",
+      "reason": "Parameter is a field of the receipt produced by _encodeReceipt()."
+    },
+    {
+      "merge_into": "fn._encodeReceipt",
+      "normal_node": "param._encodeReceipt._relayer",
+      "reason": "Parameter is a field of the receipt produced by _encodeReceipt()."
+    },
+    {
+      "merge_into": "fn._decodeReceipt",
+      "normal_node": "param._decodeReceipt._receipt",
+      "reason": "Parameter is the sole input of the _decodeReceipt() unpacking routine."
+    },
+    {
+      "merge_into": "fn.onERC721Received",
+      "normal_node": "param.onERC721Received.args",
+      "reason": "Unused hook parameters that belong to the onERC721Received() signature."
+    },
+    {
+      "merge_into": "fn.init",
+      "normal_node": "local.init.signerSlot",
+      "reason": "Local copy of the signer slot key used only inside init()."
+    },
+    {
+      "merge_into": "fn.relay",
+      "normal_node": "local.relay.id",
+      "reason": "Derived intent identifier used only inside relay()."
+    },
+    {
+      "merge_into": "fn.relay",
+      "normal_node": "local.relay._signer",
+      "reason": "Cached signer value used only inside relay()."
+    },
+    {
+      "merge_into": "unsafe.delegatecall_implementation",
+      "normal_node": "local.relay.success",
+      "reason": "Return flag of the delegatecall operation and meaningless outside it."
+    },
+    {
+      "merge_into": "fn.relay",
+      "normal_node": "local.relay.receipt_decoded",
+      "reason": "Decoded receipt temporaries used only inside relay()."
+    },
+    {
+      "merge_into": "fn._decodeReceipt",
+      "normal_node": "local.decodeReceipt_returns",
+      "reason": "Return temporaries that only exist inside _decodeReceipt()."
+    }
+  ]
+}

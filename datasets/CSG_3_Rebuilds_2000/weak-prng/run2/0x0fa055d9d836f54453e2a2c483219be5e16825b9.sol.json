@@ -1,0 +1,132 @@
+{
+  "nodes": [
+    {
+      "id": "Migrations.owner",
+      "description": "Public address state variable holding the contract owner, initialized to msg.sender at deployment.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "Migrations.last_completed_migration",
+      "description": "Public uint state variable recording the last completed migration index.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "Migrations.restricted",
+      "description": "Access-control modifier that requires msg.sender to equal the stored owner before executing the modified function body.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "Migrations.setCompleted",
+      "description": "Public function guarded by the restricted modifier that updates last_completed_migration with the supplied value.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "msg.sender@ownerInit",
+      "description": "msg.sender read during state variable initialization of owner.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "msg.sender@restricted",
+      "description": "msg.sender read inside the restricted modifier require comparison against owner.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "setCompleted.completed",
+      "description": "uint parameter completed passed by the caller into setCompleted.",
+      "is_core": false,
+      "node_id": 6,
+      "type": "parameter"
+    },
+    {
+      "id": "setCompleted.write",
+      "description": "State write last_completed_migration = completed performed inside the privileged function body.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Untrusted msg.sender flows into the owner state variable, establishing the privileged account at deployment.",
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Untrusted msg.sender is compared against the stored owner in the restricted modifier require check.",
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The owner state variable is read by the restricted modifier when validating the caller.",
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "A failed msg.sender == owner check reverts execution before the privileged state write is reached.",
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "from_id": 5,
+      "type": "controlflow"
+    },
+    {
+      "reason": "setCompleted applies the restricted modifier, gating the whole function body on owner verification.",
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The restricted modifier must pass before the state write in the function body executes.",
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "from_id": 2,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The body of setCompleted executes the state write operation.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The completed parameter is written into contract storage by the assignment operation.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The write operation updates the last_completed_migration state variable.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The local parameter completed has no independent behavior; it only supplies the value for the state write, so it should be merged into the unsafe operation node representing last_completed_migration = completed.",
+      "normal_node": "setCompleted.completed",
+      "merge_into": "setCompleted.write"
+    }
+  ]
+}

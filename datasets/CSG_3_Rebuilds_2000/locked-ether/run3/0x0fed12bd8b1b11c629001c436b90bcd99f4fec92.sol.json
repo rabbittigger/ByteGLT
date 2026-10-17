@@ -1,0 +1,121 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "external pure function compute(uint256 x) returns(uint256 result) that evaluates a Pedersen hash column polynomial in x using Horner's method",
+      "id": "func_compute",
+      "type": "function",
+      "node_id": 0
+    },
+    {
+      "is_core": false,
+      "description": "function parameter x, the evaluation point of the polynomial and the multiplier of every Horner step",
+      "id": "param_x",
+      "type": "parameter",
+      "node_id": 1
+    },
+    {
+      "is_core": false,
+      "description": "named return variable result, used as the running accumulator across the batched Horner iterations",
+      "id": "local_result",
+      "type": "local_var",
+      "node_id": 2
+    },
+    {
+      "is_core": false,
+      "description": "local constant PRIME = 0x800000000000011000000000000000000000000000000000000000000000001 used as the modular field prime",
+      "id": "local_prime",
+      "type": "local_var",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "inline assembly block performing unchecked modular arithmetic (add/mulmod chains, 7 Horner steps per statement) over the field PRIME",
+      "id": "unsafe_asm_horner",
+      "type": "unsafe_operation",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "final reduction return result % PRIME, which returns the modular result out of the assembly-computed value",
+      "id": "unsafe_mod_return",
+      "type": "unsafe_operation",
+      "node_id": 5
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "The body of compute executes the inline assembly Horner evaluation block",
+      "type": "controlflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "The body of compute executes the final modulo reduction before returning",
+      "type": "controlflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "Parameter x is fed into every mulmod step of the assembly Horner chain as the multiplier",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "PRIME is used as the modulus argument of each mulmod inside the assembly block",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "The assembly block assigns the accumulated Horner value back into the local accumulator result",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "The accumulator result is read by the final modulo reduction operation",
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "PRIME is used as the modulus of the final result % PRIME reduction",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "The reduced value produced by the modulo operation is returned as the function output",
+      "type": "dataflow",
+      "from_id": 5
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "unsafe_asm_horner",
+      "reason": "x is a non-core parameter consumed only by the unchecked assembly arithmetic block, so it can be folded into that unsafe_operation",
+      "normal_node": "param_x"
+    },
+    {
+      "merge_into": "unsafe_asm_horner",
+      "reason": "result is a non-core local accumulator written and read solely inside the assembly Horner block (and consumed by the final reduction), so it can be folded into that unsafe_operation",
+      "normal_node": "local_result"
+    },
+    {
+      "merge_into": "unsafe_mod_return",
+      "reason": "PRIME is a non-core local constant used only as the modular field modulus of the arithmetic reduction, so it can be folded into the final reduction unsafe_operation",
+      "normal_node": "local_prime"
+    }
+  ]
+}

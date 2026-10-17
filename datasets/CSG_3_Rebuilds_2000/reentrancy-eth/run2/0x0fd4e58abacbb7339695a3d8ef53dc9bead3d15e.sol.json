@@ -1,0 +1,147 @@
+{
+  "nodes": [
+    {
+      "id": "owner",
+      "description": "Owner address state variable controlling privileged access to the contract.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "constructor",
+      "description": "Constructor that sets owner to msg.sender on deployment.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "function"
+    },
+    {
+      "id": "transferUniswapV3LessGas",
+      "description": "External function gated by require(msg.sender == owner) that pulls tokens via transferFrom.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller-controlled address used both for owner assignment and for the access-control require.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "external_call_transferFrom",
+      "description": "External call to _token.transferFrom(_sender,_receiver,_amount) which can invoke arbitrary token code.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "_token",
+      "description": "Caller-supplied IERC20Token instance whose transferFrom is invoked.",
+      "is_core": false,
+      "node_id": 5,
+      "type": "parameter"
+    },
+    {
+      "id": "_sender",
+      "description": "Caller-supplied source address for the token transfer.",
+      "is_core": false,
+      "node_id": 6,
+      "type": "parameter"
+    },
+    {
+      "id": "_receiver",
+      "description": "Caller-supplied destination address for the token transfer.",
+      "is_core": false,
+      "node_id": 7,
+      "type": "parameter"
+    },
+    {
+      "id": "_amount",
+      "description": "Caller-supplied token amount forwarded to transferFrom.",
+      "is_core": false,
+      "node_id": 8,
+      "type": "parameter"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is stored into the owner state variable during construction, anchoring the privileged role to the deployer.",
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The owner state variable is read in require(msg.sender == owner), deciding whether transferUniswapV3LessGas proceeds.",
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "type": "controlflow"
+    },
+    {
+      "reason": "msg.sender participates in the access-control require gate that protects transferUniswapV3LessGas.",
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The function performs an external call to transferFrom, and the token callee can reenter before returning.",
+      "to_id": 4,
+      "vuln_type": "reentrancy",
+      "from_id": 2,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The _token parameter selects the external contract whose transferFrom is executed.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The _sender parameter is passed as the from-address of the external transferFrom call.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The _receiver parameter is passed as the to-address of the external transferFrom call.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The _amount parameter is passed as the value of the external transferFrom call.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The _token parameter only exists to select the target of the unsafe external call, so it can be folded into that unsafe_operation node.",
+      "normal_node": "_token",
+      "merge_into": "external_call_transferFrom"
+    },
+    {
+      "reason": "The _sender parameter is consumed solely as an argument of the external transferFrom call and can be merged into it.",
+      "normal_node": "_sender",
+      "merge_into": "external_call_transferFrom"
+    },
+    {
+      "reason": "The _receiver parameter is used only as the destination argument of the unsafe external call and can be merged into it.",
+      "normal_node": "_receiver",
+      "merge_into": "external_call_transferFrom"
+    },
+    {
+      "reason": "The _amount parameter is a pure argument of the external transferFrom call and can be merged into it.",
+      "normal_node": "_amount",
+      "merge_into": "external_call_transferFrom"
+    }
+  ]
+}

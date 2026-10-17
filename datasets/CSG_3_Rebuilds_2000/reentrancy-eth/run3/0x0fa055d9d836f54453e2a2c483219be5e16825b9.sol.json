@@ -1,0 +1,118 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Public address state variable `owner`, initialized to msg.sender at deployment; used as the access-control anchor in the `restricted` modifier.",
+      "id": "owner",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Public uint state variable tracking the last completed migration index; written by setCompleted.",
+      "id": "last_completed_migration",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Public function setCompleted(uint completed) restricted that writes the `completed` argument into last_completed_migration.",
+      "id": "setCompleted",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "msg.sender: externally controlled caller address used both to initialize `owner` and in the require check inside the restricted modifier.",
+      "id": "msg_sender",
+      "type": "untrusted_input",
+      "node_id": 3
+    },
+    {
+      "is_core": false,
+      "description": "Parameter `completed` of setCompleted, supplied by the caller and written directly to storage.",
+      "id": "completed",
+      "type": "parameter",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "State write `last_completed_migration = completed` executed inside setCompleted after the restricted guard.",
+      "id": "write_last_completed_migration",
+      "type": "unsafe_operation",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "Modifier restricted containing require(msg.sender == owner), an access-control guard applied to setCompleted.",
+      "id": "restricted_modifier",
+      "type": "function",
+      "node_id": 6
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "reason": "msg.sender is assigned to the owner state variable at declaration time, defining who holds privileged rights.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "reason": "The untrusted msg.sender determines whether the require(msg.sender == owner) check inside the restricted modifier passes.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "reason": "The owner state variable is read and compared against msg.sender in the restricted modifier's require statement.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "reason": "The restricted modifier gates execution of setCompleted, only allowing the owner to proceed.",
+      "type": "controlflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "The caller-supplied parameter `completed` flows directly into the state-write operation.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "The unsafe operation writes the supplied value into the last_completed_migration state variable.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "setCompleted is the function body that performs the state write represented by the unsafe operation.",
+      "type": "controlflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "setCompleted reads and updates the last_completed_migration state variable.",
+      "type": "dataflow",
+      "from_id": 1
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "write_last_completed_migration",
+      "reason": "The non-core parameter `completed` has no independent semantic identity; it exists only to supply the value written by the unsafe_operation `last_completed_migration = completed`, so it is merged into node 5.",
+      "normal_node": "completed"
+    }
+  ]
+}

@@ -1,0 +1,130 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "_seed",
+      "is_core": true,
+      "description": "uint64 state variable holding the contract's pseudo-random seed; written each call and read into the hash and modulo operations."
+    },
+    {
+      "node_id": 1,
+      "type": "function",
+      "id": "random",
+      "is_core": true,
+      "description": "Public function random(uint64 upper) that derives a pseudo-random number from block data and the stored seed, then returns seed % upper."
+    },
+    {
+      "node_id": 2,
+      "type": "parameter",
+      "id": "upper",
+      "is_core": false,
+      "description": "Caller-supplied uint64 upper bound used as the divisor in the modulo expression."
+    },
+    {
+      "node_id": 3,
+      "type": "local_var",
+      "id": "randomNumber",
+      "is_core": false,
+      "description": "Named return variable of type uint64 that carries the result of the modulo expression back to the caller."
+    },
+    {
+      "node_id": 4,
+      "type": "untrusted_input",
+      "id": "block.timestamp",
+      "is_core": true,
+      "description": "The 'now' keyword, i.e. block.timestamp, mixed into the seed hash so the output depends on miner-influenceable time."
+    },
+    {
+      "node_id": 5,
+      "type": "unsafe_operation",
+      "id": "seed_mod_upper",
+      "is_core": true,
+      "description": "Modulo expression _seed % upper: reverts if upper == 0 and yields biased/low-entropy results, an arithmetic hazard on caller-controlled input."
+    },
+    {
+      "node_id": 6,
+      "type": "unsafe_operation",
+      "id": "compute_seed_sha3",
+      "is_core": true,
+      "description": "Seed generation _seed = uint64(sha3(sha3(block.blockhash(block.number), _seed), now)): pseudo-randomness derived from miner-controllable block data and timestamp, a timestamp-dependency weakness."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Caller-controlled parameter upper flows directly into the modulo expression _seed % upper as the divisor, allowing a zero divisor (revert) or manipulation of the result range.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 5
+    },
+    {
+      "reason": "The stored seed _seed is read and hashed into the new seed value inside the sha3 seed computation.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 6
+    },
+    {
+      "reason": "block.timestamp (now) is consumed by the seed hash, making the random output dependent on a miner-controllable timestamp.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 6
+    },
+    {
+      "reason": "The value produced by the sha3 seed computation is written back into the state variable _seed.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 0
+    },
+    {
+      "reason": "The state variable _seed feeds the modulo operation _seed % upper, whose result is the function's return value.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 5
+    },
+    {
+      "reason": "The result of the modulo expression is assigned to the named return variable randomNumber.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 3
+    },
+    {
+      "reason": "The local return variable randomNumber is returned by the function random to the caller.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 1
+    },
+    {
+      "reason": "Execution of the function body reaches the seed-generation statement, which depends on block.number/blockhash and now.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 6
+    },
+    {
+      "reason": "Execution of the function body flows into the modulo expression that produces the returned random number.",
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 5
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Parameter upper is only used as the divisor of the unsafe modulo operation _seed % upper, so it can be merged into that unsafe_operation node.",
+      "merge_into": "seed_mod_upper",
+      "normal_node": "upper"
+    },
+    {
+      "reason": "Local variable randomNumber merely receives and returns the value of the unsafe modulo operation, so it can be merged into that unsafe_operation node.",
+      "merge_into": "seed_mod_upper",
+      "normal_node": "randomNumber"
+    }
+  ]
+}

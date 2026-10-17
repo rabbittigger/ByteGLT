@@ -1,0 +1,298 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Owner address used for access control in lock, unlock, own and releaseFunds",
+      "is_core": true,
+      "node_id": 0,
+      "id": "gameOwner"
+    },
+    {
+      "type": "state_var",
+      "description": "Boolean lock flag guarding the payout in bet()",
+      "is_core": true,
+      "node_id": 1,
+      "id": "locked"
+    },
+    {
+      "type": "function",
+      "description": "Payable bet function that pays out 2 ether when a pseudo-random draw wins and msg.value is 1 ether and not locked",
+      "is_core": true,
+      "node_id": 2,
+      "id": "bet"
+    },
+    {
+      "type": "function",
+      "description": "Sets locked to true when caller is gameOwner",
+      "is_core": true,
+      "node_id": 3,
+      "id": "lock"
+    },
+    {
+      "type": "function",
+      "description": "Sets locked to false when caller is gameOwner",
+      "is_core": true,
+      "node_id": 4,
+      "id": "unlock"
+    },
+    {
+      "type": "function",
+      "description": "Transfers ownership of gameOwner to owner when unowned or caller is current owner",
+      "is_core": true,
+      "node_id": 5,
+      "id": "own"
+    },
+    {
+      "type": "function",
+      "description": "Sends amount * 1 ether to the caller when caller is gameOwner",
+      "is_core": true,
+      "node_id": 6,
+      "id": "releaseFunds"
+    },
+    {
+      "type": "function",
+      "description": "View function deriving a pseudo-random uint8 from block.timestamp and block.difficulty",
+      "is_core": true,
+      "node_id": 7,
+      "id": "random"
+    },
+    {
+      "type": "function",
+      "description": "Payable fallback function that forwards to bet()",
+      "is_core": true,
+      "node_id": 8,
+      "id": "fallback"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller address, used for authorization checks and as payout recipient",
+      "is_core": true,
+      "node_id": 9,
+      "id": "msg.sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Block timestamp used as a randomness source in random()",
+      "is_core": true,
+      "node_id": 10,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External call msg.sender.call.value(2 ether)() in bet(), executed before any state is finalized",
+      "is_core": true,
+      "node_id": 11,
+      "id": "bet_call"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External call msg.sender.call.value(amount * (1 ether))() in releaseFunds()",
+      "is_core": true,
+      "node_id": 12,
+      "id": "releaseFunds_call"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Arithmetic expression amount * (1 ether) with no overflow protection under Solidity 0.4.24",
+      "is_core": true,
+      "node_id": 13,
+      "id": "amount_mul"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Predictable randomness keccak256(block.timestamp, block.difficulty)%256 used to decide the bet outcome",
+      "is_core": true,
+      "node_id": 14,
+      "id": "random_mod"
+    },
+    {
+      "type": "parameter",
+      "description": "New owner address parameter of own()",
+      "is_core": false,
+      "node_id": 15,
+      "id": "owner"
+    },
+    {
+      "type": "parameter",
+      "description": "Amount parameter of releaseFunds()",
+      "is_core": false,
+      "node_id": 16,
+      "id": "amount"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "bet() executes an external call to msg.sender before the transaction state is settled",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "The external call in bet() transfers 2 ether to the untrusted msg.sender, enabling reentrant entry via the fallback",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "locked state variable guards the payout branch of bet()",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "controlflow",
+      "reason": "bet() calls random() to decide whether the bet wins",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "random() reads block.timestamp as a pseudo-randomness source",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 14,
+      "type": "controlflow",
+      "reason": "random() produces miner-influenceable randomness used for critical game logic",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "block.timestamp feeds the predictable keccak256-based modulo draw",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "lock() authorizes the caller by comparing gameOwner with msg.sender",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "lock() reads gameOwner to perform its authorization check",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "lock() writes the locked state variable",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "unlock() authorizes the caller by comparing gameOwner with msg.sender",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "unlock() reads gameOwner to perform its authorization check",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "unlock() writes the locked state variable",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "own() uses msg.sender in the ownership-transfer authorization check",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "own() reads and writes gameOwner",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "own() assigns the owner parameter into the gameOwner state variable",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "releaseFunds() authorizes the caller by comparing gameOwner with msg.sender",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "releaseFunds() reads gameOwner to perform its authorization check",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "releaseFunds() performs an external call that forwards ether to the caller",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "The external call in releaseFunds() sends funds to the untrusted msg.sender, enabling reentrancy",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "releaseFunds() evaluates amount * (1 ether) before the transfer",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "The multiplication consumes the amount parameter and can overflow",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "controlflow",
+      "reason": "The payable fallback function forwards execution to bet()",
+      "from_id": 8
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "own",
+      "reason": "owner is a non-core parameter consumed only by own(), so it collapses into the own() core function node",
+      "normal_node": "owner"
+    },
+    {
+      "merge_into": "releaseFunds",
+      "reason": "amount is a non-core parameter consumed only by releaseFunds(), so it collapses into the releaseFunds() core function node",
+      "normal_node": "amount"
+    }
+  ]
+}

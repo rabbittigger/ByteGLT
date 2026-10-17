@@ -1,0 +1,462 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "description": "Address of the contract owner; initialized to msg.sender and used by the onlyBy(owner) access-control modifier and as recipient of funds.",
+      "id": "state_owner",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "description": "Dynamic array of players; pushed on buy-in, indexed to pick a winner, and reset to length 0 after payout/refund.",
+      "id": "state_playerPool",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "description": "Pseudo-random seed derived from previous seed, last player and block.timestamp; used as the randomness source for the lottery.",
+      "id": "state_seed",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "description": "Fixed payout amount (0.1 ether) transferred to the winner.",
+      "id": "state_amount",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 4,
+      "description": "Owner-guarded function that reassigns the owner state variable to the supplied address.",
+      "id": "func_changeOwner",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "description": "Internal pseudo-random generator: mixes playerPool last entry, seed and now (block.timestamp) and returns seed % upper.",
+      "id": "func_random",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 6,
+      "description": "Payable entry point; validates msg.value * 10, records msg.sender in playerPool and triggers selectWinner at 11 players.",
+      "id": "func_buyIn",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "description": "Private function that picks a winner index via random(), pays the winner and the owner, then empties the pool.",
+      "id": "func_selectWinner",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 8,
+      "description": "Owner-only payable function that loops over playerPool transferring 100 finney to every player and then resets the pool.",
+      "id": "func_refund",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 9,
+      "description": "Owner-only function that calls refund() and then selfdestructs the contract, sending remaining balance to owner.",
+      "id": "func_close",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 10,
+      "description": "Payable fallback function that mirrors buyIn(): checks msg.value * 10, records the sender and may trigger selectWinner.",
+      "id": "func_fallback",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 11,
+      "description": "msg.sender - untrusted caller address used for ownership, pool membership and modifier checks.",
+      "id": "input_msg_sender",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 12,
+      "description": "block.timestamp (now) - miner-influenceable value used directly as a randomness input in random().",
+      "id": "input_block_timestamp",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 13,
+      "description": "winner.transfer(amount) - external value transfer to an attacker-controlled address that can reenter the contract.",
+      "id": "unsafe_winner_transfer",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 14,
+      "description": "owner.transfer(this.balance) - external value transfer performed before state is fully cleaned up.",
+      "id": "unsafe_owner_transfer",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 15,
+      "description": "playerPool[i].transfer(100 finney) inside a loop - external calls to untrusted players during iteration.",
+      "id": "unsafe_refund_transfer",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 16,
+      "description": "selfdestruct(owner) - irreversibly destroys the contract and sends funds to the owner.",
+      "id": "unsafe_selfdestruct",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 17,
+      "description": "seed = keccak256(keccak256(playerPool[last], seed), now) - weakness: randomness derived from public/block values, predictable and manipulable.",
+      "id": "unsafe_random_seed",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 18,
+      "description": "msg.value * 10 comparison - arithmetic on a caller-supplied value used as the bet validation condition.",
+      "id": "unsafe_msgvalue_mul",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 19,
+      "description": "_newOwner parameter of changeOwner(); becomes the new owner address.",
+      "id": "param_newOwner",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 20,
+      "description": "upper parameter of random(); the modulo bound applied to the seed.",
+      "id": "param_upper",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 21,
+      "description": "Local variable winner in selectWinner() holding the address chosen by random().",
+      "id": "local_winner",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 22,
+      "description": "Loop counter i used in refund() to iterate over playerPool.",
+      "id": "local_i",
+      "type": "local_var",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "reason": "owner state variable is initialized from msg.sender at deployment, coupling ownership to the untrusted caller.",
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "from_id": 11
+    },
+    {
+      "reason": "msg.sender is pushed into playerPool inside buyIn().",
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "from_id": 11
+    },
+    {
+      "reason": "buyIn() mutates playerPool with playerPool.push(msg.sender).",
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "reason": "msg.sender is pushed into playerPool by the fallback function.",
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "from_id": 11
+    },
+    {
+      "reason": "fallback() mutates playerPool with playerPool.push(msg.sender).",
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "reason": "buyIn() calls selectWinner() once playerPool.length >= 11, entering the payout logic.",
+      "vuln_type": "reentrancy",
+      "to_id": 7,
+      "type": "controlflow",
+      "from_id": 6
+    },
+    {
+      "reason": "fallback() calls selectWinner() once playerPool.length >= 11, entering the payout logic.",
+      "vuln_type": "reentrancy",
+      "to_id": 7,
+      "type": "controlflow",
+      "from_id": 10
+    },
+    {
+      "reason": "selectWinner() invokes random(playerPool.length) to choose the winner index.",
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "controlflow",
+      "from_id": 7
+    },
+    {
+      "reason": "upper parameter defines the modulo bound of the returned pseudo-random value.",
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "from_id": 20
+    },
+    {
+      "reason": "block.timestamp (now) is read inside random() and mixed into the seed.",
+      "vuln_type": "access_control",
+      "to_id": 5,
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "reason": "block.timestamp is the sole external entropy source of the seed computation, creating timestamp dependency.",
+      "vuln_type": "access_control",
+      "to_id": 17,
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "reason": "the timestamp-based keccak256 computation is written into the seed state variable.",
+      "vuln_type": "access_control",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 17
+    },
+    {
+      "reason": "random() stores the newly computed value into the seed state variable.",
+      "vuln_type": "access_control",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "reason": "random() returns the index consumed by selectWinner().",
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "reason": "the value returned by random() indexes playerPool and is stored in the local winner variable.",
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "reason": "the locally chosen winner address is the recipient of the external transfer.",
+      "vuln_type": "reentrancy",
+      "to_id": 13,
+      "type": "dataflow",
+      "from_id": 21
+    },
+    {
+      "reason": "selectWinner() performs winner.transfer(amount) sending funds to an untrusted address.",
+      "vuln_type": "reentrancy",
+      "to_id": 13,
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "reason": "selectWinner() performs owner.transfer(this.balance) after the winner payout.",
+      "vuln_type": "reentrancy",
+      "to_id": 14,
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "reason": "the owner state variable is the recipient of the remaining contract balance.",
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "reason": "winner.transfer() invokes the recipient's fallback with 2300 gas before playerPool is reset, enabling reentrancy attempts.",
+      "vuln_type": "reentrancy",
+      "to_id": 7,
+      "type": "callback",
+      "from_id": 13
+    },
+    {
+      "reason": "owner.transfer() is an external call executed before state cleanup completes, allowing callback reentry.",
+      "vuln_type": "reentrancy",
+      "to_id": 7,
+      "type": "callback",
+      "from_id": 14
+    },
+    {
+      "reason": "selectWinner() resets playerPool.length = 0 after the payouts, so state changes follow external calls.",
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "reason": "the loop counter i indexes playerPool, whose element becomes the recipient of the external transfer.",
+      "vuln_type": "reentrancy",
+      "to_id": 15,
+      "type": "dataflow",
+      "from_id": 22
+    },
+    {
+      "reason": "refund() runs a for loop driven by the local counter i over the length of playerPool.",
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "controlflow",
+      "from_id": 8
+    },
+    {
+      "reason": "refund() executes playerPool[i].transfer(100 finney) to each untrusted player inside an unbounded loop.",
+      "vuln_type": "reentrancy",
+      "to_id": 15,
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "reason": "each transfer in the refund loop is an external call that can reenter refund() before playerPool is cleared.",
+      "vuln_type": "reentrancy",
+      "to_id": 8,
+      "type": "callback",
+      "from_id": 15
+    },
+    {
+      "reason": "refund() sets playerPool.length = 0 after paying out all players.",
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "reason": "close() calls refund() before destroying the contract.",
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "controlflow",
+      "from_id": 9
+    },
+    {
+      "reason": "onlyBy(owner) restricts refund() to the owner address.",
+      "vuln_type": "access_control",
+      "to_id": 8,
+      "type": "controlflow",
+      "from_id": 0
+    },
+    {
+      "reason": "onlyBy(owner) restricts close() to the owner address.",
+      "vuln_type": "access_control",
+      "to_id": 9,
+      "type": "controlflow",
+      "from_id": 0
+    },
+    {
+      "reason": "onlyBy(owner) restricts changeOwner() to the owner address.",
+      "vuln_type": "access_control",
+      "to_id": 4,
+      "type": "controlflow",
+      "from_id": 0
+    },
+    {
+      "reason": "msg.sender is compared against owner in the onlyBy modifier guarding changeOwner().",
+      "vuln_type": "access_control",
+      "to_id": 4,
+      "type": "controlflow",
+      "from_id": 11
+    },
+    {
+      "reason": "changeOwner() overwrites the privileged owner state variable.",
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "reason": "the _newOwner parameter flows directly into the owner state variable.",
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "from_id": 19
+    },
+    {
+      "reason": "_newOwner is the argument processed by changeOwner().",
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "from_id": 19
+    },
+    {
+      "reason": "close() invokes selfdestruct(owner), irreversibly destroying the contract.",
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "reason": "the owner address is passed as the selfdestruct beneficiary inside close().",
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "reason": "buyIn() computes msg.value * 10 to validate the exact bet size, an unchecked multiplication.",
+      "vuln_type": "arithmetic",
+      "to_id": 18,
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "reason": "the fallback performs the same msg.value * 10 arithmetic check.",
+      "vuln_type": "arithmetic",
+      "to_id": 18,
+      "type": "dataflow",
+      "from_id": 10
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "_newOwner is a pure input of changeOwner(); its only role is to be assigned into the owner state variable, so it can be folded into the function node.",
+      "merge_into": "func_changeOwner",
+      "normal_node": "param_newOwner"
+    },
+    {
+      "reason": "upper only bounds the modulo inside random(); it carries no independent state and is absorbed by the random() function node.",
+      "merge_into": "func_random",
+      "normal_node": "param_upper"
+    },
+    {
+      "reason": "the local winner variable exists exclusively to hold the recipient of winner.transfer(amount), so it merges into that unsafe external-transfer operation.",
+      "merge_into": "unsafe_winner_transfer",
+      "normal_node": "local_winner"
+    },
+    {
+      "reason": "the loop counter i is only used to index playerPool for the per-player transfer inside refund(), so it merges into the unsafe refund transfer operation.",
+      "merge_into": "unsafe_refund_transfer",
+      "normal_node": "local_i"
+    }
+  ]
+}

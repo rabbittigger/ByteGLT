@@ -1,0 +1,573 @@
+{
+  "nodes": [
+    {
+      "id": "BONE",
+      "description": "Constant fixed-point scaling factor 10**18 used in all balancer math",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "pool",
+      "description": "ISmartBPool reference to the underlying balancer smart pool",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "tokens",
+      "description": "Array of underlying pool token addresses fetched from bPool().getCurrentTokens()",
+      "is_core": true,
+      "node_id": 2,
+      "type": "state_var"
+    },
+    {
+      "id": "weights",
+      "description": "Normalized weights of each token read from the underlying balancer pool",
+      "is_core": true,
+      "node_id": 3,
+      "type": "state_var"
+    },
+    {
+      "id": "isPeggedToEth",
+      "description": "Per-token flag indicating whether the token is pegged to ETH (price assumed BONE)",
+      "is_core": true,
+      "node_id": 4,
+      "type": "state_var"
+    },
+    {
+      "id": "decimals",
+      "description": "Per-token decimals used to normalize balances to 18 decimals",
+      "is_core": true,
+      "node_id": 5,
+      "type": "state_var"
+    },
+    {
+      "id": "priceOracle",
+      "description": "Aave IPriceOracle used to obtain asset prices in ETH",
+      "is_core": true,
+      "node_id": 6,
+      "type": "state_var"
+    },
+    {
+      "id": "constructor",
+      "description": "Constructor: validates pool tokens/decimals, stores pool, tokens, weights, pegs and oracle",
+      "is_core": true,
+      "node_id": 7,
+      "type": "function"
+    },
+    {
+      "id": "getEthBalanceByToken",
+      "description": "Internal view computing a token balance expressed in ETH using oracle price and decimals",
+      "is_core": true,
+      "node_id": 8,
+      "type": "function"
+    },
+    {
+      "id": "getArithmeticMean",
+      "description": "Internal view computing the weighted arithmetic mean of token balances in ETH divided by pool total supply",
+      "is_core": true,
+      "node_id": 9,
+      "type": "function"
+    },
+    {
+      "id": "latestAnswer",
+      "description": "External view entrypoint returning the pool token price aggregated from token ETH balances",
+      "is_core": true,
+      "node_id": 10,
+      "type": "function"
+    },
+    {
+      "id": "getPool",
+      "description": "External view returning the underlying smart pool address",
+      "is_core": true,
+      "node_id": 11,
+      "type": "function"
+    },
+    {
+      "id": "getTokens",
+      "description": "External view returning the token list",
+      "is_core": true,
+      "node_id": 12,
+      "type": "function"
+    },
+    {
+      "id": "getWeights",
+      "description": "External view returning the token weights",
+      "is_core": true,
+      "node_id": 13,
+      "type": "function"
+    },
+    {
+      "id": "unsafe_oracle_call",
+      "description": "External call priceOracle.getAssetPrice(tokens[index]) whose return value drives pricing",
+      "is_core": true,
+      "node_id": 14,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_bpool_getBalance",
+      "description": "External call pool.bPool().getBalance(token) reading live pool balance",
+      "is_core": true,
+      "node_id": 15,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_bdiv",
+      "description": "Arithmetic bdiv(totalEth, pool.totalSupply()) dividing by a manipulable/zero-able pool supply",
+      "is_core": true,
+      "node_id": 16,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_bmul",
+      "description": "Arithmetic bmul(bi, pi) multiplying balance by oracle price with fixed-point rounding",
+      "is_core": true,
+      "node_id": 17,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_bpool_metadata_calls",
+      "description": "External calls getCurrentTokens()/getNormalizedWeight() during construction whose results are trusted unconditionally",
+      "is_core": true,
+      "node_id": 18,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "param_pool",
+      "description": "Constructor parameter _pool (ISmartBPool) assigned to state variable pool",
+      "is_core": false,
+      "node_id": 19,
+      "type": "parameter"
+    },
+    {
+      "id": "param_isPeggedToEth",
+      "description": "Constructor parameter _isPeggedToEth array stored as isPeggedToEth",
+      "is_core": false,
+      "node_id": 20,
+      "type": "parameter"
+    },
+    {
+      "id": "param_decimals",
+      "description": "Constructor parameter _decimals array stored as decimals and validated <= 18",
+      "is_core": false,
+      "node_id": 21,
+      "type": "parameter"
+    },
+    {
+      "id": "param_priceOracle",
+      "description": "Constructor parameter _priceOracle validated non-zero and stored as priceOracle",
+      "is_core": false,
+      "node_id": 22,
+      "type": "parameter"
+    },
+    {
+      "id": "param_index",
+      "description": "Index parameter of getEthBalanceByToken selecting the token",
+      "is_core": false,
+      "node_id": 23,
+      "type": "parameter"
+    },
+    {
+      "id": "param_ethTotals",
+      "description": "ethTotals array parameter of getArithmeticMean holding per-token ETH balances",
+      "is_core": false,
+      "node_id": 24,
+      "type": "parameter"
+    },
+    {
+      "id": "local_pi",
+      "description": "Local pi: token price, BONE if pegged else oracle price",
+      "is_core": false,
+      "node_id": 25,
+      "type": "local_var"
+    },
+    {
+      "id": "local_missingDecimals",
+      "description": "Local missingDecimals = 18 - decimals[index]",
+      "is_core": false,
+      "node_id": 26,
+      "type": "local_var"
+    },
+    {
+      "id": "local_bi",
+      "description": "Local bi: scaled pool token balance in ETH units",
+      "is_core": false,
+      "node_id": 27,
+      "type": "local_var"
+    },
+    {
+      "id": "local_totalEth",
+      "description": "Local accumulator of token balances in ETH inside getArithmeticMean",
+      "is_core": false,
+      "node_id": 28,
+      "type": "local_var"
+    },
+    {
+      "id": "local_length_mean",
+      "description": "Local length of tokens array used in getArithmeticMean loop",
+      "is_core": false,
+      "node_id": 29,
+      "type": "local_var"
+    },
+    {
+      "id": "local_ethTotals_answer",
+      "description": "Local ethTotals array allocated inside latestAnswer",
+      "is_core": false,
+      "node_id": 30,
+      "type": "local_var"
+    },
+    {
+      "id": "local_length_answer",
+      "description": "Local length of tokens array used in latestAnswer loop",
+      "is_core": false,
+      "node_id": 31,
+      "type": "local_var"
+    },
+    {
+      "id": "local_underlyingBPool",
+      "description": "Local underlyingBPool = _pool.bPool() used to read tokens and weights in constructor",
+      "is_core": false,
+      "node_id": 32,
+      "type": "local_var"
+    },
+    {
+      "id": "local_length_ctor",
+      "description": "Local length of tokens array used in constructor validation loops",
+      "is_core": false,
+      "node_id": 33,
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor parameter _pool is assigned to the pool state variable",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 19,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Constructor parameter _isPeggedToEth is stored in isPeggedToEth",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 20,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Constructor parameter _decimals is stored in decimals",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 21,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Constructor parameter _priceOracle is stored in priceOracle",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 22,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_pool is dereferenced into the local underlyingBPool",
+      "to_id": 32,
+      "vuln_type": "none",
+      "from_id": 19,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Local underlyingBPool is the receiver of the metadata external calls",
+      "to_id": 18,
+      "vuln_type": "none",
+      "from_id": 32,
+      "type": "dataflow"
+    },
+    {
+      "reason": "getCurrentTokens() result is written into the tokens state variable",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 32,
+      "type": "dataflow"
+    },
+    {
+      "reason": "tokens array elements are passed to getNormalizedWeight external calls",
+      "to_id": 18,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "getNormalizedWeight return values are pushed into the weights state variable",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 18,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The index parameter selects which token price/peg is read into pi",
+      "to_id": 25,
+      "vuln_type": "none",
+      "from_id": 23,
+      "type": "dataflow"
+    },
+    {
+      "reason": "isPeggedToEth[index] determines whether pi is BONE instead of an oracle price",
+      "to_id": 25,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "priceOracle state variable is the target of the getAssetPrice external call",
+      "to_id": 14,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "tokens[index] is passed as the asset argument to getAssetPrice",
+      "to_id": 14,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Oracle call return value becomes pi after validation",
+      "to_id": 25,
+      "vuln_type": "none",
+      "from_id": 14,
+      "type": "dataflow"
+    },
+    {
+      "reason": "decimals[index] is subtracted from 18 to compute missingDecimals",
+      "to_id": 26,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "missingDecimals scales the raw balance into bi",
+      "to_id": 27,
+      "vuln_type": "none",
+      "from_id": 26,
+      "type": "dataflow"
+    },
+    {
+      "reason": "pool state variable is dereferenced (bPool) before the getBalance call",
+      "to_id": 15,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "tokens[index] is passed to the getBalance external call",
+      "to_id": 15,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Returned pool balance is scaled into local bi",
+      "to_id": 27,
+      "vuln_type": "none",
+      "from_id": 15,
+      "type": "dataflow"
+    },
+    {
+      "reason": "bi is an operand of the bmul multiplication",
+      "to_id": 17,
+      "vuln_type": "none",
+      "from_id": 27,
+      "type": "dataflow"
+    },
+    {
+      "reason": "pi (token price) is an operand of the bmul multiplication",
+      "to_id": 17,
+      "vuln_type": "none",
+      "from_id": 25,
+      "type": "dataflow"
+    },
+    {
+      "reason": "ethTotals elements are accumulated into totalEth via badd",
+      "to_id": 28,
+      "vuln_type": "none",
+      "from_id": 24,
+      "type": "dataflow"
+    },
+    {
+      "reason": "totalEth is the numerator of the bdiv division",
+      "to_id": 16,
+      "vuln_type": "none",
+      "from_id": 28,
+      "type": "dataflow"
+    },
+    {
+      "reason": "pool.totalSupply() provides the divisor of the bdiv division",
+      "to_id": 16,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "ethTotals built in latestAnswer is passed as the ethTotals argument of getArithmeticMean",
+      "to_id": 24,
+      "vuln_type": "none",
+      "from_id": 30,
+      "type": "dataflow"
+    },
+    {
+      "reason": "getEthBalanceByToken return values fill the ethTotals array in latestAnswer",
+      "to_id": 30,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "tokens.length bounds the loop in latestAnswer",
+      "to_id": 31,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "latestAnswer invokes getEthBalanceByToken for each token",
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 10,
+      "type": "controlflow"
+    },
+    {
+      "reason": "latestAnswer invokes getArithmeticMean to aggregate the result",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 10,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Constructor performs the pool metadata external calls",
+      "to_id": 18,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "controlflow"
+    },
+    {
+      "reason": "getEthBalanceByToken conditionally calls the price oracle",
+      "to_id": 14,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "controlflow"
+    },
+    {
+      "reason": "getEthBalanceByToken calls the pool for the token balance",
+      "to_id": 15,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "controlflow"
+    },
+    {
+      "reason": "getEthBalanceByToken executes the bmul arithmetic",
+      "to_id": 17,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "controlflow"
+    },
+    {
+      "reason": "getArithmeticMean executes the bdiv arithmetic",
+      "to_id": 16,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "controlflow"
+    },
+    {
+      "reason": "External oracle call returns control to the caller mid-computation, allowing reentrancy into price reads",
+      "to_id": 8,
+      "vuln_type": "reentrancy",
+      "from_id": 14,
+      "type": "callback"
+    },
+    {
+      "reason": "External pool getBalance call can re-enter the price provider before state is finalized",
+      "to_id": 8,
+      "vuln_type": "reentrancy",
+      "from_id": 15,
+      "type": "callback"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "_pool is a constructor parameter whose only role is initializing the constructor's state",
+      "normal_node": "param_pool",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "_isPeggedToEth is a constructor parameter consumed entirely by the constructor",
+      "normal_node": "param_isPeggedToEth",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "_decimals is a constructor parameter validated and stored only by the constructor",
+      "normal_node": "param_decimals",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "_priceOracle is a constructor parameter assigned only by the constructor",
+      "normal_node": "param_priceOracle",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "index is the sole input selector of getEthBalanceByToken",
+      "normal_node": "param_index",
+      "merge_into": "getEthBalanceByToken"
+    },
+    {
+      "reason": "ethTotals is the input array of getArithmeticMean",
+      "normal_node": "param_ethTotals",
+      "merge_into": "getArithmeticMean"
+    },
+    {
+      "reason": "pi is computed and immediately consumed inside getEthBalanceByToken",
+      "normal_node": "local_pi",
+      "merge_into": "getEthBalanceByToken"
+    },
+    {
+      "reason": "missingDecimals is a temporary scaling factor local to getEthBalanceByToken",
+      "normal_node": "local_missingDecimals",
+      "merge_into": "getEthBalanceByToken"
+    },
+    {
+      "reason": "bi is a temporary balance value local to getEthBalanceByToken",
+      "normal_node": "local_bi",
+      "merge_into": "getEthBalanceByToken"
+    },
+    {
+      "reason": "totalEth is the accumulator local to getArithmeticMean",
+      "normal_node": "local_totalEth",
+      "merge_into": "getArithmeticMean"
+    },
+    {
+      "reason": "local length is only used to bound the getArithmeticMean loop",
+      "normal_node": "local_length_mean",
+      "merge_into": "getArithmeticMean"
+    },
+    {
+      "reason": "ethTotals array is allocated and filled inside latestAnswer before being passed on",
+      "normal_node": "local_ethTotals_answer",
+      "merge_into": "latestAnswer"
+    },
+    {
+      "reason": "local length only bounds the loop inside latestAnswer",
+      "normal_node": "local_length_answer",
+      "merge_into": "latestAnswer"
+    },
+    {
+      "reason": "underlyingBPool is a constructor-local intermediate handle on the pool",
+      "normal_node": "local_underlyingBPool",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "local length only bounds the validation loops inside the constructor",
+      "normal_node": "local_length_ctor",
+      "merge_into": "constructor"
+    }
+  ]
+}

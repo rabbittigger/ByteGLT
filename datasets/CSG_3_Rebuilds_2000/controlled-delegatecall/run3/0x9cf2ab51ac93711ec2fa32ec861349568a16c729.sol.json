@@ -1,0 +1,597 @@
+{
+  "nodes": [
+    {
+      "id": "tranche.constructor",
+      "is_core": true,
+      "node_id": 0,
+      "description": "Tranche constructor: reads factory data via msg.sender, sets immutable position, underlying, interestToken, unlockTimestamp and decimals.",
+      "type": "function"
+    },
+    {
+      "id": "tranche._extraConstruction",
+      "is_core": true,
+      "node_id": 1,
+      "description": "Internal override called from ERC20Permit constructor; performs two delegatecalls to the DateString library using storage slots of name and symbol.",
+      "type": "function"
+    },
+    {
+      "id": "tranche.totalSupply",
+      "is_core": true,
+      "node_id": 2,
+      "description": "View aliasing of valueSupplied returning the total principal token supply.",
+      "type": "function"
+    },
+    {
+      "id": "tranche.deposit",
+      "is_core": true,
+      "node_id": 3,
+      "description": "External deposit entrypoint: pulls underlying from msg.sender into the position then calls prefundedDeposit.",
+      "type": "function"
+    },
+    {
+      "id": "tranche.prefundedDeposit",
+      "is_core": true,
+      "node_id": 4,
+      "description": "Public prefunded deposit: checks unlock timestamp, calls position.prefundedDeposit, computes adjusted amount, updates valueSupplied/interestSupply and mints yield and principal tokens.",
+      "type": "function"
+    },
+    {
+      "id": "tranche.withdrawPrincipal",
+      "is_core": true,
+      "node_id": 5,
+      "description": "External redemption of principal tokens: applies speedbump pro-rata logic, burns tokens, updates valueSupplied and withdraws underlying from the position.",
+      "type": "function"
+    },
+    {
+      "id": "tranche.hitSpeedbump",
+      "is_core": true,
+      "node_id": 6,
+      "description": "External function to trigger the speedbump when position holdings are below valueSupplied after unlock.",
+      "type": "function"
+    },
+    {
+      "id": "tranche.withdrawInterest",
+      "is_core": true,
+      "node_id": 7,
+      "description": "External redemption of interest tokens: burns yield tokens, computes accrued interest pro rata and withdraws underlying.",
+      "type": "function"
+    },
+    {
+      "id": "tranche.interestToken",
+      "is_core": true,
+      "node_id": 8,
+      "description": "Immutable IInterestToken minted/burned by this tranche.",
+      "type": "state_var"
+    },
+    {
+      "id": "tranche.position",
+      "is_core": true,
+      "node_id": 9,
+      "description": "Immutable IWrappedPosition holding the underlying assets.",
+      "type": "state_var"
+    },
+    {
+      "id": "tranche.underlying",
+      "is_core": true,
+      "node_id": 10,
+      "description": "Immutable IERC20 underlying token transferred in on deposit.",
+      "type": "state_var"
+    },
+    {
+      "id": "tranche.valueSupplied",
+      "is_core": true,
+      "node_id": 11,
+      "description": "uint128 outstanding amount of underlying redeemable by principal tokens.",
+      "type": "state_var"
+    },
+    {
+      "id": "tranche.interestSupply",
+      "is_core": true,
+      "node_id": 12,
+      "description": "uint128 total supply of interest tokens.",
+      "type": "state_var"
+    },
+    {
+      "id": "tranche.unlockTimestamp",
+      "is_core": true,
+      "node_id": 13,
+      "description": "Immutable timestamp after which redemptions are allowed.",
+      "type": "state_var"
+    },
+    {
+      "id": "tranche.speedbump",
+      "is_core": true,
+      "node_id": 14,
+      "description": "Timestamp when a loss was first signaled, blocks redeems for 48 hours.",
+      "type": "state_var"
+    },
+    {
+      "id": "untrusted.msg.sender",
+      "is_core": true,
+      "node_id": 15,
+      "description": "Caller address; used for token transfers, burns and factory identity assumption.",
+      "type": "untrusted_input"
+    },
+    {
+      "id": "untrusted.block.timestamp",
+      "is_core": true,
+      "node_id": 16,
+      "description": "Block timestamp used for unlock, speedbump and deadline checks.",
+      "type": "untrusted_input"
+    },
+    {
+      "id": "op.delegatecall.dateLib",
+      "is_core": true,
+      "node_id": 17,
+      "description": "dateLib.delegatecall to DateString.encodeAndWriteTimestamp writing to name/symbol storage slots.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "op.position.prefundedDeposit",
+      "is_core": true,
+      "node_id": 18,
+      "description": "External call to position.prefundedDeposit returning shares, usedUnderlying and balanceBefore.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "op.position.withdrawUnderlying",
+      "is_core": true,
+      "node_id": 19,
+      "description": "External call to position.withdrawUnderlying transferring underlying to a destination.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "op.interestToken.mint",
+      "is_core": true,
+      "node_id": 20,
+      "description": "External call minting interest tokens for the deposit destination.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "op.interestToken.burn",
+      "is_core": true,
+      "node_id": 21,
+      "description": "External call burning interest tokens from msg.sender.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "op.underlying.transferFrom",
+      "is_core": true,
+      "node_id": 22,
+      "description": "External call pulling underlying from msg.sender into the position contract.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "op.position.balanceOfUnderlying",
+      "is_core": true,
+      "node_id": 23,
+      "description": "External call reading the underlying value of the vault holdings.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "op.internal.mint_burn",
+      "is_core": true,
+      "node_id": 24,
+      "description": "Internal _mint/_burn ERC20 balance updates and events.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "param.deposit._amount",
+      "is_core": false,
+      "node_id": 25,
+      "description": "Amount of underlying to deposit in deposit().",
+      "type": "parameter"
+    },
+    {
+      "id": "param.deposit._destination",
+      "is_core": false,
+      "node_id": 26,
+      "description": "Mint destination in deposit().",
+      "type": "parameter"
+    },
+    {
+      "id": "param.prefundedDeposit._destination",
+      "is_core": false,
+      "node_id": 27,
+      "description": "Mint destination in prefundedDeposit().",
+      "type": "parameter"
+    },
+    {
+      "id": "param.withdrawPrincipal._amount",
+      "is_core": false,
+      "node_id": 28,
+      "description": "Amount of principal tokens to burn in withdrawPrincipal().",
+      "type": "parameter"
+    },
+    {
+      "id": "param.withdrawPrincipal._destination",
+      "is_core": false,
+      "node_id": 29,
+      "description": "Underlying destination in withdrawPrincipal().",
+      "type": "parameter"
+    },
+    {
+      "id": "param.withdrawInterest._amount",
+      "is_core": false,
+      "node_id": 30,
+      "description": "Amount of interest tokens to burn in withdrawInterest().",
+      "type": "parameter"
+    },
+    {
+      "id": "param.withdrawInterest._destination",
+      "is_core": false,
+      "node_id": 31,
+      "description": "Underlying destination in withdrawInterest().",
+      "type": "parameter"
+    },
+    {
+      "id": "local.withdrawPrincipal.localSpeedbump",
+      "is_core": false,
+      "node_id": 32,
+      "description": "Cached speedbump state variable.",
+      "type": "local_var"
+    },
+    {
+      "id": "local.withdrawPrincipal.withdrawAmount",
+      "is_core": false,
+      "node_id": 33,
+      "description": "Computed amount of underlying to withdraw, possibly pro rata.",
+      "type": "local_var"
+    },
+    {
+      "id": "local.withdrawPrincipal.localSupply",
+      "is_core": false,
+      "node_id": 34,
+      "description": "Cached uint256 value of valueSupplied.",
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 15,
+      "to_id": 0,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "Constructor assumes msg.sender is the trusted TrancheFactory and reads configuration from it."
+    },
+    {
+      "from_id": 15,
+      "to_id": 1,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "_extraConstruction treats msg.sender as the factory and uses its returned data for the delegatecall payload."
+    },
+    {
+      "from_id": 15,
+      "to_id": 3,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "deposit transfers underlying from msg.sender into the position contract."
+    },
+    {
+      "from_id": 15,
+      "to_id": 5,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "withdrawPrincipal burns principal tokens from msg.sender."
+    },
+    {
+      "from_id": 15,
+      "to_id": 7,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "withdrawInterest burns interest tokens from msg.sender."
+    },
+    {
+      "from_id": 16,
+      "to_id": 4,
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "reason": "Deposits are gated by a block.timestamp < unlockTimestamp check."
+    },
+    {
+      "from_id": 16,
+      "to_id": 5,
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "reason": "WithdrawPrincipal enforces block.timestamp >= unlockTimestamp and a 48h window after a speedbump."
+    },
+    {
+      "from_id": 16,
+      "to_id": 6,
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "reason": "hitSpeedbump writes block.timestamp to the speedbump state variable after an unlock check."
+    },
+    {
+      "from_id": 16,
+      "to_id": 7,
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "reason": "WithdrawInterest requires block.timestamp >= unlockTimestamp."
+    },
+    {
+      "from_id": 3,
+      "to_id": 10,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "deposit uses the underlying token reference for the transferFrom."
+    },
+    {
+      "from_id": 3,
+      "to_id": 9,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "deposit forwards the underlying into the position contract address."
+    },
+    {
+      "from_id": 3,
+      "to_id": 22,
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "reason": "deposit makes an external transferFrom call to an untrusted token before state settlement."
+    },
+    {
+      "from_id": 3,
+      "to_id": 4,
+      "type": "controlflow",
+      "vuln_type": "reentrancy",
+      "reason": "deposit delegates the accounting to the public prefundedDeposit function."
+    },
+    {
+      "from_id": 4,
+      "to_id": 18,
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "reason": "prefundedDeposit calls the external position contract for a prefunded deposit."
+    },
+    {
+      "from_id": 4,
+      "to_id": 23,
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "reason": "prefundedDeposit relies on position values that can be influenced by an external contract."
+    },
+    {
+      "from_id": 4,
+      "to_id": 20,
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "reason": "prefundedDeposit mints yield tokens through an external call."
+    },
+    {
+      "from_id": 4,
+      "to_id": 24,
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "reason": "prefundedDeposit mints principal tokens before returning, interacting with ERC20 state."
+    },
+    {
+      "from_id": 4,
+      "to_id": 11,
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "reason": "prefundedDeposit updates valueSupplied with unchecked uint128 casts and divisions."
+    },
+    {
+      "from_id": 4,
+      "to_id": 12,
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "reason": "prefundedDeposit updates interestSupply with uint128 casts and usedUnderlying additions."
+    },
+    {
+      "from_id": 1,
+      "to_id": 17,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_extraConstruction issues two delegatecalls to the DateString library contract."
+    },
+    {
+      "from_id": 1,
+      "to_id": 8,
+      "type": "callback",
+      "vuln_type": "none",
+      "reason": "The delegatecall payload writes string names shared with the ERC20Permit state."
+    },
+    {
+      "from_id": 5,
+      "to_id": 23,
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "reason": "withdrawPrincipal reads position.balanceOfUnderlying via an external call."
+    },
+    {
+      "from_id": 5,
+      "to_id": 19,
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "reason": "withdrawPrincipal makes an external withdrawUnderlying call to the position contract."
+    },
+    {
+      "from_id": 5,
+      "to_id": 24,
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "reason": "withdrawPrincipal burns principal tokens before performing the external withdraw."
+    },
+    {
+      "from_id": 5,
+      "to_id": 11,
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "reason": "withdrawPrincipal updates valueSupplied with uint128 subtraction casts."
+    },
+    {
+      "from_id": 5,
+      "to_id": 14,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "withdrawPrincipal reads and relies on the speedbump state to gate pro rata withdrawals."
+    },
+    {
+      "from_id": 32,
+      "to_id": 14,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "localSpeedbump caches the speedbump state variable."
+    },
+    {
+      "from_id": 33,
+      "to_id": 28,
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "reason": "withdrawAmount is derived from the principal amount parameter and holdings ratio."
+    },
+    {
+      "from_id": 34,
+      "to_id": 11,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "localSupply caches the valueSupplied state variable."
+    },
+    {
+      "from_id": 6,
+      "to_id": 23,
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "reason": "hitSpeedbump reads total holdings through an external position call."
+    },
+    {
+      "from_id": 6,
+      "to_id": 11,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "hitSpeedbump compares holdings against valueSupplied to decide whether a loss occurred."
+    },
+    {
+      "from_id": 6,
+      "to_id": 14,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "hitSpeedbump sets the speedbump state variable once a shortfall is detected."
+    },
+    {
+      "from_id": 7,
+      "to_id": 21,
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "reason": "withdrawInterest burns yield tokens through an external call."
+    },
+    {
+      "from_id": 7,
+      "to_id": 23,
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "reason": "withdrawInterest reads the vault underlying value via an external call."
+    },
+    {
+      "from_id": 7,
+      "to_id": 19,
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "reason": "withdrawInterest performs an external withdrawUnderlying call to the position."
+    },
+    {
+      "from_id": 7,
+      "to_id": 12,
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "reason": "withdrawInterest decrements interestSupply with uint128 casts and divides by the supply."
+    },
+    {
+      "from_id": 7,
+      "to_id": 11,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "withdrawInterest reads valueSupplied to compute accrued interest."
+    },
+    {
+      "from_id": 19,
+      "to_id": 5,
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "reason": "The external withdrawUnderlying call can reenter withdrawPrincipal before state finalization."
+    },
+    {
+      "from_id": 19,
+      "to_id": 7,
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "reason": "The external withdrawUnderlying call issued by withdrawInterest can reenter the tranche."
+    },
+    {
+      "from_id": 18,
+      "to_id": 4,
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "reason": "The external prefundedDeposit call can reenter the deposit accounting path."
+    },
+    {
+      "from_id": 22,
+      "to_id": 3,
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "reason": "The external ERC20 transferFrom may invoke a malicious token callback reentering deposit."
+    },
+    {
+      "from_id": 20,
+      "to_id": 4,
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "reason": "The external interest token mint call can call back into the tranche before state is finalized."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param.deposit._amount",
+      "merge_into": "tranche.deposit",
+      "reason": "deposit amount parameter flows directly into the deposit entrypoint."
+    },
+    {
+      "normal_node": "param.deposit._destination",
+      "merge_into": "tranche.deposit",
+      "reason": "deposit destination parameter is consumed by the deposit entrypoint."
+    },
+    {
+      "normal_node": "param.prefundedDeposit._destination",
+      "merge_into": "tranche.prefundedDeposit",
+      "reason": "prefundedDeposit destination parameter is consumed by that function and forwarded to mint."
+    },
+    {
+      "normal_node": "param.withdrawPrincipal._amount",
+      "merge_into": "tranche.withdrawPrincipal",
+      "reason": "withdrawPrincipal amount parameter is burned and used in the pro rata calculation."
+    },
+    {
+      "normal_node": "param.withdrawPrincipal._destination",
+      "merge_into": "tranche.withdrawPrincipal",
+      "reason": "withdrawPrincipal destination parameter is forwarded to the external withdrawUnderlying call."
+    },
+    {
+      "normal_node": "param.withdrawInterest._amount",
+      "merge_into": "tranche.withdrawInterest",
+      "reason": "withdrawInterest amount parameter drives the burn and redemption calculation."
+    },
+    {
+      "normal_node": "param.withdrawInterest._destination",
+      "merge_into": "tranche.withdrawInterest",
+      "reason": "withdrawInterest destination parameter is forwarded to the external withdrawUnderlying call."
+    },
+    {
+      "normal_node": "local.withdrawPrincipal.localSpeedbump",
+      "merge_into": "tranche.withdrawPrincipal",
+      "reason": "localSpeedbump is a cached copy of the speedbump state used only inside withdrawPrincipal."
+    },
+    {
+      "normal_node": "local.withdrawPrincipal.withdrawAmount",
+      "merge_into": "tranche.withdrawPrincipal",
+      "reason": "withdrawAmount is a temporary computed inside withdrawPrincipal."
+    },
+    {
+      "normal_node": "local.withdrawPrincipal.localSupply",
+      "merge_into": "tranche.withdrawPrincipal",
+      "reason": "localSupply is a cached copy of valueSupplied used only inside withdrawPrincipal."
+    }
+  ]
+}

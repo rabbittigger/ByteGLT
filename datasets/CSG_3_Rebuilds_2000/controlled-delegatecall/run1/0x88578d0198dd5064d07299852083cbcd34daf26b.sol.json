@@ -1,0 +1,201 @@
+{
+  "nodes": [
+    {
+      "id": "proxyLogicSlot",
+      "type": "state_var",
+      "node_id": 0,
+      "is_core": true,
+      "description": "Proxy implementation slot at keccak256(\"PROXIABLE\") = 0xc5f16f0fcc639fa48a6947836d9850f504798523bf8c9a3a87d5876cf622bcf7, holding the address of the delegatecall target logic contract."
+    },
+    {
+      "id": "constructor",
+      "type": "function",
+      "node_id": 1,
+      "is_core": true,
+      "description": "constructor(bytes memory constructData, address contractLogic) public - writes the logic address into the proxy slot and performs a delegatecall to it for initialization, then emits myEvent and requires success."
+    },
+    {
+      "id": "fallback",
+      "type": "function",
+      "node_id": 2,
+      "is_core": true,
+      "description": "fallback() external payable - loads the stored logic address, copies raw calldata and delegates execution to the implementation, forwarding return data or reverting."
+    },
+    {
+      "id": "constructData",
+      "type": "parameter",
+      "node_id": 3,
+      "is_core": false,
+      "description": "Calldata bytes forwarded verbatim to the delegatecall during construction (initialization payload)."
+    },
+    {
+      "id": "contractLogic",
+      "type": "parameter",
+      "node_id": 4,
+      "is_core": false,
+      "description": "Caller-supplied address of the logic/implementation contract; stored in the proxy slot and used as the delegatecall target."
+    },
+    {
+      "id": "delegatecallConstructor",
+      "type": "unsafe_operation",
+      "node_id": 5,
+      "is_core": true,
+      "description": "delegatecall(constructData) executed inside the constructor against an arbitrary, caller-controlled logic address, running untrusted code in the storage context of the proxy."
+    },
+    {
+      "id": "delegatecallFallback",
+      "type": "unsafe_operation",
+      "node_id": 6,
+      "is_core": true,
+      "description": "delegatecall(gas(), contractLogic, ...) inside fallback using raw calldata and the address read from the proxy storage slot, executing the implementation in the proxy's storage context."
+    },
+    {
+      "id": "sstoreProxySlot",
+      "type": "unsafe_operation",
+      "node_id": 7,
+      "is_core": true,
+      "description": "Inline assembly sstore to the fixed keccak256(\"PROXIABLE\") slot, persisting the implementation address without any visibility of Solidity storage layout."
+    },
+    {
+      "id": "successFlag",
+      "type": "local_var",
+      "node_id": 8,
+      "is_core": false,
+      "description": "bool success returned by the constructor's delegatecall, used in require(success, \"Construction failed\")."
+    },
+    {
+      "id": "returnData",
+      "type": "local_var",
+      "node_id": 9,
+      "is_core": false,
+      "description": "bytes memory __ holding the raw return data of the constructor delegatecall, later emitted via myEvent(__)."
+    },
+    {
+      "id": "logicAddrFallback",
+      "type": "local_var",
+      "node_id": 10,
+      "is_core": false,
+      "description": "Assembly local variable set from sload of the proxy slot in fallback(), used as the delegatecall destination."
+    }
+  ],
+  "edges": [
+    {
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "reason": "constructor unconditionally delegates execution to a caller-supplied address, allowing arbitrary code to run in the proxy storage context with no validation or access restriction."
+    },
+    {
+      "type": "callback",
+      "from_id": 1,
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "reason": "delegatecall transfers execution to externally supplied code during construction, which can re-enter the proxy or manipulate its storage before initialization completes."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "constructor execution reaches the inline assembly sstore that persists contractLogic into the fixed proxy slot."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "reason": "the contractLogic parameter (fully attacker-controlled at deployment) flows directly into the delegatecall target, enabling arbitrary code execution."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "reason": "contractLogic is written verbatim into the keccak256(\"PROXIABLE\") storage slot, so the caller controls the implementation address used by every future fallback call."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "the constructData byte payload is passed unchanged as calldata to the delegatecall, becoming the selector and arguments executed by the logic contract."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "the boolean success result of the delegatecall is captured in the local variable used by require."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "the returndata of the delegatecall is captured in the local bytes variable that is emitted in myEvent."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 2,
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "reason": "fallback forwards all unknown calldata to the stored implementation address via delegatecall with no selector or caller filtering."
+    },
+    {
+      "type": "callback",
+      "from_id": 2,
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "reason": "delegatecall in fallback hands full execution and storage control to external code, which may call back into the proxy or alter the implementation slot."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "reason": "the logic address read from the keccak256(\"PROXIABLE\") slot determines the delegatecall target, so whoever can write that slot controls all fallback execution."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "the assembly sload of the proxy slot populates the local contractLogic variable inside fallback."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "reason": "the locally loaded implementation address is used directly as the delegatecall destination for arbitrary callers."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "constructData",
+      "merge_into": "delegatecallConstructor",
+      "reason": "constructData is a non-core parameter whose only purpose is to supply the calldata consumed by the constructor's delegatecall, so it is absorbed into that unsafe operation node."
+    },
+    {
+      "normal_node": "contractLogic",
+      "merge_into": "sstoreProxySlot",
+      "reason": "contractLogic is a non-core parameter whose first and most security-relevant use is being persisted into the fixed proxy storage slot by the sstore unsafe operation."
+    },
+    {
+      "normal_node": "successFlag",
+      "merge_into": "constructor",
+      "reason": "successFlag is a non-core local holding the delegatecall success flag guarded by require; it is ephemeral and belongs to the constructor function node."
+    },
+    {
+      "normal_node": "returnData",
+      "merge_into": "constructor",
+      "reason": "the __ bytes local only carries the delegatecall returndata emitted by myEvent and has no independent semantic role outside the constructor."
+    },
+    {
+      "normal_node": "logicAddrFallback",
+      "merge_into": "delegatecallFallback",
+      "reason": "logicAddrFallback is a non-core assembly local that immediately becomes the delegatecall target in fallback, so it merges into that unsafe operation."
+    }
+  ]
+}

@@ -1,0 +1,751 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Array of wrapped genesis Kongz token ids held by the contract; used as the pool from which unwrapped ids are drawn.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "genIds"
+    },
+    {
+      "type": "state_var",
+      "description": "Accumulated global score (totalSupply * time interval) used as denominator of the banana reward share.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "globalScore"
+    },
+    {
+      "type": "state_var",
+      "description": "Timestamp of the last global score synchronization.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "globalLastUpdate"
+    },
+    {
+      "type": "state_var",
+      "description": "Total amount of BANANA already realized by the contract through KONGZ.getReward().",
+      "is_core": true,
+      "node_id": 3,
+      "id": "globalClaimed"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping of holder address to accrued score (balance * time interval).",
+      "is_core": true,
+      "node_id": 4,
+      "id": "holderScores"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping of holder address to last score synchronization timestamp.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "holderLastUpdate"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping of holder address to the cumulative reward share already credited.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "holderClaimed"
+    },
+    {
+      "type": "state_var",
+      "description": "Constant IKongz NFT contract used for safeTransferFrom and getReward external calls.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "KONGZ"
+    },
+    {
+      "type": "state_var",
+      "description": "Constant IBanana token contract used for getTotalClaimable, balanceOf and transfer external calls.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "BANANA"
+    },
+    {
+      "type": "state_var",
+      "description": "Constant end timestamp capping the score accrual window.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "END"
+    },
+    {
+      "type": "function",
+      "description": "Internal pure helper returning the minimum of two values; caps timestamps at END.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "min"
+    },
+    {
+      "type": "function",
+      "description": "Internal view function producing a pseudo-random seed from block.timestamp, block.difficulty and the sender.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "_getSeed"
+    },
+    {
+      "type": "function",
+      "description": "External function that synchronizes scores, pulls rewards from KONGZ and transfers BANANA to msg.sender.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "claimNanas"
+    },
+    {
+      "type": "function",
+      "description": "External function that locks genesis Kongz NFTs, records their ids and mints WGK at 100 tokens per Kongz.",
+      "is_core": true,
+      "node_id": 13,
+      "id": "wrap"
+    },
+    {
+      "type": "function",
+      "description": "External wrapper that forwards to unwrapFor for msg.sender.",
+      "is_core": true,
+      "node_id": 14,
+      "id": "unwrap"
+    },
+    {
+      "type": "function",
+      "description": "Public function that burns WGK and pseudo-randomly returns genesis Kongz NFTs from genIds to a recipient.",
+      "is_core": true,
+      "node_id": 15,
+      "id": "unwrapFor"
+    },
+    {
+      "type": "function",
+      "description": "Overridden ERC20 transfer that applies the syncScore modifier before moving tokens.",
+      "is_core": true,
+      "node_id": 16,
+      "id": "transfer"
+    },
+    {
+      "type": "function",
+      "description": "Overridden ERC20 transferFrom that applies the syncScore modifier before moving tokens.",
+      "is_core": true,
+      "node_id": 17,
+      "id": "transferFrom"
+    },
+    {
+      "type": "function",
+      "description": "External view computing the currently claimable BANANA amount for a holder.",
+      "is_core": true,
+      "node_id": 18,
+      "id": "getClaimableNanas"
+    },
+    {
+      "type": "function",
+      "description": "ERC721 receiver hook invoked when a Kongz NFT is transferred to this contract.",
+      "is_core": true,
+      "node_id": 19,
+      "id": "onERC721Received"
+    },
+    {
+      "type": "function",
+      "description": "Modifier that refreshes holder scores for a from/to pair using block.timestamp.",
+      "is_core": true,
+      "node_id": 20,
+      "id": "syncScore"
+    },
+    {
+      "type": "function",
+      "description": "Modifier that refreshes the global score using block.timestamp and totalSupply.",
+      "is_core": true,
+      "node_id": 21,
+      "id": "syncGlobalScore"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used for score accrual, minting, burning and reward transfer.",
+      "is_core": true,
+      "node_id": 22,
+      "id": "msg.sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Miner-influenced timestamp used for score intervals and pseudo-random seed generation.",
+      "is_core": true,
+      "node_id": 23,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External token transfer of the computed reward to msg.sender inside claimNanas.",
+      "is_core": true,
+      "node_id": 24,
+      "id": "BANANA.transfer"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External call into the Kongz NFT contract to realize BANANA rewards before computing globalClaimed.",
+      "is_core": true,
+      "node_id": 25,
+      "id": "KONGZ.getReward"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External ERC721 safe transfer that can call back into onERC721Received on the recipient.",
+      "is_core": true,
+      "node_id": 26,
+      "id": "KONGZ.safeTransferFrom"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Unchecked multiplication _kongzIdsToWrap.length * 100 * 1e18 used as the mint amount in wrap.",
+      "is_core": true,
+      "node_id": 27,
+      "id": "mint_amount_multiplication"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Weak pseudo-randomness derived from block.timestamp and block.difficulty controlling which NFT is unwrapped.",
+      "is_core": true,
+      "node_id": 28,
+      "id": "seed_randomness"
+    },
+    {
+      "type": "parameter",
+      "description": "Caller supplied array of Kongz token ids to wrap.",
+      "is_core": false,
+      "node_id": 29,
+      "id": "_kongzIdsToWrap"
+    },
+    {
+      "type": "parameter",
+      "description": "Number of genesis Kongz to unwrap in unwrapFor.",
+      "is_core": false,
+      "node_id": 30,
+      "id": "_amount"
+    },
+    {
+      "type": "parameter",
+      "description": "Address receiving the unwrapped Kongz NFTs.",
+      "is_core": false,
+      "node_id": 31,
+      "id": "_recipient"
+    },
+    {
+      "type": "parameter",
+      "description": "Address whose claimable BANANA is being queried.",
+      "is_core": false,
+      "node_id": 32,
+      "id": "_holder"
+    },
+    {
+      "type": "parameter",
+      "description": "Seed input to _getSeed, carried over between loop iterations.",
+      "is_core": false,
+      "node_id": 33,
+      "id": "_seed"
+    },
+    {
+      "type": "parameter",
+      "description": "Sender address mixed into the pseudo-random seed.",
+      "is_core": false,
+      "node_id": 34,
+      "id": "_sender"
+    },
+    {
+      "type": "parameter",
+      "description": "Source address of the token movement synchronised by syncScore.",
+      "is_core": false,
+      "node_id": 35,
+      "id": "_from"
+    },
+    {
+      "type": "parameter",
+      "description": "Destination address of the token movement synchronised by syncScore.",
+      "is_core": false,
+      "node_id": 36,
+      "id": "_to"
+    },
+    {
+      "type": "local_var",
+      "description": "min(block.timestamp, END) value used inside the score modifiers.",
+      "is_core": false,
+      "node_id": 37,
+      "id": "time"
+    },
+    {
+      "type": "local_var",
+      "description": "Elapsed seconds since the last score update used to accrue score.",
+      "is_core": false,
+      "node_id": 38,
+      "id": "interval"
+    },
+    {
+      "type": "local_var",
+      "description": "Amount of BANANA to transfer to the caller in claimNanas.",
+      "is_core": false,
+      "node_id": 39,
+      "id": "toSend"
+    },
+    {
+      "type": "local_var",
+      "description": "Computed share of the farming pool owed to the caller.",
+      "is_core": false,
+      "node_id": 40,
+      "id": "userShare"
+    },
+    {
+      "type": "local_var",
+      "description": "globalClaimed plus the currently claimable BANANA of the contract.",
+      "is_core": false,
+      "node_id": 41,
+      "id": "totalFarmed"
+    },
+    {
+      "type": "local_var",
+      "description": "Index into genIds derived from the seed modulo the array length.",
+      "is_core": false,
+      "node_id": 42,
+      "id": "_index"
+    },
+    {
+      "type": "local_var",
+      "description": "Genesis Kongz token id selected for unwrapping.",
+      "is_core": false,
+      "node_id": 43,
+      "id": "_tokenId"
+    },
+    {
+      "type": "local_var",
+      "description": "Projected global score used inside getClaimableNanas.",
+      "is_core": false,
+      "node_id": 44,
+      "id": "_globalScore"
+    },
+    {
+      "type": "local_var",
+      "description": "Projected holder score used inside getClaimableNanas.",
+      "is_core": false,
+      "node_id": 45,
+      "id": "userScore"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "msg.sender determines the caller's score, claimed amount and transfer recipient in claimNanas.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "msg.sender is the owner from which Kongz are pulled and the mint recipient in wrap.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "msg.sender is burned from and used as the seed source in unwrapFor.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "block.timestamp determines the accrual interval inside the syncScore modifier.",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "block.timestamp determines the accrual interval inside the syncGlobalScore modifier.",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 28,
+      "type": "dataflow",
+      "reason": "block.timestamp feeds the weak entropy source used to select unwrapped NFT ids.",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "block.timestamp drives the projected intervals in getClaimableNanas.",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "User supplied Kongz id array controls the transfer loop and the minted amount.",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "_amount controls how many tokens are burned and how many NFTs are released.",
+      "from_id": 30
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "_recipient is the destination of the unwrapped NFTs.",
+      "from_id": 31
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "_holder selects the storage slots read for the claimable calculation.",
+      "from_id": 32
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "_seed is consumed by _getSeed when non-zero.",
+      "from_id": 33
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "_sender is hashed together with block values into the seed.",
+      "from_id": 34
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "_from identifies whose holder score is refreshed in the modifier.",
+      "from_id": 35
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "_to identifies whose holder score is refreshed in the modifier.",
+      "from_id": 36
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "genIds supplies the token id selected and popped in unwrapFor.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "globalScore is the divisor used to compute the caller share in claimNanas.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "globalClaimed is added to the claimable amount to size the farmed pool.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "holderScores[msg.sender] weights the caller share of the farmed pool.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "holderClaimed[msg.sender] is subtracted to avoid double payment.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "The KONGZ contract is the target of safeTransferFrom in wrap.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "The BANANA contract provides claimable balances and receives the transfer call.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "END caps the timestamp used for holder score accrual.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "END caps the timestamp used for global score accrual.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "globalScore seeds the projected global score in the view function.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "holderScores[_holder] seeds the projected user score in the view function.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "holderClaimed[_holder] is deducted from the projected share.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "globalClaimed contributes to the projected farmed pool.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "controlflow",
+      "reason": "unwrap delegates execution to unwrapFor for msg.sender.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "controlflow",
+      "reason": "claimNanas is guarded by the syncScore modifier.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "controlflow",
+      "reason": "claimNanas is guarded by the syncGlobalScore modifier.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "controlflow",
+      "reason": "wrap is guarded by the syncScore modifier.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "controlflow",
+      "reason": "wrap is guarded by the syncGlobalScore modifier.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "controlflow",
+      "reason": "unwrapFor is guarded by the syncScore modifier.",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "controlflow",
+      "reason": "unwrapFor is guarded by the syncGlobalScore modifier.",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "controlflow",
+      "reason": "transfer runs under the syncScore modifier before ERC20.transfer.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "controlflow",
+      "reason": "transferFrom runs under the syncScore modifier before ERC20.transferFrom.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 24,
+      "type": "controlflow",
+      "reason": "claimNanas performs an external BANANA transfer to the caller at the end.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "controlflow",
+      "reason": "claimNanas calls KONGZ.getReward when the contract balance is insufficient.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "controlflow",
+      "reason": "wrap calls KONGZ.safeTransferFrom for every Kongz id supplied.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "controlflow",
+      "reason": "unwrapFor calls KONGZ.safeTransferFrom inside the unwrap loop.",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 27,
+      "type": "controlflow",
+      "reason": "wrap computes the mint amount with unchecked multiplication of the array length.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 28,
+      "type": "controlflow",
+      "reason": "_getSeed produces the entropy value later used to pick the unwrapped token.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "callback",
+      "reason": "BANANA.transfer hands control to an external token contract that can re-enter claimNanas before all accounting settles.",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "callback",
+      "reason": "KONGZ.getReward is an untrusted external call executed before globalClaimed and the payout are finalized.",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 15,
+      "type": "callback",
+      "reason": "KONGZ.safeTransferFrom invokes the recipient hook, allowing re-entry into unwrapFor mid-loop.",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 13,
+      "type": "callback",
+      "reason": "KONGZ.safeTransferFrom invokes the recipient hook while wrap is iterating over user supplied ids.",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 19,
+      "type": "callback",
+      "reason": "safeTransferFrom triggers the ERC721 receiver hook implemented by onERC721Received.",
+      "from_id": 26
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "wrap",
+      "reason": "_kongzIdsToWrap is only a wrap parameter and should be folded into the wrap function node.",
+      "normal_node": "_kongzIdsToWrap"
+    },
+    {
+      "merge_into": "unwrapFor",
+      "reason": "_amount is only an unwrapFor parameter and should be folded into the unwrapFor function node.",
+      "normal_node": "_amount"
+    },
+    {
+      "merge_into": "unwrapFor",
+      "reason": "_recipient is only an unwrapFor parameter and should be folded into the unwrapFor function node.",
+      "normal_node": "_recipient"
+    },
+    {
+      "merge_into": "getClaimableNanas",
+      "reason": "_holder is only a getClaimableNanas parameter and should be folded into that view function node.",
+      "normal_node": "_holder"
+    },
+    {
+      "merge_into": "_getSeed",
+      "reason": "_seed is only a _getSeed parameter and should be folded into the _getSeed function node.",
+      "normal_node": "_seed"
+    },
+    {
+      "merge_into": "_getSeed",
+      "reason": "_sender is only a _getSeed parameter and should be folded into the _getSeed function node.",
+      "normal_node": "_sender"
+    },
+    {
+      "merge_into": "syncScore",
+      "reason": "_from is only a syncScore modifier parameter and should be folded into the modifier node.",
+      "normal_node": "_from"
+    },
+    {
+      "merge_into": "syncScore",
+      "reason": "_to is only a syncScore modifier parameter and should be folded into the modifier node.",
+      "normal_node": "_to"
+    },
+    {
+      "merge_into": "syncScore",
+      "reason": "time is a local computed from block.timestamp inside the score modifiers and belongs to the modifier node.",
+      "normal_node": "time"
+    },
+    {
+      "merge_into": "syncScore",
+      "reason": "interval is a local accrual delta used by the score modifiers and belongs to the modifier node.",
+      "normal_node": "interval"
+    },
+    {
+      "merge_into": "claimNanas",
+      "reason": "toSend is a claimNanas local whose value is transferred out and belongs to the unsafe transfer operation.",
+      "normal_node": "toSend"
+    },
+    {
+      "merge_into": "claimNanas",
+      "reason": "userShare is a claimNanas local feeding the payout and should be folded into the claimNanas node.",
+      "normal_node": "userShare"
+    },
+    {
+      "merge_into": "KONGZ.getReward",
+      "reason": "totalFarmed is a claimNanas local derived from getReward accounting and belongs to that external call context.",
+      "normal_node": "totalFarmed"
+    },
+    {
+      "merge_into": "unwrapFor",
+      "reason": "_index is an unwrapFor loop local selecting the array slot and should be folded into unwrapFor.",
+      "normal_node": "_index"
+    },
+    {
+      "merge_into": "KONGZ.safeTransferFrom",
+      "reason": "_tokenId is the unwrapFor local passed to safeTransferFrom and belongs to that unsafe operation.",
+      "normal_node": "_tokenId"
+    },
+    {
+      "merge_into": "getClaimableNanas",
+      "reason": "_globalScore is a getClaimableNanas local and should be folded into the view function node.",
+      "normal_node": "_globalScore"
+    },
+    {
+      "merge_into": "getClaimableNanas",
+      "reason": "userScore is a getClaimableNanas local and should be folded into the view function node.",
+      "normal_node": "userScore"
+    }
+  ]
+}

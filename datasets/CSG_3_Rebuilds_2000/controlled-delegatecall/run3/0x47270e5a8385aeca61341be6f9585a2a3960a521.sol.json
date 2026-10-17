@@ -1,0 +1,189 @@
+{
+  "nodes": [
+    {
+      "id": "sv_GUARD_VALUE",
+      "is_core": true,
+      "node_id": 0,
+      "description": "Private constant bytes32 guard value keccak256(\"guard.bytes32\") used as the sentinel for the guard state variable.",
+      "type": "state_var"
+    },
+    {
+      "id": "sv_gatedLogBatcherLib",
+      "is_core": true,
+      "node_id": 1,
+      "description": "Address of the library contract invoked via delegatecall from batchLogs; set once in the constructor.",
+      "type": "state_var"
+    },
+    {
+      "id": "sv_guard",
+      "is_core": true,
+      "node_id": 2,
+      "description": "bytes32 guard state variable initialized to GUARD_VALUE and checked in batchLogs.",
+      "type": "state_var"
+    },
+    {
+      "id": "sv_unlockSchedules",
+      "is_core": true,
+      "node_id": 3,
+      "description": "Public mapping from beneficiary address to an array of UnlockSchedule structs.",
+      "type": "state_var"
+    },
+    {
+      "id": "fn_constructor",
+      "is_core": true,
+      "node_id": 4,
+      "description": "Constructor that stores gatedLogBatcherLib and initializes guard to GUARD_VALUE.",
+      "type": "function"
+    },
+    {
+      "id": "fn_batchLogs",
+      "is_core": true,
+      "node_id": 5,
+      "description": "Public function that checks guard, performs a delegatecall into gatedLogBatcherLib with multiSend(bytes), and emits BatchLogs.",
+      "type": "function"
+    },
+    {
+      "id": "param_gatedLogBatcherLib",
+      "is_core": false,
+      "node_id": 6,
+      "description": "Constructor parameter holding the address of the batcher library, assigned to the gatedLogBatcherLib state variable.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_logs",
+      "is_core": false,
+      "node_id": 7,
+      "description": "Bytes parameter of batchLogs, ABI-encoded into the delegatecall calldata and hashed for the BatchLogs event.",
+      "type": "parameter"
+    },
+    {
+      "id": "local_success",
+      "is_core": false,
+      "node_id": 8,
+      "description": "Boolean return flag of the delegatecall in batchLogs.",
+      "type": "local_var"
+    },
+    {
+      "id": "local_data",
+      "is_core": false,
+      "node_id": 9,
+      "description": "Bytes return data of the delegatecall in batchLogs.",
+      "type": "local_var"
+    },
+    {
+      "id": "op_delegatecall",
+      "is_core": true,
+      "node_id": 10,
+      "description": "delegatecall into gatedLogBatcherLib using multiSend(bytes) selector, executing external code in the context of this contract.",
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 4,
+      "to_id": 1,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "Constructor writes the _gatedLogBatcherLib argument into the gatedLogBatcherLib state variable."
+    },
+    {
+      "from_id": 4,
+      "to_id": 2,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "Constructor assigns GUARD_VALUE to the guard state variable."
+    },
+    {
+      "from_id": 4,
+      "to_id": 6,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "Constructor consumes its address parameter and forwards it to the gatedLogBatcherLib state variable."
+    },
+    {
+      "from_id": 5,
+      "to_id": 2,
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "reason": "batchLogs reads guard inside require(guard != GUARD_VALUE), which gates entry to the privileged execution path but is permanently unsatisfiable given the constructor initialization."
+    },
+    {
+      "from_id": 5,
+      "to_id": 0,
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "reason": "The guard check compares the guard state variable against the constant GUARD_VALUE, defining the (broken) access condition of batchLogs."
+    },
+    {
+      "from_id": 1,
+      "to_id": 10,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "The delegatecall target is taken straight from the gatedLogBatcherLib state variable, so whoever controls that address controls arbitrary code executed in this contract's storage context."
+    },
+    {
+      "from_id": 7,
+      "to_id": 10,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The logs parameter is ABI-encoded into the calldata of the delegatecall."
+    },
+    {
+      "from_id": 5,
+      "to_id": 7,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "batchLogs consumes its logs byte parameter for both hashing and the delegatecall payload."
+    },
+    {
+      "from_id": 10,
+      "to_id": 8,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The delegatecall result assigns the success boolean local variable."
+    },
+    {
+      "from_id": 10,
+      "to_id": 9,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The delegatecall result assigns the returned bytes local variable data."
+    },
+    {
+      "from_id": 5,
+      "to_id": 10,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "batchLogs unconditionally reaches the delegatecall after the guard require statement."
+    },
+    {
+      "from_id": 10,
+      "to_id": 5,
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "reason": "The delegatecall transfers execution to external code (gatedLogBatcherLib) which runs with this contract's state and can re-enter or mutate storage before batchLogs continues."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param_gatedLogBatcherLib",
+      "merge_into": "fn_constructor",
+      "reason": "The parameter only exists to initialize the gatedLogBatcherLib state variable inside the constructor and has no independent role."
+    },
+    {
+      "normal_node": "param_logs",
+      "merge_into": "op_delegatecall",
+      "reason": "The logs byte parameter is forwarded directly into the delegatecall calldata and is fully represented by that unsafe operation."
+    },
+    {
+      "normal_node": "local_success",
+      "merge_into": "op_delegatecall",
+      "reason": "success is solely the boolean return flag of the delegatecall and carries no separate semantic meaning."
+    },
+    {
+      "normal_node": "local_data",
+      "merge_into": "op_delegatecall",
+      "reason": "data is solely the returned bytes of the delegatecall and is never used elsewhere in the function."
+    }
+  ]
+}

@@ -1,0 +1,198 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Public address state variable storing the contract owner, used by the restricted modifier.",
+      "id": "owner",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Public uint tracking the last completed migration; written by setCompleted and forwarded during upgrade.",
+      "id": "last_completed_migration",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Constructor Migrations() that initializes the owner state variable.",
+      "id": "migrations_ctor",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "restricted function setCompleted(uint completed) that writes last_completed_migration.",
+      "id": "set_completed",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "restricted function upgrade(address new_address) that constructs a Migrations instance and calls setCompleted on it.",
+      "id": "upgrade",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "Modifier restricted() that only allows execution when msg.sender equals owner.",
+      "id": "restricted_modifier",
+      "type": "function",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "msg.sender global caller value used for owner assignment and access-control comparison.",
+      "id": "msg_sender",
+      "type": "untrusted_input",
+      "node_id": 6
+    },
+    {
+      "is_core": false,
+      "description": "Parameter completed of setCompleted, the value written into last_completed_migration.",
+      "id": "param_completed",
+      "type": "parameter",
+      "node_id": 7
+    },
+    {
+      "is_core": false,
+      "description": "Parameter new_address of upgrade, an attacker-influenced address converted into a contract instance.",
+      "id": "param_new_address",
+      "type": "parameter",
+      "node_id": 8
+    },
+    {
+      "is_core": false,
+      "description": "Local Migrations instance created from new_address, used as the external call target.",
+      "id": "local_upgraded",
+      "type": "local_var",
+      "node_id": 9
+    },
+    {
+      "is_core": true,
+      "description": "External call upgraded.setCompleted(last_completed_migration) to an arbitrary address, enabling reentrancy/unauthorized state changes.",
+      "id": "unsafe_external_call",
+      "type": "unsafe_operation",
+      "node_id": 10
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "reason": "Constructor assigns owner directly from the untrusted msg.sender, making the caller the privileged owner.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "reason": "The restricted modifier compares msg.sender against owner to gate privileged functions.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "The constructor writes the owner state variable.",
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "The restricted modifier controls whether setCompleted can execute.",
+      "type": "controlflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "reason": "The restricted modifier controls whether upgrade can execute.",
+      "type": "controlflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "Parameter completed flows into the setCompleted function body.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "setCompleted writes its argument into the last_completed_migration state variable.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "Parameter new_address is used to construct the local Migrations instance upgraded.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "reason": "The local instance derived from new_address is the receiver of the external call.",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "reason": "Current stored last_completed_migration value is passed into the external call.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "reason": "upgrade performs the external call to an arbitrary address as its final statement.",
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "reason": "Caller-supplied new_address determines the destination of the unsafe external call.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "reentrancy",
+      "reason": "The external call can re-enter setCompleted on this or another instance and mutate last_completed_migration.",
+      "type": "callback",
+      "from_id": 10
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "reentrancy",
+      "reason": "Re-entrancy through the external call can indirectly modify the last_completed_migration state variable.",
+      "type": "callback",
+      "from_id": 10
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "set_completed",
+      "reason": "The completed parameter has no independent semantics outside setCompleted and should be folded into that function node.",
+      "normal_node": "param_completed"
+    },
+    {
+      "merge_into": "unsafe_external_call",
+      "reason": "new_address exists only to select the target of the unsafe external call and should be merged into that unsafe operation node.",
+      "normal_node": "param_new_address"
+    },
+    {
+      "merge_into": "unsafe_external_call",
+      "reason": "The local upgraded instance is a transient handle for the external call and should be absorbed into the unsafe operation node.",
+      "normal_node": "local_upgraded"
+    }
+  ]
+}

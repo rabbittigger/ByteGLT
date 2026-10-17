@@ -1,0 +1,147 @@
+{
+  "nodes": [
+    {
+      "id": "collateralAsset",
+      "description": "Immutable IERC20 reference to the collateral asset held in custody by the CollateralLocker.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "loan",
+      "description": "Immutable address of the Loan contract authorized to pull collateral from this locker.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "constructor",
+      "description": "Constructor that initializes collateralAsset and loan immutables from the supplied addresses.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "isLoan",
+      "description": "Access-control modifier requiring msg.sender to equal the stored loan address; reverts with 'CL:NOT_L' otherwise.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "pull",
+      "description": "External function guarded by isLoan that transfers amt of collateralAsset to destination dst.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "msg_sender",
+      "description": "msg.sender used in the isLoan modifier to authorize the caller against the stored loan address.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "safeTransfer_call",
+      "description": "External token transfer (safeTransfer) that hands control to an arbitrary ERC20 contract, enabling reentrancy.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "param__collateralAsset",
+      "description": "Constructor parameter address of the collateral asset token.",
+      "is_core": false,
+      "node_id": 7,
+      "type": "parameter"
+    },
+    {
+      "id": "param__loan",
+      "description": "Constructor parameter address of the authorized Loan contract.",
+      "is_core": false,
+      "node_id": 8,
+      "type": "parameter"
+    },
+    {
+      "id": "param_dst",
+      "description": "Destination address that pull transfers collateral to.",
+      "is_core": false,
+      "node_id": 9,
+      "type": "parameter"
+    },
+    {
+      "id": "param_amt",
+      "description": "Amount of collateral asset that pull transfers to dst.",
+      "is_core": false,
+      "node_id": 10,
+      "type": "parameter"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor argument _collateralAsset is written into the immutable state variable collateralAsset.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Constructor argument _loan is written into the immutable state variable loan.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender is compared against the trusted loan address inside the isLoan modifier, performing the access-control check.",
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The stored loan address is the trusted value that msg.sender must match in the isLoan modifier.",
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The isLoan modifier gates execution of pull, reverting for non-loan callers.",
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "pull invokes the external safeTransfer operation, transferring control to the collateral token before any state finalization.",
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The external token transfer can re-enter pull (via token hooks) before the transfer accounting completes, a classic reentrancy path.",
+      "to_id": 4,
+      "vuln_type": "reentrancy",
+      "from_id": 6,
+      "type": "callback"
+    },
+    {
+      "reason": "Parameter dst flows into the safeTransfer recipient of the external call.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Parameter amt flows into the value of the safeTransfer external call.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 10,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": []
+}

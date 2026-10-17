@@ -1,0 +1,257 @@
+{
+  "nodes": [
+    {
+      "id": "baseAddr",
+      "description": "Public address state variable in multiSend used as the fixed address of the token contract.",
+      "type": "state_var",
+      "node_id": 0,
+      "is_core": true
+    },
+    {
+      "id": "bcontract",
+      "description": "Stored TokenERC20 instance created from baseAddr and used for all token transfers and balance reads.",
+      "type": "state_var",
+      "node_id": 1,
+      "is_core": true
+    },
+    {
+      "id": "distributedAmount",
+      "description": "Public counter of airdropped tokens, incremented by 100 for each successful transfer.",
+      "type": "state_var",
+      "node_id": 2,
+      "is_core": true
+    },
+    {
+      "id": "balanceOf",
+      "description": "Public mapping in TokenERC20 mapping address to token balance.",
+      "type": "state_var",
+      "node_id": 3,
+      "is_core": true
+    },
+    {
+      "id": "TokenERC20.transferFrom",
+      "description": "External token contract function that moves _value tokens from _from to _to.",
+      "type": "function",
+      "node_id": 4,
+      "is_core": true
+    },
+    {
+      "id": "multiSend.sendOutToken",
+      "description": "Public airdrop function that loops over a supplied address array and performs external token transfers.",
+      "type": "function",
+      "node_id": 5,
+      "is_core": true
+    },
+    {
+      "id": "multiSend.fallback",
+      "description": "Payable fallback function that unconditionally reverts, rejecting plain ether transfers.",
+      "type": "function",
+      "node_id": 6,
+      "is_core": true
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller-controlled address passed as the token source of transferFrom in the airdrop loop.",
+      "type": "untrusted_input",
+      "node_id": 7,
+      "is_core": true
+    },
+    {
+      "id": "external_call_transferFrom",
+      "description": "External call bcontract.transferFrom(msg.sender, addrs[i], 100 * 10**18) executed inside an unbounded loop.",
+      "type": "unsafe_operation",
+      "node_id": 8,
+      "is_core": true
+    },
+    {
+      "id": "external_call_balanceOf",
+      "description": "External calls bcontract.balanceOf(addrs[i]) and addrs[i].balance used for airdrop eligibility checks.",
+      "type": "unsafe_operation",
+      "node_id": 9,
+      "is_core": true
+    },
+    {
+      "id": "arithmetic_distributedAmount",
+      "description": "Unchecked arithmetic distributedAmount += 100 updating the distribution counter after each transfer.",
+      "type": "unsafe_operation",
+      "node_id": 10,
+      "is_core": true
+    },
+    {
+      "id": "addrs",
+      "description": "Memory array parameter of sendOutToken holding the recipient addresses supplied by the caller.",
+      "type": "parameter",
+      "node_id": 11,
+      "is_core": false
+    },
+    {
+      "id": "i",
+      "description": "Loop counter local variable indexing the addrs array in sendOutToken.",
+      "type": "local_var",
+      "node_id": 12,
+      "is_core": false
+    },
+    {
+      "id": "_from",
+      "description": "Source address parameter of TokenERC20.transferFrom.",
+      "type": "parameter",
+      "node_id": 13,
+      "is_core": false
+    },
+    {
+      "id": "_to",
+      "description": "Destination address parameter of TokenERC20.transferFrom.",
+      "type": "parameter",
+      "node_id": 14,
+      "is_core": false
+    },
+    {
+      "id": "_value",
+      "description": "Amount parameter of TokenERC20.transferFrom.",
+      "type": "parameter",
+      "node_id": 15,
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "reason": "Unvalidated msg.sender flows directly into the external transferFrom call as the token source, letting the caller drive token movement from their own balance.",
+      "to_id": 8,
+      "from_id": 7,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "controlflow",
+      "reason": "sendOutToken iterates an unbounded loop and performs an external call to another contract on every iteration, enabling reentrancy before state updates settle.",
+      "to_id": 8,
+      "from_id": 5,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "callback",
+      "reason": "The external call invokes TokenERC20.transferFrom, an untrusted contract entry point that can call back into multiSend during the loop.",
+      "to_id": 4,
+      "from_id": 8,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The stored TokenERC20 instance bcontract is the target contract of the transferFrom external call.",
+      "to_id": 8,
+      "from_id": 1,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "baseAddr is used to construct the bcontract TokenERC20 instance at declaration.",
+      "to_id": 1,
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "type": "controlflow",
+      "reason": "sendOutToken performs external balance reads to decide whether a supplied address is eligible for the airdrop.",
+      "to_id": 9,
+      "from_id": 5,
+      "vuln_type": "none"
+    },
+    {
+      "type": "callback",
+      "reason": "Balance queries invoke the external bcontract.balanceOf mapping getter on the token contract.",
+      "to_id": 3,
+      "from_id": 9,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "Caller-supplied address addrs[i] is used as the _to recipient argument of the token transfer.",
+      "to_id": 8,
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "addrs[i] is used both in bcontract.balanceOf and in the address.balance eligibility check.",
+      "to_id": 9,
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "type": "controlflow",
+      "reason": "The loop index i controls traversal and indexing of the addrs parameter array.",
+      "to_id": 11,
+      "from_id": 12,
+      "vuln_type": "none"
+    },
+    {
+      "type": "controlflow",
+      "reason": "sendOutToken executes distributedAmount += 100 after each successful transfer, an unchecked state arithmetic update.",
+      "to_id": 10,
+      "from_id": 5,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The state variable distributedAmount is the destination of the += 100 arithmetic operation.",
+      "to_id": 10,
+      "from_id": 2,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "type": "controlflow",
+      "reason": "msg.sender determines whose token balance is debited during the airdrop loop iteration.",
+      "to_id": 5,
+      "from_id": 7,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The _from parameter supplies the source address consumed by TokenERC20.transferFrom.",
+      "to_id": 4,
+      "from_id": 13,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The _to parameter supplies the destination address consumed by TokenERC20.transferFrom.",
+      "to_id": 4,
+      "from_id": 14,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The _value parameter supplies the transferred amount consumed by TokenERC20.transferFrom.",
+      "to_id": 4,
+      "from_id": 15,
+      "vuln_type": "none"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The addrs array is only meaningful as the input parameter of the airdrop loop, so it is folded into sendOutToken which iterates and consumes it.",
+      "normal_node": "addrs",
+      "merge_into": "multiSend.sendOutToken"
+    },
+    {
+      "reason": "The loop counter i exists solely to drive the for-loop of sendOutToken and has no independent semantics.",
+      "normal_node": "i",
+      "merge_into": "multiSend.sendOutToken"
+    },
+    {
+      "reason": "The _from parameter belongs to TokenERC20.transferFrom and is absorbed into that function signature.",
+      "normal_node": "_from",
+      "merge_into": "TokenERC20.transferFrom"
+    },
+    {
+      "reason": "The _to parameter belongs to TokenERC20.transferFrom and is absorbed into that function signature.",
+      "normal_node": "_to",
+      "merge_into": "TokenERC20.transferFrom"
+    },
+    {
+      "reason": "The _value parameter belongs to TokenERC20.transferFrom and is absorbed into that function signature.",
+      "normal_node": "_value",
+      "merge_into": "TokenERC20.transferFrom"
+    }
+  ]
+}

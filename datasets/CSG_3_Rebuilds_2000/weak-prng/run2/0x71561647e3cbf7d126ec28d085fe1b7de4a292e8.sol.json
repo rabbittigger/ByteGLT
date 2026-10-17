@@ -1,0 +1,289 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Private uint256 secret number that determines the winning guess; written by shuffle and read by guess.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "secretNumber"
+    },
+    {
+      "type": "state_var",
+      "description": "Public uint256 storing the timestamp of the last guess (set to now).",
+      "is_core": true,
+      "node_id": 1,
+      "id": "lastPlayed"
+    },
+    {
+      "type": "state_var",
+      "description": "Public address that owns the contract and is authorized to call kill.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "owner"
+    },
+    {
+      "type": "state_var",
+      "description": "Dynamic array of Player structs recording every guesser address and value sent.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "players"
+    },
+    {
+      "type": "state_var",
+      "description": "Constant address 0xc316F2bbcCeE013472d2f709414602cF7Fea6007 that receives 20% of balance on kill.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "megaman"
+    },
+    {
+      "type": "function",
+      "description": "Constructor setting owner = msg.sender and calling shuffle to initialize secretNumber.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "constructor"
+    },
+    {
+      "type": "function",
+      "description": "Payable guess function: validates number, records player, pays out entire balance to msg.sender on a correct guess, then reshuffles.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "guess"
+    },
+    {
+      "type": "function",
+      "description": "Internal function setting secretNumber from keccak256(block.timestamp, msg.sender) modulo 10 plus 1 (weak randomness).",
+      "is_core": true,
+      "node_id": 7,
+      "id": "shuffle"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only function that splits the contract balance 20% to megaman and 80% to owner.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "kill"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used as owner, player, randomness seed and transfer recipient.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "msg.sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Miner-influenceable timestamp used via now and block.timestamp for the lastPlayed field and the random seed.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "msg.sender.transfer(address(this).balance) external value transfer performed before the state update in shuffle; reentrancy-exposed.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "transfer_balance_to_sender"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "megaman.transfer((balance*20)/100) external transfer of 20% of the balance.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "transfer_to_megaman"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "owner.transfer((balance*80)/100) external transfer of 80% of the balance.",
+      "is_core": true,
+      "node_id": 13,
+      "id": "transfer_to_owner"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Arithmetic (balance*20)/100 and (balance*80)/100 splitting the balance for payout.",
+      "is_core": true,
+      "node_id": 14,
+      "id": "share_computation"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "secretNumber = uint8(keccak256(abi.encodePacked(block.timestamp, msg.sender))) % 10 + 1; insecure on-chain randomness.",
+      "is_core": true,
+      "node_id": 15,
+      "id": "shuffle_randomness"
+    },
+    {
+      "type": "parameter",
+      "description": "User-supplied guess value restricted to 0..10 by require.",
+      "is_core": false,
+      "node_id": 16,
+      "id": "number"
+    },
+    {
+      "type": "local_var",
+      "description": "Local Player struct holding msg.sender and msg.value, pushed into players.",
+      "is_core": false,
+      "node_id": 17,
+      "id": "player"
+    },
+    {
+      "type": "local_var",
+      "description": "Local uint256 capturing address(this).balance inside kill.",
+      "is_core": false,
+      "node_id": 18,
+      "id": "balance"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "msg.sender is the recipient of address(this).balance via transfer, allowing the caller to re-enter the contract.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "Constructor assigns owner directly from msg.sender, granting unrestricted ownership to the deployer.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "msg.sender is packed into the keccak256 seed for the secret number.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "block.timestamp is used as the randomness seed, so miners can bias secretNumber.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "lastPlayed is set to now, making the recorded play time miner-influenceable.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "shuffle writes secretNumber.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "secretNumber equality check gates the payout transfer to msg.sender.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "The number parameter is validated by require inside guess.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "The user-controlled guess decides whether the contract performs the full-balance transfer.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "msg.sender is the caller and recorded player of guess.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "controlflow",
+      "reason": "guess calls shuffle after every play to refresh secretNumber.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "controlflow",
+      "reason": "Constructor calls shuffle to initialize secretNumber.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 8,
+      "type": "controlflow",
+      "reason": "kill branches on require(msg.sender == owner).",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "The owner state variable is compared against the caller to authorize kill.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "The locally read balance funds the megaman transfer.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "The locally read balance funds the owner transfer.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "The (balance*20)/100 arithmetic result is the amount passed to megaman.transfer.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "The local player struct is pushed into the players array.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 6,
+      "type": "callback",
+      "reason": "The transfer to msg.sender executes before shuffle updates secretNumber, so the recipient can callback into guess and win again.",
+      "from_id": 11
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "guess",
+      "reason": "The number parameter is only meaningful inside guess, so it should be folded into the guess function node.",
+      "normal_node": "number"
+    },
+    {
+      "merge_into": "guess",
+      "reason": "The local player struct is constructed and pushed solely within guess and has no standalone identity.",
+      "normal_node": "player"
+    },
+    {
+      "merge_into": "kill",
+      "reason": "The local balance variable is a temporary copy of address(this).balance used only inside kill.",
+      "normal_node": "balance"
+    }
+  ]
+}

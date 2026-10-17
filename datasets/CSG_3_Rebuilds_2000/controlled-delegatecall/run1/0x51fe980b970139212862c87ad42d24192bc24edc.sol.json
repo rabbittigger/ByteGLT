@@ -1,0 +1,987 @@
+{
+  "nodes": [
+    {
+      "id": "st_owner",
+      "type": "state_var",
+      "node_id": 0,
+      "is_core": true,
+      "description": "BotProtected.owner: privileged address stored in the base contract"
+    },
+    {
+      "id": "st_stopTheBots",
+      "type": "state_var",
+      "node_id": 1,
+      "is_core": true,
+      "description": "BotProtected.stopTheBots: external Ferrum bot-protection contract invoked via low-level call"
+    },
+    {
+      "id": "st_uniPair",
+      "type": "state_var",
+      "node_id": 2,
+      "is_core": true,
+      "description": "BotProtected.uniPair: cached Uniswap V2 pair address"
+    },
+    {
+      "id": "st_balanceOf",
+      "type": "state_var",
+      "node_id": 3,
+      "is_core": true,
+      "description": "Vlaunch.balanceOf: token balance ledger mutated without SafeMath"
+    },
+    {
+      "id": "st_allowance",
+      "type": "state_var",
+      "node_id": 4,
+      "is_core": true,
+      "description": "Vlaunch.allowance: spender approval ledger mutated without SafeMath"
+    },
+    {
+      "id": "st_totalSupply",
+      "type": "state_var",
+      "node_id": 5,
+      "is_core": true,
+      "description": "Vlaunch.totalSupply: fixed 1e27 supply constant"
+    },
+    {
+      "id": "st_pancakeRouter",
+      "type": "state_var",
+      "node_id": 6,
+      "is_core": true,
+      "description": "Vlaunch.pancakeRouter: hardcoded Uniswap V2 router used for liquidity"
+    },
+    {
+      "id": "st_wrappedBinance",
+      "type": "state_var",
+      "node_id": 7,
+      "is_core": true,
+      "description": "Vlaunch.wrappedBinance: hardcoded WETH address used to derive the pair"
+    },
+    {
+      "id": "fn_botprotected_constructor",
+      "type": "function",
+      "node_id": 8,
+      "is_core": true,
+      "description": "BotProtected constructor: sets stopTheBots"
+    },
+    {
+      "id": "fn_checkBots",
+      "type": "function",
+      "node_id": 9,
+      "is_core": true,
+      "description": "checkBots modifier: external low-level call into stopTheBots before body execution"
+    },
+    {
+      "id": "fn_vlaunch_constructor",
+      "type": "function",
+      "node_id": 10,
+      "is_core": true,
+      "description": "Vlaunch constructor: owner = tx.origin, computes pair, grants infinite allowances"
+    },
+    {
+      "id": "fn_transfer",
+      "type": "function",
+      "node_id": 11,
+      "is_core": true,
+      "description": "transfer: forwards to transferFrom with msg.sender as sender"
+    },
+    {
+      "id": "fn_transferFrom",
+      "type": "function",
+      "node_id": 12,
+      "is_core": true,
+      "description": "transferFrom: payable, bot-checked, unchecked balance/allowance mutations"
+    },
+    {
+      "id": "fn_approve",
+      "type": "function",
+      "node_id": 13,
+      "is_core": true,
+      "description": "approve: writes allowance and emits Approval"
+    },
+    {
+      "id": "fn_delegate",
+      "type": "function",
+      "node_id": 14,
+      "is_core": true,
+      "description": "delegate: owner-only arbitrary delegatecall into attacker-controlled address"
+    },
+    {
+      "id": "fn_pairOfTokens",
+      "type": "function",
+      "node_id": 15,
+      "is_core": true,
+      "description": "pairOfTokens: CREATE2-style deterministic pair address derivation"
+    },
+    {
+      "id": "fn_distribute",
+      "type": "function",
+      "node_id": 16,
+      "is_core": true,
+      "description": "distribute: owner-only arbitrary balance assignment loop with external call"
+    },
+    {
+      "id": "fn_list",
+      "type": "function",
+      "node_id": 17,
+      "is_core": true,
+      "description": "list: owner-only liquidity listing, mints balance to caller, external calls"
+    },
+    {
+      "id": "ui_msg_sender",
+      "type": "untrusted_input",
+      "node_id": 18,
+      "is_core": true,
+      "description": "msg.sender used as caller/spender in transferFrom and approve"
+    },
+    {
+      "id": "ui_msg_sender_owner",
+      "type": "untrusted_input",
+      "node_id": 19,
+      "is_core": true,
+      "description": "msg.sender compared against owner in distribute/list access checks"
+    },
+    {
+      "id": "ui_tx_origin",
+      "type": "untrusted_input",
+      "node_id": 20,
+      "is_core": true,
+      "description": "tx.origin used to assign owner and to grant infinite pair allowance"
+    },
+    {
+      "id": "ui_block_timestamp",
+      "type": "untrusted_input",
+      "node_id": 21,
+      "is_core": true,
+      "description": "block.timestamp used to build the addLiquidityETH deadline"
+    },
+    {
+      "id": "uo_delegatecall",
+      "type": "unsafe_operation",
+      "node_id": 22,
+      "is_core": true,
+      "description": "a.delegatecall(b) executes arbitrary attacker code in this contract context"
+    },
+    {
+      "id": "uo_stopbots_call_check",
+      "type": "unsafe_operation",
+      "node_id": 23,
+      "is_core": true,
+      "description": "stopTheBots.call(0x15274141,...) low-level external call inside checkBots modifier"
+    },
+    {
+      "id": "uo_stopbots_call_distribute",
+      "type": "unsafe_operation",
+      "node_id": 24,
+      "is_core": true,
+      "description": "stopTheBots.call(0xd5eaf4c3,...) low-level external call inside distribute"
+    },
+    {
+      "id": "uo_stopbots_call_list",
+      "type": "unsafe_operation",
+      "node_id": 25,
+      "is_core": true,
+      "description": "stopTheBots.call(0xd5eaf4c3,...) low-level external call inside list"
+    },
+    {
+      "id": "uo_sub_balance_from",
+      "type": "unsafe_operation",
+      "node_id": 26,
+      "is_core": true,
+      "description": "balanceOf[_from] -= _value unchecked subtraction underflow"
+    },
+    {
+      "id": "uo_sub_allowance",
+      "type": "unsafe_operation",
+      "node_id": 27,
+      "is_core": true,
+      "description": "allowance[_from][msg.sender] -= _value unchecked subtraction underflow"
+    },
+    {
+      "id": "uo_add_balance_to",
+      "type": "unsafe_operation",
+      "node_id": 28,
+      "is_core": true,
+      "description": "balanceOf[_to] += _value unchecked addition overflow"
+    },
+    {
+      "id": "uo_addLiquidityETH",
+      "type": "unsafe_operation",
+      "node_id": 29,
+      "is_core": true,
+      "description": "pancakeRouter.addLiquidityETH external value call with user-controlled parameters"
+    },
+    {
+      "id": "uo_owner_from_txorigin",
+      "type": "unsafe_operation",
+      "node_id": 30,
+      "is_core": true,
+      "description": "owner = tx.origin lets phishing/malicious intermediaries become owner"
+    },
+    {
+      "id": "uo_require_owner_distribute",
+      "type": "unsafe_operation",
+      "node_id": 31,
+      "is_core": true,
+      "description": "require(msg.sender == owner) access gate in distribute"
+    },
+    {
+      "id": "uo_require_owner_list",
+      "type": "unsafe_operation",
+      "node_id": 32,
+      "is_core": true,
+      "description": "require(msg.sender == owner) access gate in list"
+    },
+    {
+      "id": "uo_set_balance_distribute",
+      "type": "unsafe_operation",
+      "node_id": 33,
+      "is_core": true,
+      "description": "balanceOf[_tooWho[i]] = amount arbitrary balance overwrite/mint in distribute"
+    },
+    {
+      "id": "uo_set_balance_list",
+      "type": "unsafe_operation",
+      "node_id": 34,
+      "is_core": true,
+      "description": "balanceOf[_tooWho[i]] = _amounts[i] arbitrary balance overwrite/mint in list"
+    },
+    {
+      "id": "uo_mint_caller_list",
+      "type": "unsafe_operation",
+      "node_id": 35,
+      "is_core": true,
+      "description": "balanceOf[msg.sender] = totalSupply * 6 / 100 privileged mint in list"
+    },
+    {
+      "id": "p_botprot_ctor_bp",
+      "type": "parameter",
+      "node_id": 36,
+      "is_core": false,
+      "description": "_botProtection parameter of BotProtected constructor"
+    },
+    {
+      "id": "p_checkBots_from",
+      "type": "parameter",
+      "node_id": 37,
+      "is_core": false,
+      "description": "_from parameter of checkBots modifier"
+    },
+    {
+      "id": "p_checkBots_to",
+      "type": "parameter",
+      "node_id": 38,
+      "is_core": false,
+      "description": "_to parameter of checkBots modifier"
+    },
+    {
+      "id": "p_checkBots_value",
+      "type": "parameter",
+      "node_id": 39,
+      "is_core": false,
+      "description": "_value parameter of checkBots modifier"
+    },
+    {
+      "id": "p_vlaunch_ctor_bp",
+      "type": "parameter",
+      "node_id": 40,
+      "is_core": false,
+      "description": "_botProtection parameter of Vlaunch constructor"
+    },
+    {
+      "id": "p_transfer_to",
+      "type": "parameter",
+      "node_id": 41,
+      "is_core": false,
+      "description": "_to parameter of transfer"
+    },
+    {
+      "id": "p_transfer_value",
+      "type": "parameter",
+      "node_id": 42,
+      "is_core": false,
+      "description": "_value parameter of transfer"
+    },
+    {
+      "id": "p_transferFrom_from",
+      "type": "parameter",
+      "node_id": 43,
+      "is_core": false,
+      "description": "_from parameter of transferFrom"
+    },
+    {
+      "id": "p_transferFrom_to",
+      "type": "parameter",
+      "node_id": 44,
+      "is_core": false,
+      "description": "_to parameter of transferFrom"
+    },
+    {
+      "id": "p_transferFrom_value",
+      "type": "parameter",
+      "node_id": 45,
+      "is_core": false,
+      "description": "_value parameter of transferFrom"
+    },
+    {
+      "id": "p_approve_spender",
+      "type": "parameter",
+      "node_id": 46,
+      "is_core": false,
+      "description": "_spender parameter of approve"
+    },
+    {
+      "id": "p_approve_value",
+      "type": "parameter",
+      "node_id": 47,
+      "is_core": false,
+      "description": "_value parameter of approve"
+    },
+    {
+      "id": "p_delegate_a",
+      "type": "parameter",
+      "node_id": 48,
+      "is_core": false,
+      "description": "a parameter of delegate (target address)"
+    },
+    {
+      "id": "p_delegate_b",
+      "type": "parameter",
+      "node_id": 49,
+      "is_core": false,
+      "description": "b parameter of delegate (calldata payload)"
+    },
+    {
+      "id": "p_pairOfTokens_tokenA",
+      "type": "parameter",
+      "node_id": 50,
+      "is_core": false,
+      "description": "tokenA parameter of pairOfTokens"
+    },
+    {
+      "id": "p_pairOfTokens_tokenB",
+      "type": "parameter",
+      "node_id": 51,
+      "is_core": false,
+      "description": "tokenB parameter of pairOfTokens"
+    },
+    {
+      "id": "p_distribute_tooWho",
+      "type": "parameter",
+      "node_id": 52,
+      "is_core": false,
+      "description": "_tooWho recipient array of distribute"
+    },
+    {
+      "id": "p_distribute_amount",
+      "type": "parameter",
+      "node_id": 53,
+      "is_core": false,
+      "description": "amount parameter of distribute"
+    },
+    {
+      "id": "p_list_numList",
+      "type": "parameter",
+      "node_id": 54,
+      "is_core": false,
+      "description": "_numList liquidity amount parameter of list"
+    },
+    {
+      "id": "p_list_tooWho",
+      "type": "parameter",
+      "node_id": 55,
+      "is_core": false,
+      "description": "_tooWho recipient array of list"
+    },
+    {
+      "id": "p_list_amounts",
+      "type": "parameter",
+      "node_id": 56,
+      "is_core": false,
+      "description": "_amounts amount array of list"
+    },
+    {
+      "id": "l_checkBots_notABot",
+      "type": "local_var",
+      "node_id": 57,
+      "is_core": false,
+      "description": "notABot bool returned by stopTheBots.call"
+    },
+    {
+      "id": "l_checkBots_isNotBot",
+      "type": "local_var",
+      "node_id": 58,
+      "is_core": false,
+      "description": "isNotBot raw bytes returned by stopTheBots.call"
+    },
+    {
+      "id": "l_pairOfTokens_token0",
+      "type": "local_var",
+      "node_id": 59,
+      "is_core": false,
+      "description": "token0 local in pairOfTokens"
+    },
+    {
+      "id": "l_pairOfTokens_token1",
+      "type": "local_var",
+      "node_id": 60,
+      "is_core": false,
+      "description": "token1 local in pairOfTokens"
+    },
+    {
+      "id": "l_pairOfTokens_pair",
+      "type": "local_var",
+      "node_id": 61,
+      "is_core": false,
+      "description": "pair local returned by pairOfTokens"
+    },
+    {
+      "id": "l_delegate_success",
+      "type": "local_var",
+      "node_id": 62,
+      "is_core": false,
+      "description": "success bool returned by delegatecall"
+    },
+    {
+      "id": "l_distribute_i",
+      "type": "local_var",
+      "node_id": 63,
+      "is_core": false,
+      "description": "i loop index in distribute"
+    },
+    {
+      "id": "l_list_i",
+      "type": "local_var",
+      "node_id": 64,
+      "is_core": false,
+      "description": "i loop index in list"
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "msg.sender is used as the caller/from-account in transferFrom"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 13,
+      "vuln_type": "none",
+      "reason": "msg.sender indexes allowance in approve"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 19,
+      "to_id": 16,
+      "vuln_type": "access_control",
+      "reason": "msg.sender == owner gate controls distribute execution"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 19,
+      "to_id": 17,
+      "vuln_type": "access_control",
+      "reason": "msg.sender == owner gate controls list execution"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 20,
+      "to_id": 30,
+      "vuln_type": "access_control",
+      "reason": "tx.origin is assigned to the owner state variable"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 29,
+      "vuln_type": "access_control",
+      "reason": "block.timestamp + 600 determines the liquidity deadline"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 26,
+      "vuln_type": "arithmetic",
+      "reason": "balanceOf[_from] read then decremented without SafeMath"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 28,
+      "vuln_type": "arithmetic",
+      "reason": "balanceOf[_to] read then incremented without SafeMath"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 33,
+      "vuln_type": "arithmetic",
+      "reason": "balanceOf entries are overwritten in distribute"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 34,
+      "vuln_type": "arithmetic",
+      "reason": "balanceOf entries are overwritten in list"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 35,
+      "vuln_type": "arithmetic",
+      "reason": "balanceOf[msg.sender] set from totalSupply arithmetic"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 27,
+      "vuln_type": "arithmetic",
+      "reason": "allowance[_from][msg.sender] decremented without SafeMath"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 35,
+      "vuln_type": "arithmetic",
+      "reason": "totalSupply * 6 / 100 feeds the mint in list"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 23,
+      "vuln_type": "none",
+      "reason": "stopTheBots address is the callee of the checkBots call"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 24,
+      "vuln_type": "none",
+      "reason": "stopTheBots address is the callee of the distribute call"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 25,
+      "vuln_type": "none",
+      "reason": "stopTheBots address is the callee of the list call"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 29,
+      "vuln_type": "none",
+      "reason": "pancakeRouter is the callee of addLiquidityETH"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 15,
+      "vuln_type": "none",
+      "reason": "wrappedBinance is passed into pairOfTokens"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 23,
+      "vuln_type": "none",
+      "reason": "uniPair is passed as an argument to the stopTheBots call"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 31,
+      "vuln_type": "access_control",
+      "reason": "owner is the reference for the distribute access check"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 32,
+      "vuln_type": "access_control",
+      "reason": "owner is the reference for the list access check"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 48,
+      "to_id": 22,
+      "vuln_type": "none",
+      "reason": "user-supplied address a is the delegatecall target"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 49,
+      "to_id": 22,
+      "vuln_type": "none",
+      "reason": "user-supplied bytes b is the delegatecall payload"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 36,
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "constructor parameter assigned to stopTheBots"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 37,
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "_from flows into the checkBots external call"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 38,
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "_to flows into the checkBots external call"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 39,
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "_value flows into the checkBots external call"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 40,
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "_botProtection forwarded to BotProtected constructor"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 41,
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "_to forwarded from transfer to transferFrom"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 42,
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "_value forwarded from transfer to transferFrom"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 43,
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "_from used in checkBots and balance updates"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 44,
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "_to used in checkBots and balance updates"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 45,
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "_value drives allowance and balance arithmetic"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 46,
+      "to_id": 13,
+      "vuln_type": "none",
+      "reason": "_spender writes the allowance mapping"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 47,
+      "to_id": 13,
+      "vuln_type": "none",
+      "reason": "_value writes the allowance mapping"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 48,
+      "to_id": 14,
+      "vuln_type": "none",
+      "reason": "address a selects the delegatecall target"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 49,
+      "to_id": 14,
+      "vuln_type": "none",
+      "reason": "bytes b is the delegatecall payload"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 50,
+      "to_id": 15,
+      "vuln_type": "none",
+      "reason": "tokenA participates in pair derivation"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 51,
+      "to_id": 15,
+      "vuln_type": "none",
+      "reason": "tokenB participates in pair derivation"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 52,
+      "to_id": 16,
+      "vuln_type": "none",
+      "reason": "_tooWho drives the distribute loop and balances"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 53,
+      "to_id": 16,
+      "vuln_type": "none",
+      "reason": "amount is written into every recipient balance"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 54,
+      "to_id": 17,
+      "vuln_type": "none",
+      "reason": "_numList sets the contract balance and liquidity amount"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 55,
+      "to_id": 17,
+      "vuln_type": "none",
+      "reason": "_tooWho drives the list loop and balances"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 56,
+      "to_id": 17,
+      "vuln_type": "none",
+      "reason": "_amounts are written into recipient balances"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 57,
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "notABot result gates execution of the modified function"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 58,
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "isNotBot raw return data is decoded in checkBots"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 59,
+      "to_id": 15,
+      "vuln_type": "none",
+      "reason": "token0 local computed inside pairOfTokens"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 60,
+      "to_id": 15,
+      "vuln_type": "none",
+      "reason": "token1 local computed inside pairOfTokens"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 61,
+      "to_id": 15,
+      "vuln_type": "none",
+      "reason": "pair local returned by pairOfTokens"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 62,
+      "to_id": 14,
+      "vuln_type": "none",
+      "reason": "success flag returned by delegate"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 63,
+      "to_id": 16,
+      "vuln_type": "none",
+      "reason": "loop index in distribute"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 64,
+      "to_id": 17,
+      "vuln_type": "none",
+      "reason": "loop index in list"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 11,
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "transfer delegates all logic to transferFrom"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 12,
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "checkBots modifier runs before transferFrom body"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 9,
+      "to_id": 23,
+      "vuln_type": "none",
+      "reason": "modifier performs the low-level stopTheBots call"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 14,
+      "to_id": 22,
+      "vuln_type": "none",
+      "reason": "delegate executes the delegatecall operation"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 16,
+      "to_id": 31,
+      "vuln_type": "access_control",
+      "reason": "distribute requires msg.sender == owner first"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 16,
+      "to_id": 24,
+      "vuln_type": "none",
+      "reason": "distribute invokes the stopTheBots low-level call"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 16,
+      "to_id": 33,
+      "vuln_type": "none",
+      "reason": "distribute loop assigns balances"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 17,
+      "to_id": 32,
+      "vuln_type": "access_control",
+      "reason": "list requires msg.sender == owner first"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 17,
+      "to_id": 25,
+      "vuln_type": "none",
+      "reason": "list invokes the stopTheBots low-level call"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 17,
+      "to_id": 29,
+      "vuln_type": "none",
+      "reason": "list calls addLiquidityETH with contract ETH"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 17,
+      "to_id": 34,
+      "vuln_type": "none",
+      "reason": "list loop assigns recipient balances"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 17,
+      "to_id": 35,
+      "vuln_type": "none",
+      "reason": "list mints a balance to the caller"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 10,
+      "to_id": 15,
+      "vuln_type": "none",
+      "reason": "constructor calls pairOfTokens"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 10,
+      "to_id": 20,
+      "vuln_type": "access_control",
+      "reason": "constructor reads tx.origin to set owner"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "derived pair address is stored into uniPair"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 26,
+      "vuln_type": "arithmetic",
+      "reason": "transferFrom performs unchecked subtraction on sender balance"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 27,
+      "vuln_type": "arithmetic",
+      "reason": "transferFrom performs unchecked subtraction on allowance"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 28,
+      "vuln_type": "arithmetic",
+      "reason": "transferFrom performs unchecked addition on recipient balance"
+    },
+    {
+      "type": "callback",
+      "from_id": 23,
+      "to_id": 9,
+      "vuln_type": "reentrancy",
+      "reason": "external stopTheBots call can re-enter the bot-checked function"
+    },
+    {
+      "type": "callback",
+      "from_id": 24,
+      "to_id": 16,
+      "vuln_type": "reentrancy",
+      "reason": "external stopTheBots call in distribute can re-enter distribute"
+    },
+    {
+      "type": "callback",
+      "from_id": 25,
+      "to_id": 17,
+      "vuln_type": "reentrancy",
+      "reason": "external stopTheBots call in list can re-enter list"
+    },
+    {
+      "type": "callback",
+      "from_id": 29,
+      "to_id": 17,
+      "vuln_type": "reentrancy",
+      "reason": "addLiquidityETH external call can re-enter list before state is settled"
+    },
+    {
+      "type": "callback",
+      "from_id": 22,
+      "to_id": 14,
+      "vuln_type": "reentrancy",
+      "reason": "delegatecall executes arbitrary external code in this contract's context"
+    }
+  ],
+  "normalization_plan": []
+}

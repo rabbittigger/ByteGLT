@@ -1,0 +1,282 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "description": "Constant state variable NUM_TRAITS = 9, bounds the trait arrays and loops in roll().",
+      "id": "NUM_TRAITS",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "description": "Constant state variable MAX_LENGTH = 40, bounds the gene tables and inner loop in roll().",
+      "id": "MAX_LENGTH",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "description": "External view function roll(uint seed, uint nonce) that derives pseudo-random traits from block.difficulty, seed, block.timestamp and nonce.",
+      "id": "roll",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "description": "Caller-supplied seed parameter used as keccak256 entropy input.",
+      "id": "seed",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 4,
+      "description": "Caller-supplied nonce parameter used as keccak256 entropy input.",
+      "id": "nonce",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 5,
+      "description": "Local uint[NUM_TRAITS] array holding the rolled traits and returned by roll().",
+      "id": "traits",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 6,
+      "description": "Local 4x40x9 cumulative gene probability table used to map traitSeed to trait values.",
+      "id": "genes",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 7,
+      "description": "Local 2x2 race threshold table used to select the race trait.",
+      "id": "races",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 8,
+      "description": "Local pseudo-random seed computed via keccak256(block.difficulty, seed, block.timestamp, nonce++).",
+      "id": "randomSeed",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 9,
+      "description": "Local race index selected by comparing randomSeed against race thresholds.",
+      "id": "r",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 10,
+      "description": "Loop index used over races and NUM_TRAITS loops.",
+      "id": "i",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 11,
+      "description": "Local modulo-derived seed used to index the gene probability tables.",
+      "id": "traitSeed",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 12,
+      "description": "Inner loop index over MAX_LENGTH gene table entries.",
+      "id": "j",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 13,
+      "description": "Miner/validator-controlled block timestamp used as entropy in the pseudo-random seed.",
+      "id": "block.timestamp",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 14,
+      "description": "Pseudo-random seed generation via keccak256(block.difficulty, seed, block.timestamp, nonce++), a timestamp-dependent and predictably influenceable randomness source.",
+      "id": "random_seed_generation",
+      "type": "unsafe_operation",
+      "is_core": true
+    }
+  ],
+  "edges": [
+    {
+      "reason": "block.timestamp is fed directly into the keccak256 pseudo-random seed generation, creating timestamp dependency.",
+      "vuln_type": "access_control",
+      "to_id": 14,
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "reason": "roll() unconditionally performs the timestamp-dependent random seed generation, so all trait outcomes depend on the block timestamp.",
+      "vuln_type": "access_control",
+      "to_id": 14,
+      "type": "controlflow",
+      "from_id": 2
+    },
+    {
+      "reason": "Local randomSeed is assigned from the unsafe keccak256 seed generation.",
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "from_id": 14
+    },
+    {
+      "reason": "roll() consumes the seed parameter as entropy input.",
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "reason": "roll() consumes the nonce parameter as entropy input.",
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "reason": "seed is packed into the keccak256 computation that produces randomSeed.",
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "reason": "nonce is packed into the keccak256 computation that produces randomSeed.",
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "reason": "NUM_TRAITS determines the size of traits and the outer loop bound in roll().",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "reason": "MAX_LENGTH determines the size of the gene tables and the inner loop bound in roll().",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "reason": "traitSeed is derived by modulo of randomSeed against the gene conversion table.",
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "reason": "traitSeed selects the entry written into the traits array.",
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "from_id": 11
+    },
+    {
+      "reason": "Selected race index r writes races[0][r] into traits[0].",
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "reason": "genes table entries determine the trait values assigned into traits.",
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "reason": "races table thresholds determine the race value assigned into traits[0].",
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "reason": "traits is returned by roll() and post-processed by the trait override conditionals.",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "reason": "Loop index i drives the race and trait generation loops inside roll().",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "controlflow",
+      "from_id": 10
+    },
+    {
+      "reason": "Inner loop index j drives the gene table scan inside roll().",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "controlflow",
+      "from_id": 12
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Parameter seed is only meaningful as an input to the roll() function and should be absorbed into the function node.",
+      "merge_into": "roll",
+      "normal_node": "seed"
+    },
+    {
+      "reason": "Parameter nonce is only meaningful as an input to the roll() function and should be absorbed into the function node.",
+      "merge_into": "roll",
+      "normal_node": "nonce"
+    },
+    {
+      "reason": "Local traits is the return buffer of roll() and is defined solely by that function.",
+      "merge_into": "roll",
+      "normal_node": "traits"
+    },
+    {
+      "reason": "Local genes table is a constant lookup structure used only inside roll().",
+      "merge_into": "roll",
+      "normal_node": "genes"
+    },
+    {
+      "reason": "Local races table is a constant lookup structure used only inside roll().",
+      "merge_into": "roll",
+      "normal_node": "races"
+    },
+    {
+      "reason": "Local randomSeed exists only as the result of the unsafe seed generation operation.",
+      "merge_into": "random_seed_generation",
+      "normal_node": "randomSeed"
+    },
+    {
+      "reason": "Local r is a race index used only within roll()'s trait selection logic.",
+      "merge_into": "roll",
+      "normal_node": "r"
+    },
+    {
+      "reason": "Local loop index i is a control artifact of roll() and has no independent meaning.",
+      "merge_into": "roll",
+      "normal_node": "i"
+    },
+    {
+      "reason": "Local traitSeed is an intermediate derived value used only inside roll().",
+      "merge_into": "roll",
+      "normal_node": "traitSeed"
+    },
+    {
+      "reason": "Local loop index j is a control artifact of roll() and has no independent meaning.",
+      "merge_into": "roll",
+      "normal_node": "j"
+    }
+  ]
+}

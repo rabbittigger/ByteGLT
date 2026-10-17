@@ -1,0 +1,165 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Public state variable holding the Registry interface instance used for attribute lookups and writes.",
+      "id": "registry",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Constant bytes32 attribute key 'isDepositAddress' used when registering deposit addresses.",
+      "id": "IS_DEPOSIT_ADDRESS",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Constructor that casts the supplied address into the Registry interface and stores it in registry.",
+      "id": "constructor",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "Public function deriving a shifted address from msg.sender, checking the registry attribute and storing msg.sender as attribute value.",
+      "id": "registerDepositAddress",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "Payable fallback function that registers the deposit address and refunds msg.value to the caller.",
+      "id": "fallback",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "msg.sender, an attacker-controlled address used for shifting, registration and the refund transfer.",
+      "id": "msg_sender",
+      "type": "untrusted_input",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "External call to registry.setAttributeValue, interacting with a potentially untrusted registry contract.",
+      "id": "call_setAttributeValue",
+      "type": "unsafe_operation",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "External view call to registry.hasAttribute used in the require guard.",
+      "id": "call_hasAttribute",
+      "type": "unsafe_operation",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "External value transfer msg.sender.transfer(msg.value) that sends Ether to an untrusted caller.",
+      "id": "call_transfer",
+      "type": "unsafe_operation",
+      "node_id": 8
+    },
+    {
+      "is_core": false,
+      "description": "Constructor parameter _registry holding the address later cast to the Registry interface.",
+      "id": "param_registry",
+      "type": "parameter",
+      "node_id": 9
+    },
+    {
+      "is_core": false,
+      "description": "Local variable shiftedAddress = address(uint(msg.sender) >> 20) computed from msg.sender.",
+      "id": "local_shiftedAddress",
+      "type": "local_var",
+      "node_id": 10
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "Constructor assigns the cast Registry instance into the registry state variable.",
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "Constructor parameter _registry flows into the constructor body.",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "shiftedAddress is derived from msg.sender via a right shift.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "reason": "msg.sender (as uint) is written into the registry attribute, binding the account to the shifted address.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "reentrancy",
+      "reason": "Ether is sent back to the untrusted msg.sender, enabling reentrant behavior.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "registerDepositAddress calls registry.hasAttribute inside the require guard.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "registerDepositAddress performs the external registry.setAttributeValue call.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "The fallback function invokes registerDepositAddress.",
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "The fallback function executes the msg.sender.transfer refund.",
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "reentrancy",
+      "reason": "Transferring Ether to msg.sender can re-enter the payable fallback before state changes settle.",
+      "type": "callback",
+      "from_id": 8
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "constructor",
+      "reason": "The constructor parameter _registry is only used to initialize the registry state variable inside the constructor.",
+      "normal_node": "param_registry"
+    },
+    {
+      "merge_into": "registerDepositAddress",
+      "reason": "shiftedAddress is a temporary local computed and consumed solely inside registerDepositAddress.",
+      "normal_node": "local_shiftedAddress"
+    }
+  ]
+}

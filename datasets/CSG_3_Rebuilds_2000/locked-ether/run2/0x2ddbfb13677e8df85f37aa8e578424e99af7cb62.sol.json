@@ -1,0 +1,163 @@
+{
+  "nodes": [
+    {
+      "id": "Proxy.PROXIABLE_MEM_SLOT",
+      "description": "Constant storage slot (keccak256(\"PROXIABLE\")) holding the address of the implementation/logic contract used by the proxy.",
+      "type": "state_var",
+      "node_id": 0,
+      "is_core": true
+    },
+    {
+      "id": "Proxy.constructor(address)",
+      "description": "Public constructor that validates contractLogic is non-zero and stores it in the PROXIABLE slot via inline assembly.",
+      "type": "function",
+      "node_id": 1,
+      "is_core": true
+    },
+    {
+      "id": "Proxy.fallback()",
+      "description": "Payable fallback that forwards all calldata to the stored logic address using delegatecall, propagating return data or reverting.",
+      "type": "function",
+      "node_id": 2,
+      "is_core": true
+    },
+    {
+      "id": "contractLogic",
+      "description": "Constructor parameter holding the implementation contract address that will be written into the PROXIABLE mem slot.",
+      "type": "parameter",
+      "node_id": 3,
+      "is_core": false
+    },
+    {
+      "id": "msg.sender",
+      "description": "External caller; any account can invoke the payable fallback and thereby drive the delegatecall with arbitrary calldata.",
+      "type": "untrusted_input",
+      "node_id": 4,
+      "is_core": true
+    },
+    {
+      "id": "assembly.sstore(PROXIABLE_MEM_SLOT, contractLogic)",
+      "description": "Raw inline-assembly sstore writing the implementation address directly into a fixed storage slot, bypassing Solidity storage layout checks.",
+      "type": "unsafe_operation",
+      "node_id": 5,
+      "is_core": true
+    },
+    {
+      "id": "assembly.delegatecall(contractLogic)",
+      "description": "Raw delegatecall to the implementation address loaded from storage, executing arbitrary external code with the proxy's storage, balance and address.",
+      "type": "unsafe_operation",
+      "node_id": 6,
+      "is_core": true
+    },
+    {
+      "id": "assembly.calldatacopy/calldatasize",
+      "description": "Unbounded copying of the caller-supplied calldata into memory and its length passed straight into delegatecall, giving the callee full control over executed bytecode.",
+      "type": "unsafe_operation",
+      "node_id": 7,
+      "is_core": true
+    },
+    {
+      "id": "logicAddr (sload result)",
+      "description": "Local assembly value produced by sload(PROXIABLE_MEM_SLOT); it becomes the delegatecall target and is not validated at call time.",
+      "type": "local_var",
+      "node_id": 8,
+      "is_core": false
+    },
+    {
+      "id": "success",
+      "description": "Local assembly flag returned by delegatecall that selects between revert and return of the returndata.",
+      "type": "local_var",
+      "node_id": 9,
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "type": "controlflow",
+      "reason": "The constructor body executes the inline-assembly sstore that persists the implementation address.",
+      "to_id": 5,
+      "from_id": 1,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The contractLogic parameter value is written verbatim into the fixed PROXIABLE storage slot.",
+      "to_id": 5,
+      "from_id": 3,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "contractLogic is the constructor argument consumed by the constructor's zero-address require check.",
+      "to_id": 1,
+      "from_id": 3,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The PROXIABLE_MEM_SLOT constant is used as the storage key of the assembly sstore.",
+      "to_id": 5,
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "type": "controlflow",
+      "reason": "The fallback body unconditionally reaches the delegatecall instruction with the caller-supplied calldata.",
+      "to_id": 6,
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "sload(PROXIABLE_MEM_SLOT) reads the slot constant to produce the logicAddr local.",
+      "to_id": 8,
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The delegatecall target comes straight from storage and receives execution rights over the proxy without any per-call authorisation check.",
+      "to_id": 6,
+      "from_id": 8,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "dataflow",
+      "reason": "Arbitrary caller calldata copied at unsafe_operation 7 is forwarded as the calldata of the delegatecall.",
+      "to_id": 6,
+      "from_id": 7,
+      "vuln_type": "none"
+    },
+    {
+      "type": "controlflow",
+      "reason": "Any external account (msg.sender) can trigger the payable fallback, so access to the delegatecall path is unrestricted.",
+      "to_id": 2,
+      "from_id": 4,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "callback",
+      "reason": "The delegatecalled implementation runs in the proxy's context and can re-enter the proxy fallback (directly or via callbacks) while the original call is still executing.",
+      "to_id": 2,
+      "from_id": 6,
+      "vuln_type": "reentrancy"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The contractLogic parameter has no independent semantic role; it flows directly into the assembly sstore that writes the PROXIABLE slot, so it should be folded into that unsafe_operation.",
+      "normal_node": "contractLogic",
+      "merge_into": "assembly.sstore(PROXIABLE_MEM_SLOT, contractLogic)"
+    },
+    {
+      "reason": "The sload result local is only used as the target of the delegatecall and carries no separate meaning, so it should be merged into the delegatecall unsafe_operation.",
+      "normal_node": "logicAddr (sload result)",
+      "merge_into": "assembly.delegatecall(contractLogic)"
+    },
+    {
+      "reason": "The success flag exists solely to branch on the delegatecall result and should be absorbed into the delegatecall unsafe_operation.",
+      "normal_node": "success",
+      "merge_into": "assembly.delegatecall(contractLogic)"
+    }
+  ]
+}

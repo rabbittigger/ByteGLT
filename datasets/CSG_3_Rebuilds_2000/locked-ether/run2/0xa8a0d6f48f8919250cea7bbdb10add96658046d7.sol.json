@@ -1,0 +1,256 @@
+{
+  "nodes": [
+    {
+      "id": "proposals",
+      "description": "mapping(address => mapping(bytes32 => ProposalDetails)) public proposals; stores all NFT tribute proposals handled by each DAO.",
+      "type": "state_var",
+      "node_id": 0,
+      "is_core": true
+    },
+    {
+      "id": "receive",
+      "description": "receive() external payable fallback that reverts with 'fallback revert' to prevent ether being sent to the contract.",
+      "type": "function",
+      "node_id": 1,
+      "is_core": true
+    },
+    {
+      "id": "configureDao",
+      "description": "configureDao(DaoRegistry dao) external onlyAdapter(dao); registers the DAO internal token UNITS with the DAO Bank.",
+      "type": "function",
+      "node_id": 2,
+      "is_core": true
+    },
+    {
+      "id": "submitProposal",
+      "description": "submitProposal(...) external reentrancyGuard(dao); creates and sponsors a tribute proposal, resolves sponsor via voting contract getSenderAddress and stores proposal details.",
+      "type": "function",
+      "node_id": 3,
+      "is_core": true
+    },
+    {
+      "id": "processProposal",
+      "description": "processProposal(DaoRegistry dao, bytes32 proposalId) external reentrancyGuard(dao); after a passed vote collects the NFT via the NFT extension and mints/bank-credits UNITS to the applicant.",
+      "type": "function",
+      "node_id": 4,
+      "is_core": true
+    },
+    {
+      "id": "msg.sender",
+      "description": "msg.sender, the externally controlled caller; used in onlyAdapter checks, reentrancyGuard lock flow and the voting contract sender resolution.",
+      "type": "untrusted_input",
+      "node_id": 5,
+      "is_core": true
+    },
+    {
+      "id": "nftExt.collect",
+      "description": "External call to NFTExtension.collect(nftAddr, nftTokenId) which performs erc721.safeTransferFrom, invoking an untrusted receiver callback (potential reentrancy).",
+      "type": "unsafe_operation",
+      "node_id": 6,
+      "is_core": true
+    },
+    {
+      "id": "bank.addToBalance",
+      "description": "External call to BankExtension.addToBalance(applicant, UNITS, requestAmount) that credits the applicant with the requested DAO internal tokens.",
+      "type": "unsafe_operation",
+      "node_id": 7,
+      "is_core": true
+    },
+    {
+      "id": "votingContract.getSenderAddress",
+      "description": "External call to IVoting.getSenderAddress(dao, address(this), data, msg.sender) used to derive the proposal sponsor; attacker-influenced external call.",
+      "type": "unsafe_operation",
+      "node_id": 8,
+      "is_core": true
+    },
+    {
+      "id": "dao.lockSession",
+      "description": "External state-changing call in the reentrancyGuard modifier (dao.lockSession()/dao.unlockSession()) that sets the DAO lockedAt session keyed to block.number.",
+      "type": "unsafe_operation",
+      "node_id": 9,
+      "is_core": true
+    },
+    {
+      "id": "param_dao",
+      "description": "Function parameter dao (DaoRegistry) used by configureDao, submitProposal and processProposal.",
+      "type": "parameter",
+      "node_id": 10,
+      "is_core": false
+    },
+    {
+      "id": "param_proposalId",
+      "description": "Function parameter proposalId (bytes32) identifying the tribute proposal.",
+      "type": "parameter",
+      "node_id": 11,
+      "is_core": false
+    },
+    {
+      "id": "param_applicant",
+      "description": "Function parameter applicant (address) receiving DAO internal tokens and membership; validated with isNotReservedAddress.",
+      "type": "parameter",
+      "node_id": 12,
+      "is_core": false
+    },
+    {
+      "id": "param_nftAddr",
+      "description": "Function parameter nftAddr (address) of the ERC-721 token transferred to the DAO as tribute.",
+      "type": "parameter",
+      "node_id": 13,
+      "is_core": false
+    },
+    {
+      "id": "param_nftTokenId",
+      "description": "Function parameter nftTokenId (uint256) identifier of the tribute NFT.",
+      "type": "parameter",
+      "node_id": 14,
+      "is_core": false
+    },
+    {
+      "id": "param_requestAmount",
+      "description": "Function parameter requestAmount (uint256) amount of DAO internal tokens (UNITS) requested.",
+      "type": "parameter",
+      "node_id": 15,
+      "is_core": false
+    },
+    {
+      "id": "param_data",
+      "description": "Function parameter data (bytes) forwarded to the voting adapter calls.",
+      "type": "parameter",
+      "node_id": 16,
+      "is_core": false
+    },
+    {
+      "id": "local_proposal",
+      "description": "Local ProposalDetails storage reference proposal in processProposal read from the proposals mapping.",
+      "type": "local_var",
+      "node_id": 17,
+      "is_core": false
+    },
+    {
+      "id": "local_voteResult",
+      "description": "Local IVoting.VotingState voteResult returned by votingContract.voteResult and used to branch the payout logic.",
+      "type": "local_var",
+      "node_id": 18,
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "reason": "msg.sender is passed into votingContract.getSenderAddress to derive sponsoredBy, so the caller controls the sponsor identity of the proposal.",
+      "to_id": 3,
+      "from_id": 5,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "dataflow",
+      "reason": "onlyAdapter(dao) validates msg.sender via dao.state()/dao.isAdapter, making the caller the access-control subject of configureDao.",
+      "to_id": 2,
+      "from_id": 5,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "dataflow",
+      "reason": "processProposal relies on reentrancyGuard(dao) and adapter state checks that depend on msg.sender before releasing funds.",
+      "to_id": 4,
+      "from_id": 5,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "dataflow",
+      "reason": "submitProposal writes the new ProposalDetails entry into the proposals mapping.",
+      "to_id": 3,
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "processProposal reads the stored ProposalDetails (nftAddr, nftTokenId, applicant, requestAmount) from the proposals mapping.",
+      "to_id": 4,
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "type": "callback",
+      "reason": "submitProposal makes an external call to the untrusted voting adapter getSenderAddress before completing its state updates.",
+      "to_id": 8,
+      "from_id": 3,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "callback",
+      "reason": "processProposal performs the external NFT collect call (erc721.safeTransferFrom) which hands control to an untrusted NFT contract/receiver.",
+      "to_id": 6,
+      "from_id": 4,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "dataflow",
+      "reason": "processProposal forwards proposal.requestAmount to bank.addToBalance to credit the applicant with UNITS.",
+      "to_id": 7,
+      "from_id": 4,
+      "vuln_type": "none"
+    },
+    {
+      "type": "controlflow",
+      "reason": "The reentrancyGuard on processProposal calls dao.lockSession()/dao.unlockSession() to gate reentry around the payout.",
+      "to_id": 9,
+      "from_id": 4,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "controlflow",
+      "reason": "The reentrancyGuard on submitProposal calls dao.lockSession()/dao.unlockSession() to gate reentry during proposal creation.",
+      "to_id": 9,
+      "from_id": 3,
+      "vuln_type": "reentrancy"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The dao parameter is the registry object dereferenced throughout processProposal (voting adapter, extensions, processProposal call) and should be folded into that core function.",
+      "normal_node": "param_dao",
+      "merge_into": "processProposal"
+    },
+    {
+      "reason": "proposalId is the key under which submitProposal stores the proposal and is consumed directly by that core function.",
+      "normal_node": "param_proposalId",
+      "merge_into": "submitProposal"
+    },
+    {
+      "reason": "applicant is validated with isNotReservedAddress and stored into the proposals mapping inside submitProposal.",
+      "normal_node": "param_applicant",
+      "merge_into": "submitProposal"
+    },
+    {
+      "reason": "nftAddr is passed directly as the NFT contract argument of the collect unsafe external call.",
+      "normal_node": "param_nftAddr",
+      "merge_into": "nftExt.collect"
+    },
+    {
+      "reason": "nftTokenId is passed directly as the token identifier argument of the collect unsafe external call.",
+      "normal_node": "param_nftTokenId",
+      "merge_into": "nftExt.collect"
+    },
+    {
+      "reason": "requestAmount is the amount argument forwarded to the bank.addToBalance unsafe external call.",
+      "normal_node": "param_requestAmount",
+      "merge_into": "bank.addToBalance"
+    },
+    {
+      "reason": "data is forwarded unchanged to the voting adapter getSenderAddress external call.",
+      "normal_node": "param_data",
+      "merge_into": "votingContract.getSenderAddress"
+    },
+    {
+      "reason": "The storage pointer proposal exists only inside processProposal and is merged into that core function.",
+      "normal_node": "local_proposal",
+      "merge_into": "processProposal"
+    },
+    {
+      "reason": "voteResult is computed and branched on only inside processProposal, so it merges into that core function.",
+      "normal_node": "local_voteResult",
+      "merge_into": "processProposal"
+    }
+  ]
+}

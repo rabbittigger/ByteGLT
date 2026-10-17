@@ -1,0 +1,265 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Private address state variable holding the Uniswap V2 router address used to perform swaps.",
+      "id": "UniBasedDex.uniswapRouter",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Private address state variable holding the Uniswap V2 factory address.",
+      "id": "UniBasedDex.uniswapFactory",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Public override function that pulls tokens from spender and swaps them via the configured Uniswap V2 router, returning the received output amount.",
+      "id": "UniBasedDex.doSwap",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "Constructor setting the router and factory addresses for the DEX adapter.",
+      "id": "UniBasedDex.constructor",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "Receive fallback allowing the contract to accept native ETH.",
+      "id": "UniBasedDex.receive",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "Block timestamp used as the swap deadline argument, making execution time-dependent.",
+      "id": "block.timestamp",
+      "type": "untrusted_input",
+      "node_id": 5
+    },
+    {
+      "is_core": false,
+      "description": "Amount of sell token to transfer in and swap.",
+      "id": "doSwap.amountIn",
+      "type": "parameter",
+      "node_id": 6
+    },
+    {
+      "is_core": false,
+      "description": "Minimum acceptable amount of buy token out of the swap.",
+      "id": "doSwap.minAmountOut",
+      "type": "parameter",
+      "node_id": 7
+    },
+    {
+      "is_core": false,
+      "description": "Address from which the sell tokens are pulled via transferFrom.",
+      "id": "doSwap.spender",
+      "type": "parameter",
+      "node_id": 8
+    },
+    {
+      "is_core": false,
+      "description": "Recipient address that receives the swapped output tokens.",
+      "id": "doSwap.target",
+      "type": "parameter",
+      "node_id": 9
+    },
+    {
+      "is_core": false,
+      "description": "Array of token addresses describing the swap path.",
+      "id": "doSwap.path",
+      "type": "parameter",
+      "node_id": 10
+    },
+    {
+      "is_core": false,
+      "description": "Local variable derived from the last element of path, representing the bought token.",
+      "id": "doSwap.buyToken",
+      "type": "local_var",
+      "node_id": 11
+    },
+    {
+      "is_core": false,
+      "description": "Local variable derived from the first element of path, representing the sold token.",
+      "id": "doSwap.sellToken",
+      "type": "local_var",
+      "node_id": 12
+    },
+    {
+      "is_core": false,
+      "description": "Local array holding the amounts returned by the router swap call.",
+      "id": "doSwap.returned",
+      "type": "local_var",
+      "node_id": 13
+    },
+    {
+      "is_core": true,
+      "description": "External call to IUniswapV2Router02.swapExactTokensForTokens with user-controlled path, target and timestamp deadline; can transfer control to arbitrary path tokens.",
+      "id": "doSwap.externalSwapCall",
+      "type": "unsafe_operation",
+      "node_id": 14
+    },
+    {
+      "is_core": true,
+      "description": "ERC20 safeTransferFrom pulling amountIn sell tokens from the spender into this contract before the swap.",
+      "id": "doSwap.safeTransferFrom",
+      "type": "unsafe_operation",
+      "node_id": 15
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 15,
+      "vuln_type": "none",
+      "reason": "amountIn parameter is passed as the value transferred from spender into the contract.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "none",
+      "reason": "spender parameter is the source address of the safeTransferFrom call.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "none",
+      "reason": "User-supplied path array is forwarded to the router swap call.",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "none",
+      "reason": "minAmountOut is passed as the swap slippage protection argument.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "none",
+      "reason": "target address is passed as the swap output recipient.",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "access_control",
+      "reason": "block.timestamp is used as the swap deadline, making the swap outcome time-dependent and manipulable by miners.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "buyToken is computed as path[path.length-1].",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "sellToken is computed as path[0].",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "none",
+      "reason": "uniswapRouter state variable is cast and used as the router for the external swap call.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "none",
+      "reason": "returned local array is assigned the result of the router swap call.",
+      "type": "dataflow",
+      "from_id": 14
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "none",
+      "reason": "doSwap executes the safeTransferFrom token pull.",
+      "type": "controlflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "none",
+      "reason": "doSwap executes the external router swap call.",
+      "type": "controlflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "reentrancy",
+      "reason": "External call to the router (and via path tokens) transfers control externally and can re-enter doSwap before state settles, since no reentrancy guard is present.",
+      "type": "callback",
+      "from_id": 14
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "Constructor writes the uniswapRouter state variable.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "Constructor writes the uniswapFactory state variable.",
+      "type": "controlflow",
+      "from_id": 3
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "UniBasedDex.doSwap",
+      "reason": "amountIn is a function-scoped parameter consumed only by doSwap and its token pull; it carries no independent on-chain semantics.",
+      "normal_node": "doSwap.amountIn"
+    },
+    {
+      "merge_into": "UniBasedDex.doSwap",
+      "reason": "minAmountOut is a function-scoped parameter used only to bound the swap output inside doSwap.",
+      "normal_node": "doSwap.minAmountOut"
+    },
+    {
+      "merge_into": "UniBasedDex.doSwap",
+      "reason": "spender is a function-scoped parameter controlling the transferFrom source within doSwap.",
+      "normal_node": "doSwap.spender"
+    },
+    {
+      "merge_into": "doSwap.externalSwapCall",
+      "reason": "target is a function-scoped parameter forwarded directly as the recipient of the external swap call.",
+      "normal_node": "doSwap.target"
+    },
+    {
+      "merge_into": "doSwap.externalSwapCall",
+      "reason": "path is a function-scoped array parameter that directly determines the token route of the unsafe external swap call.",
+      "normal_node": "doSwap.path"
+    },
+    {
+      "merge_into": "doSwap.externalSwapCall",
+      "reason": "buyToken is a local derived value used only for the swap path handling.",
+      "normal_node": "doSwap.buyToken"
+    },
+    {
+      "merge_into": "doSwap.safeTransferFrom",
+      "reason": "sellToken is a local derived value used only as the source token of the transferFrom operation.",
+      "normal_node": "doSwap.sellToken"
+    },
+    {
+      "merge_into": "doSwap.externalSwapCall",
+      "reason": "returned is a local array holding the output amounts of the external swap call and has no standalone purpose.",
+      "normal_node": "doSwap.returned"
+    }
+  ]
+}

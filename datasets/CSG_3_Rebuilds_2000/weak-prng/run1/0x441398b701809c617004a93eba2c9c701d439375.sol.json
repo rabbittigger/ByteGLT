@@ -1,0 +1,851 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "owner",
+      "is_core": true,
+      "description": "Contract owner address, initialized from msg.sender at deployment and used by only_owner modifiers."
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "id": "gamesIndex",
+      "is_core": true,
+      "description": "Monotonic counter of created games, incremented in createGame."
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "id": "LOSER_LOCK_TIME",
+      "is_core": true,
+      "description": "Constant 4 week lock period applied to losing bets before refunds."
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "id": "purchasingAllowed",
+      "is_core": true,
+      "description": "Boolean flag gating token purchases in the payable fallback function."
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "id": "games",
+      "is_core": true,
+      "description": "Mapping gameId => Game struct holding status, per-option totals and timing."
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "id": "results",
+      "is_core": true,
+      "description": "Mapping gameId => Result struct with winning option, locktime and payout totals."
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "id": "gameOptions",
+      "is_core": true,
+      "description": "Mapping gameId => Option[] storing each bettor's stake per option."
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "id": "balances",
+      "is_core": true,
+      "description": "ERC20-style balance ledger used for betting funds and token issuance."
+    },
+    {
+      "node_id": 8,
+      "type": "state_var",
+      "id": "allowed",
+      "is_core": true,
+      "description": "ERC20-style allowance mapping owner => spender => amount."
+    },
+    {
+      "node_id": 9,
+      "type": "state_var",
+      "id": "totalContribution",
+      "is_core": true,
+      "description": "Cumulative ether contributed through the fallback crowd-sale."
+    },
+    {
+      "node_id": 10,
+      "type": "state_var",
+      "id": "cap",
+      "is_core": true,
+      "description": "Hard cap of total contribution enforced by etherCapNotReached."
+    },
+    {
+      "node_id": 11,
+      "type": "state_var",
+      "id": "totalSupply",
+      "is_core": true,
+      "description": "Total token supply, minted on purchase and adjusted on winner redemption."
+    },
+    {
+      "node_id": 12,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "is_core": true,
+      "description": "Caller-controlled address used for ownership, balances, allowances and bet attribution."
+    },
+    {
+      "node_id": 13,
+      "type": "untrusted_input",
+      "id": "block.timestamp",
+      "is_core": true,
+      "description": "Block time (now) used for bet deadlines, lock times and refund eligibility."
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "id": "transfer",
+      "is_core": true,
+      "description": "ERC20 transfer; checks msg.data length, value and an overflow condition before moving balances."
+    },
+    {
+      "node_id": 15,
+      "type": "function",
+      "id": "transferFrom",
+      "is_core": true,
+      "description": "ERC20 transferFrom with inverted sufficiency/allowance/overflow comparisons, permitting unauthorized transfers."
+    },
+    {
+      "node_id": 16,
+      "type": "function",
+      "id": "approve",
+      "is_core": true,
+      "description": "ERC20 approve that blocks non-zero overwrite of an existing allowance."
+    },
+    {
+      "node_id": 17,
+      "type": "function",
+      "id": "createGame",
+      "is_core": true,
+      "description": "Owner-only game creation that increments gamesIndex and pushes Option slots."
+    },
+    {
+      "node_id": 18,
+      "type": "function",
+      "id": "predictWinner",
+      "is_core": true,
+      "description": "Places a bet by debiting balances and accumulating totals without safe math."
+    },
+    {
+      "node_id": 19,
+      "type": "function",
+      "id": "redeem",
+      "is_core": true,
+      "description": "Claims winnings or refunds after a game is Done; uses now against locktime."
+    },
+    {
+      "node_id": 20,
+      "type": "function",
+      "id": "calculatePrize",
+      "is_core": true,
+      "description": "Computes proportional payout using safeMul/safeDiv over bet totals."
+    },
+    {
+      "node_id": 21,
+      "type": "function",
+      "id": "finishGame",
+      "is_core": true,
+      "description": "Owner-only settlement that sets Result with locktime now + LOSER_LOCK_TIME."
+    },
+    {
+      "node_id": 22,
+      "type": "function",
+      "id": "drain",
+      "is_core": true,
+      "description": "Owner-only ether withdrawal using the low-level send primitive."
+    },
+    {
+      "node_id": 23,
+      "type": "function",
+      "id": "getTotalPrediction",
+      "is_core": true,
+      "description": "Constant view returning total and per-option bet volumes."
+    },
+    {
+      "node_id": 24,
+      "type": "function",
+      "id": "getPrediction",
+      "is_core": true,
+      "description": "Returns the caller's recorded bet for a game option."
+    },
+    {
+      "node_id": 25,
+      "type": "function",
+      "id": "withdrawForeignTokens",
+      "is_core": true,
+      "description": "Owner-only sweep of an arbitrary external ERC20 token held by the contract."
+    },
+    {
+      "node_id": 26,
+      "type": "function",
+      "id": "enablePurchasing",
+      "is_core": true,
+      "description": "Owner-only toggle enabling purchases."
+    },
+    {
+      "node_id": 27,
+      "type": "function",
+      "id": "disablePurchasing",
+      "is_core": true,
+      "description": "Owner-only toggle disabling purchases."
+    },
+    {
+      "node_id": 28,
+      "type": "function",
+      "id": "fallback",
+      "is_core": true,
+      "description": "Payable crowd-sale entry point that forwards ether to owner and mints tokens."
+    },
+    {
+      "node_id": 29,
+      "type": "function",
+      "id": "canBet",
+      "is_core": true,
+      "description": "Betting window check comparing now against finishTime and lazily ending stale games."
+    },
+    {
+      "node_id": 30,
+      "type": "function",
+      "id": "safeMul",
+      "is_core": true,
+      "description": "Checked multiplication helper asserting no overflow."
+    },
+    {
+      "node_id": 31,
+      "type": "function",
+      "id": "safeAdd",
+      "is_core": true,
+      "description": "Checked addition helper asserting no overflow."
+    },
+    {
+      "node_id": 32,
+      "type": "function",
+      "id": "safeDiv",
+      "is_core": true,
+      "description": "Checked division helper asserting non-zero divisor."
+    },
+    {
+      "node_id": 33,
+      "type": "unsafe_operation",
+      "id": "transferFrom_inverted_checks",
+      "is_core": true,
+      "description": "Inverted comparisons (fromBalance <= _value, allowance <= _value, overflow test >) allow transfers with insufficient funds/allowance and misdetect overflow."
+    },
+    {
+      "node_id": 34,
+      "type": "unsafe_operation",
+      "id": "drain_external_send",
+      "is_core": true,
+      "description": "owner.send(bal) external call in drain, a value transfer to a possibly reentrant recipient."
+    },
+    {
+      "node_id": 35,
+      "type": "unsafe_operation",
+      "id": "withdraw_foreign_token_call",
+      "is_core": true,
+      "description": "External call to an attacker-supplied token contract via token.transfer, enabling callback reentrancy."
+    },
+    {
+      "node_id": 36,
+      "type": "unsafe_operation",
+      "id": "fallback_owner_transfer",
+      "is_core": true,
+      "description": "owner.transfer(msg.value) executed inside the payable fallback before contribution accounting completes."
+    },
+    {
+      "node_id": 37,
+      "type": "unsafe_operation",
+      "id": "predictWinner_unchecked_add",
+      "is_core": true,
+      "description": "curr.totalBets[option] += _value and curr.total += _value performed without safeAdd, enabling arithmetic overflow."
+    },
+    {
+      "node_id": 38,
+      "type": "parameter",
+      "id": "param__value_transfer",
+      "is_core": false,
+      "description": "_value parameter of transfer."
+    },
+    {
+      "node_id": 39,
+      "type": "parameter",
+      "id": "param__from_transferFrom",
+      "is_core": false,
+      "description": "_from parameter of transferFrom."
+    },
+    {
+      "node_id": 40,
+      "type": "parameter",
+      "id": "param__to_transferFrom",
+      "is_core": false,
+      "description": "_to parameter of transferFrom."
+    },
+    {
+      "node_id": 41,
+      "type": "parameter",
+      "id": "param_game_redeem",
+      "is_core": false,
+      "description": "game parameter of redeem/predictWinner."
+    },
+    {
+      "node_id": 42,
+      "type": "parameter",
+      "id": "param_option_redeem",
+      "is_core": false,
+      "description": "option parameter of redeem."
+    },
+    {
+      "node_id": 43,
+      "type": "parameter",
+      "id": "param_bal_drain",
+      "is_core": false,
+      "description": "bal parameter of drain, the ether amount sent to owner."
+    },
+    {
+      "node_id": 44,
+      "type": "local_var",
+      "id": "local_fromBalance_transfer",
+      "is_core": false,
+      "description": "fromBalance local caching balances[msg.sender] in transfer."
+    },
+    {
+      "node_id": 45,
+      "type": "local_var",
+      "id": "local_overflowed_transferFrom",
+      "is_core": false,
+      "description": "overflowed local in transferFrom whose comparison is inverted."
+    },
+    {
+      "node_id": 46,
+      "type": "local_var",
+      "id": "local_val_redeem",
+      "is_core": false,
+      "description": "val local holding the losing stake refunded in redeem."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "owner is initialized from msg.sender at deployment, so ownership derives from caller input.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 0
+    },
+    {
+      "reason": "msg.sender indexes balances in transfer.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 14
+    },
+    {
+      "reason": "msg.sender indexes the allowance lookup in transferFrom.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 15
+    },
+    {
+      "reason": "msg.sender indexes allowed and emits Approval in approve.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 16
+    },
+    {
+      "reason": "msg.sender funds and is credited with the bet in predictWinner.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 18
+    },
+    {
+      "reason": "msg.sender claim and payout target in redeem.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 19
+    },
+    {
+      "reason": "only_owner compares msg.sender to owner to gate the drain.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 22
+    },
+    {
+      "reason": "fallback credits balances[msg.sender] with issued tokens.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 28
+    },
+    {
+      "reason": "now is compared to finishTime to decide whether betting is open.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 29
+    },
+    {
+      "reason": "locktime is computed as now + LOSER_LOCK_TIME in finishGame.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 21
+    },
+    {
+      "reason": "refund eligibility depends on results[game].locktime < now in redeem.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 19
+    },
+    {
+      "reason": "transfer reads and writes balances.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 14
+    },
+    {
+      "reason": "transferFrom reads and writes balances.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 15
+    },
+    {
+      "reason": "predictWinner debits balances[msg.sender].",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 18
+    },
+    {
+      "reason": "redeem credits balances[msg.sender] with the refund or prize.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 19
+    },
+    {
+      "reason": "fallback mints into balances[msg.sender].",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 28
+    },
+    {
+      "reason": "transferFrom reads and decrements allowed.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 15
+    },
+    {
+      "reason": "approve writes allowed[msg.sender][_spender].",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 16
+    },
+    {
+      "reason": "predictWinner reads and mutates games[game] totals and status.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 18
+    },
+    {
+      "reason": "redeem reads game status through the canRedeem modifier.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 19
+    },
+    {
+      "reason": "finishGame updates games[game].status and reads totals.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 21
+    },
+    {
+      "reason": "canBet reads games[gameId] status and finishTime.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 29
+    },
+    {
+      "reason": "getTotalPrediction reads games[game] totals.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 23
+    },
+    {
+      "reason": "getPrediction reads game state for the caller.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 24
+    },
+    {
+      "reason": "predictWinner records the stake in gameOptions.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 18
+    },
+    {
+      "reason": "redeem reads and zeroes gameOptions stakes.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 19
+    },
+    {
+      "reason": "getPrediction returns gameOptions status for msg.sender.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 24
+    },
+    {
+      "reason": "redeem compares results[game].winningOption and locktime.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 19
+    },
+    {
+      "reason": "calculatePrize reads results[game] payout denominators.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 20
+    },
+    {
+      "reason": "finishGame writes results[game].",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 21
+    },
+    {
+      "reason": "redeem adjusts totalSupply when paying winners.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 19
+    },
+    {
+      "reason": "fallback increases totalSupply with issued tokens.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 28
+    },
+    {
+      "reason": "fallback accumulates totalContribution.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 28
+    },
+    {
+      "reason": "cap bounds the contribution asserted by etherCapNotReached.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 28
+    },
+    {
+      "reason": "fallback requires purchasingAllowed before minting.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 28
+    },
+    {
+      "reason": "enablePurchasing sets purchasingAllowed to true.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 26
+    },
+    {
+      "reason": "disablePurchasing sets purchasingAllowed to false.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 27
+    },
+    {
+      "reason": "only_owner gate on drain uses owner.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 22
+    },
+    {
+      "reason": "only_owner gate on withdrawForeignTokens uses owner.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 25
+    },
+    {
+      "reason": "only_owner gate on createGame uses owner.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 17
+    },
+    {
+      "reason": "only_owner gate on finishGame uses owner.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 21
+    },
+    {
+      "reason": "only_owner gate on enablePurchasing uses owner.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 26
+    },
+    {
+      "reason": "only_owner gate on disablePurchasing uses owner.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 27
+    },
+    {
+      "reason": "LOSER_LOCK_TIME offsets the settlement locktime.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 21
+    },
+    {
+      "reason": "createGame increments gamesIndex to allocate the new game id.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 17
+    },
+    {
+      "reason": "transferFrom's conditionals feed the inverted sufficiency, allowance and overflow checks.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 33
+    },
+    {
+      "reason": "drain performs the low-level owner.send value transfer.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 34
+    },
+    {
+      "reason": "withdrawForeignTokens calls transfer on an arbitrary token contract.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 25,
+      "to_id": 35
+    },
+    {
+      "reason": "fallback pushes ether to owner via transfer during accounting.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 28,
+      "to_id": 36
+    },
+    {
+      "reason": "predictWinner accumulates totals without safeAdd.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 37
+    },
+    {
+      "reason": "the inverted overflowed local is consumed by the unsafe comparison set.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 45,
+      "to_id": 33
+    },
+    {
+      "reason": "_value parameter drives the balance movement in transfer.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 38,
+      "to_id": 14
+    },
+    {
+      "reason": "_from parameter selects the debited balance in transferFrom.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 39,
+      "to_id": 15
+    },
+    {
+      "reason": "_to parameter selects the credited balance in transferFrom.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 40,
+      "to_id": 15
+    },
+    {
+      "reason": "game parameter selects which game is redeemed.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 41,
+      "to_id": 19
+    },
+    {
+      "reason": "option parameter selects the bet being redeemed.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 42,
+      "to_id": 19
+    },
+    {
+      "reason": "bal parameter is the amount passed to owner.send in drain.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 43,
+      "to_id": 22
+    },
+    {
+      "reason": "fromBalance local caches the caller balance in transfer.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 44,
+      "to_id": 14
+    },
+    {
+      "reason": "val local holds the losing stake credited back in redeem.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 46,
+      "to_id": 19
+    },
+    {
+      "reason": "send executes the recipient's fallback, allowing reentry into drain.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 34,
+      "to_id": 22
+    },
+    {
+      "reason": "a malicious foreign token contract can reenter withdrawForeignTokens.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 35,
+      "to_id": 25
+    },
+    {
+      "reason": "owner.transfer invokes the owner fallback mid-execution of the crowd-sale fallback.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 36,
+      "to_id": 28
+    },
+    {
+      "reason": "redeem invokes calculatePrize on the winning branch.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 19,
+      "to_id": 20
+    },
+    {
+      "reason": "calculatePrize multiplies via safeMul.",
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "from_id": 20,
+      "to_id": 30
+    },
+    {
+      "reason": "calculatePrize divides via safeDiv.",
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "from_id": 20,
+      "to_id": 32
+    },
+    {
+      "reason": "the etherCapNotReached modifier checks the cap using safeAdd.",
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "from_id": 28,
+      "to_id": 31
+    },
+    {
+      "reason": "predictWinner requires canBet to return true before accepting a bet.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 18,
+      "to_id": 29
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Parameter _value is only meaningful as the amount moved by the transfer function.",
+      "merge_into": "transfer",
+      "normal_node": "param__value_transfer"
+    },
+    {
+      "reason": "Parameter _from identifies the debited account inside transferFrom.",
+      "merge_into": "transferFrom",
+      "normal_node": "param__from_transferFrom"
+    },
+    {
+      "reason": "Parameter _to identifies the credited account inside transferFrom.",
+      "merge_into": "transferFrom",
+      "normal_node": "param__to_transferFrom"
+    },
+    {
+      "reason": "Parameter game selects the game state consumed by redeem.",
+      "merge_into": "redeem",
+      "normal_node": "param_game_redeem"
+    },
+    {
+      "reason": "Parameter option selects the stake consumed by redeem.",
+      "merge_into": "redeem",
+      "normal_node": "param_option_redeem"
+    },
+    {
+      "reason": "Parameter bal flows directly into owner.send inside drain.",
+      "merge_into": "drain",
+      "normal_node": "param_bal_drain"
+    },
+    {
+      "reason": "Local fromBalance is a cached read of balances used only in transfer.",
+      "merge_into": "transfer",
+      "normal_node": "local_fromBalance_transfer"
+    },
+    {
+      "reason": "Local overflowed is the inverted overflow predicate consumed by the unsafe check set.",
+      "merge_into": "transferFrom_inverted_checks",
+      "normal_node": "local_overflowed_transferFrom"
+    },
+    {
+      "reason": "Local val is the refund amount produced and credited inside redeem.",
+      "merge_into": "redeem",
+      "normal_node": "local_val_redeem"
+    }
+  ]
+}

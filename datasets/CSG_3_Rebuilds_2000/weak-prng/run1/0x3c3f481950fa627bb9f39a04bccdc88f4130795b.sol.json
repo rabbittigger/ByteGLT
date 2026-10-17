@@ -1,0 +1,256 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "function",
+      "id": "bet",
+      "is_core": true,
+      "description": "payable function bet() that checks a pseudo-random condition, msg.value == 1 ether and !locked, then sends 2 ether to msg.sender via an unbounded external call."
+    },
+    {
+      "node_id": 1,
+      "type": "function",
+      "id": "lock",
+      "is_core": true,
+      "description": "function lock() that sets the locked mutex flag to true when the caller is gameOwner."
+    },
+    {
+      "node_id": 2,
+      "type": "function",
+      "id": "unlock",
+      "is_core": true,
+      "description": "function unlock() that sets the locked mutex flag to false when the caller is gameOwner."
+    },
+    {
+      "node_id": 3,
+      "type": "function",
+      "id": "own",
+      "is_core": true,
+      "description": "function own(address) that assigns gameOwner when gameOwner is zero or equals msg.sender."
+    },
+    {
+      "node_id": 4,
+      "type": "function",
+      "id": "releaseFunds",
+      "is_core": true,
+      "description": "function releaseFunds(uint) that sends amount * 1 ether to msg.sender through an unbounded external call when caller is gameOwner."
+    },
+    {
+      "node_id": 5,
+      "type": "function",
+      "id": "random",
+      "is_core": true,
+      "description": "view function random() returning a uint8 derived from keccak256 of block.timestamp and block.difficulty; predictable timestamp-based randomness."
+    },
+    {
+      "node_id": 6,
+      "type": "function",
+      "id": "fallback",
+      "is_core": true,
+      "description": "payable fallback function that forwards all plain calls to bet()."
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "id": "gameOwner",
+      "is_core": true,
+      "description": "address state variable holding the contract owner, used for access checks in lock, unlock, own and releaseFunds."
+    },
+    {
+      "node_id": 8,
+      "type": "state_var",
+      "id": "locked",
+      "is_core": true,
+      "description": "bool state variable acting as a reentrancy mutex, read in bet() and written by lock()/unlock()."
+    },
+    {
+      "node_id": 9,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "is_core": true,
+      "description": "Caller-controlled address used for the payout target and for owner authorization checks."
+    },
+    {
+      "node_id": 10,
+      "type": "untrusted_input",
+      "id": "block.timestamp",
+      "is_core": true,
+      "description": "Miner-influenceable timestamp used as entropy in random()."
+    },
+    {
+      "node_id": 11,
+      "type": "unsafe_operation",
+      "id": "bet_external_call",
+      "is_core": true,
+      "description": "msg.sender.call.value(2 ether)() in bet(); unbounded external call after condition check enabling reentrancy."
+    },
+    {
+      "node_id": 12,
+      "type": "unsafe_operation",
+      "id": "releaseFunds_external_call",
+      "is_core": true,
+      "description": "msg.sender.call.value(amount * 1 ether)() in releaseFunds(); unbounded external call enabling reentrancy."
+    },
+    {
+      "node_id": 13,
+      "type": "unsafe_operation",
+      "id": "amount_multiplication",
+      "is_core": true,
+      "description": "amount * (1 ether) multiplication in releaseFunds() that can overflow with no SafeMath protection."
+    },
+    {
+      "node_id": 14,
+      "type": "parameter",
+      "id": "owner_param",
+      "is_core": false,
+      "description": "address parameter owner of own(), assigned to gameOwner."
+    },
+    {
+      "node_id": 15,
+      "type": "parameter",
+      "id": "amount_param",
+      "is_core": false,
+      "description": "uint parameter amount of releaseFunds(), user-controlled value multiplied by 1 ether."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "bet() executes the external value call to msg.sender at the end of its body, exposing the function to reentrancy.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 0,
+      "to_id": 11
+    },
+    {
+      "reason": "msg.sender is the recipient of the low-level call in bet(), letting the untrusted caller re-enter.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 11
+    },
+    {
+      "reason": "releaseFunds() performs the external value call to msg.sender, exposing it to reentrancy.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 4,
+      "to_id": 12
+    },
+    {
+      "reason": "msg.sender is the target of the low-level call in releaseFunds(), enabling re-entrant behaviour.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 12
+    },
+    {
+      "reason": "releaseFunds() computes amount * (1 ether) without overflow checks.",
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "from_id": 4,
+      "to_id": 13
+    },
+    {
+      "reason": "Untrusted amount parameter flows directly into the amount * 1 ether multiplication.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 13
+    },
+    {
+      "reason": "msg.sender is compared against gameOwner in lock, unlock, own and releaseFunds, driving the authorization logic.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 7
+    },
+    {
+      "reason": "The owner parameter of own() is written into the gameOwner privilege variable.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 7
+    },
+    {
+      "reason": "bet() reads the locked mutex variable as a guard before performing the payout.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 0
+    },
+    {
+      "reason": "lock() writes the locked mutex variable to true.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 8
+    },
+    {
+      "reason": "unlock() writes the locked mutex variable to false.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 8
+    },
+    {
+      "reason": "random() derives its output from block.timestamp, a miner-controllable value, making the bet outcome timestamp dependent.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 5
+    },
+    {
+      "reason": "bet() invokes random() and its outcome controls whether the payout occurs.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 0,
+      "to_id": 5
+    },
+    {
+      "reason": "The payable fallback function forwards execution to bet().",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 6,
+      "to_id": 0
+    },
+    {
+      "reason": "own() writes the gameOwner privilege variable based on the caller check.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 7
+    },
+    {
+      "reason": "lock() reads gameOwner to authorize the caller.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 7
+    },
+    {
+      "reason": "unlock() reads gameOwner to authorize the caller.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 7
+    },
+    {
+      "reason": "releaseFunds() reads gameOwner to authorize the caller before payout.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 7
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The owner parameter is only meaningful as the input of own() and can be folded into that function node.",
+      "merge_into": "own",
+      "normal_node": "owner_param"
+    },
+    {
+      "reason": "The amount parameter is only used to feed the amount * 1 ether arithmetic unsafe operation and can be merged into it.",
+      "merge_into": "amount_multiplication",
+      "normal_node": "amount_param"
+    }
+  ]
+}

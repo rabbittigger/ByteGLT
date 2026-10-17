@@ -1,0 +1,346 @@
+{
+  "nodes": [
+    {
+      "description": "Public mapping(bytes32 => uint256) tracking the ether balance of each named account.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "state_var._userBalances"
+    },
+    {
+      "description": "Public mapping(bytes32 => address) binding a named account to the wallet address allowed to withdraw from it.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "state_var._usersByAddress"
+    },
+    {
+      "description": "Public mapping(address => bool) whitelist of addresses allowed to approve account owners.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 2,
+      "id": "state_var._oracles"
+    },
+    {
+      "description": "Internal address of the contract owner, set once in the constructor.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 3,
+      "id": "state_var.owner"
+    },
+    {
+      "description": "Constructor; assigns owner = msg.sender and gates it into the oracle whitelist.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 4,
+      "id": "function.constructor"
+    },
+    {
+      "description": "Owner-only function that sets _oracles[oracle] = true.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 5,
+      "id": "function.enableOracle"
+    },
+    {
+      "description": "Owner-only function that clears an oracle flag, refusing to remove the owner oracle.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 6,
+      "id": "function.disableOracle"
+    },
+    {
+      "description": "Payable function that credits msg.value to a named account balance and emits DepositEvent.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 7,
+      "id": "function.deposit"
+    },
+    {
+      "description": "Function that transfers the full balance of a named account to the bound wallet, then zeroes the balance.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 8,
+      "id": "function.withdraw"
+    },
+    {
+      "description": "Oracle-only function binding a wallet address to a named account in _usersByAddress.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 9,
+      "id": "function.approveAddress"
+    },
+    {
+      "description": "Caller-controlled address used in access control requires, the deposit event, recipient lookup and the constructor.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 10,
+      "id": "untrusted_input.msg.sender"
+    },
+    {
+      "description": "Unchecked arithmetic: _userBalances[account] += msg.value under Solidity ^0.6.11, susceptible to overflow/underflow.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 11,
+      "id": "unsafe_operation.deposit.balance_increment"
+    },
+    {
+      "description": "External ether transfer payable(_usersByAddress[account]).transfer(_userBalances[account]) executed before the balance is reset.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 12,
+      "id": "unsafe_operation.withdraw.transfer"
+    },
+    {
+      "description": "Privilege guards comparing owner == msg.sender and _oracles[msg.sender] to authorize privileged entry points.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 13,
+      "id": "unsafe_operation.access_control_checks"
+    },
+    {
+      "description": "bytes32 account argument of deposit used as the balance mapping key.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 14,
+      "id": "parameter.deposit.account"
+    },
+    {
+      "description": "bytes32 account argument of withdraw used to resolve the caller, recipient and amount.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 15,
+      "id": "parameter.withdraw.account"
+    },
+    {
+      "description": "address wallet argument of approveAddress written into _usersByAddress.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 16,
+      "id": "parameter.approveAddress.wallet"
+    },
+    {
+      "description": "bytes32 account argument of approveAddress used as the mapping key.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 17,
+      "id": "parameter.approveAddress.account"
+    },
+    {
+      "description": "address oracle argument of enableOracle whitelisted as an oracle.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 18,
+      "id": "parameter.enableOracle.oracle"
+    },
+    {
+      "description": "address oracle argument of disableOracle whose flag is cleared.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 19,
+      "id": "parameter.disableOracle.oracle"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is compared against owner and used as the _oracles lookup key in the onlyOwner/onlyOracles guards.",
+      "from_id": 10,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 13
+    },
+    {
+      "reason": "Constructor derives the privileged owner identity directly from msg.sender.",
+      "from_id": 10,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "deposit emits msg.sender as the depositor in DepositEvent.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "deposit's account parameter is the mapping key for the unchecked balance increment.",
+      "from_id": 14,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "The unchecked += writes the credited value into _userBalances.",
+      "from_id": 11,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "deposit reaches the balance increment after the msg.value > 0 check.",
+      "from_id": 7,
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "to_id": 11
+    },
+    {
+      "reason": "withdraw's account parameter drives the recipient/amount resolution preceding the external transfer.",
+      "from_id": 15,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "Recipient address of the transfer is read from _usersByAddress.",
+      "from_id": 1,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "Transfer amount is read from _userBalances before any state reset.",
+      "from_id": 0,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "Balance is zeroed only after the external transfer completes (state update after interaction).",
+      "from_id": 12,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "withdraw executes the external transfer before updating state, enabling classic reentrancy.",
+      "from_id": 8,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 12
+    },
+    {
+      "reason": "The external ether transfer can transfer control back into withdraw while the balance is still set.",
+      "from_id": 12,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 8
+    },
+    {
+      "reason": "approveAddress wallet parameter is stored into _usersByAddress.",
+      "from_id": 16,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "approveAddress account parameter indexes the _usersByAddress mapping.",
+      "from_id": 17,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "approveAddress performs the mapping write to bind wallet to account.",
+      "from_id": 9,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 1
+    },
+    {
+      "reason": "enableOracle writes the oracle parameter into _oracles as true.",
+      "from_id": 18,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "enableOracle executes the oracle whitelist update.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 2
+    },
+    {
+      "reason": "disableOracle writes the oracle parameter into _oracles as false.",
+      "from_id": 19,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "disableOracle executes the oracle whitelist update.",
+      "from_id": 6,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 2
+    },
+    {
+      "reason": "The onlyOracles guard reads _oracles[msg.sender] to authorize callers.",
+      "from_id": 2,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 13
+    },
+    {
+      "reason": "The onlyOwner guard reads the owner state variable for the msg.sender comparison.",
+      "from_id": 3,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 13
+    },
+    {
+      "reason": "Constructor initializes owner with msg.sender, establishing privileged access.",
+      "from_id": 4,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "Constructor sets _oracles[owner] = true.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "disableOracle compares the target oracle against owner so the owner oracle cannot be removed.",
+      "from_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 3
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The account parameter of deposit only exists to index the deposit balance write, so it is absorbed into the deposit function node.",
+      "normal_node": "parameter.deposit.account",
+      "merge_into": "function.deposit"
+    },
+    {
+      "reason": "The account parameter of withdraw is local plumbing for the recipient/amount lookup, absorbed into the withdraw function node.",
+      "normal_node": "parameter.withdraw.account",
+      "merge_into": "function.withdraw"
+    },
+    {
+      "reason": "The wallet parameter of approveAddress merely supplies the value written by the function, so it merges into approveAddress.",
+      "normal_node": "parameter.approveAddress.wallet",
+      "merge_into": "function.approveAddress"
+    },
+    {
+      "reason": "The account parameter of approveAddress is only a mapping key for the function's write and merges into approveAddress.",
+      "normal_node": "parameter.approveAddress.account",
+      "merge_into": "function.approveAddress"
+    },
+    {
+      "reason": "The oracle parameter of enableOracle is the value assigned by the function and is absorbed into enableOracle.",
+      "normal_node": "parameter.enableOracle.oracle",
+      "merge_into": "function.enableOracle"
+    },
+    {
+      "reason": "The oracle parameter of disableOracle is only used for the whitelist update and merges into disableOracle.",
+      "normal_node": "parameter.disableOracle.oracle",
+      "merge_into": "function.disableOracle"
+    }
+  ]
+}

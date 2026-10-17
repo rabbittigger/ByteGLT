@@ -1,0 +1,319 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Private uint256 secret number (1-16) used as the winning guess; written by shuffle().",
+      "is_core": true,
+      "node_id": 0,
+      "id": "secretNumber"
+    },
+    {
+      "type": "state_var",
+      "description": "Public timestamp of the last play() call; read by kill() for its time gate.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "lastPlayed"
+    },
+    {
+      "type": "state_var",
+      "description": "Public minimum bet of 0.2 ether enforced in play().",
+      "is_core": true,
+      "node_id": 2,
+      "id": "betPrice"
+    },
+    {
+      "type": "state_var",
+      "description": "Public owner address set to msg.sender in the constructor; used as access-control check in kill().",
+      "is_core": true,
+      "node_id": 3,
+      "id": "ownerAddr"
+    },
+    {
+      "type": "state_var",
+      "description": "Public array of Game structs recording every player and guess.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "gamesPlayed"
+    },
+    {
+      "type": "function",
+      "description": "Constructor: sets ownerAddr to msg.sender and calls shuffle().",
+      "is_core": true,
+      "node_id": 5,
+      "id": "constructor"
+    },
+    {
+      "type": "function",
+      "description": "Internal function deriving secretNumber from sha3(now, blockhash) modulo 16 plus 1 (weak randomness).",
+      "is_core": true,
+      "node_id": 6,
+      "id": "shuffle"
+    },
+    {
+      "type": "function",
+      "description": "Payable game entry: records the guess, pays out the whole balance on a win, then reshuffles and stores the timestamp.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "play"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only selfdestruct guarded by msg.sender and a 6-hour time condition.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "kill"
+    },
+    {
+      "type": "function",
+      "description": "Anonymous payable fallback that accepts plain ether transfers.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "fallback"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used for owner assignment, player recording, payout and kill authorization.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "msg.sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "now/block.timestamp, miner-influenceable, used for randomness and the kill() time gate.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "msg.sender.transfer(this.balance) external value transfer executed before state finalization; reentrancy surface.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "transfer_call"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "suicide(msg.sender) destroys the contract and forwards the balance; privileged destructive operation.",
+      "is_core": true,
+      "node_id": 13,
+      "id": "suicide_call"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "sha3(now, block.blockhash(block.number-1)) % 16 + 1 predictability: timestamp/blockhash dependence makes the secret guessable.",
+      "is_core": true,
+      "node_id": 14,
+      "id": "weak_randomness"
+    },
+    {
+      "type": "parameter",
+      "description": "Player-supplied guess (uint256) passed to play(), required to be <= 16.",
+      "is_core": false,
+      "node_id": 15,
+      "id": "number"
+    },
+    {
+      "type": "local_var",
+      "description": "Local Game struct instance populated with msg.sender and the guess, then pushed to gamesPlayed.",
+      "is_core": false,
+      "node_id": 16,
+      "id": "game"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "lastPlayed + 6 hours unchecked uint256 addition in kill(); overflow can wrap in Solidity 0.4.23.",
+      "is_core": true,
+      "node_id": 17,
+      "id": "timestamp_addition"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "Constructor assigns the caller-controlled msg.sender to ownerAddr.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "controlflow",
+      "reason": "Constructor calls shuffle() to initialize secretNumber.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "shuffle() consumes the miner-influenceable now value.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 14,
+      "type": "controlflow",
+      "reason": "shuffle() derives its randomness from sha3(now, blockhash) and performs the modulo.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "Weak randomness operation depends on block.timestamp.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "shuffle() writes the computed value into secretNumber.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "Predictable randomness result controls the winning secret number.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "play() reads msg.sender to record the player.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "Caller-supplied guess parameter is consumed by play().",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "play() pushes the local Game into gamesPlayed storage.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "play() reads secretNumber to compare against the guess.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "play() performs an external value transfer to msg.sender before finishing its state updates.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 7,
+      "type": "callback",
+      "reason": "transfer() invokes the recipient, enabling re-entry into play() before lastPlayed/shuffle finalization.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "controlflow",
+      "reason": "play() calls shuffle() after each attempt.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "play() updates lastPlayed with the current timestamp.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "play() stores now (block.timestamp) in lastPlayed.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "play() reads betPrice for the require() bet check.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "kill() reads msg.sender for its authorization check.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "kill() compares msg.sender against the stored ownerAddr.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "kill() reads lastPlayed for the time gate.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 8,
+      "type": "controlflow",
+      "reason": "kill() gate depends on block.timestamp (now > lastPlayed + 6 hours).",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "kill() performs unchecked lastPlayed + 6 hours addition.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "kill() reaches the privileged suicide(msg.sender) selfdestruct.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "The kill beneficiary and authorizer is the caller-controlled msg.sender.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "Constructor reads msg.sender for ownership initialization.",
+      "from_id": 5
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "play",
+      "reason": "The callable parameter number has no independent identity; it is an input of play(), so fold it into the play() function node.",
+      "normal_node": "number"
+    },
+    {
+      "merge_into": "play",
+      "reason": "Local Game struct instance game exists only inside play() and is discarded after gamesPlayed.push, so it merges into play().",
+      "normal_node": "game"
+    }
+  ]
+}

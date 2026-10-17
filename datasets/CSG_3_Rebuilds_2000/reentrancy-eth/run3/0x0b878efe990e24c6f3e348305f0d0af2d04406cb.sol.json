@@ -1,0 +1,877 @@
+{
+  "nodes": [
+    {
+      "id": "msg.sender",
+      "node_id": 0,
+      "type": "untrusted_input",
+      "description": "External caller address used as depositor, withdrawer, claimant and access-control subject.",
+      "is_core": true
+    },
+    {
+      "id": "governance",
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Governance multisig address controlling privileged setters and rescue.",
+      "is_core": true
+    },
+    {
+      "id": "endBlock",
+      "node_id": 2,
+      "type": "state_var",
+      "description": "Block at which STACK emissions end; gates deposit and governs kick math.",
+      "is_core": true
+    },
+    {
+      "id": "emissionRate",
+      "node_id": 3,
+      "type": "state_var",
+      "description": "Tokens emitted per block, used by _kick to accrue rewards.",
+      "is_core": true
+    },
+    {
+      "id": "depositedShares",
+      "node_id": 4,
+      "type": "state_var",
+      "description": "Total shares deposited in the gauge.",
+      "is_core": true
+    },
+    {
+      "id": "tokensAccrued",
+      "node_id": 5,
+      "type": "state_var",
+      "description": "Global accumulator of reward tokens per shares scaled by 1e18.",
+      "is_core": true
+    },
+    {
+      "id": "lastBlock",
+      "node_id": 6,
+      "type": "state_var",
+      "description": "Last block at which the distribution ran.",
+      "is_core": true
+    },
+    {
+      "id": "shares",
+      "node_id": 7,
+      "type": "state_var",
+      "description": "Mapping address to DepositState (userShares, tokensAccrued) per user.",
+      "is_core": true
+    },
+    {
+      "id": "acceptToken",
+      "node_id": 8,
+      "type": "state_var",
+      "description": "Rebase token accepted for deposits and withdrawals.",
+      "is_core": true
+    },
+    {
+      "id": "STACK",
+      "node_id": 9,
+      "type": "state_var",
+      "description": "STACK DAO reward token distributed to users.",
+      "is_core": true
+    },
+    {
+      "id": "setGovernance",
+      "node_id": 10,
+      "type": "function",
+      "description": "Governance-only function updating the governance address.",
+      "is_core": true
+    },
+    {
+      "id": "setEmissionRate",
+      "node_id": 11,
+      "type": "function",
+      "description": "Governance-only function that kicks and updates emissionRate.",
+      "is_core": true
+    },
+    {
+      "id": "setEndBlock",
+      "node_id": 12,
+      "type": "function",
+      "description": "Governance-only function extending the emission endBlock.",
+      "is_core": true
+    },
+    {
+      "id": "deposit",
+      "node_id": 13,
+      "type": "function",
+      "description": "nonReentrant external deposit that pulls acceptToken and mints shares.",
+      "is_core": true
+    },
+    {
+      "id": "withdraw",
+      "node_id": 14,
+      "type": "function",
+      "description": "nonReentrant external withdraw that burns shares and transfers acceptToken.",
+      "is_core": true
+    },
+    {
+      "id": "claimSTACK",
+      "node_id": 15,
+      "type": "function",
+      "description": "nonReentrant external entrypoint delegating to _claimSTACK for msg.sender.",
+      "is_core": true
+    },
+    {
+      "id": "_claimSTACK",
+      "node_id": 16,
+      "type": "function",
+      "description": "Internal reward claim that kicks accrual and transfers STACK to the user.",
+      "is_core": true
+    },
+    {
+      "id": "_kick",
+      "node_id": 17,
+      "type": "function",
+      "description": "Internal accrual routine advancing lastBlock and tokensAccrued.",
+      "is_core": true
+    },
+    {
+      "id": "rescue",
+      "node_id": 18,
+      "type": "function",
+      "description": "Governance-only nonReentrant rescue of stuck tokens or ETH.",
+      "is_core": true
+    },
+    {
+      "id": "balanceOf",
+      "node_id": 19,
+      "type": "function",
+      "description": "Returns underlying value of a user's shares via acceptToken.",
+      "is_core": true
+    },
+    {
+      "id": "totalSupply",
+      "node_id": 20,
+      "type": "function",
+      "description": "Returns underlying value of total depositedShares via acceptToken.",
+      "is_core": true
+    },
+    {
+      "id": "safeTransfer_STACK_claim",
+      "node_id": 21,
+      "type": "unsafe_operation",
+      "description": "IERC20(STACK).safeTransfer(_user, _tokensGive) external token transfer inside _claimSTACK.",
+      "is_core": true
+    },
+    {
+      "id": "safeTransfer_withdraw",
+      "node_id": 22,
+      "type": "unsafe_operation",
+      "description": "IERC20(acceptToken).safeTransfer(msg.sender, _amount) external token transfer inside withdraw.",
+      "is_core": true
+    },
+    {
+      "id": "safeTransferFrom_deposit",
+      "node_id": 23,
+      "type": "unsafe_operation",
+      "description": "IERC20(acceptToken).safeTransferFrom(msg.sender, address(this), _amount) external call inside deposit.",
+      "is_core": true
+    },
+    {
+      "id": "governance_transfer_eth",
+      "node_id": 24,
+      "type": "unsafe_operation",
+      "description": "governance.transfer(_amount) raw ETH transfer inside rescue.",
+      "is_core": true
+    },
+    {
+      "id": "safeTransfer_rescue",
+      "node_id": 25,
+      "type": "unsafe_operation",
+      "description": "IERC20(_token).safeTransfer(governance, _amount) external token transfer inside rescue.",
+      "is_core": true
+    },
+    {
+      "id": "param_new_setGovernance",
+      "node_id": 26,
+      "type": "parameter",
+      "description": "_new address parameter of setGovernance.",
+      "is_core": false
+    },
+    {
+      "id": "param_new_setEmissionRate",
+      "node_id": 27,
+      "type": "parameter",
+      "description": "_new rate parameter of setEmissionRate.",
+      "is_core": false
+    },
+    {
+      "id": "param_block_setEndBlock",
+      "node_id": 28,
+      "type": "parameter",
+      "description": "_block parameter of setEndBlock.",
+      "is_core": false
+    },
+    {
+      "id": "param_amount_deposit",
+      "node_id": 29,
+      "type": "parameter",
+      "description": "_amount underlying parameter of deposit.",
+      "is_core": false
+    },
+    {
+      "id": "param_amount_withdraw",
+      "node_id": 30,
+      "type": "parameter",
+      "description": "_amount underlying parameter of withdraw.",
+      "is_core": false
+    },
+    {
+      "id": "param_user_claimSTACK",
+      "node_id": 31,
+      "type": "parameter",
+      "description": "_user parameter of _claimSTACK.",
+      "is_core": false
+    },
+    {
+      "id": "param_token_rescue",
+      "node_id": 32,
+      "type": "parameter",
+      "description": "_token parameter of rescue.",
+      "is_core": false
+    },
+    {
+      "id": "param_amount_rescue",
+      "node_id": 33,
+      "type": "parameter",
+      "description": "_amount parameter of rescue.",
+      "is_core": false
+    },
+    {
+      "id": "local_state_deposit",
+      "node_id": 34,
+      "type": "local_var",
+      "description": "_state DepositState memory copy in deposit.",
+      "is_core": false
+    },
+    {
+      "id": "local_sharesFor_deposit",
+      "node_id": 35,
+      "type": "local_var",
+      "description": "_sharesFor computed shares in deposit.",
+      "is_core": false
+    },
+    {
+      "id": "local_state_withdraw",
+      "node_id": 36,
+      "type": "local_var",
+      "description": "_state DepositState memory copy in withdraw.",
+      "is_core": false
+    },
+    {
+      "id": "local_sharesFor_withdraw",
+      "node_id": 37,
+      "type": "local_var",
+      "description": "_sharesFor computed shares in withdraw.",
+      "is_core": false
+    },
+    {
+      "id": "local_state_claimSTACK",
+      "node_id": 38,
+      "type": "local_var",
+      "description": "_state DepositState memory copy in _claimSTACK.",
+      "is_core": false
+    },
+    {
+      "id": "local_tokensGive_claimSTACK",
+      "node_id": 39,
+      "type": "local_var",
+      "description": "_tokensGive amount of STACK to transfer in _claimSTACK.",
+      "is_core": false
+    },
+    {
+      "id": "local_deltaBlock_kick",
+      "node_id": 40,
+      "type": "local_var",
+      "description": "_deltaBlock block delta computed in _kick.",
+      "is_core": false
+    },
+    {
+      "id": "local_tokensToAccrue_kick",
+      "node_id": 41,
+      "type": "local_var",
+      "description": "_tokensToAccrue emission delta computed in _kick.",
+      "is_core": false
+    },
+    {
+      "id": "local_totalDeposited_kick",
+      "node_id": 42,
+      "type": "local_var",
+      "description": "_totalDeposited cached depositedShares in _kick.",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 13,
+      "reason": "msg.sender is the depositor whose shares are credited in deposit.",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 14,
+      "reason": "msg.sender is the withdrawer whose shares are debited in withdraw.",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "msg.sender is passed as _user into _claimSTACK from deposit/withdraw.",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "msg.sender must equal governance in setGovernance access check.",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 11,
+      "reason": "msg.sender must equal governance in setEmissionRate access check.",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 12,
+      "reason": "msg.sender must equal governance in setEndBlock access check.",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 18,
+      "reason": "msg.sender must equal governance in rescue access check.",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 22,
+      "reason": "msg.sender is the recipient of the acceptToken transfer in withdraw.",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "governance state variable is read for the setGovernance authorization check.",
+      "type": "dataflow",
+      "from_id": 1,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 11,
+      "reason": "governance state variable is read for the setEmissionRate authorization check.",
+      "type": "dataflow",
+      "from_id": 1,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 12,
+      "reason": "governance state variable is read for the setEndBlock authorization check.",
+      "type": "dataflow",
+      "from_id": 1,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 18,
+      "reason": "governance state variable is read for the rescue authorization check and as transfer target.",
+      "type": "dataflow",
+      "from_id": 1,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 1,
+      "reason": "setGovernance writes the new governance address into storage.",
+      "type": "dataflow",
+      "from_id": 10,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 3,
+      "reason": "setEmissionRate writes the new emissionRate value.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 2,
+      "reason": "setEndBlock writes the new endBlock value.",
+      "type": "dataflow",
+      "from_id": 12,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 13,
+      "reason": "deposit reads endBlock to require block.number <= endBlock.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "deposit writes the updated DepositState back into shares[msg.sender].",
+      "type": "dataflow",
+      "from_id": 13,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 4,
+      "reason": "deposit increases depositedShares by _sharesFor.",
+      "type": "dataflow",
+      "from_id": 13,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 13,
+      "reason": "deposit reads acceptToken for safeTransferFrom and getSharesForUnderlying.",
+      "type": "dataflow",
+      "from_id": 8,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 23,
+      "reason": "deposit invokes the external safeTransferFrom call on acceptToken.",
+      "type": "controlflow",
+      "from_id": 13,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "deposit calls _claimSTACK(msg.sender) before pulling funds.",
+      "type": "controlflow",
+      "from_id": 13,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "withdraw calls _claimSTACK(msg.sender) before burning shares.",
+      "type": "controlflow",
+      "from_id": 14,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "claimSTACK delegates reward claiming to _claimSTACK.",
+      "type": "controlflow",
+      "from_id": 15,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "withdraw writes the reduced DepositState back into shares[msg.sender].",
+      "type": "dataflow",
+      "from_id": 14,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 4,
+      "reason": "withdraw decreases depositedShares by _sharesFor.",
+      "type": "dataflow",
+      "from_id": 14,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 14,
+      "reason": "withdraw reads acceptToken for getSharesForUnderlying and safeTransfer.",
+      "type": "dataflow",
+      "from_id": 8,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 22,
+      "reason": "withdraw invokes the external safeTransfer of acceptToken to msg.sender.",
+      "type": "controlflow",
+      "from_id": 14,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 22,
+      "reason": "withdraw _amount parameter flows into the transferred token amount.",
+      "type": "dataflow",
+      "from_id": 30,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "_claimSTACK calls _kick to bring accrual up to the current block.",
+      "type": "controlflow",
+      "from_id": 16,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "_claimSTACK writes the synchronized DepositState back into shares[_user].",
+      "type": "dataflow",
+      "from_id": 16,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 5,
+      "reason": "_claimSTACK stores the global tokensAccrued checkpoint into the user state.",
+      "type": "dataflow",
+      "from_id": 16,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "_claimSTACK reads tokensAccrued to compute the user's accrual delta.",
+      "type": "dataflow",
+      "from_id": 5,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 21,
+      "reason": "_claimSTACK invokes the external STACK safeTransfer to the user.",
+      "type": "controlflow",
+      "from_id": 16,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 21,
+      "reason": "_tokensGive local computed value flows into the STACK safeTransfer amount.",
+      "type": "dataflow",
+      "from_id": 39,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 21,
+      "reason": "_user parameter flows into the STACK safeTransfer recipient.",
+      "type": "dataflow",
+      "from_id": 31,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "_claimSTACK reads STACK token for balanceOf check and safeTransfer.",
+      "type": "dataflow",
+      "from_id": 9,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "_kick reads depositedShares into _totalDeposited for scaling.",
+      "type": "dataflow",
+      "from_id": 4,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "_kick reads emissionRate to compute accrued tokens.",
+      "type": "dataflow",
+      "from_id": 3,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "_kick reads endBlock to clamp the block delta.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 5,
+      "reason": "_kick accumulates tokensAccrued from _tokensToAccrue.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 6,
+      "reason": "_kick writes lastBlock = block.number after accrual.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "_kick reads lastBlock to compute the block delta.",
+      "type": "dataflow",
+      "from_id": 6,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 13,
+      "reason": "safeTransferFrom invokes the acceptToken contract which may reenter deposit before shares are written.",
+      "type": "callback",
+      "from_id": 23,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 14,
+      "reason": "safeTransfer invokes the acceptToken contract which may reenter withdraw.",
+      "type": "callback",
+      "from_id": 22,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 16,
+      "reason": "STACK safeTransfer invokes an external token which may reenter _claimSTACK.",
+      "type": "callback",
+      "from_id": 21,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 18,
+      "reason": "governance.transfer forwards ETH with all gas allowing a contract governance to reenter rescue.",
+      "type": "callback",
+      "from_id": 24,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 18,
+      "reason": "rescue safeTransfer invokes the arbitrary _token contract which may reenter.",
+      "type": "callback",
+      "from_id": 25,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 24,
+      "reason": "rescue performs a raw ETH transfer to governance.",
+      "type": "controlflow",
+      "from_id": 18,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 25,
+      "reason": "rescue performs an external safeTransfer of the given token to governance.",
+      "type": "controlflow",
+      "from_id": 18,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 19,
+      "reason": "balanceOf reads acceptToken to convert shares to underlying.",
+      "type": "dataflow",
+      "from_id": 8,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 19,
+      "reason": "balanceOf reads the user's DepositState from shares.",
+      "type": "dataflow",
+      "from_id": 7,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 20,
+      "reason": "totalSupply reads acceptToken to convert total shares to underlying.",
+      "type": "dataflow",
+      "from_id": 8,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 20,
+      "reason": "totalSupply reads depositedShares for the underlying conversion.",
+      "type": "dataflow",
+      "from_id": 4,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "_new parameter is consumed by setGovernance body.",
+      "type": "dataflow",
+      "from_id": 26,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 11,
+      "reason": "_new rate parameter is consumed by setEmissionRate body.",
+      "type": "dataflow",
+      "from_id": 27,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 12,
+      "reason": "_block parameter is consumed by setEndBlock body.",
+      "type": "dataflow",
+      "from_id": 28,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 13,
+      "reason": "_amount parameter is consumed by deposit body.",
+      "type": "dataflow",
+      "from_id": 29,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "_user parameter is consumed by _claimSTACK body.",
+      "type": "dataflow",
+      "from_id": 31,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 18,
+      "reason": "_token parameter is consumed by rescue body.",
+      "type": "dataflow",
+      "from_id": 32,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 18,
+      "reason": "_amount parameter is consumed by rescue body.",
+      "type": "dataflow",
+      "from_id": 33,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 34,
+      "reason": "deposit defines the _state local DepositState.",
+      "type": "dataflow",
+      "from_id": 13,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 35,
+      "reason": "deposit defines the _sharesFor local.",
+      "type": "dataflow",
+      "from_id": 13,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 36,
+      "reason": "withdraw defines the _state local DepositState.",
+      "type": "dataflow",
+      "from_id": 14,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 37,
+      "reason": "withdraw defines the _sharesFor local.",
+      "type": "dataflow",
+      "from_id": 14,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 38,
+      "reason": "_claimSTACK defines the _state local DepositState.",
+      "type": "dataflow",
+      "from_id": 16,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 39,
+      "reason": "_claimSTACK defines the _tokensGive local.",
+      "type": "dataflow",
+      "from_id": 16,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 40,
+      "reason": "_kick defines the _deltaBlock local.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 41,
+      "reason": "_kick defines the _tokensToAccrue local.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 42,
+      "reason": "_kick defines the _totalDeposited local.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "none"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "setGovernance",
+      "reason": "Parameter _new is only used inside setGovernance and should be collapsed into that function node.",
+      "normal_node": "param_new_setGovernance"
+    },
+    {
+      "merge_into": "setEmissionRate",
+      "reason": "Parameter _new is only used inside setEmissionRate and should be collapsed into that function node.",
+      "normal_node": "param_new_setEmissionRate"
+    },
+    {
+      "merge_into": "setEndBlock",
+      "reason": "Parameter _block is only used inside setEndBlock and should be collapsed into that function node.",
+      "normal_node": "param_block_setEndBlock"
+    },
+    {
+      "merge_into": "deposit",
+      "reason": "Parameter _amount is only used inside deposit and should be collapsed into that function node.",
+      "normal_node": "param_amount_deposit"
+    },
+    {
+      "merge_into": "withdraw",
+      "reason": "Parameter _amount is only used inside withdraw and should be collapsed into that function node.",
+      "normal_node": "param_amount_withdraw"
+    },
+    {
+      "merge_into": "_claimSTACK",
+      "reason": "Parameter _user is only used inside _claimSTACK and should be collapsed into that function node.",
+      "normal_node": "param_user_claimSTACK"
+    },
+    {
+      "merge_into": "rescue",
+      "reason": "Parameter _token is only used inside rescue and should be collapsed into that function node.",
+      "normal_node": "param_token_rescue"
+    },
+    {
+      "merge_into": "rescue",
+      "reason": "Parameter _amount is only used inside rescue and should be collapsed into that function node.",
+      "normal_node": "param_amount_rescue"
+    },
+    {
+      "merge_into": "deposit",
+      "reason": "Local _state is a temporary DepositState copy scoped to deposit.",
+      "normal_node": "local_state_deposit"
+    },
+    {
+      "merge_into": "deposit",
+      "reason": "Local _sharesFor is a temporary conversion result scoped to deposit.",
+      "normal_node": "local_sharesFor_deposit"
+    },
+    {
+      "merge_into": "withdraw",
+      "reason": "Local _state is a temporary DepositState copy scoped to withdraw.",
+      "normal_node": "local_state_withdraw"
+    },
+    {
+      "merge_into": "withdraw",
+      "reason": "Local _sharesFor is a temporary conversion result scoped to withdraw.",
+      "normal_node": "local_sharesFor_withdraw"
+    },
+    {
+      "merge_into": "_claimSTACK",
+      "reason": "Local _state is a temporary DepositState copy scoped to _claimSTACK.",
+      "normal_node": "local_state_claimSTACK"
+    },
+    {
+      "merge_into": "_claimSTACK",
+      "reason": "Local _tokensGive is the reward amount computed and transferred inside _claimSTACK.",
+      "normal_node": "local_tokensGive_claimSTACK"
+    },
+    {
+      "merge_into": "_kick",
+      "reason": "Local _deltaBlock is computed purely inside _kick.",
+      "normal_node": "local_deltaBlock_kick"
+    },
+    {
+      "merge_into": "_kick",
+      "reason": "Local _tokensToAccrue is computed purely inside _kick.",
+      "normal_node": "local_tokensToAccrue_kick"
+    },
+    {
+      "merge_into": "_kick",
+      "reason": "Local _totalDeposited caches depositedShares only inside _kick.",
+      "normal_node": "local_totalDeposited_kick"
+    }
+  ]
+}

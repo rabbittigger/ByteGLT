@@ -1,0 +1,642 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Hardcoded developer/CEO address that receives commissions and attack/defense payments.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "ceoAddress"
+    },
+    {
+      "type": "state_var",
+      "description": "Array of Planet structs storing name, owner, price and accumulated resources.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "planets"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping of address to number of planets owned, used in purchase and steal checks.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "addressPlanetsCount"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping of address to purchased attack power.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "addressAttackCount"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping of address to purchased defense power.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "addressDefenseCount"
+    },
+    {
+      "type": "state_var",
+      "description": "Fixed price payable to purchase one attack point.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "attackCost"
+    },
+    {
+      "type": "state_var",
+      "description": "Fixed price payable to purchase one defense point.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "defenseCost"
+    },
+    {
+      "type": "state_var",
+      "description": "Mutable nonce mixed into keccak256 randomness generation.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "randNonce"
+    },
+    {
+      "type": "state_var",
+      "description": "Flag preventing re-initialization of the planet list.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "planetsAreInitiated"
+    },
+    {
+      "type": "function",
+      "description": "Modifier requiring msg.sender to equal ceoAddress; used as access control gate.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "onlyCeo"
+    },
+    {
+      "type": "function",
+      "description": "Payable function that buys a planet, pays the previous owner 95% and the CEO 5%, then raises the price by 50%.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "purchasePlanet"
+    },
+    {
+      "type": "function",
+      "description": "Payable function that transfers msg.value to the CEO and increments the caller's attack count.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "purchaseAttack"
+    },
+    {
+      "type": "function",
+      "description": "Payable function that transfers msg.value to the CEO and increments the caller's defense count.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "purchaseDefense"
+    },
+    {
+      "type": "function",
+      "description": "Function that computes a pseudo-random stealed amount from a target planet and transfers it to the caller.",
+      "is_core": true,
+      "node_id": 13,
+      "id": "StealResources"
+    },
+    {
+      "type": "function",
+      "description": "Read-only view returning a user's planet, attack and defense counts.",
+      "is_core": true,
+      "node_id": 14,
+      "id": "getUserDetails"
+    },
+    {
+      "type": "function",
+      "description": "Read-only view returning planet data plus the owner's attack and defense counts.",
+      "is_core": true,
+      "node_id": 15,
+      "id": "getPlanet"
+    },
+    {
+      "type": "function",
+      "description": "CEO-only function pushing a new Planet struct into the planets array.",
+      "is_core": true,
+      "node_id": 16,
+      "id": "createPlanet"
+    },
+    {
+      "type": "function",
+      "description": "CEO-only function that creates the initial set of planets exactly once.",
+      "is_core": true,
+      "node_id": 17,
+      "id": "InitiatePlanets"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used for ownership checks, payment and receiving ETH.",
+      "is_core": true,
+      "node_id": 18,
+      "id": "msg.sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Block timestamp (now) used as entropy source in the random number generation.",
+      "is_core": true,
+      "node_id": 19,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External .transfer of the 95% sale commission to planets[_planetId].ownerAddress in purchasePlanet.",
+      "is_core": true,
+      "node_id": 20,
+      "id": "ownerTransfer"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External .transfer of the 5% commission to ceoAddress in purchasePlanet.",
+      "is_core": true,
+      "node_id": 21,
+      "id": "ceoTransferPurchase"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External .transfer of msg.value to ceoAddress in purchaseAttack.",
+      "is_core": true,
+      "node_id": 22,
+      "id": "ceoTransferAttack"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External .transfer of msg.value to ceoAddress in purchaseDefense.",
+      "is_core": true,
+      "node_id": 23,
+      "id": "ceoTransferDefense"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External .transfer of resourcesStealable to msg.sender in StealResources, performed before state update.",
+      "is_core": true,
+      "node_id": 24,
+      "id": "stealTransfer"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Pseudo-random generation via keccak256(now, msg.sender, randNonce) % 49, predictable by miners/callers.",
+      "is_core": true,
+      "node_id": 25,
+      "id": "randomGeneration"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Unchecked uint256 arithmetic in purchasePlanet: price increase, resource addition and ownership count decrement.",
+      "is_core": true,
+      "node_id": 26,
+      "id": "purchaseArithmetic"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Unchecked uint256 arithmetic in StealResources: resourcesStealable calculation and resource subtraction.",
+      "is_core": true,
+      "node_id": 27,
+      "id": "stealArithmetic"
+    },
+    {
+      "type": "parameter",
+      "description": "Parameter selecting which planet to purchase in purchasePlanet.",
+      "is_core": false,
+      "node_id": 28,
+      "id": "_planetId_purchase"
+    },
+    {
+      "type": "parameter",
+      "description": "Parameter selecting which planet to attack in StealResources.",
+      "is_core": false,
+      "node_id": 29,
+      "id": "_planetId_steal"
+    },
+    {
+      "type": "parameter",
+      "description": "Parameter of getUserDetails identifying the queried address.",
+      "is_core": false,
+      "node_id": 30,
+      "id": "_user"
+    },
+    {
+      "type": "parameter",
+      "description": "Parameter of getPlanet identifying the queried planet.",
+      "is_core": false,
+      "node_id": 31,
+      "id": "_planetId_get"
+    },
+    {
+      "type": "parameter",
+      "description": "Parameter of createPlanet holding the new planet name.",
+      "is_core": false,
+      "node_id": 32,
+      "id": "_planetName"
+    },
+    {
+      "type": "parameter",
+      "description": "Parameter of createPlanet holding the initial price.",
+      "is_core": false,
+      "node_id": 33,
+      "id": "_planetPrice"
+    },
+    {
+      "type": "local_var",
+      "description": "Local variable holding the 5% commission in purchasePlanet.",
+      "is_core": false,
+      "node_id": 34,
+      "id": "commission5percent"
+    },
+    {
+      "type": "local_var",
+      "description": "Local variable holding the 95% payout to the previous owner.",
+      "is_core": false,
+      "node_id": 35,
+      "id": "commissionOwner"
+    },
+    {
+      "type": "local_var",
+      "description": "Local pseudo-random value (1..49) computed in StealResources.",
+      "is_core": false,
+      "node_id": 36,
+      "id": "random"
+    },
+    {
+      "type": "local_var",
+      "description": "Local amount of resources computed and transferred in StealResources.",
+      "is_core": false,
+      "node_id": 37,
+      "id": "resourcesStealable"
+    },
+    {
+      "type": "local_var",
+      "description": "Local index returned by planets.push in createPlanet.",
+      "is_core": false,
+      "node_id": 38,
+      "id": "planetId"
+    },
+    {
+      "type": "local_var",
+      "description": "Storage pointer to a Planet struct in getPlanet.",
+      "is_core": false,
+      "node_id": 39,
+      "id": "_planet"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "msg.sender is the recipient of the external transfer in StealResources, enabling reentrancy.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "msg.sender drives the ownership and attack-power checks in StealResources.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "msg.sender becomes the new owner in purchasePlanet.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "block.timestamp (now) is used as entropy in the random number generation.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "The generated random value determines the transferred amount in StealResources.",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "resourcesStealable is the ETH amount sent to msg.sender before state update.",
+      "from_id": 37
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "_planetId selects the planet whose resources are transferred out.",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 24,
+      "type": "controlflow",
+      "reason": "StealResources executes the external transfer to the caller.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 13,
+      "type": "callback",
+      "reason": "The external transfer can re-enter StealResources before curResources is decremented.",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 25,
+      "type": "controlflow",
+      "reason": "StealResources generates the pseudo-random value from block data.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "_planetId indexes the planet attacked in StealResources.",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "controlflow",
+      "reason": "purchasePlanet performs the 95% payout transfer to the previous owner.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "controlflow",
+      "reason": "purchasePlanet performs the 5% commission transfer to the CEO.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "commission5percent is the amount transferred to the CEO.",
+      "from_id": 34
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "commissionOwner is the amount transferred to the previous owner.",
+      "from_id": 35
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "_planetId selects the planet purchased.",
+      "from_id": 28
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "controlflow",
+      "reason": "purchaseAttack forwards msg.value to the CEO.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "controlflow",
+      "reason": "purchaseDefense forwards msg.value to the CEO.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "controlflow",
+      "reason": "onlyCeo restricts createPlanet to the CEO address.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "ceoAddress is the reference compared against msg.sender in onlyCeo.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "controlflow",
+      "reason": "InitiatePlanets calls createPlanet for each initial planet.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "createPlanet pushes a new Planet into the planets array.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "_planetPrice sets the initial curPrice of the new planet.",
+      "from_id": 33
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "_planetName sets the name of the new planet.",
+      "from_id": 32
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "planetId holds the index produced by planets.push.",
+      "from_id": 38
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "_user selects the address queried in getUserDetails.",
+      "from_id": 30
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "_planetId selects the planet queried in getPlanet.",
+      "from_id": 31
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "_planet storage pointer reads fields returned by getPlanet.",
+      "from_id": 39
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "addressAttackCount is compared against the defender in StealResources.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "addressDefenseCount of the owner is used in the StealResources check.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "addressPlanetsCount is required to be positive before stealing.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "planets supplies owner and resources data used in StealResources.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "attackCost is validated against msg.value in purchaseAttack.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "defenseCost is validated against msg.value in purchaseDefense.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "randNonce is mixed into the keccak256 randomness.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "randNonce is incremented after random generation.",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 26,
+      "type": "controlflow",
+      "reason": "purchasePlanet performs unchecked uint256 price, resource and count arithmetic.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "The arithmetic results update planet price/resources state.",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 27,
+      "type": "controlflow",
+      "reason": "StealResources performs unchecked multiplication and subtraction on resources.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "The arithmetic result rewrites planets[_planetId].curResources.",
+      "from_id": 27
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "StealResources reads the defender's defense count for comparison.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "StealResources reads the attacker's attack count for comparison.",
+      "from_id": 13
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "purchasePlanet",
+      "reason": "Parameter only indexes the planet handled by purchasePlanet.",
+      "normal_node": "_planetId_purchase"
+    },
+    {
+      "merge_into": "StealResources",
+      "reason": "Parameter only selects the target planet inside StealResources.",
+      "normal_node": "_planetId_steal"
+    },
+    {
+      "merge_into": "getUserDetails",
+      "reason": "Parameter is only used as the mapping key inside getUserDetails.",
+      "normal_node": "_user"
+    },
+    {
+      "merge_into": "getPlanet",
+      "reason": "Parameter is only used to index the planets array in getPlanet.",
+      "normal_node": "_planetId_get"
+    },
+    {
+      "merge_into": "createPlanet",
+      "reason": "Parameter is only written into the new Planet struct in createPlanet.",
+      "normal_node": "_planetName"
+    },
+    {
+      "merge_into": "createPlanet",
+      "reason": "Parameter is only used as the initial price in createPlanet.",
+      "normal_node": "_planetPrice"
+    },
+    {
+      "merge_into": "purchasePlanet",
+      "reason": "Temporary 5% value local to purchasePlanet.",
+      "normal_node": "commission5percent"
+    },
+    {
+      "merge_into": "purchasePlanet",
+      "reason": "Temporary 95% payout value local to purchasePlanet.",
+      "normal_node": "commissionOwner"
+    },
+    {
+      "merge_into": "randomGeneration",
+      "reason": "Local random value produced by the RNG unsafe operation in StealResources.",
+      "normal_node": "random"
+    },
+    {
+      "merge_into": "stealTransfer",
+      "reason": "Local amount directly consumed by the external transfer unsafe operation.",
+      "normal_node": "resourcesStealable"
+    },
+    {
+      "merge_into": "createPlanet",
+      "reason": "Temporary index from planets.push in createPlanet.",
+      "normal_node": "planetId"
+    },
+    {
+      "merge_into": "getPlanet",
+      "reason": "Storage pointer local to the getPlanet read logic.",
+      "normal_node": "_planet"
+    }
+  ]
+}

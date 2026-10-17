@@ -1,0 +1,189 @@
+{
+  "nodes": [
+    {
+      "id": "NFGasNames.test1",
+      "description": "Public uint256 state variable test1 declared in NFGasNames; not referenced by any function.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "NFGasNames.test2",
+      "description": "Public bytes32 state variable test2 declared in NFGasNames; not referenced by any function.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "NFGasNames.names",
+      "description": "Public mapping(uint256 => string) names storing NFT name registrations, written in setName.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "state_var"
+    },
+    {
+      "id": "NFGasNames.nfgas",
+      "description": "Public IERC721 nfgas reference, the external NFT contract used for ownership checks.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "state_var"
+    },
+    {
+      "id": "NFGasNames.constructor",
+      "description": "Constructor(address a) that casts the provided address to IERC721 and stores it in nfgas.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "NFGasNames.setName",
+      "description": "Public setName(uint256 id, string memory name) that validates ownership of token id via nfgas.ownerOf and the keccak-based hash of name, then writes names[id] = name.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "function"
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller-supplied address used as the owner/authorization check in setName (require(nfgas.ownerOf(id) == msg.sender)).",
+      "is_core": true,
+      "node_id": 6,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "NFGasNames.setName.nfgas.ownerOf",
+      "description": "External call nfgas.ownerOf(id) executed inside setName before the names[id] state write, on an arbitrary caller-controlled IERC721 address.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "NFGasNames.constructor.a",
+      "description": "Address parameter a of the constructor, used to build the nfgas IERC721 instance.",
+      "is_core": false,
+      "node_id": 8,
+      "type": "parameter"
+    },
+    {
+      "id": "NFGasNames.setName.id",
+      "description": "uint256 id parameter of setName; both the token id checked via ownerOf and the mapping key for names.",
+      "is_core": false,
+      "node_id": 9,
+      "type": "parameter"
+    },
+    {
+      "id": "NFGasNames.setName.name",
+      "description": "string memory name parameter of setName; hashed for validation and stored in the names mapping.",
+      "is_core": false,
+      "node_id": 10,
+      "type": "parameter"
+    },
+    {
+      "id": "NFGasNames.setName.hashValue",
+      "description": "Local variable hashValue = uint(keccak256(abi.encodePacked(name))) % 1025, computed from name and compared against id.",
+      "is_core": false,
+      "node_id": 11,
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor parameter a flows into the constructor body to construct the IERC721 nfgas reference.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Constructor assigns the converted address into the nfgas state variable.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "State variable nfgas is the target object of the external ownerOf call in setName.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Parameter id is passed as the argument of the external call nfgas.ownerOf(id).",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender is compared with nfgas.ownerOf(id) in a require that gates execution of setName, forming an owner-based access control dependency.",
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "from_id": 6,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The external call to nfgas.ownerOf occurs inside setName before the names[id] state write, allowing the caller-controlled NFT contract to re-enter or observe state mid-execution.",
+      "to_id": 5,
+      "vuln_type": "reentrancy",
+      "from_id": 7,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Parameter id is used as the mapping key when writing names[id] = name.",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Parameter name is written into the names mapping at key id.",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 10,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Parameter name is hashed with keccak256 and reduced modulo 1025 to produce the local hashValue.",
+      "to_id": 11,
+      "vuln_type": "none",
+      "from_id": 10,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Local hashValue participates in the require(hashValue == id) check that controls whether setName completes the write.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 11,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Parameter id is required to equal the keccak-derived hashValue, constraining the function's control flow.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "controlflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Constructor-only address parameter has no independent state; it collapses into the constructor's nfgas initialization.",
+      "normal_node": "NFGasNames.constructor.a",
+      "merge_into": "NFGasNames.constructor"
+    },
+    {
+      "reason": "Function-scoped uint256 parameter used solely for the owner check, the hash requirement and the names mapping key.",
+      "normal_node": "NFGasNames.setName.id",
+      "merge_into": "NFGasNames.setName"
+    },
+    {
+      "reason": "Function-scoped string parameter used only for hashing and for the names[id] assignment.",
+      "normal_node": "NFGasNames.setName.name",
+      "merge_into": "NFGasNames.setName"
+    },
+    {
+      "reason": "Temporary local derived from name and consumed only by the require(hashValue == id) validation inside setName.",
+      "normal_node": "NFGasNames.setName.hashValue",
+      "merge_into": "NFGasNames.setName"
+    }
+  ]
+}

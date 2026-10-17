@@ -1,0 +1,641 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Constant 86400 seconds per day used for time bucketing of the release schedule.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "SECONDS_OF_A_DAY"
+    },
+    {
+      "type": "state_var",
+      "description": "Immutable ERC20 token held in timelock and transferred out on withdrawals.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "_token"
+    },
+    {
+      "type": "state_var",
+      "description": "Immutable beneficiary address receiving released tokens.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "_beneficiary"
+    },
+    {
+      "type": "state_var",
+      "description": "Immutable start timestamp (day-aligned) of the release period.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "_releaseStartTime"
+    },
+    {
+      "type": "state_var",
+      "description": "End timestamp of the release period, mutable via terminate().",
+      "is_core": true,
+      "node_id": 4,
+      "id": "_releaseEndTime"
+    },
+    {
+      "type": "state_var",
+      "description": "Total benefit amount; reduced by terminate() to the already released amount.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "_totalBenefit"
+    },
+    {
+      "type": "state_var",
+      "description": "Running total of tokens already withdrawn by the beneficiary.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "_withdrawedBalance"
+    },
+    {
+      "type": "state_var",
+      "description": "Flag marking that the contract has been terminated by the owner.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "_isTerminated"
+    },
+    {
+      "type": "function",
+      "description": "Beneficiary-facing function that transfers the vested-but-unwithdrawn amount via safeTransfer.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "withdraw"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner function that truncates the release schedule and sweeps unreleased tokens to the owner.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "terminate"
+    },
+    {
+      "type": "function",
+      "description": "View computing vested tokens from block.timestamp, release window and total benefit.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "releasedBalance"
+    },
+    {
+      "type": "function",
+      "description": "View returning _totalBenefit minus releasedBalance().",
+      "is_core": true,
+      "node_id": 11,
+      "id": "unreleasedBalance"
+    },
+    {
+      "type": "function",
+      "description": "View returning the accumulated withdrawn balance.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "withdrawedBalance"
+    },
+    {
+      "type": "function",
+      "description": "View returning the held ERC20 token reference.",
+      "is_core": true,
+      "node_id": 13,
+      "id": "token"
+    },
+    {
+      "type": "function",
+      "description": "View returning the beneficiary address.",
+      "is_core": true,
+      "node_id": 14,
+      "id": "beneficiary"
+    },
+    {
+      "type": "function",
+      "description": "View returning the total benefit amount.",
+      "is_core": true,
+      "node_id": 15,
+      "id": "totalBenefit"
+    },
+    {
+      "type": "function",
+      "description": "Deploys the timelock, aligns the start time to a day boundary and validates the end time against block.timestamp.",
+      "is_core": true,
+      "node_id": 16,
+      "id": "constructor"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Miner/validator influenced time source used for vesting math and termination.",
+      "is_core": true,
+      "node_id": 17,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller identity used by the inherited onlyOwner access control through _msgSender().",
+      "is_core": true,
+      "node_id": 18,
+      "id": "msg.sender"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External ERC20 token transfer performed in withdraw() and terminate(), transferring control to the token contract.",
+      "is_core": true,
+      "node_id": 19,
+      "id": "safeTransfer_external_call"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Arithmetic state update _withdrawedBalance += amount in withdraw().",
+      "is_core": true,
+      "node_id": 20,
+      "id": "withdrawedBalance_update"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Timestamp-derived day arithmetic ((block.timestamp - _releaseStartTime) / SECONDS_OF_A_DAY and proportional _totalBenefit * passedDays / totalDays) in releasedBalance().",
+      "is_core": true,
+      "node_id": 21,
+      "id": "releasedBalance_timestamp_math"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Timestamp truncation arithmetic block.timestamp - (block.timestamp % SECONDS_OF_A_DAY) in terminate().",
+      "is_core": true,
+      "node_id": 22,
+      "id": "terminate_timestamp_math"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Balance sweeper arithmetic token().balanceOf(address(this)) - (_totalBenefit - _withdrawedBalance) in terminate().",
+      "is_core": true,
+      "node_id": 23,
+      "id": "terminate_balance_arithmetic"
+    },
+    {
+      "type": "parameter",
+      "description": "Constructor parameter for the ERC20 token address assigned to _token.",
+      "is_core": false,
+      "node_id": 24,
+      "id": "token_"
+    },
+    {
+      "type": "parameter",
+      "description": "Constructor parameter for the beneficiary address assigned to _beneficiary.",
+      "is_core": false,
+      "node_id": 25,
+      "id": "beneficiary_"
+    },
+    {
+      "type": "parameter",
+      "description": "Constructor parameter for the raw release start time, day-aligned before storage.",
+      "is_core": false,
+      "node_id": 26,
+      "id": "releaseStartTime_"
+    },
+    {
+      "type": "parameter",
+      "description": "Constructor parameter for the timelock length in days used to derive _releaseEndTime.",
+      "is_core": false,
+      "node_id": 27,
+      "id": "daysOfTimelock_"
+    },
+    {
+      "type": "parameter",
+      "description": "Constructor parameter for the total benefit assigned to _totalBenefit.",
+      "is_core": false,
+      "node_id": 28,
+      "id": "totalBenefit_"
+    },
+    {
+      "type": "local_var",
+      "description": "Local amount (releasedBalance() - _withdrawedBalance) transferred in withdraw().",
+      "is_core": false,
+      "node_id": 29,
+      "id": "amount"
+    },
+    {
+      "type": "local_var",
+      "description": "Local surplus amount swept to the owner in terminate().",
+      "is_core": false,
+      "node_id": 30,
+      "id": "amountToWithdraw"
+    },
+    {
+      "type": "local_var",
+      "description": "Local number of elapsed days since _releaseStartTime in releasedBalance().",
+      "is_core": false,
+      "node_id": 31,
+      "id": "passedDays"
+    },
+    {
+      "type": "local_var",
+      "description": "Local total number of days of the release window in releasedBalance().",
+      "is_core": false,
+      "node_id": 32,
+      "id": "totalDays"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "constructor assigns parameter token_ to the immutable _token state variable",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "constructor assigns parameter beneficiary_ to _beneficiary",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "constructor stores the day-aligned releaseStartTime_ into _releaseStartTime",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "constructor computes and stores _releaseEndTime from start time and daysOfTimelock_",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "constructor sets _totalBenefit = totalBenefit_",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "constructor initializes _withdrawedBalance to zero",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "constructor initializes _isTerminated to false",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "constructor require() compares _releaseEndTime against block.timestamp, making deployment time-dependent",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "constructor parameter token_ flows into the constructor body",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "constructor parameter beneficiary_ flows into the constructor body",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "constructor parameter releaseStartTime_ flows into the constructor body",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "constructor parameter daysOfTimelock_ flows into the constructor body",
+      "from_id": 27
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "constructor parameter totalBenefit_ flows into the constructor body",
+      "from_id": 28
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "releasedBalance() branches on block.timestamp to decide zero, full or proportional vesting",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "releasedBalance() reads _releaseStartTime for elapsed-time math",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "releasedBalance() reads _releaseEndTime to bound the vesting window",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "releasedBalance() reads _totalBenefit to scale the vested amount",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "timestamp-derived day calculations in releasedBalance() are collected as an unsafe timestamp operation",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "local passedDays is computed and used inside releasedBalance()",
+      "from_id": 31
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "local totalDays is computed and used inside releasedBalance()",
+      "from_id": 32
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "controlflow",
+      "reason": "unreleasedBalance() calls releasedBalance()",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "unreleasedBalance() subtracts releasedBalance() from _totalBenefit",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "controlflow",
+      "reason": "withdraw() invokes releasedBalance() twice for its requirement and amount computation",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "controlflow",
+      "reason": "terminate() invokes releasedBalance() to truncate the remaining benefit",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "withdraw() reads _withdrawedBalance to compute the withdrawable amount",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "withdraw() performs the arithmetic state mutation _withdrawedBalance += amount",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "the unsafe arithmetic update writes into the _withdrawedBalance state variable",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "local amount is derived from releasedBalance() - _withdrawedBalance inside withdraw()",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 19,
+      "type": "controlflow",
+      "reason": "withdraw() makes an external token transfer (safeTransfer) at the end of its body",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "the external safeTransfer operates on the _token ERC20 reference",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "the external safeTransfer in withdraw() sends tokens to _beneficiary",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 8,
+      "type": "callback",
+      "reason": "a malicious token can re-enter withdraw() during the external transfer callback",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "withdraw() calls token() to query balance and perform the transfer",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "terminate() calls token() to query balance and sweep tokens",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "terminate() sets _isTerminated = true",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "terminate() rewrites _totalBenefit to releasedBalance()",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "terminate() rewrites _releaseEndTime to the current day boundary",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "terminate() depends on block.timestamp to recompute the end of the release period",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "terminal timestamp truncation arithmetic is collected as an unsafe timestamp operation",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "terminate() computes the owner sweep amount from a balance subtraction that can underflow if the token balance is short",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 19,
+      "type": "controlflow",
+      "reason": "terminate() performs an external token transfer to the owner",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 9,
+      "type": "callback",
+      "reason": "a malicious token can re-enter terminate() during the external transfer callback",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "local amountToWithdraw is computed inside terminate() and passed to safeTransfer",
+      "from_id": 30
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 9,
+      "type": "controlflow",
+      "reason": "terminate() is guarded by the onlyOwner modifier which compares _msgSender() with owner()",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "token() returns the _token state variable",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "beneficiary() returns the _beneficiary state variable",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "totalBenefit() returns the _totalBenefit state variable",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "withdrawedBalance() returns the _withdrawedBalance state variable",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "releasedBalance() uses SECONDS_OF_A_DAY to convert elapsed seconds into days",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "constructor uses SECONDS_OF_A_DAY to align the start time and compute the end time",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "terminate() uses SECONDS_OF_A_DAY to round the current timestamp down to a day boundary",
+      "from_id": 0
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "constructor",
+      "reason": "Constructor parameter only used to initialize the immutable _token state variable; it can be normalized into the constructor node.",
+      "normal_node": "token_"
+    },
+    {
+      "merge_into": "constructor",
+      "reason": "Constructor parameter only used to initialize the immutable _beneficiary state variable; it can be normalized into the constructor node.",
+      "normal_node": "beneficiary_"
+    },
+    {
+      "merge_into": "constructor",
+      "reason": "Constructor parameter only used to compute _releaseStartTime and _releaseEndTime; it can be normalized into the constructor node.",
+      "normal_node": "releaseStartTime_"
+    },
+    {
+      "merge_into": "constructor",
+      "reason": "Constructor parameter only used to derive _releaseEndTime; it can be normalized into the constructor node.",
+      "normal_node": "daysOfTimelock_"
+    },
+    {
+      "merge_into": "constructor",
+      "reason": "Constructor parameter only used to initialize _totalBenefit; it can be normalized into the constructor node.",
+      "normal_node": "totalBenefit_"
+    },
+    {
+      "merge_into": "withdraw",
+      "reason": "Local temporary holding releasedBalance() - _withdrawedBalance; its dataflow belongs to the withdraw function node.",
+      "normal_node": "amount"
+    },
+    {
+      "merge_into": "terminate",
+      "reason": "Local temporary holding the owner sweep amount; its dataflow belongs to the terminate function node.",
+      "normal_node": "amountToWithdraw"
+    },
+    {
+      "merge_into": "releasedBalance",
+      "reason": "Local temporary number of elapsed days; its dataflow belongs to the releasedBalance function node.",
+      "normal_node": "passedDays"
+    },
+    {
+      "merge_into": "releasedBalance",
+      "reason": "Local temporary length of the vesting window; its dataflow belongs to the releasedBalance function node.",
+      "normal_node": "totalDays"
+    }
+  ]
+}

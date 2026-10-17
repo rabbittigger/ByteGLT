@@ -1,0 +1,785 @@
+{
+  "nodes": [
+    {
+      "id": "sv_treasuryFeeBPS",
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Treasury fee basis points (400) used to size the marketing portion of the swap",
+      "is_core": true
+    },
+    {
+      "id": "sv_totalFeeBPS",
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Aggregate fee basis points (1000) divided into the transfer fee and used as the denominator in _executeSwap",
+      "is_core": true
+    },
+    {
+      "id": "sv_swapping",
+      "node_id": 2,
+      "type": "state_var",
+      "description": "Reentrancy guard flag set true before the internal swap and false after",
+      "is_core": true
+    },
+    {
+      "id": "sv_swapEnabled",
+      "node_id": 3,
+      "type": "state_var",
+      "description": "Owner toggle that gates contract-token swapping inside _transfer",
+      "is_core": true
+    },
+    {
+      "id": "sv_taxEnabled",
+      "node_id": 4,
+      "type": "state_var",
+      "description": "Owner toggle that gates fee collection inside _transfer",
+      "is_core": true
+    },
+    {
+      "id": "sv_swapTokensAtAmount",
+      "node_id": 5,
+      "type": "state_var",
+      "description": "Token balance threshold that triggers the contract swap",
+      "is_core": true
+    },
+    {
+      "id": "sv_lastSwapTime",
+      "node_id": 6,
+      "type": "state_var",
+      "description": "Stores block.timestamp of the last executed swap",
+      "is_core": true
+    },
+    {
+      "id": "sv_balances",
+      "node_id": 7,
+      "type": "state_var",
+      "description": "ERC20 balance ledger mutated by _executeTransfer/_mint/_burn",
+      "is_core": true
+    },
+    {
+      "id": "sv_isBlacklisted",
+      "node_id": 8,
+      "type": "state_var",
+      "description": "Owner-controlled blacklist checked at the top of _transfer",
+      "is_core": true
+    },
+    {
+      "id": "sv_isExcludedFromFees",
+      "node_id": 9,
+      "type": "state_var",
+      "description": "Accounts exempted from the transfer tax, set by excludeFromFees",
+      "is_core": true
+    },
+    {
+      "id": "sv_automatedMarketMakerPairs",
+      "node_id": 10,
+      "type": "state_var",
+      "description": "Whitelisted DEX pairs; read in _transfer to decide fee and swap behaviour",
+      "is_core": true
+    },
+    {
+      "id": "sv_uniswapV2Pair",
+      "node_id": 11,
+      "type": "state_var",
+      "description": "The canonical Uniswap V2 pair address used for buy/sell detection",
+      "is_core": true
+    },
+    {
+      "id": "sv_marketingWallet",
+      "node_id": 12,
+      "type": "state_var",
+      "description": "Destination of the treasury cut of swapped native currency",
+      "is_core": true
+    },
+    {
+      "id": "sv_liquidityWallet",
+      "node_id": 13,
+      "type": "state_var",
+      "description": "Destination of the LP tokens created by addLiquidity",
+      "is_core": true
+    },
+    {
+      "id": "sv_isOpen",
+      "node_id": 14,
+      "type": "state_var",
+      "description": "Trading gate; _transfer requires isOpen or a privileged participant",
+      "is_core": true
+    },
+    {
+      "id": "sv_dividendTracker",
+      "node_id": 15,
+      "type": "state_var",
+      "description": "DividendTracker contract instance called from _transfer and _executeSwap",
+      "is_core": true
+    },
+    {
+      "id": "sv_magnifiedDividendPerShare",
+      "node_id": 16,
+      "type": "state_var",
+      "description": "Accumulator of dividends per share, updated in distributeDividends",
+      "is_core": true
+    },
+    {
+      "id": "sv_withdrawnDividends",
+      "node_id": 17,
+      "type": "state_var",
+      "description": "Per-account withdrawn dividend accounting, adjusted around the low-level payout",
+      "is_core": true
+    },
+    {
+      "id": "sv_allowances",
+      "node_id": 18,
+      "type": "state_var",
+      "description": "ERC20 allowance ledger written by _approve and read by transferFrom",
+      "is_core": true
+    },
+    {
+      "id": "sv_maxTxBPS",
+      "node_id": 19,
+      "type": "state_var",
+      "description": "Anti-whale transaction limit in basis points set by setMaxTxBPS",
+      "is_core": true
+    },
+    {
+      "id": "fn_transfer_internal",
+      "node_id": 20,
+      "type": "function",
+      "description": "Internal _transfer: gate checks, blacklist, max-tx/max-wallet, fee, swap trigger and dividend tracker sync",
+      "is_core": true
+    },
+    {
+      "id": "fn_executeSwap",
+      "node_id": 21,
+      "type": "function",
+      "description": "Private _executeSwap: splits contract tokens, swaps to native and distributes to marketing/LP/dividends with external calls",
+      "is_core": true
+    },
+    {
+      "id": "fn_executeTransfer",
+      "node_id": 22,
+      "type": "function",
+      "description": "Private _executeTransfer: raw balance mutation and Transfer event",
+      "is_core": true
+    },
+    {
+      "id": "fn_swapTokensForNative",
+      "node_id": 23,
+      "type": "function",
+      "description": "Private swapTokensForNative: approves the router and swaps tokens for ETH with block.timestamp as deadline",
+      "is_core": true
+    },
+    {
+      "id": "fn_addLiquidity",
+      "node_id": 24,
+      "type": "function",
+      "description": "Private addLiquidity: approves router and adds ETH/token liquidity to liquidityWallet",
+      "is_core": true
+    },
+    {
+      "id": "fn_claim",
+      "node_id": 25,
+      "type": "function",
+      "description": "Public claim() that forwards _msgSender() to dividendTracker.processAccount",
+      "is_core": true
+    },
+    {
+      "id": "fn_compound",
+      "node_id": 26,
+      "type": "function",
+      "description": "Public compound() that forwards _msgSender() to dividendTracker.compoundAccount",
+      "is_core": true
+    },
+    {
+      "id": "fn_rescueToken",
+      "node_id": 27,
+      "type": "function",
+      "description": "Owner-only rescueToken: transfers arbitrary tokens out of the contract",
+      "is_core": true
+    },
+    {
+      "id": "fn_rescueETH",
+      "node_id": 28,
+      "type": "function",
+      "description": "Owner-only rescueETH: transfers contract ETH to msg.sender",
+      "is_core": true
+    },
+    {
+      "id": "fn_excludeFromFees",
+      "node_id": 29,
+      "type": "function",
+      "description": "Owner-only toggle writing _isExcludedFromFees",
+      "is_core": true
+    },
+    {
+      "id": "fn_setFee",
+      "node_id": 30,
+      "type": "function",
+      "description": "Owner-only setFee recomputing treasury/liquidity/dividend/total fee BPS",
+      "is_core": true
+    },
+    {
+      "id": "fn_manualSendDividend",
+      "node_id": 31,
+      "type": "function",
+      "description": "Owner-only manualSendDividend bridging to DividendTracker.manualSendDividend which transfers ETH to a holder",
+      "is_core": true
+    },
+    {
+      "id": "fn_distributeDividends",
+      "node_id": 32,
+      "type": "function",
+      "description": "DividendTracker receive-triggered distributeDividends that updates magnifiedDividendPerShare",
+      "is_core": true
+    },
+    {
+      "id": "fn_processAccount",
+      "node_id": 33,
+      "type": "function",
+      "description": "DividendTracker processAccount: withdraws dividend for an account and stamps lastClaimTimes with block.timestamp",
+      "is_core": true
+    },
+    {
+      "id": "fn_withdrawDividendOfUser",
+      "node_id": 34,
+      "type": "function",
+      "description": "DividendTracker _withdrawDividendOfUser: state updates then low-level call to the account",
+      "is_core": true
+    },
+    {
+      "id": "fn_compoundDividendOfUser",
+      "node_id": 35,
+      "type": "function",
+      "description": "DividendTracker _compoundDividendOfUser: swaps ETH for the token via the router and returns to the user",
+      "is_core": true
+    },
+    {
+      "id": "fn_setMaxTxBPS",
+      "node_id": 36,
+      "type": "function",
+      "description": "Owner-only setMaxTxBPS with bounds check writing maxTxBPS",
+      "is_core": true
+    },
+    {
+      "id": "ui_msg_sender",
+      "node_id": 37,
+      "type": "untrusted_input",
+      "description": "msg.sender reached through _msgSender(); controls transfer/claim/compound/rescue recipients",
+      "is_core": true
+    },
+    {
+      "id": "ui_block_timestamp",
+      "node_id": 38,
+      "type": "untrusted_input",
+      "description": "block.timestamp used for swap deadlines, lastSwapTime and lastClaimTimes",
+      "is_core": true
+    },
+    {
+      "id": "uo_routerSwapTokensForEth",
+      "node_id": 39,
+      "type": "unsafe_operation",
+      "description": "External call: uniswapV2Router.swapExactTokensForETHSupportingFeeOnTransferTokens with amountOutMin=0",
+      "is_core": true
+    },
+    {
+      "id": "uo_lowLevelCallDividendTracker",
+      "node_id": 40,
+      "type": "unsafe_operation",
+      "description": "Low-level {value: nativeDividends}.call(\"\") to dividendTracker, triggering its payable receive()",
+      "is_core": true
+    },
+    {
+      "id": "uo_lowLevelCallAccountWithdraw",
+      "node_id": 41,
+      "type": "unsafe_operation",
+      "description": "Low-level {value: dividend, gas: 3000}.call(\"\") to the withdrawing account",
+      "is_core": true
+    },
+    {
+      "id": "uo_transferMarketingWallet",
+      "node_id": 42,
+      "type": "unsafe_operation",
+      "description": "payable(marketingWallet).transfer(nativeMarketing) inside _executeSwap",
+      "is_core": true
+    },
+    {
+      "id": "uo_rescueEthTransfer",
+      "node_id": 43,
+      "type": "unsafe_operation",
+      "description": "payable(msg.sender).transfer(_amount) inside the owner-only rescueETH",
+      "is_core": true
+    },
+    {
+      "id": "uo_rescueTokenTransfer",
+      "node_id": 44,
+      "type": "unsafe_operation",
+      "description": "IERC20(_token).transfer(msg.sender, _amount) inside the owner-only rescueToken",
+      "is_core": true
+    },
+    {
+      "id": "uo_routerSwapEthForTokens",
+      "node_id": 45,
+      "type": "unsafe_operation",
+      "description": "External call: swapExactETHForTokensSupportingFeeOnTransferTokens inside _compoundDividendOfUser",
+      "is_core": true
+    },
+    {
+      "id": "uo_manualSendDividendTransfer",
+      "node_id": 46,
+      "type": "unsafe_operation",
+      "description": "payable(holder).transfer(amount > 0 ? amount : contractETHBalance) inside DividendTracker.manualSendDividend",
+      "is_core": true
+    },
+    {
+      "id": "param_recipient",
+      "node_id": 47,
+      "type": "parameter",
+      "description": "recipient address parameter of _transfer/_executeTransfer",
+      "is_core": false
+    },
+    {
+      "id": "param_sender",
+      "node_id": 48,
+      "type": "parameter",
+      "description": "sender address parameter of _transfer/_executeTransfer",
+      "is_core": false
+    },
+    {
+      "id": "param_amount",
+      "node_id": 49,
+      "type": "parameter",
+      "description": "amount parameter of _transfer/_executeTransfer used in fee arithmetic",
+      "is_core": false
+    },
+    {
+      "id": "param_account",
+      "node_id": 50,
+      "type": "parameter",
+      "description": "account parameter of processAccount/compoundAccount/setBalance",
+      "is_core": false
+    },
+    {
+      "id": "local_contractTokenBalance",
+      "node_id": 51,
+      "type": "local_var",
+      "description": "Local snapshot of balanceOf(address(this)) passed into _executeSwap",
+      "is_core": false
+    },
+    {
+      "id": "local_senderBalance",
+      "node_id": 52,
+      "type": "local_var",
+      "description": "Local cached _balances[sender] used for the balance require in _executeTransfer",
+      "is_core": false
+    },
+    {
+      "id": "param_bps",
+      "node_id": 53,
+      "type": "local_var",
+      "description": "bps parameter of setMaxTxBPS bounded between 75 and 10000",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 20,
+      "reason": "msg.sender flows through _msgSender() into _transfer as the sender of transfer/transferFrom",
+      "type": "dataflow",
+      "from_id": 37,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 25,
+      "reason": "claim forwards _msgSender() to dividendTracker.processAccount as the dividend account",
+      "type": "dataflow",
+      "from_id": 37,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 26,
+      "reason": "compound forwards _msgSender() to dividendTracker.compoundAccount",
+      "type": "dataflow",
+      "from_id": 37,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 43,
+      "reason": "rescueETH pays out to msg.sender, so authority derives from the caller identity",
+      "type": "dataflow",
+      "from_id": 37,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 20,
+      "reason": "block.timestamp is written into lastSwapTime inside _transfer, creating timestamp dependency",
+      "type": "dataflow",
+      "from_id": 38,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 23,
+      "reason": "block.timestamp is passed as the swap deadline to the router",
+      "type": "dataflow",
+      "from_id": 38,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 24,
+      "reason": "block.timestamp is passed as the addLiquidityETH deadline",
+      "type": "dataflow",
+      "from_id": 38,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 33,
+      "reason": "block.timestamp is stored in lastClaimTimes when a claim succeeds",
+      "type": "dataflow",
+      "from_id": 38,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 35,
+      "reason": "block.timestamp is used as the router swap deadline in _compoundDividendOfUser",
+      "type": "dataflow",
+      "from_id": 38,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 21,
+      "reason": "A user-triggered transfer reaches _executeSwap which performs multiple external calls",
+      "type": "controlflow",
+      "from_id": 20,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 22,
+      "reason": "_transfer finalises the movement of tokens by calling _executeTransfer",
+      "type": "controlflow",
+      "from_id": 20,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 5,
+      "reason": "_transfer reads swapTokensAtAmount to decide whether a swap is allowed",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 2,
+      "reason": "_transfer sets and clears the swapping guard around the external swap calls",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 6,
+      "reason": "_transfer writes lastSwapTime from the miner-influenced block.timestamp",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 8,
+      "reason": "_transfer reads isBlacklisted for both sender and recipient",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 15,
+      "reason": "_transfer calls dividendTracker.setBalance for sender and recipient after moving tokens",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 9,
+      "reason": "_transfer reads _isExcludedFromFees to decide whether to take the fee",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "_transfer reads automatedMarketMakerPairs[sender] to avoid swapping on DEX interactions",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 11,
+      "reason": "_transfer compares sender/recipient against uniswapV2Pair to classify buy/sell",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 14,
+      "reason": "_transfer requires isOpen or a privileged participant",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 3,
+      "reason": "_transfer reads swapEnabled before entering the swap branch",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 4,
+      "reason": "_transfer reads taxEnabled to decide whether fees are applied",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 23,
+      "reason": "_executeSwap swaps the accumulated tokens for native currency via swapTokensForNative",
+      "type": "controlflow",
+      "from_id": 21,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 24,
+      "reason": "_executeSwap adds liquidity using the native proceeds via addLiquidity",
+      "type": "controlflow",
+      "from_id": 21,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 40,
+      "reason": "_executeSwap forwards the dividend cut with a low-level call to dividendTracker",
+      "type": "controlflow",
+      "from_id": 21,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 42,
+      "reason": "_executeSwap transfers the marketing cut to marketingWallet, transferring control externally",
+      "type": "controlflow",
+      "from_id": 21,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 39,
+      "reason": "swapTokensForNative invokes the router swap with amountOutMin set to zero",
+      "type": "controlflow",
+      "from_id": 23,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 12,
+      "reason": "_executeSwap reads marketingWallet as the treasury payout destination",
+      "type": "dataflow",
+      "from_id": 21,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 13,
+      "reason": "addLiquidity sends the resulting LP tokens to liquidityWallet",
+      "type": "dataflow",
+      "from_id": 24,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 32,
+      "reason": "Sending ETH to dividendTracker triggers its payable receive() which executes distributeDividends",
+      "type": "callback",
+      "from_id": 40,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 34,
+      "reason": "processAccount delegates the payout to _withdrawDividendOfUser which makes a low-level call",
+      "type": "controlflow",
+      "from_id": 33,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 41,
+      "reason": "_withdrawDividendOfUser sends the dividend to the account with a low-level call",
+      "type": "controlflow",
+      "from_id": 34,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 17,
+      "reason": "withdrawnDividends is credited and rolled back around the external payout in _withdrawDividendOfUser",
+      "type": "dataflow",
+      "from_id": 34,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 45,
+      "reason": "_compoundDividendOfUser performs an external router swap for the user's account",
+      "type": "controlflow",
+      "from_id": 35,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 16,
+      "reason": "distributeDividends credits msg.value into magnifiedDividendPerShare",
+      "type": "dataflow",
+      "from_id": 32,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 46,
+      "reason": "manualSendDividend reaches DividendTracker.manualSendDividend which transfers ETH to a holder",
+      "type": "controlflow",
+      "from_id": 31,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 44,
+      "reason": "rescueToken performs an arbitrary external token transfer chosen by the owner",
+      "type": "controlflow",
+      "from_id": 27,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 43,
+      "reason": "rescueETH pays the contract balance to msg.sender and is protected only by onlyOwner",
+      "type": "controlflow",
+      "from_id": 28,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 9,
+      "reason": "excludeFromFees writes the requested exemption into _isExcludedFromFees",
+      "type": "dataflow",
+      "from_id": 29,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "setFee writes the owner-supplied value directly into treasuryFeeBPS",
+      "type": "dataflow",
+      "from_id": 30,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 1,
+      "reason": "setFee sums the three owner-supplied fee components into totalFeeBPS",
+      "type": "dataflow",
+      "from_id": 30,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 19,
+      "reason": "setMaxTxBPS writes the bounded parameter into maxTxBPS",
+      "type": "dataflow",
+      "from_id": 36,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "_executeTransfer debits and credits _balances directly",
+      "type": "dataflow",
+      "from_id": 22,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 33,
+      "reason": "claim calls the DividendTracker processAccount which is onlyOwner of that tracker",
+      "type": "controlflow",
+      "from_id": 25,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 35,
+      "reason": "compound reaches _compoundDividendOfUser which performs an external router call",
+      "type": "controlflow",
+      "from_id": 26,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 20,
+      "reason": "recipient parameter is used for the balance transfer inside _transfer",
+      "type": "dataflow",
+      "from_id": 47,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 20,
+      "reason": "sender parameter is debited inside _transfer",
+      "type": "dataflow",
+      "from_id": 48,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 20,
+      "reason": "amount parameter is reduced by the computed fee inside _transfer",
+      "type": "dataflow",
+      "from_id": 49,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 33,
+      "reason": "account parameter selects whose dividend is withdrawn in processAccount",
+      "type": "dataflow",
+      "from_id": 50,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 21,
+      "reason": "contractTokenBalance local is passed as the token amount into _executeSwap",
+      "type": "dataflow",
+      "from_id": 51,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 22,
+      "reason": "senderBalance local is checked before mutating _balances in _executeTransfer",
+      "type": "dataflow",
+      "from_id": 52,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 36,
+      "reason": "bps parameter is range-checked and stored in maxTxBPS by setMaxTxBPS",
+      "type": "dataflow",
+      "from_id": 53,
+      "vuln_type": "none"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "fn_transfer_internal",
+      "reason": "The recipient parameter only exists as the destination argument of _transfer and has no independent meaning outside it",
+      "normal_node": "param_recipient"
+    },
+    {
+      "merge_into": "fn_transfer_internal",
+      "reason": "The sender parameter is only the debited party of _transfer and should be folded into that core function",
+      "normal_node": "param_sender"
+    },
+    {
+      "merge_into": "fn_transfer_internal",
+      "reason": "The amount parameter is only meaningful in the fee/transfer arithmetic of _transfer",
+      "normal_node": "param_amount"
+    },
+    {
+      "merge_into": "fn_processAccount",
+      "reason": "The account parameter only identifies the dividend recipient handled by processAccount",
+      "normal_node": "param_account"
+    },
+    {
+      "merge_into": "fn_executeSwap",
+      "reason": "The contractTokenBalance local is a transient snapshot consumed solely by _executeSwap",
+      "normal_node": "local_contractTokenBalance"
+    },
+    {
+      "merge_into": "fn_executeTransfer",
+      "reason": "The senderBalance local is a transient cache used only inside _executeTransfer",
+      "normal_node": "local_senderBalance"
+    },
+    {
+      "merge_into": "fn_setMaxTxBPS",
+      "reason": "The bps parameter is only validated and written by setMaxTxBPS",
+      "normal_node": "param_bps"
+    }
+  ]
+}

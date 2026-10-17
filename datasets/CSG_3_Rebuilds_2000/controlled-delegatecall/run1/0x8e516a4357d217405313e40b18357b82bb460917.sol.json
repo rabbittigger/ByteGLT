@@ -1,0 +1,1382 @@
+{
+  "nodes": [
+    {
+      "id": "admin",
+      "type": "state_var",
+      "node_id": 0,
+      "is_core": true,
+      "description": "Governor administrator address; set to timelock during initialize; guards admin-only setters and UUPS upgrade authorization."
+    },
+    {
+      "id": "pendingAdmin",
+      "type": "state_var",
+      "node_id": 1,
+      "is_core": true,
+      "description": "Two-step admin transfer target; only this address may call _acceptAdmin to become admin."
+    },
+    {
+      "id": "votingDelay",
+      "type": "state_var",
+      "node_id": 2,
+      "is_core": true,
+      "description": "Delay in blocks before voting starts; configurable by admin within MIN/MAX_VOTING_DELAY."
+    },
+    {
+      "id": "votingPeriod",
+      "type": "state_var",
+      "node_id": 3,
+      "is_core": true,
+      "description": "Duration in blocks of the voting window; admin-configurable within MIN/MAX_VOTING_PERIOD."
+    },
+    {
+      "id": "proposalThreshold",
+      "type": "state_var",
+      "node_id": 4,
+      "is_core": true,
+      "description": "Vote threshold required to create proposals; admin-configurable within bounds."
+    },
+    {
+      "id": "initialProposalId",
+      "type": "state_var",
+      "node_id": 5,
+      "is_core": true,
+      "description": "Proposal id offset established on _initiate to continue numbering from GovernorAlpha."
+    },
+    {
+      "id": "proposalCount",
+      "type": "state_var",
+      "node_id": 6,
+      "is_core": true,
+      "description": "Total number of proposals; incremented in propose and used as the proposal index."
+    },
+    {
+      "id": "timelock",
+      "type": "state_var",
+      "node_id": 7,
+      "is_core": true,
+      "description": "TimelockInterface instance; target of queue/execute/cancel/acceptAdmin external calls."
+    },
+    {
+      "id": "dCult",
+      "type": "state_var",
+      "node_id": 8,
+      "is_core": true,
+      "description": "dCultInterface token instance used for staker checks and past votes lookups."
+    },
+    {
+      "id": "proposals",
+      "type": "state_var",
+      "node_id": 9,
+      "is_core": true,
+      "description": "Mapping of proposal id to Proposal storage struct holding actions, tallies, eta and receipts."
+    },
+    {
+      "id": "latestProposalIds",
+      "type": "state_var",
+      "node_id": 10,
+      "is_core": true,
+      "description": "Mapping from proposer address to their most recent proposal id; enforces one live proposal per proposer."
+    },
+    {
+      "id": "whitelistAccountExpirations",
+      "type": "state_var",
+      "node_id": 11,
+      "is_core": true,
+      "description": "Mapping of account to whitelist expiry timestamp consulted by isWhitelisted."
+    },
+    {
+      "id": "whitelistGuardian",
+      "type": "state_var",
+      "node_id": 12,
+      "is_core": true,
+      "description": "Address allowed to set whitelist expirations; can also cancel whitelisted proposals."
+    },
+    {
+      "id": "investeeDetails",
+      "type": "state_var",
+      "node_id": 13,
+      "is_core": true,
+      "description": "Mapping of investee index to investee address, populated by _setInvesteeDetails and read by _fundInvestee."
+    },
+    {
+      "id": "nextInvestee",
+      "type": "state_var",
+      "node_id": 14,
+      "is_core": true,
+      "description": "Index of the next investee slot to fill; incremented on each _setInvesteeDetails call."
+    },
+    {
+      "id": "nextInvesteeFund",
+      "type": "state_var",
+      "node_id": 15,
+      "is_core": true,
+      "description": "Index of the next investee to fund; incremented on each _fundInvestee call."
+    },
+    {
+      "id": "treasury",
+      "type": "state_var",
+      "node_id": 16,
+      "is_core": true,
+      "description": "Treasury contract address authorized to pull funded investees via _fundInvestee."
+    },
+    {
+      "id": "msg_sender",
+      "type": "untrusted_input",
+      "node_id": 17,
+      "is_core": true,
+      "description": "External caller address; drives authorization checks for propose, cancel, admin setters, voting and upgrade paths."
+    },
+    {
+      "id": "block_timestamp",
+      "type": "untrusted_input",
+      "node_id": 18,
+      "is_core": true,
+      "description": "Block timestamp used for queue eta, proposal expiry and whitelist expiration checks."
+    },
+    {
+      "id": "tx_origin",
+      "type": "untrusted_input",
+      "node_id": 19,
+      "is_core": true,
+      "description": "Transaction origin; declared as an untrusted input category even though this code does not reference it."
+    },
+    {
+      "id": "initialize",
+      "type": "function",
+      "node_id": 20,
+      "is_core": true,
+      "description": "Initializer wiring timelock, dCult, voting parameters, admin and treasury; protected by the initializer modifier."
+    },
+    {
+      "id": "propose",
+      "type": "function",
+      "node_id": 21,
+      "is_core": true,
+      "description": "Creates a proposal after checking top-staker status, action arity and per-proposer liveness constraints."
+    },
+    {
+      "id": "queue",
+      "type": "function",
+      "node_id": 22,
+      "is_core": true,
+      "description": "Queues a succeeded proposal into the Timelock, computing eta from block.timestamp plus the timelock delay."
+    },
+    {
+      "id": "queueOrRevertInternal",
+      "type": "function",
+      "node_id": 23,
+      "is_core": true,
+      "description": "Internal helper that guards against duplicate queued actions and forwards them to the Timelock."
+    },
+    {
+      "id": "execute",
+      "type": "function",
+      "node_id": 24,
+      "is_core": true,
+      "description": "Executes a queued proposal by forwarding each action with value to Timelock.executeTransaction."
+    },
+    {
+      "id": "cancel",
+      "type": "function",
+      "node_id": 25,
+      "is_core": true,
+      "description": "Allows the proposer to cancel a non-executed proposal and cancel the related timelock transactions."
+    },
+    {
+      "id": "state",
+      "type": "function",
+      "node_id": 26,
+      "is_core": true,
+      "description": "Derives the ProposalState from storage flags, block.number and block.timestamp comparisons."
+    },
+    {
+      "id": "castVote",
+      "type": "function",
+      "node_id": 27,
+      "is_core": true,
+      "description": "External vote entry point that emits VoteCast after running castVoteInternal for msg.sender."
+    },
+    {
+      "id": "castVoteWithReason",
+      "type": "function",
+      "node_id": 28,
+      "is_core": true,
+      "description": "Vote entry point accepting a reason string, delegating to castVoteInternal."
+    },
+    {
+      "id": "castVoteBySig",
+      "type": "function",
+      "node_id": 29,
+      "is_core": true,
+      "description": "EIP-712 signature based voting that recovers the signatory via ecrecover before tallying votes."
+    },
+    {
+      "id": "castVoteInternal",
+      "type": "function",
+      "node_id": 30,
+      "is_core": true,
+      "description": "Core voting logic: validates proposal state, support value, duplicate votes and tallies via add256."
+    },
+    {
+      "id": "isWhitelisted",
+      "type": "function",
+      "node_id": 31,
+      "is_core": true,
+      "description": "View returning whether an account whitelist expiration is greater than the current block.timestamp."
+    },
+    {
+      "id": "_setVotingDelay",
+      "type": "function",
+      "node_id": 32,
+      "is_core": true,
+      "description": "Admin-only setter for votingDelay with bound checks."
+    },
+    {
+      "id": "_setInvesteeDetails",
+      "type": "function",
+      "node_id": 33,
+      "is_core": true,
+      "description": "Admin-only registration of a new investee address using add256 on nextInvestee."
+    },
+    {
+      "id": "_fundInvestee",
+      "type": "function",
+      "node_id": 34,
+      "is_core": true,
+      "description": "Treasury-only function advancing nextInvesteeFund and returning the funded investee address."
+    },
+    {
+      "id": "_setVotingPeriod",
+      "type": "function",
+      "node_id": 35,
+      "is_core": true,
+      "description": "Admin-only setter for votingPeriod with bound checks."
+    },
+    {
+      "id": "_setProposalThreshold",
+      "type": "function",
+      "node_id": 36,
+      "is_core": true,
+      "description": "Admin-only setter for proposalThreshold with bound checks."
+    },
+    {
+      "id": "_setWhitelistAccountExpiration",
+      "type": "function",
+      "node_id": 37,
+      "is_core": true,
+      "description": "Admin or whitelistGuardian setter for an account whitelist expiration timestamp."
+    },
+    {
+      "id": "_setWhitelistGuardian",
+      "type": "function",
+      "node_id": 38,
+      "is_core": true,
+      "description": "Admin-only setter for the whitelistGuardian address."
+    },
+    {
+      "id": "_initiate",
+      "type": "function",
+      "node_id": 39,
+      "is_core": true,
+      "description": "Admin-only one-time initialization of proposal numbering from GovernorAlpha and timelock admin acceptance."
+    },
+    {
+      "id": "_setPendingAdmin",
+      "type": "function",
+      "node_id": 40,
+      "is_core": true,
+      "description": "Admin-only start of a two-step admin transfer by setting pendingAdmin."
+    },
+    {
+      "id": "_acceptAdmin",
+      "type": "function",
+      "node_id": 41,
+      "is_core": true,
+      "description": "Completes admin transfer when msg.sender equals pendingAdmin."
+    },
+    {
+      "id": "_AcceptTimelockAdmin",
+      "type": "function",
+      "node_id": 42,
+      "is_core": true,
+      "description": "Unrestricted function that calls acceptAdmin on the Timelock contract."
+    },
+    {
+      "id": "_authorizeUpgrade",
+      "type": "function",
+      "node_id": 43,
+      "is_core": true,
+      "description": "UUPS hook restricting implementation upgrades to the admin."
+    },
+    {
+      "id": "add256",
+      "type": "function",
+      "node_id": 44,
+      "is_core": true,
+      "description": "Checked addition helper reverting on overflow."
+    },
+    {
+      "id": "sub256",
+      "type": "function",
+      "node_id": 45,
+      "is_core": true,
+      "description": "Checked subtraction helper reverting on underflow."
+    },
+    {
+      "id": "getChainIdInternal",
+      "type": "function",
+      "node_id": 46,
+      "is_core": true,
+      "description": "Returns the chain id via inline assembly for EIP-712 domain construction."
+    },
+    {
+      "id": "upgradeTo",
+      "type": "function",
+      "node_id": 47,
+      "is_core": true,
+      "description": "UUPS upgrade entry point that authorizes and delegatecalls a new implementation."
+    },
+    {
+      "id": "upgradeToAndCall",
+      "type": "function",
+      "node_id": 48,
+      "is_core": true,
+      "description": "UUPS upgrade entry point that authorizes, delegatecalls the new implementation and then executes data."
+    },
+    {
+      "id": "timelock_executeTransaction",
+      "type": "unsafe_operation",
+      "node_id": 49,
+      "is_core": true,
+      "description": "External payable call forwarding proposal values to the Timelock for execution."
+    },
+    {
+      "id": "timelock_queueTransaction",
+      "type": "unsafe_operation",
+      "node_id": 50,
+      "is_core": true,
+      "description": "External call enqueuing a proposal action in the Timelock."
+    },
+    {
+      "id": "timelock_cancelTransaction",
+      "type": "unsafe_operation",
+      "node_id": 51,
+      "is_core": true,
+      "description": "External call cancelling a queued Timelock transaction."
+    },
+    {
+      "id": "timelock_acceptAdmin",
+      "type": "unsafe_operation",
+      "node_id": 52,
+      "is_core": true,
+      "description": "External call taking over Timelock admin rights."
+    },
+    {
+      "id": "ecrecover",
+      "type": "unsafe_operation",
+      "node_id": 53,
+      "is_core": true,
+      "description": "Signature recovery of the voting signatory from untrusted v, r, s values."
+    },
+    {
+      "id": "functionDelegateCall",
+      "type": "unsafe_operation",
+      "node_id": 54,
+      "is_core": true,
+      "description": "ERC1967UpgradeUpgradeable delegatecall to a new implementation address."
+    },
+    {
+      "id": "functionCallWithValue",
+      "type": "unsafe_operation",
+      "node_id": 55,
+      "is_core": true,
+      "description": "AddressUpgradeable low-level call with value used by the helper library."
+    },
+    {
+      "id": "dCult_external_calls",
+      "type": "unsafe_operation",
+      "node_id": 56,
+      "is_core": true,
+      "description": "External calls into the dCult token (checkHighestStaker, getPastVotes) performed by propose and castVoteInternal."
+    },
+    {
+      "id": "param_targets",
+      "type": "parameter",
+      "node_id": 57,
+      "is_core": false,
+      "description": "Array of target addresses for a new proposal."
+    },
+    {
+      "id": "param_values",
+      "type": "parameter",
+      "node_id": 58,
+      "is_core": false,
+      "description": "Array of ETH values for a new proposal."
+    },
+    {
+      "id": "param_signatures",
+      "type": "parameter",
+      "node_id": 59,
+      "is_core": false,
+      "description": "Array of function signatures for a new proposal."
+    },
+    {
+      "id": "param_calldatas",
+      "type": "parameter",
+      "node_id": 60,
+      "is_core": false,
+      "description": "Array of calldata payloads for a new proposal."
+    },
+    {
+      "id": "param_description",
+      "type": "parameter",
+      "node_id": 61,
+      "is_core": false,
+      "description": "Human-readable proposal description."
+    },
+    {
+      "id": "local_latestProposalId",
+      "type": "local_var",
+      "node_id": 62,
+      "is_core": false,
+      "description": "Cached latest proposal id of the proposer, used for liveness checks."
+    },
+    {
+      "id": "local_startBlock",
+      "type": "local_var",
+      "node_id": 63,
+      "is_core": false,
+      "description": "Computed voting start block for a new proposal."
+    },
+    {
+      "id": "local_endBlock",
+      "type": "local_var",
+      "node_id": 64,
+      "is_core": false,
+      "description": "Computed voting end block for a new proposal."
+    },
+    {
+      "id": "param_timelock_",
+      "type": "parameter",
+      "node_id": 65,
+      "is_core": false,
+      "description": "Initializer argument for the Timelock address, also assigned to admin."
+    },
+    {
+      "id": "param_dCult_",
+      "type": "parameter",
+      "node_id": 66,
+      "is_core": false,
+      "description": "Initializer argument for the dCULT token address."
+    },
+    {
+      "id": "param_votingPeriod_",
+      "type": "parameter",
+      "node_id": 67,
+      "is_core": false,
+      "description": "Initializer argument for the initial voting period."
+    },
+    {
+      "id": "param_votingDelay_",
+      "type": "parameter",
+      "node_id": 68,
+      "is_core": false,
+      "description": "Initializer argument for the initial voting delay."
+    },
+    {
+      "id": "param_proposalThreshold_",
+      "type": "parameter",
+      "node_id": 69,
+      "is_core": false,
+      "description": "Initializer argument for the initial proposal threshold."
+    },
+    {
+      "id": "param_treasury_",
+      "type": "parameter",
+      "node_id": 70,
+      "is_core": false,
+      "description": "Initializer argument for the Treasury address."
+    },
+    {
+      "id": "param_proposalId",
+      "type": "parameter",
+      "node_id": 71,
+      "is_core": false,
+      "description": "Proposal identifier supplied to queue, execute, cancel, state and vote functions."
+    },
+    {
+      "id": "local_eta",
+      "type": "local_var",
+      "node_id": 72,
+      "is_core": false,
+      "description": "Estimated execution timestamp computed in queue."
+    },
+    {
+      "id": "param_voter",
+      "type": "parameter",
+      "node_id": 73,
+      "is_core": false,
+      "description": "Voter address whose votes are tallied in castVoteInternal."
+    },
+    {
+      "id": "param_support",
+      "type": "parameter",
+      "node_id": 74,
+      "is_core": false,
+      "description": "Vote type selector: 0 against, 1 for, 2 abstain."
+    },
+    {
+      "id": "local_votes",
+      "type": "local_var",
+      "node_id": 75,
+      "is_core": false,
+      "description": "Number of past votes retrieved for the voter and added to the tally."
+    },
+    {
+      "id": "local_signatory",
+      "type": "local_var",
+      "node_id": 76,
+      "is_core": false,
+      "description": "Address recovered from the ballot signature in castVoteBySig."
+    },
+    {
+      "id": "param_newVotingDelay",
+      "type": "parameter",
+      "node_id": 77,
+      "is_core": false,
+      "description": "New voting delay passed to _setVotingDelay."
+    },
+    {
+      "id": "param_newVotingPeriod",
+      "type": "parameter",
+      "node_id": 78,
+      "is_core": false,
+      "description": "New voting period passed to _setVotingPeriod."
+    },
+    {
+      "id": "param_newProposalThreshold",
+      "type": "parameter",
+      "node_id": 79,
+      "is_core": false,
+      "description": "New proposal threshold passed to _setProposalThreshold."
+    },
+    {
+      "id": "param_account",
+      "type": "parameter",
+      "node_id": 80,
+      "is_core": false,
+      "description": "Account address used by whitelist setters and isWhitelisted."
+    },
+    {
+      "id": "param_expiration",
+      "type": "parameter",
+      "node_id": 81,
+      "is_core": false,
+      "description": "Whitelist expiration timestamp assigned to an account."
+    },
+    {
+      "id": "param_newPendingAdmin",
+      "type": "parameter",
+      "node_id": 82,
+      "is_core": false,
+      "description": "Address designated as the next pending admin."
+    },
+    {
+      "id": "param_investee",
+      "type": "parameter",
+      "node_id": 83,
+      "is_core": false,
+      "description": "Investee address registered by _setInvesteeDetails."
+    },
+    {
+      "id": "param_governorAlpha",
+      "type": "parameter",
+      "node_id": 84,
+      "is_core": false,
+      "description": "GovernorAlpha address consulted for continued proposal numbering in _initiate."
+    },
+    {
+      "id": "param_newImplementation",
+      "type": "parameter",
+      "node_id": 85,
+      "is_core": false,
+      "description": "New implementation address passed to upgradeTo."
+    },
+    {
+      "id": "param_a",
+      "type": "parameter",
+      "node_id": 86,
+      "is_core": false,
+      "description": "First operand of the checked addition add256."
+    },
+    {
+      "id": "param_b",
+      "type": "parameter",
+      "node_id": 87,
+      "is_core": false,
+      "description": "Second operand of the checked addition add256."
+    },
+    {
+      "id": "param_account_isWhitelisted",
+      "type": "parameter",
+      "node_id": 88,
+      "is_core": false,
+      "description": "Account address queried by isWhitelisted."
+    },
+    {
+      "id": "param_newImplementation_upgradeToAndCall",
+      "type": "parameter",
+      "node_id": 89,
+      "is_core": false,
+      "description": "New implementation address passed to upgradeToAndCall."
+    },
+    {
+      "id": "param_data",
+      "type": "parameter",
+      "node_id": 90,
+      "is_core": false,
+      "description": "Calldata executed after the upgrade in upgradeToAndCall."
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 21,
+      "vuln_type": "access_control",
+      "reason": "propose derives the proposer identity from msg.sender and enforces dCult.checkHighestStaker(0, msg.sender)."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 25,
+      "vuln_type": "access_control",
+      "reason": "cancel requires msg.sender to equal the stored proposal proposer."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 30,
+      "vuln_type": "access_control",
+      "reason": "castVoteInternal verifies dCult.checkHighestStaker with msg.sender instead of the voter parameter, enabling bypass of the restriction."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 32,
+      "vuln_type": "access_control",
+      "reason": "_setVotingDelay is restricted to msg.sender == admin."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 33,
+      "vuln_type": "access_control",
+      "reason": "_setInvesteeDetails is restricted to msg.sender == admin."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 34,
+      "vuln_type": "access_control",
+      "reason": "_fundInvestee is restricted to msg.sender == treasury."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 37,
+      "vuln_type": "access_control",
+      "reason": "_setWhitelistAccountExpiration allows msg.sender equal to admin or whitelistGuardian."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 38,
+      "vuln_type": "access_control",
+      "reason": "_setWhitelistGuardian is restricted to msg.sender == admin."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 39,
+      "vuln_type": "access_control",
+      "reason": "_initiate is restricted to msg.sender == admin."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 40,
+      "vuln_type": "access_control",
+      "reason": "_setPendingAdmin is restricted to msg.sender == admin."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 41,
+      "vuln_type": "access_control",
+      "reason": "_acceptAdmin requires msg.sender == pendingAdmin."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 43,
+      "vuln_type": "access_control",
+      "reason": "_authorizeUpgrade reverts unless admin == msg.sender, gating UUPS upgrades."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 22,
+      "vuln_type": "access_control",
+      "reason": "queue computes the execution eta from block.timestamp plus the Timelock delay."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 26,
+      "vuln_type": "access_control",
+      "reason": "state returns Expired based on block.timestamp compared to proposal eta plus GRACE_PERIOD."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 31,
+      "vuln_type": "access_control",
+      "reason": "isWhitelisted compares the stored whitelist expiration against block.timestamp."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 44,
+      "vuln_type": "arithmetic",
+      "reason": "propose uses add256 for startBlock and endBlock to guard against overflow."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 30,
+      "to_id": 44,
+      "vuln_type": "arithmetic",
+      "reason": "castVoteInternal accumulates vote tallies using add256."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 33,
+      "to_id": 44,
+      "vuln_type": "arithmetic",
+      "reason": "_setInvesteeDetails increments nextInvestee with add256."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 34,
+      "to_id": 44,
+      "vuln_type": "arithmetic",
+      "reason": "_fundInvestee increments nextInvesteeFund with add256."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 33,
+      "to_id": 45,
+      "vuln_type": "arithmetic",
+      "reason": "_setInvesteeDetails derives the emitted id with sub256 on nextInvestee."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 34,
+      "to_id": 45,
+      "vuln_type": "arithmetic",
+      "reason": "_fundInvestee derives the funded investee index with sub256 on nextInvesteeFund."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "propose reads and writes latestProposalIds to enforce one live proposal per proposer."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "propose increments proposalCount and uses it as the new proposal id."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "propose stores the new Proposal struct in the proposals mapping."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 22,
+      "to_id": 23,
+      "vuln_type": "none",
+      "reason": "queue loops over proposal actions and invokes queueOrRevertInternal for each."
+    },
+    {
+      "type": "callback",
+      "from_id": 23,
+      "to_id": 50,
+      "vuln_type": "reentrancy",
+      "reason": "queueOrRevertInternal makes an external call to Timelock.queueTransaction."
+    },
+    {
+      "type": "callback",
+      "from_id": 24,
+      "to_id": 49,
+      "vuln_type": "reentrancy",
+      "reason": "execute forwards proposals actions with value to Timelock.executeTransaction, transferring execution control externally."
+    },
+    {
+      "type": "callback",
+      "from_id": 25,
+      "to_id": 51,
+      "vuln_type": "reentrancy",
+      "reason": "cancel makes external calls to Timelock.cancelTransaction."
+    },
+    {
+      "type": "callback",
+      "from_id": 39,
+      "to_id": 52,
+      "vuln_type": "reentrancy",
+      "reason": "_initiate calls Timelock.acceptAdmin, an external state-changing call."
+    },
+    {
+      "type": "callback",
+      "from_id": 42,
+      "to_id": 52,
+      "vuln_type": "reentrancy",
+      "reason": "_AcceptTimelockAdmin exposes an unrestricted external call to Timelock.acceptAdmin."
+    },
+    {
+      "type": "callback",
+      "from_id": 21,
+      "to_id": 56,
+      "vuln_type": "reentrancy",
+      "reason": "propose calls dCult.checkHighestStaker on an external contract before state updates."
+    },
+    {
+      "type": "callback",
+      "from_id": 30,
+      "to_id": 56,
+      "vuln_type": "reentrancy",
+      "reason": "castVoteInternal calls dCult.checkHighestStaker and dCult.getPastVotes on an external contract."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 53,
+      "vuln_type": "none",
+      "reason": "castVoteBySig recovers the signatory from untrusted v, r, s via ecrecover."
+    },
+    {
+      "type": "callback",
+      "from_id": 47,
+      "to_id": 54,
+      "vuln_type": "reentrancy",
+      "reason": "upgradeTo delegatecalls into the new implementation via _upgradeToAndCallSecure."
+    },
+    {
+      "type": "callback",
+      "from_id": 48,
+      "to_id": 54,
+      "vuln_type": "reentrancy",
+      "reason": "upgradeToAndCall delegatecalls into the new implementation and then executes the supplied data."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 47,
+      "to_id": 43,
+      "vuln_type": "access_control",
+      "reason": "upgradeTo must pass the only-admin upgrade authorization hook."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 48,
+      "to_id": 43,
+      "vuln_type": "access_control",
+      "reason": "upgradeToAndCall must pass the only-admin upgrade authorization hook."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 27,
+      "to_id": 30,
+      "vuln_type": "none",
+      "reason": "castVote delegates the actual ballot tally to castVoteInternal."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 28,
+      "to_id": 30,
+      "vuln_type": "none",
+      "reason": "castVoteWithReason delegates the actual ballot tally to castVoteInternal."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 29,
+      "to_id": 30,
+      "vuln_type": "none",
+      "reason": "castVoteBySig delegates the actual ballot tally to castVoteInternal."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 21,
+      "to_id": 26,
+      "vuln_type": "none",
+      "reason": "propose consults state() to verify the proposer has no active or pending proposal."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 22,
+      "to_id": 26,
+      "vuln_type": "none",
+      "reason": "queue consults state() to require ProposalState.Succeeded."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 24,
+      "to_id": 26,
+      "vuln_type": "none",
+      "reason": "execute consults state() to require ProposalState.Queued."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 25,
+      "to_id": 26,
+      "vuln_type": "none",
+      "reason": "cancel consults state() to reject executed proposals."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 30,
+      "to_id": 26,
+      "vuln_type": "none",
+      "reason": "castVoteInternal consults state() to require ProposalState.Active."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 66,
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "initialize casts the dCult_ argument to dCultInterface and stores it in dCult."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 65,
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "initialize casts the timelock_ argument to TimelockInterface and stores it in timelock."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 70,
+      "to_id": 16,
+      "vuln_type": "none",
+      "reason": "initialize stores the treasury_ argument in the treasury state variable."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 67,
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "initialize writes votingPeriod_ into votingPeriod."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 68,
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "initialize writes votingDelay_ into votingDelay."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 69,
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "initialize writes proposalThreshold_ into proposalThreshold."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 65,
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "initialize assigns the timelock address to the admin state variable."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 82,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "_setPendingAdmin writes the new address into pendingAdmin."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 77,
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "reason": "_setVotingDelay mutates votingDelay after the admin check on msg.sender."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 78,
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "_setVotingPeriod mutates votingPeriod after the admin check on msg.sender."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 79,
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "reason": "_setProposalThreshold mutates proposalThreshold after the admin check on msg.sender."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 83,
+      "to_id": 13,
+      "vuln_type": "none",
+      "reason": "_setInvesteeDetails writes the investee address into investeeDetails."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 72,
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "queue writes the computed eta into the proposal and uses the timelock delay."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 75,
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "castVoteInternal stores the voter receipt votes and updates the proposal tallies."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 73,
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "castVoteInternal indexes the proposal receipts mapping by the voter address."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 74,
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "castVoteInternal routes the support value to the appropriate vote tally field."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 63,
+      "to_id": 21,
+      "vuln_type": "none",
+      "reason": "propose assigns the computed startBlock into the new proposal struct."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 64,
+      "to_id": 21,
+      "vuln_type": "none",
+      "reason": "propose assigns the computed endBlock into the new proposal struct."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 57,
+      "to_id": 21,
+      "vuln_type": "none",
+      "reason": "propose stores the targets array in the new proposal struct."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 58,
+      "to_id": 21,
+      "vuln_type": "none",
+      "reason": "propose stores the values array in the new proposal struct."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 59,
+      "to_id": 21,
+      "vuln_type": "none",
+      "reason": "propose stores the signatures array in the new proposal struct."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 60,
+      "to_id": 21,
+      "vuln_type": "none",
+      "reason": "propose stores the calldatas array in the new proposal struct."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 61,
+      "to_id": 21,
+      "vuln_type": "none",
+      "reason": "propose forwards the description to the ProposalCreated event."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 62,
+      "to_id": 21,
+      "vuln_type": "none",
+      "reason": "propose reads latestProposalIds[msg.sender] into latestProposalId for liveness checks."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 73,
+      "to_id": 30,
+      "vuln_type": "none",
+      "reason": "castVoteInternal uses the voter parameter to query dCult.getPastVotes and write the receipt."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 76,
+      "to_id": 29,
+      "vuln_type": "none",
+      "reason": "castVoteBySig requires the recovered signatory to be non-zero and uses it as the voter."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 80,
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "_setWhitelistAccountExpiration writes the expiration into whitelistAccountExpirations[account]."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 81,
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "_setWhitelistAccountExpiration stores the expiration timestamp for the account."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 80,
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "_setWhitelistGuardian assigns the account to the whitelistGuardian state variable."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 84,
+      "to_id": 39,
+      "vuln_type": "none",
+      "reason": "_initiate reads proposalCount from the GovernorAlpha instance argument."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 86,
+      "to_id": 44,
+      "vuln_type": "arithmetic",
+      "reason": "add256 adds operand a with overflow checking."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 87,
+      "to_id": 44,
+      "vuln_type": "arithmetic",
+      "reason": "add256 adds operand b with overflow checking."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 88,
+      "to_id": 31,
+      "vuln_type": "none",
+      "reason": "isWhitelisted reads the whitelist expiration for the queried account."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 85,
+      "to_id": 47,
+      "vuln_type": "access_control",
+      "reason": "upgradeTo forwards the new implementation address to the authorization hook and upgrade routine."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 89,
+      "to_id": 48,
+      "vuln_type": "access_control",
+      "reason": "upgradeToAndCall forwards the new implementation address to the authorization hook and upgrade routine."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 90,
+      "to_id": 48,
+      "vuln_type": "none",
+      "reason": "upgradeToAndCall delegatecalls the supplied data into the new implementation after upgrading."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param_targets",
+      "merge_into": "propose",
+      "reason": "Parameters of propose describe actions stored in the proposal struct; they normalize into the propose function node."
+    },
+    {
+      "normal_node": "param_values",
+      "merge_into": "propose",
+      "reason": "Parameters of propose describe actions stored in the proposal struct; they normalize into the propose function node."
+    },
+    {
+      "normal_node": "param_signatures",
+      "merge_into": "propose",
+      "reason": "Parameters of propose describe actions stored in the proposal struct; they normalize into the propose function node."
+    },
+    {
+      "normal_node": "param_calldatas",
+      "merge_into": "propose",
+      "reason": "Parameters of propose describe actions stored in the proposal struct; they normalize into the propose function node."
+    },
+    {
+      "normal_node": "param_description",
+      "merge_into": "propose",
+      "reason": "The proposal description is emitted by propose and normalizes into the propose function node."
+    },
+    {
+      "normal_node": "local_latestProposalId",
+      "merge_into": "propose",
+      "reason": "Local cache used for liveness checks inside propose; normalizes into propose."
+    },
+    {
+      "normal_node": "local_startBlock",
+      "merge_into": "propose",
+      "reason": "Computed voting start block inside propose; normalizes into propose."
+    },
+    {
+      "normal_node": "local_endBlock",
+      "merge_into": "propose",
+      "reason": "Computed voting end block inside propose; normalizes into propose."
+    },
+    {
+      "normal_node": "param_timelock_",
+      "merge_into": "initialize",
+      "reason": "Initializer argument written into timelock and admin state variables; normalizes into initialize."
+    },
+    {
+      "normal_node": "param_dCult_",
+      "merge_into": "initialize",
+      "reason": "Initializer argument written into the dCult state variable; normalizes into initialize."
+    },
+    {
+      "normal_node": "param_votingPeriod_",
+      "merge_into": "initialize",
+      "reason": "Initializer argument written into the votingPeriod state variable; normalizes into initialize."
+    },
+    {
+      "normal_node": "param_votingDelay_",
+      "merge_into": "initialize",
+      "reason": "Initializer argument written into the votingDelay state variable; normalizes into initialize."
+    },
+    {
+      "normal_node": "param_proposalThreshold_",
+      "merge_into": "initialize",
+      "reason": "Initializer argument written into the proposalThreshold state variable; normalizes into initialize."
+    },
+    {
+      "normal_node": "param_treasury_",
+      "merge_into": "initialize",
+      "reason": "Initializer argument written into the treasury state variable; normalizes into initialize."
+    },
+    {
+      "normal_node": "param_proposalId",
+      "merge_into": "state",
+      "reason": "Proposal id parameter used to index the proposals mapping and validate proposal state; normalizes into state."
+    },
+    {
+      "normal_node": "local_eta",
+      "merge_into": "queue",
+      "reason": "Eta computed from block.timestamp and the timelock delay inside queue; normalizes into queue."
+    },
+    {
+      "normal_node": "param_voter",
+      "merge_into": "castVoteInternal",
+      "reason": "Voter address whose receipt and tallies are updated in castVoteInternal; normalizes into castVoteInternal."
+    },
+    {
+      "normal_node": "param_support",
+      "merge_into": "castVoteInternal",
+      "reason": "Support selector routing the vote tally inside castVoteInternal; normalizes into castVoteInternal."
+    },
+    {
+      "normal_node": "local_votes",
+      "merge_into": "castVoteInternal",
+      "reason": "Votes amount retrieved and accumulated inside castVoteInternal; normalizes into castVoteInternal."
+    },
+    {
+      "normal_node": "local_signatory",
+      "merge_into": "castVoteBySig",
+      "reason": "Ecrecover result used as the voter in castVoteBySig; normalizes into castVoteBySig."
+    },
+    {
+      "normal_node": "param_newVotingDelay",
+      "merge_into": "_setVotingDelay",
+      "reason": "Argument written into the votingDelay state variable after the admin check; normalizes into _setVotingDelay."
+    },
+    {
+      "normal_node": "param_newVotingPeriod",
+      "merge_into": "_setVotingPeriod",
+      "reason": "Argument written into the votingPeriod state variable after the admin check; normalizes into _setVotingPeriod."
+    },
+    {
+      "normal_node": "param_newProposalThreshold",
+      "merge_into": "_setProposalThreshold",
+      "reason": "Argument written into the proposalThreshold state variable after the admin check; normalizes into _setProposalThreshold."
+    },
+    {
+      "normal_node": "param_account",
+      "merge_into": "_setWhitelistAccountExpiration",
+      "reason": "Account address keying whitelist storage writes in the whitelist setter; normalizes into _setWhitelistAccountExpiration."
+    },
+    {
+      "normal_node": "param_expiration",
+      "merge_into": "_setWhitelistAccountExpiration",
+      "reason": "Expiration timestamp written into whitelistAccountExpirations; normalizes into _setWhitelistAccountExpiration."
+    },
+    {
+      "normal_node": "param_newPendingAdmin",
+      "merge_into": "_setPendingAdmin",
+      "reason": "Address written into the pendingAdmin state variable; normalizes into _setPendingAdmin."
+    },
+    {
+      "normal_node": "param_investee",
+      "merge_into": "_setInvesteeDetails",
+      "reason": "Investee address inserted into the investeeDetails mapping; normalizes into _setInvesteeDetails."
+    },
+    {
+      "normal_node": "param_governorAlpha",
+      "merge_into": "_initiate",
+      "reason": "GovernorAlpha address queried for proposalCount during initiation; normalizes into _initiate."
+    },
+    {
+      "normal_node": "param_newImplementation",
+      "merge_into": "upgradeTo",
+      "reason": "Implementation address forwarded to the authorization hook and delegatecall; normalizes into upgradeTo."
+    },
+    {
+      "normal_node": "param_a",
+      "merge_into": "add256",
+      "reason": "First operand of the checked addition helper; normalizes into add256."
+    },
+    {
+      "normal_node": "param_b",
+      "merge_into": "add256",
+      "reason": "Second operand of the checked addition helper; normalizes into add256."
+    },
+    {
+      "normal_node": "param_account_isWhitelisted",
+      "merge_into": "isWhitelisted",
+      "reason": "Account queried against the whitelist expiration mapping; normalizes into isWhitelisted."
+    },
+    {
+      "normal_node": "param_newImplementation_upgradeToAndCall",
+      "merge_into": "upgradeToAndCall",
+      "reason": "Implementation address forwarded to the authorization hook and delegatecall; normalizes into upgradeToAndCall."
+    },
+    {
+      "normal_node": "param_data",
+      "merge_into": "upgradeToAndCall",
+      "reason": "Calldata delegatecalled after the upgrade; normalizes into upgradeToAndCall."
+    }
+  ]
+}

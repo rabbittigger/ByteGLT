@@ -1,0 +1,123 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Immutable address of the logic (implementation) contract; set once in the constructor and read by the fallback delegatecall target.",
+      "id": "logic",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Constructor that stores the implementation address and performs a raw delegatecall into it with attacker-supplied initialization calldata.",
+      "id": "constructor",
+      "type": "function",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Payable fallback that copies calldata and raw-delegatecalls into the immutable logic address, forwarding gas and returning/reverting with the raw result.",
+      "id": "fallback",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": false,
+      "description": "Constructor parameter _logic: the implementation address written into the immutable state variable logic.",
+      "id": "param__logic",
+      "type": "parameter",
+      "node_id": 3
+    },
+    {
+      "is_core": false,
+      "description": "Constructor parameter _initializationCalldata: arbitrary calldata forwarded verbatim into the delegatecall of the logic contract.",
+      "id": "param__initializationCalldata",
+      "type": "parameter",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "Raw delegatecall in the constructor to _logic with fully controlled initialization calldata, executing arbitrary code in the proxy storage context.",
+      "id": "delegatecall_constructor",
+      "type": "unsafe_operation",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "Raw assembly delegatecall in the fallback to the stored logic address, forwarding caller calldata and all gas in the proxy storage context.",
+      "id": "delegatecall_fallback",
+      "type": "unsafe_operation",
+      "node_id": 6
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "The constructor parameter _logic is assigned to the immutable state variable logic, propagating the implementation address into storage.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "The constructor writes the logic state variable, establishing the implementation address used by every subsequent delegatecall.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "The constructor executes the initialization delegatecall and requires it to succeed, reverting with the returned reason otherwise.",
+      "type": "controlflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "The caller-supplied _logic address is the target of the constructor delegatecall, letting the deployer choose arbitrary executed code.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "The caller-supplied _initializationCalldata is forwarded unvalidated to the constructor delegatecall, allowing arbitrary function dispatch in the proxy context.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "reason": "The immutable logic address is read as the delegatecall target in the fallback, so every external call executes untrusted implementation code inside the proxy's storage context.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "reason": "The fallback unconditionally performs a full-gas delegatecall on every incoming call, allowing re-entrant execution of implementation logic before state settles.",
+      "type": "controlflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "The fallback loads the logic state variable to derive the local _impl address used in the assembly delegatecall.",
+      "type": "dataflow",
+      "from_id": 0
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "constructor",
+      "reason": "The constructor parameter _logic exists only to initialize the immutable logic state variable and to target the constructor delegatecall, so it should be normalized into the constructor core function.",
+      "normal_node": "param__logic"
+    },
+    {
+      "merge_into": "delegatecall_constructor",
+      "reason": "The constructor parameter _initializationCalldata has no independent semantics beyond being forwarded verbatim into the initialization delegatecall, so it should be merged into that unsafe operation.",
+      "normal_node": "param__initializationCalldata"
+    }
+  ]
+}

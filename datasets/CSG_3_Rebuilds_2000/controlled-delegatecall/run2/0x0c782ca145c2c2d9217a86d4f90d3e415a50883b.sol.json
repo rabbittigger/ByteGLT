@@ -1,0 +1,257 @@
+{
+  "nodes": [
+    {
+      "id": "liquidityAsset",
+      "description": "Immutable IERC20 token held in escrow by the FundingLocker; target of every outbound transfer.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "loan",
+      "description": "Immutable address of the Loan contract; used as the access-control authority and as a transfer recipient.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "constructor",
+      "description": "Constructor that binds the immutable liquidityAsset and loan addresses.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "isLoan",
+      "description": "Modifier requiring msg.sender == loan; sole access-control gate for pull and drain.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "pull",
+      "description": "External isLoan-guarded function transferring an arbitrary amount of liquidity asset to an arbitrary destination.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "drain",
+      "description": "External isLoan-guarded function sweeping the full liquidity asset balance to the loan address.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "function"
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller-controlled address compared against the loan state variable inside the isLoan modifier.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "safeTransfer_pull",
+      "description": "External low-level call executing liquidityAsset.safeTransfer(dst, amt) from pull; hands control to the token contract.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "safeTransfer_drain",
+      "description": "External low-level call executing liquidityAsset.safeTransfer(loan, amt) from drain after balanceOf; hands control to the token contract.",
+      "is_core": true,
+      "node_id": 8,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "dst",
+      "description": "Destination address parameter of pull, fully attacker/Loan controlled.",
+      "is_core": false,
+      "node_id": 9,
+      "type": "parameter"
+    },
+    {
+      "id": "amt",
+      "description": "Amount parameter of pull, fully attacker/Loan controlled.",
+      "is_core": false,
+      "node_id": 10,
+      "type": "parameter"
+    },
+    {
+      "id": "_liquidityAsset",
+      "description": "Constructor parameter assigning the immutable liquidityAsset token address.",
+      "is_core": false,
+      "node_id": 11,
+      "type": "parameter"
+    },
+    {
+      "id": "_loan",
+      "description": "Constructor parameter assigning the immutable loan address.",
+      "is_core": false,
+      "node_id": 12,
+      "type": "parameter"
+    },
+    {
+      "id": "amt_local",
+      "description": "Local variable in drain holding liquidityAsset.balanceOf(address(this)) before the transfer.",
+      "is_core": false,
+      "node_id": 13,
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is read inside the isLoan modifier and compared with the loan state variable, forming the only access-control decision in the contract.",
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The loan state variable is the trusted counterpart used to validate msg.sender in the isLoan modifier.",
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The isLoan modifier gates entry into pull.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The isLoan modifier gates entry into drain.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Constructor writes the immutable liquidityAsset state variable.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Constructor writes the immutable loan state variable.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "controlflow"
+    },
+    {
+      "reason": "_liquidityAsset constructor parameter flows into the liquidityAsset state variable.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 11,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_loan constructor parameter flows into the loan state variable.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 12,
+      "type": "dataflow"
+    },
+    {
+      "reason": "pull executes the safeTransfer unsafe operation.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The liquidityAsset token address is the callee of the external safeTransfer call in pull.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The dst parameter is passed directly as the recipient of safeTransfer in pull.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The amt parameter is passed directly as the value of safeTransfer in pull.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 10,
+      "type": "dataflow"
+    },
+    {
+      "reason": "drain executes the safeTransfer unsafe operation.",
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The liquidityAsset token address is the callee of the external safeTransfer call in drain.",
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The loan state variable is used as the recipient of the swept balance in drain.",
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The local amt read from balanceOf is passed as the value of safeTransfer in drain.",
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 13,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The external token call in pull transfers control to attacker-controlled or malicious token code that can re-enter pull before state settles.",
+      "to_id": 4,
+      "vuln_type": "reentrancy",
+      "from_id": 7,
+      "type": "callback"
+    },
+    {
+      "reason": "The external token call in drain transfers control to token code that can re-enter drain and repeat the balance-based sweep.",
+      "to_id": 5,
+      "vuln_type": "reentrancy",
+      "from_id": 8,
+      "type": "callback"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Parameter dst has no independent semantics; it is only used as the recipient argument of the safeTransfer unsafe operation in pull.",
+      "normal_node": "dst",
+      "merge_into": "safeTransfer_pull"
+    },
+    {
+      "reason": "Parameter amt has no independent semantics; it is only used as the value argument of the safeTransfer unsafe operation in pull.",
+      "normal_node": "amt",
+      "merge_into": "safeTransfer_pull"
+    },
+    {
+      "reason": "Constructor parameter _liquidityAsset is used only to initialize the immutable liquidityAsset state variable inside the constructor.",
+      "normal_node": "_liquidityAsset",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "Constructor parameter _loan is used only to initialize the immutable loan state variable inside the constructor.",
+      "normal_node": "_loan",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "Local variable amt is a transient balanceOf result consumed immediately by the safeTransfer unsafe operation in drain.",
+      "normal_node": "amt_local",
+      "merge_into": "safeTransfer_drain"
+    }
+  ]
+}

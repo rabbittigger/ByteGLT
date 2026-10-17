@@ -1,0 +1,672 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "function",
+      "id": "fn_mint",
+      "is_core": true,
+      "description": "Public payable mint() that mints sequential token ids, computes an on-chain pseudo-random gift recipient and forwards a percentage of funds to it before finalizing."
+    },
+    {
+      "node_id": 1,
+      "type": "function",
+      "id": "fn_withdraw",
+      "is_core": true,
+      "description": "onlyOwner withdraw() that pays 10% of balance to a hardcoded address and the rest to msg.sender via low-level calls."
+    },
+    {
+      "node_id": 2,
+      "type": "function",
+      "id": "fn_randomNum",
+      "is_core": true,
+      "description": "Public view randomNum() deriving a number from keccak256 of block.timestamp, msg.sender and caller supplied seed/salt."
+    },
+    {
+      "node_id": 3,
+      "type": "function",
+      "id": "fn_walletOfOwner",
+      "is_core": true,
+      "description": "View helper enumerating all token ids owned by an address."
+    },
+    {
+      "node_id": 4,
+      "type": "function",
+      "id": "fn_tokenURI",
+      "is_core": true,
+      "description": "Overridden tokenURI() with reveal switch and baseURI/baseExtension concatenation."
+    },
+    {
+      "node_id": 5,
+      "type": "function",
+      "id": "fn_reveal",
+      "is_core": true,
+      "description": "onlyOwner reveal() toggling the revealed flag."
+    },
+    {
+      "node_id": 6,
+      "type": "function",
+      "id": "fn_setCost",
+      "is_core": true,
+      "description": "onlyOwner setter for the mint price."
+    },
+    {
+      "node_id": 7,
+      "type": "function",
+      "id": "fn_setNotRevealedURI",
+      "is_core": true,
+      "description": "onlyOwner setter for the placeholder metadata URI."
+    },
+    {
+      "node_id": 8,
+      "type": "function",
+      "id": "fn_setBaseURI",
+      "is_core": true,
+      "description": "onlyOwner setter for the base token URI."
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "id": "fn_setBaseExtension",
+      "is_core": true,
+      "description": "onlyOwner setter for the token URI extension."
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "id": "fn_pause",
+      "is_core": true,
+      "description": "onlyOwner pause toggle for minting."
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "id": "fn_baseURI",
+      "is_core": true,
+      "description": "Internal view override returning the stored baseURI."
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "id": "fn_constructor",
+      "is_core": true,
+      "description": "Constructor initializing ERC721 name/symbol and calling setBaseURI/setNotRevealedURI."
+    },
+    {
+      "node_id": 13,
+      "type": "state_var",
+      "id": "sv_cost",
+      "is_core": true,
+      "description": "uint256 public cost = 0.025 ether; mint price checked in mint() and updatable via setCost."
+    },
+    {
+      "node_id": 14,
+      "type": "state_var",
+      "id": "sv_maxSupply",
+      "is_core": true,
+      "description": "uint256 public maxSupply = 5000; upper bound enforced in mint()."
+    },
+    {
+      "node_id": 15,
+      "type": "state_var",
+      "id": "sv_headStart",
+      "is_core": true,
+      "description": "uint256 public headStart = block.timestamp + 10 days; timestamp-derived withdrawal gate."
+    },
+    {
+      "node_id": 16,
+      "type": "state_var",
+      "id": "sv_paused",
+      "is_core": true,
+      "description": "bool public paused; blocks minting and toggled via pause()."
+    },
+    {
+      "node_id": 17,
+      "type": "state_var",
+      "id": "sv_revealed",
+      "is_core": true,
+      "description": "bool public revealed; controls metadata exposure and set via reveal()."
+    },
+    {
+      "node_id": 18,
+      "type": "state_var",
+      "id": "sv_baseURI",
+      "is_core": true,
+      "description": "string baseURI used by _baseURI() and set via setBaseURI."
+    },
+    {
+      "node_id": 19,
+      "type": "state_var",
+      "id": "sv_notRevealedUri",
+      "is_core": true,
+      "description": "string public notRevealedUri returned by tokenURI before reveal."
+    },
+    {
+      "node_id": 20,
+      "type": "state_var",
+      "id": "sv_baseExtension",
+      "is_core": true,
+      "description": "string public baseExtension = \".json\" appended to token URIs."
+    },
+    {
+      "node_id": 21,
+      "type": "untrusted_input",
+      "id": "ui_msgSender",
+      "is_core": true,
+      "description": "msg.sender: controls minting, recipient of withdraw funds, random seed and onlyOwner checks."
+    },
+    {
+      "node_id": 22,
+      "type": "untrusted_input",
+      "id": "ui_blockTimestamp",
+      "is_core": true,
+      "description": "block.timestamp: entropy source for randomNum, headStart initialization and the withdraw time gate."
+    },
+    {
+      "node_id": 23,
+      "type": "unsafe_operation",
+      "id": "uo_call_mint",
+      "is_core": true,
+      "description": "Low-level call{value:} in mint() sending giftValue to a pseudo-randomly selected owner before/while external execution."
+    },
+    {
+      "node_id": 24,
+      "type": "unsafe_operation",
+      "id": "uo_call_withdraw",
+      "is_core": true,
+      "description": "Low-level call{value:} transfers in withdraw() (hardcoded 10% address then remaining balance to msg.sender)."
+    },
+    {
+      "node_id": 25,
+      "type": "unsafe_operation",
+      "id": "uo_weak_random",
+      "is_core": true,
+      "description": "Weak randomness: keccak256(block.timestamp, msg.sender, _seed, _salt) miner/caller influenceable."
+    },
+    {
+      "node_id": 26,
+      "type": "parameter",
+      "id": "p_initBaseURI",
+      "is_core": false,
+      "description": "_initBaseURI constructor parameter forwarded to setBaseURI."
+    },
+    {
+      "node_id": 27,
+      "type": "parameter",
+      "id": "p_initNotRevealedUri",
+      "is_core": false,
+      "description": "_initNotRevealedUri constructor parameter forwarded to setNotRevealedURI."
+    },
+    {
+      "node_id": 28,
+      "type": "parameter",
+      "id": "p_newCost",
+      "is_core": false,
+      "description": "_newCost parameter of setCost."
+    },
+    {
+      "node_id": 29,
+      "type": "parameter",
+      "id": "p_notRevealedURI",
+      "is_core": false,
+      "description": "_notRevealedURI parameter of setNotRevealedURI."
+    },
+    {
+      "node_id": 30,
+      "type": "parameter",
+      "id": "p_newBaseURI",
+      "is_core": false,
+      "description": "_newBaseURI parameter of setBaseURI."
+    },
+    {
+      "node_id": 31,
+      "type": "parameter",
+      "id": "p_newBaseExtension",
+      "is_core": false,
+      "description": "_newBaseExtension parameter of setBaseExtension."
+    },
+    {
+      "node_id": 32,
+      "type": "parameter",
+      "id": "p_state",
+      "is_core": false,
+      "description": "_state parameter of pause."
+    },
+    {
+      "node_id": 33,
+      "type": "parameter",
+      "id": "p_tokenId",
+      "is_core": false,
+      "description": "tokenId parameter of tokenURI."
+    },
+    {
+      "node_id": 34,
+      "type": "local_var",
+      "id": "l_supply_mint",
+      "is_core": false,
+      "description": "supply = totalSupply() inside mint()."
+    },
+    {
+      "node_id": 35,
+      "type": "local_var",
+      "id": "l_giftAddress",
+      "is_core": false,
+      "description": "giftAddress payable recipient of the mint gift, derived from ownerOf(randomNum(...))."
+    },
+    {
+      "node_id": 36,
+      "type": "local_var",
+      "id": "l_giftValue",
+      "is_core": false,
+      "description": "giftValue amount transferred out of the contract in mint()."
+    },
+    {
+      "node_id": 37,
+      "type": "local_var",
+      "id": "l_success",
+      "is_core": false,
+      "description": "success boolean returned by the low-level call in mint()."
+    },
+    {
+      "node_id": 38,
+      "type": "local_var",
+      "id": "l_supply_withdraw",
+      "is_core": false,
+      "description": "supply = totalSupply() inside withdraw()."
+    },
+    {
+      "node_id": 39,
+      "type": "local_var",
+      "id": "l_d",
+      "is_core": false,
+      "description": "d boolean of the hardcoded-address call in withdraw()."
+    },
+    {
+      "node_id": 40,
+      "type": "local_var",
+      "id": "l_s",
+      "is_core": false,
+      "description": "s boolean of the msg.sender call in withdraw()."
+    },
+    {
+      "node_id": 41,
+      "type": "parameter",
+      "id": "p_mod",
+      "is_core": false,
+      "description": "_mod modulus parameter of randomNum."
+    },
+    {
+      "node_id": 42,
+      "type": "parameter",
+      "id": "p_seed",
+      "is_core": false,
+      "description": "_seed parameter mixed into the randomness hash."
+    },
+    {
+      "node_id": 43,
+      "type": "parameter",
+      "id": "p_salt",
+      "is_core": false,
+      "description": "_salt parameter mixed into the randomness hash."
+    },
+    {
+      "node_id": 44,
+      "type": "local_var",
+      "id": "l_num",
+      "is_core": false,
+      "description": "num local holding the computed pseudo-random value."
+    },
+    {
+      "node_id": 45,
+      "type": "parameter",
+      "id": "p_owner",
+      "is_core": false,
+      "description": "_owner parameter of walletOfOwner."
+    },
+    {
+      "node_id": 46,
+      "type": "local_var",
+      "id": "l_ownerTokenCount",
+      "is_core": false,
+      "description": "ownerTokenCount loop bound in walletOfOwner."
+    },
+    {
+      "node_id": 47,
+      "type": "local_var",
+      "id": "l_tokenIds",
+      "is_core": false,
+      "description": "tokenIds array returned by walletOfOwner."
+    },
+    {
+      "node_id": 48,
+      "type": "local_var",
+      "id": "l_i",
+      "is_core": false,
+      "description": "i loop counter in walletOfOwner."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "giftAddress depends on ownerOf(randomNum(...,msg.sender,...)) so an attacker-controlled account may become the value recipient during mint.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 23
+    },
+    {
+      "reason": "block.timestamp is used as the entropy seed of the keccak256 pseudo-random number.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 25
+    },
+    {
+      "reason": "msg.sender is mixed into the randomness hash, letting the caller influence or predict the gift recipient.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 25
+    },
+    {
+      "reason": "withdraw depends on block.timestamp >= headStart to release funds, i.e. timestamp dependency.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 1
+    },
+    {
+      "reason": "headStart state variable is initialized from block.timestamp + 10 days.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 15
+    },
+    {
+      "reason": "mint() calls randomNum() to pick the gift recipient.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 0,
+      "to_id": 2
+    },
+    {
+      "reason": "randomNum result is used to select the owner who receives a percentage of the mint value.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 0
+    },
+    {
+      "reason": "mint() performs an external value transfer via low-level call.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 0,
+      "to_id": 23
+    },
+    {
+      "reason": "withdraw() performs external value transfers via low-level calls.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 24
+    },
+    {
+      "reason": "the remaining contract balance is forwarded to msg.sender inside withdraw().",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 24
+    },
+    {
+      "reason": "_safeMint invokes onERC721Received on the recipient (msg.sender) when it is a contract, enabling reentrant control transfer.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 0,
+      "to_id": 21
+    },
+    {
+      "reason": "onlyOwner modifier compares owner() with _msgSender() before withdrawing funds.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 21,
+      "to_id": 1
+    },
+    {
+      "reason": "onlyOwner modifier gates reveal() on msg.sender identity.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 21,
+      "to_id": 5
+    },
+    {
+      "reason": "onlyOwner modifier gates pause() on msg.sender identity.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 21,
+      "to_id": 10
+    },
+    {
+      "reason": "mint() requires msg.value >= cost.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 0
+    },
+    {
+      "reason": "mint() requires !paused.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 0
+    },
+    {
+      "reason": "mint() requires supply + 1 <= maxSupply.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 0
+    },
+    {
+      "reason": "tokenURI() returns notRevealedUri while revealed is false.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 4
+    },
+    {
+      "reason": "notRevealedUri is returned by tokenURI() before reveal.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 19,
+      "to_id": 4
+    },
+    {
+      "reason": "_baseURI() returns the baseURI state variable.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 11
+    },
+    {
+      "reason": "baseExtension is concatenated into the revealed token URI.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 20,
+      "to_id": 4
+    },
+    {
+      "reason": "withdraw() requires block.timestamp >= headStart.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 1
+    },
+    {
+      "reason": "setCost writes the cost state variable.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 6
+    },
+    {
+      "reason": "_newCost parameter is stored into cost.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 28,
+      "to_id": 6
+    },
+    {
+      "reason": "setBaseURI writes the baseURI state variable.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 8
+    },
+    {
+      "reason": "_newBaseURI parameter is stored into baseURI.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 30,
+      "to_id": 8
+    },
+    {
+      "reason": "setNotRevealedURI writes the notRevealedUri state variable.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 19,
+      "to_id": 7
+    },
+    {
+      "reason": "_notRevealedURI parameter is stored into notRevealedUri.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 7
+    },
+    {
+      "reason": "setBaseExtension writes the baseExtension state variable.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 20,
+      "to_id": 9
+    },
+    {
+      "reason": "_newBaseExtension parameter is stored into baseExtension.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 31,
+      "to_id": 9
+    },
+    {
+      "reason": "pause writes the paused state variable.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 10
+    },
+    {
+      "reason": "_state parameter is stored into paused.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 32,
+      "to_id": 10
+    },
+    {
+      "reason": "reveal writes the revealed state variable.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 5
+    },
+    {
+      "reason": "constructor forwards _initBaseURI to setBaseURI.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 26,
+      "to_id": 8
+    },
+    {
+      "reason": "constructor forwards _initNotRevealedUri to setNotRevealedURI.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 27,
+      "to_id": 7
+    },
+    {
+      "reason": "_mod parameter bounds the modulo of the weak randomness computation.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 41,
+      "to_id": 25
+    },
+    {
+      "reason": "_seed parameter is hashed into the pseudo-random value.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 42,
+      "to_id": 25
+    },
+    {
+      "reason": "_salt parameter is hashed into the pseudo-random value.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 43,
+      "to_id": 25
+    },
+    {
+      "reason": "num local is computed and returned by randomNum.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 44,
+      "to_id": 2
+    },
+    {
+      "reason": "giftAddress is the recipient of the external value transfer in mint().",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 35,
+      "to_id": 23
+    },
+    {
+      "reason": "giftValue is the amount sent by the low-level call in mint().",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 36,
+      "to_id": 23
+    },
+    {
+      "reason": "supply local drives whether and how much a gift is paid in mint().",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 34,
+      "to_id": 23
+    },
+    {
+      "reason": "supply local is checked against maxSupply before withdrawing.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 38,
+      "to_id": 24
+    },
+    {
+      "reason": "tokenId parameter is used to build the token URI.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 33,
+      "to_id": 4
+    },
+    {
+      "reason": "_owner parameter is used for balanceOf in walletOfOwner.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 45,
+      "to_id": 3
+    },
+    {
+      "reason": "ownerTokenCount local bounds the walletOfOwner loop and array size.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 46,
+      "to_id": 3
+    }
+  ],
+  "normalization_plan": []
+}

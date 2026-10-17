@@ -1,0 +1,88 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "function",
+      "description": "Payable fallback receive function that accepts Ether transfers; empty body.",
+      "is_core": true,
+      "id": "Bait.receive"
+    },
+    {
+      "node_id": 1,
+      "type": "function",
+      "description": "External function bait(address _pickpocket) that delegatecalls into an attacker-supplied address and requires success.",
+      "is_core": true,
+      "id": "Bait.bait"
+    },
+    {
+      "node_id": 2,
+      "type": "parameter",
+      "description": "Address parameter supplied by the caller; used as the target of a delegatecall.",
+      "is_core": false,
+      "id": "Bait.bait._pickpocket"
+    },
+    {
+      "node_id": 3,
+      "type": "unsafe_operation",
+      "description": "delegatecall to attacker-controlled address _pickpocket with selector finesse(address); executes arbitrary external code in the context of Bait.",
+      "is_core": true,
+      "id": "Bait.bait.delegatecall"
+    },
+    {
+      "node_id": 4,
+      "type": "local_var",
+      "description": "Boolean returned by the low-level delegatecall, checked by require(success).",
+      "is_core": false,
+      "id": "Bait.bait.success"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "Function bait declares and receives the caller-supplied parameter _pickpocket, making it available as the delegatecall target.",
+      "from_id": 1
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "The unvalidated parameter _pickpocket flows directly into delegatecall, allowing arbitrary external code to execute in Bait's storage context (unprotected delegatecall / access control).",
+      "from_id": 2
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "bait() unconditionally dispatches into the unsafe delegatecall with a caller-controlled address and no owner/permission check.",
+      "from_id": 1
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The delegatecall returns the success flag which is stored in the local variable success.",
+      "from_id": 3
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "require(success) inside bait() conditionally reverts the transaction when the delegatecall fails.",
+      "from_id": 4
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "Bait.bait.delegatecall",
+      "normal_node": "Bait.bait._pickpocket",
+      "reason": "The parameter is a pure carrier of the delegatecall target; it has no independent semantics beyond being consumed by the unsafe delegatecall, so it is merged into that unsafe_operation node."
+    },
+    {
+      "merge_into": "Bait.bait.delegatecall",
+      "normal_node": "Bait.bait.success",
+      "reason": "The local variable is only the direct return value of the unsafe delegatecall and is immediately consumed by the require check, so it is merged into that unsafe_operation node."
+    }
+  ]
+}

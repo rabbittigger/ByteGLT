@@ -1,0 +1,116 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "PROXIABLE_MEM_SLOT",
+      "description": "Constant storage slot holding the delegatecall target address.",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "constructor",
+      "description": "Constructor that initializes PROXIABLE_MEM_SLOT with contractLogic.",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fallback",
+      "description": "Fallback function that delegatecalls to the stored contract logic.",
+      "node_id": 2
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "contractLogic_param",
+      "description": "Constructor parameter contractLogic, the initial delegatecall target.",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "delegatecall_op",
+      "description": "Low-level delegatecall in fallback forwarding calldata to contractLogic.",
+      "node_id": 4
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "contractLogic_local",
+      "description": "Assembly local variable holding the delegatecall target loaded from PROXIABLE_MEM_SLOT.",
+      "node_id": 5
+    }
+  ],
+  "edges": [
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 1,
+      "to_id": 3,
+      "reason": "Constructor takes contractLogic as parameter."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 1,
+      "to_id": 0,
+      "reason": "Constructor writes contractLogic into PROXIABLE_MEM_SLOT."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 0,
+      "reason": "Parameter contractLogic is stored into PROXIABLE_MEM_SLOT via assembly sstore."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 2,
+      "reason": "Fallback reads PROXIABLE_MEM_SLOT to determine the delegatecall target."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "reentrancy",
+      "from_id": 2,
+      "to_id": 4,
+      "reason": "Fallback executes the unsafe delegatecall operation."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 5,
+      "reason": "PROXIABLE_MEM_SLOT value is loaded into the assembly local contractLogic."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 5,
+      "to_id": 4,
+      "reason": "Local contractLogic is used as the delegatecall target."
+    },
+    {
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 4,
+      "to_id": 2,
+      "reason": "Delegatecall can invoke external code that re-enters the fallback function."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "contractLogic_param",
+      "merge_into": "constructor",
+      "reason": "Parameter contractLogic is part of the constructor function and is normalized into it."
+    },
+    {
+      "normal_node": "contractLogic_local",
+      "merge_into": "delegatecall_op",
+      "reason": "Assembly local contractLogic is directly consumed by the delegatecall unsafe operation and is normalized into it."
+    }
+  ]
+}

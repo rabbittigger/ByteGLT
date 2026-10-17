@@ -1,0 +1,165 @@
+{
+  "nodes": [
+    {
+      "id": "state_leviathanWhirlpool",
+      "description": "Immutable constant address 0x4f2CCc35F791e763779f711168424b766Ba3468F of the LeviathanWhirlpool contract whose release() is invoked and whose info is queried.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "state_whirlpool",
+      "description": "Immutable constant address 0x999b1e6EDCb412b59ECF0C5e14c20948Ce81F40b of the Whirlpool contract queried via getAllInfoFor.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "func_check",
+      "description": "External view function check(uint _requirement) that reads whirlpool data and returns the missing amount.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "func_execute",
+      "description": "External function execute() that performs an unchecked external call to IRelease.release() on the LeviathanWhirlpool address.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "param_requirement",
+      "description": "Parameter _requirement of check(), the threshold compared against userData[10].",
+      "is_core": false,
+      "node_id": 4,
+      "type": "parameter"
+    },
+    {
+      "id": "local_userData",
+      "description": "Local uint256[12] memory userData returned by IWhirlpool.getAllInfoFor for the LeviathanWhirlpool address.",
+      "is_core": false,
+      "node_id": 5,
+      "type": "local_var"
+    },
+    {
+      "id": "op_getAllInfoFor",
+      "description": "External call IWhirlpool(_whirlpool).getAllInfoFor(_leviathanWhirlpool) returning data from an external contract, returning values are not validated.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "op_release",
+      "description": "External call IRelease(_leviathanWhirlpool).release() executed without access control or reentrancy protection.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "op_sub",
+      "description": "Arithmetic operation _requirement - userData[10] compiled with Solidity <=0.6.2, i.e. without built-in overflow/underflow checks.",
+      "is_core": true,
+      "node_id": 8,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "check() takes _requirement as its input parameter.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "check() declares and holds the local array userData.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_whirlpool state variable supplies the target address for the getAllInfoFor external call.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_leviathanWhirlpool state variable is passed as the queried user argument to getAllInfoFor.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "check() invokes the external getAllInfoFor call.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Return value of getAllInfoFor is assigned to local userData.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "userData[10] flows into the unchecked subtraction.",
+      "to_id": 8,
+      "vuln_type": "arithmetic",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_requirement flows into the unchecked subtraction _requirement - userData[10].",
+      "to_id": 8,
+      "vuln_type": "arithmetic",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "check() executes the subtraction in the else branch when userData[10] < _requirement.",
+      "to_id": 8,
+      "vuln_type": "arithmetic",
+      "from_id": 2,
+      "type": "controlflow"
+    },
+    {
+      "reason": "_leviathanWhirlpool address is the target of the external release() call.",
+      "to_id": 7,
+      "vuln_type": "reentrancy",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "execute() performs the external IRelease.release() call with no reentrancy guard or access control.",
+      "to_id": 7,
+      "vuln_type": "reentrancy",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The external release() call can re-enter execute() since no state guard or access restriction prevents it.",
+      "to_id": 3,
+      "vuln_type": "reentrancy",
+      "from_id": 7,
+      "type": "callback"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Non-core parameter _requirement has no standalone security meaning; it is only relevant as an operand of the unchecked subtraction unsafe operation.",
+      "normal_node": "param_requirement",
+      "merge_into": "op_sub"
+    },
+    {
+      "reason": "Non-core local array userData exists solely to store the result of the external getAllInfoFor unsafe operation.",
+      "normal_node": "local_userData",
+      "merge_into": "op_getAllInfoFor"
+    }
+  ]
+}

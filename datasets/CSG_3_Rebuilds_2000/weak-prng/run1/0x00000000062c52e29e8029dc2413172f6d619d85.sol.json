@@ -1,0 +1,235 @@
+{
+  "nodes": [
+    {
+      "description": "Internal function createProxy(address target, bytes32 salt) that builds minimal-proxy creation bytecode and deploys it with the create2 opcode, returning the deployed address.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 0,
+      "id": "createProxy"
+    },
+    {
+      "description": "Public function deployModule(address masterCopy, bytes memory initializer, uint256 saltNonce) that derives a salt, calls createProxy, then performs a low-level call on the new proxy with attacker-supplied initializer calldata.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 1,
+      "id": "deployModule"
+    },
+    {
+      "description": "Parameter target of createProxy: master copy address that is embedded into the proxy deployment bytecode.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 2,
+      "id": "param_target"
+    },
+    {
+      "description": "Parameter salt of createProxy: CREATE2 salt controlling the deterministic proxy address.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 3,
+      "id": "param_salt"
+    },
+    {
+      "description": "Parameter masterCopy of deployModule: address of the implementation used as the proxy target.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 4,
+      "id": "param_masterCopy"
+    },
+    {
+      "description": "Parameter initializer of deployModule: arbitrary calldata executed against the freshly created proxy via a low-level call.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 5,
+      "id": "param_initializer"
+    },
+    {
+      "description": "Parameter saltNonce of deployModule: nonce mixed into the keccak256 hash to derive the CREATE2 salt.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 6,
+      "id": "param_saltNonce"
+    },
+    {
+      "description": "Local variable result in createProxy holding the address returned by the create2 assembly call.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 7,
+      "id": "local_result"
+    },
+    {
+      "description": "Local variable proxy in deployModule holding the address returned by createProxy and later used as the low-level call target.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 8,
+      "id": "local_proxy"
+    },
+    {
+      "description": "Local variable deployment in createProxy holding the packed minimal-proxy bytecode plus target address.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 9,
+      "id": "local_deployment"
+    },
+    {
+      "description": "Local variable success in deployModule holding the boolean result of the low-level call, checked by a require statement.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 10,
+      "id": "local_success"
+    },
+    {
+      "description": "Low-level external call proxy.call(initializer) forwarding arbitrary attacker-controlled calldata to a newly deployed proxy contract.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 11,
+      "id": "low_level_call"
+    },
+    {
+      "description": "Inline-assembly create2(0, add(deployment, 0x20), mload(deployment), salt) deployment of the minimal proxy.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 12,
+      "id": "create2_op"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "deployModule invokes createProxy to deploy the proxy at the derived salt.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 0
+    },
+    {
+      "reason": "masterCopy is passed as the target argument into createProxy.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "target is validated against address(0) and consumed by createProxy logic.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "initializer is hashed to derive the salt used in deployModule.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "saltNonce is mixed into the keccak256 hash that forms the CREATE2 salt.",
+      "from_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "salt flows into the create2 assembly instruction as the deployment salt.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "target address is packed into the minimal-proxy bytecode consumed by create2.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "deployment bytecode buffer is read from memory and passed to the create2 opcode.",
+      "from_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "The address returned by createProxy flows back into deployModule as the proxy variable.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "proxy address is the receiver of the low-level call, allowing arbitrary code execution during deployModule.",
+      "from_id": 8,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "initializer is forwarded verbatim as calldata to the proxy contract during the low-level call.",
+      "from_id": 5,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "The low-level call executes external code that can call back into deployModule before the function completes.",
+      "from_id": 11,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 1
+    },
+    {
+      "reason": "success boolean returned by the low-level call is used in a require check inside deployModule.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "target is only used as an input to createProxy and is embedded into the proxy bytecode there.",
+      "normal_node": "param_target",
+      "merge_into": "createProxy"
+    },
+    {
+      "reason": "salt is only consumed by the create2 deployment inside createProxy.",
+      "normal_node": "param_salt",
+      "merge_into": "createProxy"
+    },
+    {
+      "reason": "masterCopy is an argument of deployModule and only forwarded to createProxy from it.",
+      "normal_node": "param_masterCopy",
+      "merge_into": "deployModule"
+    },
+    {
+      "reason": "initializer is an argument of deployModule, hashed for the salt and forwarded as call data.",
+      "normal_node": "param_initializer",
+      "merge_into": "deployModule"
+    },
+    {
+      "reason": "saltNonce is an argument of deployModule used solely to derive the CREATE2 salt.",
+      "normal_node": "param_saltNonce",
+      "merge_into": "deployModule"
+    },
+    {
+      "reason": "result is the return value produced by the create2 operation inside createProxy.",
+      "normal_node": "local_result",
+      "merge_into": "createProxy"
+    },
+    {
+      "reason": "proxy is the address returned by createProxy and used as the low-level call target within deployModule.",
+      "normal_node": "local_proxy",
+      "merge_into": "deployModule"
+    },
+    {
+      "reason": "deployment is a temporary memory buffer only used for the create2 deployment inside createProxy.",
+      "normal_node": "local_deployment",
+      "merge_into": "createProxy"
+    },
+    {
+      "reason": "success is the boolean result of the low-level call and is only used in the require check of deployModule.",
+      "normal_node": "local_success",
+      "merge_into": "deployModule"
+    }
+  ]
+}

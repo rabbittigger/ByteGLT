@@ -1,0 +1,212 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "state_var.count",
+      "is_core": true,
+      "description": "Public constant count = 4444 used as the modulo size for winner selection."
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "id": "state_var.owner",
+      "is_core": true,
+      "description": "Immutable owner address initialised from msg.sender (deployer) at construction."
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "id": "state_var.randomlyChosenNumber",
+      "is_core": true,
+      "description": "Public uint256 seed written once by chooseWinners() and read by winner()."
+    },
+    {
+      "node_id": 3,
+      "type": "function",
+      "id": "function.chooseWinners",
+      "is_core": true,
+      "description": "Owner-only function that derives and stores a pseudo-random seed from block attributes."
+    },
+    {
+      "node_id": 4,
+      "type": "function",
+      "id": "function.winner",
+      "is_core": true,
+      "description": "View function that hashes the stored seed with an index and returns number % count."
+    },
+    {
+      "node_id": 5,
+      "type": "untrusted_input",
+      "id": "untrusted_input.msg.sender",
+      "is_core": true,
+      "description": "Caller-controlled address used for the owner check in chooseWinners()."
+    },
+    {
+      "node_id": 6,
+      "type": "untrusted_input",
+      "id": "untrusted_input.block.timestamp",
+      "is_core": true,
+      "description": "Miner-influenced block timestamp fed into the randomness seed computation."
+    },
+    {
+      "node_id": 7,
+      "type": "unsafe_operation",
+      "id": "unsafe_operation.weak_randomness",
+      "is_core": true,
+      "description": "keccak256 over block.timestamp, blockhash(number-1), coinbase, gaslimit and difficulty produces miner-manipulable randomness."
+    },
+    {
+      "node_id": 8,
+      "type": "unsafe_operation",
+      "id": "unsafe_operation.modulo_index",
+      "is_core": true,
+      "description": "keccak256(seed,index) % count collapses the hash to a uint16 winner id between 0 and 4443."
+    },
+    {
+      "node_id": 9,
+      "type": "local_var",
+      "id": "local_var.number_chooseWinners",
+      "is_core": false,
+      "description": "Local uint256 inside chooseWinners() holding the computed seed hash."
+    },
+    {
+      "node_id": 10,
+      "type": "parameter",
+      "id": "parameter.index",
+      "is_core": false,
+      "description": "Caller-supplied index parameter of winner(uint256 index)."
+    },
+    {
+      "node_id": 11,
+      "type": "local_var",
+      "id": "local_var.number_winner",
+      "is_core": false,
+      "description": "Local uint256 inside winner() holding keccak256(randomlyChosenNumber, index)."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The immutable owner state variable is assigned from the untrusted msg.sender at deployment, making the deployer the privileged account.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 1
+    },
+    {
+      "reason": "chooseWinners() gates execution on require(msg.sender == owner), so the caller controls whether the privileged path runs.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 5,
+      "to_id": 3
+    },
+    {
+      "reason": "The owner state variable is compared against msg.sender inside the onlyOwner-style require of chooseWinners().",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 3
+    },
+    {
+      "reason": "block.timestamp is packed into the seed hash, creating a timestamp-dependent (miner-influenceable) randomness source.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 7
+    },
+    {
+      "reason": "Execution of chooseWinners() triggers the weak randomness hash computation.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 3,
+      "to_id": 7
+    },
+    {
+      "reason": "The hash result computed in the unsafe operation is stored into the local variable number.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 9
+    },
+    {
+      "reason": "The local seed value is written into the randomlyChosenNumber state variable.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 2
+    },
+    {
+      "reason": "chooseWinners() reads randomlyChosenNumber in the require check requiring an unset seed.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 3
+    },
+    {
+      "reason": "winner() reads the stored randomlyChosenNumber seed as the base of its hash.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 4
+    },
+    {
+      "reason": "Calling winner() executes the hash-and-modulo unsafe operation.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 4,
+      "to_id": 8
+    },
+    {
+      "reason": "The stored seed is an input to the keccak256(seed, index) computation.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 8
+    },
+    {
+      "reason": "The externally supplied index parameter is packed into the hash before the modulo reduction.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 8
+    },
+    {
+      "reason": "The modulo result of the unsafe operation is captured in the local variable number of winner().",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 11
+    },
+    {
+      "reason": "The local number is cast to uint16 and returned from winner().",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 4
+    },
+    {
+      "reason": "The constant count = 4444 is the divisor used in the modulo reduction of the winner index.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 8
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The temporary local variable number in chooseWinners() only holds the output of the weak randomness unsafe operation and can be normalised into it.",
+      "merge_into": "unsafe_operation.weak_randomness",
+      "normal_node": "local_var.number_chooseWinners"
+    },
+    {
+      "reason": "The index parameter exists solely to be consumed by the winner() function and can be normalised into that core function.",
+      "merge_into": "function.winner",
+      "normal_node": "parameter.index"
+    },
+    {
+      "reason": "The local variable number in winner() merely stores the modulo result of the unsafe hash operation and can be normalised into it.",
+      "merge_into": "unsafe_operation.modulo_index",
+      "normal_node": "local_var.number_winner"
+    }
+  ]
+}

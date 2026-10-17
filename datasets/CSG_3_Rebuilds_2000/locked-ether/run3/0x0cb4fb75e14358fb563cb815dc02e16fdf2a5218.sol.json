@@ -1,0 +1,210 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Immutable IERC20 collateral asset held in custody by the locker.",
+      "id": "CollateralLocker.collateralAsset",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Immutable address of the Loan contract authorized to withdraw collateral.",
+      "id": "CollateralLocker.loan",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Constructor initializing collateralAsset and loan immutable state variables.",
+      "id": "CollateralLocker.constructor",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "External function guarded by isLoan that transfers collateral to a destination.",
+      "id": "CollateralLocker.pull",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "Access-control modifier requiring msg.sender to equal the loan address.",
+      "id": "CollateralLocker.isLoan",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "Caller identity checked against the loan state variable for authorization.",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "External ERC20 transfer call to an arbitrary destination address, executed via SafeERC20.",
+      "id": "CollateralLocker.pull.safeTransfer",
+      "type": "unsafe_operation",
+      "node_id": 6
+    },
+    {
+      "is_core": false,
+      "description": "Constructor parameter providing the collateral asset address.",
+      "id": "constructor._collateralAsset",
+      "type": "parameter",
+      "node_id": 7
+    },
+    {
+      "is_core": false,
+      "description": "Constructor parameter providing the authorized loan address.",
+      "id": "constructor._loan",
+      "type": "parameter",
+      "node_id": 8
+    },
+    {
+      "is_core": false,
+      "description": "Destination address for the collateral transfer.",
+      "id": "pull.dst",
+      "type": "parameter",
+      "node_id": 9
+    },
+    {
+      "is_core": false,
+      "description": "Amount of collateral asset to transfer.",
+      "id": "pull.amt",
+      "type": "parameter",
+      "node_id": 10
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "reason": "msg.sender is compared against the loan state variable inside the isLoan modifier require statement.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "reason": "The loan state variable is read in the isLoan modifier to authorize the caller.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "The isLoan modifier gates entry into the pull function body.",
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "Caller identity ultimately controls whether pull can execute.",
+      "type": "controlflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "_collateralAsset parameter is consumed by the constructor to set state.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "_loan parameter is consumed by the constructor to set state.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "_collateralAsset is assigned to the collateralAsset state variable.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "_loan is assigned to the loan state variable.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "dst parameter is passed into the pull function body.",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "amt parameter is passed into the pull function body.",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "pull executes the external safeTransfer unsafe operation.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "dst flows directly into the external token transfer destination.",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "amt flows directly into the external token transfer amount.",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "collateralAsset is the token target of the safeTransfer call.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "reentrancy",
+      "reason": "The external ERC20 call transfers control to a token contract that could re-enter pull before returning.",
+      "type": "callback",
+      "from_id": 6
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "CollateralLocker.constructor",
+      "reason": "_collateralAsset is a constructor parameter that only feeds the constructor and is merged into that core function.",
+      "normal_node": "constructor._collateralAsset"
+    },
+    {
+      "merge_into": "CollateralLocker.constructor",
+      "reason": "_loan is a constructor parameter that only feeds the constructor and is merged into that core function.",
+      "normal_node": "constructor._loan"
+    },
+    {
+      "merge_into": "CollateralLocker.pull",
+      "reason": "dst is a pull parameter directly related to the pull function that forwards it to the external transfer.",
+      "normal_node": "pull.dst"
+    },
+    {
+      "merge_into": "CollateralLocker.pull",
+      "reason": "amt is a pull parameter directly related to the pull function that forwards it to the external transfer.",
+      "normal_node": "pull.amt"
+    }
+  ]
+}

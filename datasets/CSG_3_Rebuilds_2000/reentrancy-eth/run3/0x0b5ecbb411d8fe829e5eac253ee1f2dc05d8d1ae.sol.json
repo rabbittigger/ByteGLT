@@ -1,0 +1,821 @@
+{
+  "nodes": [
+    {
+      "id": "fn_transfer",
+      "node_id": 0,
+      "type": "function",
+      "description": "External ERC20 transfer entrypoint that forwards msg.sender to _transfer.",
+      "is_core": true
+    },
+    {
+      "id": "fn_transferFrom",
+      "node_id": 1,
+      "type": "function",
+      "description": "External transferFrom entrypoint forwarding sender/recipient and updating allowance.",
+      "is_core": true
+    },
+    {
+      "id": "fn__transfer",
+      "node_id": 2,
+      "type": "function",
+      "description": "Core internal transfer logic: checks trading status, limits, sniper penalties, swaps and taxes.",
+      "is_core": true
+    },
+    {
+      "id": "fn__tokenTransfer",
+      "node_id": 3,
+      "type": "function",
+      "description": "Dispatches reflection accounting to the correct excluded/normal transfer handler and toggles fees.",
+      "is_core": true
+    },
+    {
+      "id": "fn_swapBack",
+      "node_id": 4,
+      "type": "function",
+      "description": "Locked swap/liquify routine; swaps contract tokens for ETH and distributes to marketing/dev/liquidity via low-level calls.",
+      "is_core": true
+    },
+    {
+      "id": "fn_launch",
+      "node_id": 5,
+      "type": "function",
+      "description": "Owner launch routine enabling trading, creating the pair and adding initial liquidity.",
+      "is_core": true
+    },
+    {
+      "id": "fn_enableTrading",
+      "node_id": 6,
+      "type": "function",
+      "description": "Internal function that activates trading and sets the timestamp-based early buy penalty window.",
+      "is_core": true
+    },
+    {
+      "id": "fn_withdrawStuckETH",
+      "node_id": 7,
+      "type": "function",
+      "description": "Owner-only withdrawal of ETH before trading starts, sending balance via low-level call to msg.sender.",
+      "is_core": true
+    },
+    {
+      "id": "fn_transferForeignToken",
+      "node_id": 8,
+      "type": "function",
+      "description": "Owner-only rescue that transfers arbitrary ERC20 tokens out of the contract.",
+      "is_core": true
+    },
+    {
+      "id": "fn_swapTokensForETH",
+      "node_id": 9,
+      "type": "function",
+      "description": "Approves the router and swaps contract tokens for ETH via the Uniswap V2 router.",
+      "is_core": true
+    },
+    {
+      "id": "fn_addLiquidity",
+      "node_id": 10,
+      "type": "function",
+      "description": "Approves the router and adds token/ETH liquidity sending LP to liquidityAddress.",
+      "is_core": true
+    },
+    {
+      "id": "fn__takeLiquidity",
+      "node_id": 11,
+      "type": "function",
+      "description": "Accumulates liquidity and marketing token counters and mints reflection balance to the contract.",
+      "is_core": true
+    },
+    {
+      "id": "fn__reflectFee",
+      "node_id": 12,
+      "type": "function",
+      "description": "Applies the reflection tax by reducing _rTotal and increasing _tFeeTotal.",
+      "is_core": true
+    },
+    {
+      "id": "sv_tradingActive",
+      "node_id": 13,
+      "type": "state_var",
+      "description": "Boolean gating whether trading/transfers of non-excluded users are allowed.",
+      "is_core": true
+    },
+    {
+      "id": "sv_swapAndLiquifyEnabled",
+      "node_id": 14,
+      "type": "state_var",
+      "description": "Boolean determining whether automatic swapBack runs during transfers.",
+      "is_core": true
+    },
+    {
+      "id": "sv_inSwapAndLiquify",
+      "node_id": 15,
+      "type": "state_var",
+      "description": "Reentrancy guard flag toggled by the lockTheSwap modifier.",
+      "is_core": true
+    },
+    {
+      "id": "sv__liquidityTokensToSwap",
+      "node_id": 16,
+      "type": "state_var",
+      "description": "Accumulated tokens earmarked for liquidity during taxed transfers.",
+      "is_core": true
+    },
+    {
+      "id": "sv__marketingTokensToSwap",
+      "node_id": 17,
+      "type": "state_var",
+      "description": "Accumulated tokens earmarked for marketing during taxed transfers.",
+      "is_core": true
+    },
+    {
+      "id": "sv_marketingAddress",
+      "node_id": 18,
+      "type": "state_var",
+      "description": "Payable recipient of marketing ETH; target of a low-level call in swapBack.",
+      "is_core": true
+    },
+    {
+      "id": "sv_devAddress",
+      "node_id": 19,
+      "type": "state_var",
+      "description": "Payable recipient of dev ETH; target of a low-level call in swapBack.",
+      "is_core": true
+    },
+    {
+      "id": "sv_liquidityAddress",
+      "node_id": 20,
+      "type": "state_var",
+      "description": "Recipient of LP tokens when adding liquidity.",
+      "is_core": true
+    },
+    {
+      "id": "sv_boughtEarly",
+      "node_id": 21,
+      "type": "state_var",
+      "description": "Mapping tracking early buyers subject to the elevated sniper sell tax.",
+      "is_core": true
+    },
+    {
+      "id": "sv_earlyBuyPenaltyEnd",
+      "node_id": 22,
+      "type": "state_var",
+      "description": "Timestamp until which the early buy penalty applies; drives timestamp-dependent logic.",
+      "is_core": true
+    },
+    {
+      "id": "sv_gasPriceLimit",
+      "node_id": 23,
+      "type": "state_var",
+      "description": "Maximum tx.gasprice allowed on buys while gasLimitActive is true.",
+      "is_core": true
+    },
+    {
+      "id": "sv__holderLastTransferTimestamp",
+      "node_id": 24,
+      "type": "state_var",
+      "description": "Mapping enforcing one purchase per block per holder/origin during launch.",
+      "is_core": true
+    },
+    {
+      "id": "sv_uniswapV2Router",
+      "node_id": 25,
+      "type": "state_var",
+      "description": "Uniswap V2 router used for swaps and liquidity; external call target.",
+      "is_core": true
+    },
+    {
+      "id": "sv_uniswapV2Pair",
+      "node_id": 26,
+      "type": "state_var",
+      "description": "The primary AMM pair address used in transfer limit checks.",
+      "is_core": true
+    },
+    {
+      "id": "sv_automatedMarketMakerPairs",
+      "node_id": 27,
+      "type": "state_var",
+      "description": "Mapping of addresses treated as AMM pairs to determine buy/sell behavior.",
+      "is_core": true
+    },
+    {
+      "id": "sv__isExcludedFromFee",
+      "node_id": 28,
+      "type": "state_var",
+      "description": "Mapping of accounts exempt from transfer fees.",
+      "is_core": true
+    },
+    {
+      "id": "sv__isExcluded",
+      "node_id": 29,
+      "type": "state_var",
+      "description": "Mapping of accounts excluded from reflections.",
+      "is_core": true
+    },
+    {
+      "id": "sv_maxTransactionAmount",
+      "node_id": 30,
+      "type": "state_var",
+      "description": "Maximum allowed transfer size for non-excluded accounts.",
+      "is_core": true
+    },
+    {
+      "id": "sv_maxWalletAmount",
+      "node_id": 31,
+      "type": "state_var",
+      "description": "Maximum allowed post-transfer wallet balance for non-excluded accounts.",
+      "is_core": true
+    },
+    {
+      "id": "ui_msg_sender",
+      "node_id": 32,
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used for ownership checks and ERC20 entrypoints.",
+      "is_core": true
+    },
+    {
+      "id": "ui_block_timestamp",
+      "node_id": 33,
+      "type": "untrusted_input",
+      "description": "Miner-influenceable timestamp used for penalty windows and deadline arguments.",
+      "is_core": true
+    },
+    {
+      "id": "ui_tx_origin",
+      "node_id": 34,
+      "type": "untrusted_input",
+      "description": "Transaction origin used in the one-purchase-per-block transfer delay check.",
+      "is_core": true
+    },
+    {
+      "id": "uo_call_marketing",
+      "node_id": 35,
+      "type": "unsafe_operation",
+      "description": "Low-level value call to marketingAddress in swapBack with unchecked success.",
+      "is_core": true
+    },
+    {
+      "id": "uo_call_dev",
+      "node_id": 36,
+      "type": "unsafe_operation",
+      "description": "Low-level value call to devAddress in swapBack with unchecked success.",
+      "is_core": true
+    },
+    {
+      "id": "uo_call_sender",
+      "node_id": 37,
+      "type": "unsafe_operation",
+      "description": "Low-level value call to msg.sender in withdrawStuckETH forwarding the whole balance.",
+      "is_core": true
+    },
+    {
+      "id": "uo_call_router_swap",
+      "node_id": 38,
+      "type": "unsafe_operation",
+      "description": "External router call swapExactTokensForETHSupportingFeeOnTransferTokens in swapTokensForETH.",
+      "is_core": true
+    },
+    {
+      "id": "uo_call_router_addliq",
+      "node_id": 39,
+      "type": "unsafe_operation",
+      "description": "External router call addLiquidityETH in addLiquidity sending ETH and tokens.",
+      "is_core": true
+    },
+    {
+      "id": "uo_call_erc20_transfer",
+      "node_id": 40,
+      "type": "unsafe_operation",
+      "description": "External IERC20.transfer call in transferForeignToken on an arbitrary token.",
+      "is_core": true
+    },
+    {
+      "id": "p_from",
+      "node_id": 41,
+      "type": "parameter",
+      "description": "Source address parameter of _transfer.",
+      "is_core": false
+    },
+    {
+      "id": "p_to",
+      "node_id": 42,
+      "type": "parameter",
+      "description": "Destination address parameter of _transfer.",
+      "is_core": false
+    },
+    {
+      "id": "p_amount",
+      "node_id": 43,
+      "type": "parameter",
+      "description": "Amount parameter of _transfer.",
+      "is_core": false
+    },
+    {
+      "id": "p_sender",
+      "node_id": 44,
+      "type": "parameter",
+      "description": "Sender address parameter of _tokenTransfer.",
+      "is_core": false
+    },
+    {
+      "id": "p_recipient",
+      "node_id": 45,
+      "type": "parameter",
+      "description": "Recipient address parameter of _tokenTransfer.",
+      "is_core": false
+    },
+    {
+      "id": "p_tokenAmount",
+      "node_id": 46,
+      "type": "parameter",
+      "description": "Token amount parameter of addLiquidity.",
+      "is_core": false
+    },
+    {
+      "id": "p_ethAmount",
+      "node_id": 47,
+      "type": "parameter",
+      "description": "ETH value parameter of addLiquidity.",
+      "is_core": false
+    },
+    {
+      "id": "p__to",
+      "node_id": 48,
+      "type": "parameter",
+      "description": "Recipient parameter of transferForeignToken.",
+      "is_core": false
+    },
+    {
+      "id": "p__token",
+      "node_id": 49,
+      "type": "parameter",
+      "description": "Arbitrary token address parameter of transferForeignToken.",
+      "is_core": false
+    },
+    {
+      "id": "lv_takeFee",
+      "node_id": 50,
+      "type": "local_var",
+      "description": "Local flag in _transfer deciding whether fees are applied.",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 2,
+      "reason": "transfer calls _transfer with the sender as source.",
+      "type": "controlflow",
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 32,
+      "reason": "transfer uses _msgSender (msg.sender) as the transfer origin.",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 2,
+      "reason": "transferFrom calls _transfer with the provided sender and recipient.",
+      "type": "controlflow",
+      "from_id": 1,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 32,
+      "reason": "transferFrom uses msg.sender to decrement allowance.",
+      "type": "dataflow",
+      "from_id": 1,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 34,
+      "reason": "_transfer reads tx.origin to enforce the one-purchase-per-block delay.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 33,
+      "reason": "_transfer compares earlyBuyPenaltyEnd against block.timestamp for the sniper tax.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 32,
+      "reason": "_transfer uses _msgSender-derived owner checks and entrypoint address.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 4,
+      "reason": "_transfer invokes swapBack which performs external value calls.",
+      "type": "controlflow",
+      "from_id": 2,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 3,
+      "reason": "_transfer delegates accounting to _tokenTransfer.",
+      "type": "controlflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 13,
+      "reason": "_transfer gates behavior on tradingActive.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 14,
+      "reason": "_transfer reads swapAndLiquifyEnabled to decide on swapBack.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 15,
+      "reason": "_transfer checks inSwapAndLiquify to avoid nested swaps.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "_transfer sums _liquidityTokensToSwap into totalTokensToSwap.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "_transfer sums _marketingTokensToSwap into totalTokensToSwap.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 21,
+      "reason": "_transfer marks and checks boughtEarly for sniper penalties.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 22,
+      "reason": "_transfer reads earlyBuyPenaltyEnd to scale the penalty tax.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 23,
+      "reason": "_transfer compares tx.gasprice to gasPriceLimit.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 24,
+      "reason": "_transfer writes _holderLastTransferTimestamp for delay enforcement.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 26,
+      "reason": "_transfer special cases uniswapV2Pair for delay and limit checks.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 27,
+      "reason": "_transfer inspects automatedMarketMakerPairs to classify buys/sells.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 28,
+      "reason": "_transfer consults _isExcludedFromFee to decide fee applicability.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 30,
+      "reason": "_transfer enforces maxTransactionAmount on buys and sells.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 31,
+      "reason": "_transfer enforces maxWalletAmount on recipients.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 11,
+      "reason": "_tokenTransfer handlers call _takeLiquidity for the liquidity portion.",
+      "type": "controlflow",
+      "from_id": 3,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 12,
+      "reason": "_tokenTransfer handlers call _reflectFee for the reflection portion.",
+      "type": "controlflow",
+      "from_id": 3,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 35,
+      "reason": "swapBack sends ETH to marketingAddress via an unchecked low-level call, attacker-controlled surface.",
+      "type": "callback",
+      "from_id": 4,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 36,
+      "reason": "swapBack sends ETH to devAddress via an unchecked low-level call.",
+      "type": "callback",
+      "from_id": 4,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 9,
+      "reason": "swapBack calls swapTokensForETH to convert tokens.",
+      "type": "controlflow",
+      "from_id": 4,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "swapBack calls addLiquidity to provide liquidity.",
+      "type": "controlflow",
+      "from_id": 4,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "swapBack reads and resets _liquidityTokensToSwap.",
+      "type": "dataflow",
+      "from_id": 4,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "swapBack reads and resets _marketingTokensToSwap.",
+      "type": "dataflow",
+      "from_id": 4,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 18,
+      "reason": "swapBack uses marketingAddress as ETH recipient.",
+      "type": "dataflow",
+      "from_id": 4,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 19,
+      "reason": "swapBack uses devAddress as ETH recipient.",
+      "type": "dataflow",
+      "from_id": 4,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 15,
+      "reason": "swapBack toggles inSwapAndLiquify via the lockTheSwap modifier.",
+      "type": "dataflow",
+      "from_id": 4,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 6,
+      "reason": "launch calls enableTrading.",
+      "type": "controlflow",
+      "from_id": 5,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "launch calls addLiquidity with contract balance.",
+      "type": "controlflow",
+      "from_id": 5,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 25,
+      "reason": "launch sets uniswapV2Router and approves it.",
+      "type": "dataflow",
+      "from_id": 5,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 26,
+      "reason": "launch creates and stores uniswapV2Pair.",
+      "type": "dataflow",
+      "from_id": 5,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 33,
+      "reason": "launch indirectly sets a timestamp-dependent penalty window through enableTrading.",
+      "type": "dataflow",
+      "from_id": 5,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 27,
+      "reason": "launch registers the pair in automatedMarketMakerPairs.",
+      "type": "dataflow",
+      "from_id": 5,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 33,
+      "reason": "enableTrading sets earlyBuyPenaltyEnd from block.timestamp.",
+      "type": "dataflow",
+      "from_id": 6,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 13,
+      "reason": "enableTrading sets tradingActive to true.",
+      "type": "dataflow",
+      "from_id": 6,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 14,
+      "reason": "enableTrading sets swapAndLiquifyEnabled to true.",
+      "type": "dataflow",
+      "from_id": 6,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 22,
+      "reason": "enableTrading writes the earlyBuyPenaltyEnd value.",
+      "type": "dataflow",
+      "from_id": 6,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 32,
+      "reason": "withdrawStuckETH uses msg.sender as the ETH recipient.",
+      "type": "dataflow",
+      "from_id": 7,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 37,
+      "reason": "withdrawStuckETH forwards the entire balance via a low-level call to msg.sender.",
+      "type": "callback",
+      "from_id": 7,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 13,
+      "reason": "withdrawStuckETH requires tradingActive to be false.",
+      "type": "dataflow",
+      "from_id": 7,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 40,
+      "reason": "transferForeignToken performs an external IERC20.transfer on an arbitrary token.",
+      "type": "callback",
+      "from_id": 8,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 25,
+      "reason": "swapTokensForETH reads uniswapV2Router for WETH and the swap target.",
+      "type": "dataflow",
+      "from_id": 9,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 33,
+      "reason": "swapTokensForETH passes block.timestamp as the swap deadline.",
+      "type": "dataflow",
+      "from_id": 9,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 38,
+      "reason": "swapTokensForETH performs an external router swap call.",
+      "type": "callback",
+      "from_id": 9,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 25,
+      "reason": "addLiquidity calls uniswapV2Router.addLiquidityETH.",
+      "type": "dataflow",
+      "from_id": 10,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 33,
+      "reason": "addLiquidity passes block.timestamp as the liquidity deadline.",
+      "type": "dataflow",
+      "from_id": 10,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 39,
+      "reason": "addLiquidity makes an external router call forwarding ETH.",
+      "type": "callback",
+      "from_id": 10,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 20,
+      "reason": "addLiquidity sends LP tokens to liquidityAddress.",
+      "type": "dataflow",
+      "from_id": 10,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "_takeLiquidity increments _liquidityTokensToSwap.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "_takeLiquidity increments _marketingTokensToSwap.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 22,
+      "reason": "_reflectFee indirectly influences the reflection rate used by penalty logic.",
+      "type": "dataflow",
+      "from_id": 12,
+      "vuln_type": "none"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "fn__transfer",
+      "reason": "Parameter from is only meaningful inside the _transfer logic and is bound to that core function.",
+      "normal_node": "p_from"
+    },
+    {
+      "merge_into": "fn__transfer",
+      "reason": "Parameter to is only meaningful inside the _transfer logic and is bound to that core function.",
+      "normal_node": "p_to"
+    },
+    {
+      "merge_into": "fn__transfer",
+      "reason": "Parameter amount is only used within _transfer checks and bound to that core function.",
+      "normal_node": "p_amount"
+    },
+    {
+      "merge_into": "fn__tokenTransfer",
+      "reason": "Parameter sender is consumed only by _tokenTransfer dispatch logic.",
+      "normal_node": "p_sender"
+    },
+    {
+      "merge_into": "fn__tokenTransfer",
+      "reason": "Parameter recipient is consumed only by _tokenTransfer dispatch logic.",
+      "normal_node": "p_recipient"
+    },
+    {
+      "merge_into": "fn_addLiquidity",
+      "reason": "Parameter tokenAmount is used solely in addLiquidity's router call.",
+      "normal_node": "p_tokenAmount"
+    },
+    {
+      "merge_into": "fn_addLiquidity",
+      "reason": "Parameter ethAmount is the value forwarded by addLiquidity.",
+      "normal_node": "p_ethAmount"
+    },
+    {
+      "merge_into": "fn_transferForeignToken",
+      "reason": "Parameter _to is only the transfer destination inside transferForeignToken.",
+      "normal_node": "p__to"
+    },
+    {
+      "merge_into": "fn_transferForeignToken",
+      "reason": "Parameter _token is the arbitrary token used in transferForeignToken's unsafe call.",
+      "normal_node": "p__token"
+    },
+    {
+      "merge_into": "fn__transfer",
+      "reason": "Local takeFee controls fee application only within _transfer.",
+      "normal_node": "lv_takeFee"
+    }
+  ]
+}

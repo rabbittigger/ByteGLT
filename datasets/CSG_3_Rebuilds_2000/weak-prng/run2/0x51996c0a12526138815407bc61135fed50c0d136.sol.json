@@ -1,0 +1,587 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Mapping tracking the game number each player last registered in; read in betConditions and canBet, written in placeBet.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "state_playerRegistrationStatus"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping marking addresses confirmed as winners (1) or not (0); gates betting and withdrawal.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "state_confirmedWinners"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping from winning player number to the address that bet on it.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "state_numberToAddress"
+    },
+    {
+      "type": "state_var",
+      "description": "Number of players required to close a round (initialized to 25).",
+      "is_core": true,
+      "node_id": 3,
+      "id": "state_currentPlayersRequired"
+    },
+    {
+      "type": "state_var",
+      "description": "Bet amount in wei required from each player (initialized to 0.005 ether).",
+      "is_core": true,
+      "node_id": 4,
+      "id": "state_currentBet"
+    },
+    {
+      "type": "state_var",
+      "description": "Current number of players registered in the running game.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "state_playerCount"
+    },
+    {
+      "type": "state_var",
+      "description": "Payout amount computed for the winner withdraw.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "state_jackpot"
+    },
+    {
+      "type": "state_var",
+      "description": "Block number used as source of randomness for the winner reveal.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "state_revealBlock"
+    },
+    {
+      "type": "state_var",
+      "description": "Incrementing game/round identifier used to invalidate old registrations.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "state_currentGame"
+    },
+    {
+      "type": "state_var",
+      "description": "Cached address of this contract, used for balance checks.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "state_contractAddress"
+    },
+    {
+      "type": "state_var",
+      "description": "Contract owner address, set at construction and changeable via transferOwnership.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "state_owner"
+    },
+    {
+      "type": "state_var",
+      "description": "Address of the most recent winner, exposed through canBet.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "state_lastWinner"
+    },
+    {
+      "type": "function",
+      "description": "Constructor: initializes contract state, sets owner to msg.sender and lastWinner to msg.sender.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "func_AllForOne_constructor"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only ownership transfer guarded by onlyOwner and zero-address check.",
+      "is_core": true,
+      "node_id": 13,
+      "id": "func_transferOwnership"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only bet amount update, restricted by changeBetConditions (no players, empty balance).",
+      "is_core": true,
+      "node_id": 14,
+      "id": "func_changeBet"
+    },
+    {
+      "type": "function",
+      "description": "View helper returning betting status, player count and last winner for msg.sender.",
+      "is_core": true,
+      "node_id": 15,
+      "id": "func_canBet"
+    },
+    {
+      "type": "function",
+      "description": "Payable entry point where players register, increment playerCount and store address by number.",
+      "is_core": true,
+      "node_id": 16,
+      "id": "func_placeBet"
+    },
+    {
+      "type": "function",
+      "description": "Reveals the pseudorandom winner from blockhash, confirms the winner and pays out currentBet.",
+      "is_core": true,
+      "node_id": 17,
+      "id": "func_revealWinner"
+    },
+    {
+      "type": "function",
+      "description": "Winner-only withdrawal that computes the jackpot and transfers it to msg.sender.",
+      "is_core": true,
+      "node_id": 18,
+      "id": "func_winnerWithdraw"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used as owner, player identity, winner lookup and transfer recipient.",
+      "is_core": true,
+      "node_id": 19,
+      "id": "input_msg_sender"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "msg.sender.transfer(currentBet) external value transfer inside revealWinner.",
+      "is_core": true,
+      "node_id": 20,
+      "id": "unsafe_transfer_revealWinner"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "msg.sender.transfer(jackpot) external value transfer inside winnerWithdraw.",
+      "is_core": true,
+      "node_id": 21,
+      "id": "unsafe_transfer_winnerWithdraw"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Winner number derived from uint(block.blockhash(revealBlock)) % currentPlayersRequired + 1; weak randomness and unchecked arithmetic.",
+      "is_core": true,
+      "node_id": 22,
+      "id": "unsafe_blockhash_modulo"
+    },
+    {
+      "type": "parameter",
+      "description": "Parameter of transferOwnership holding the proposed new owner address.",
+      "is_core": false,
+      "node_id": 23,
+      "id": "param_newOwner"
+    },
+    {
+      "type": "parameter",
+      "description": "Parameter of changeBet holding the new bet amount.",
+      "is_core": false,
+      "node_id": 24,
+      "id": "param__newBet"
+    },
+    {
+      "type": "local_var",
+      "description": "Local flag returned by canBet indicating whether the caller may bet.",
+      "is_core": false,
+      "node_id": 25,
+      "id": "local__status"
+    },
+    {
+      "type": "local_var",
+      "description": "Local copy of playerCount returned by canBet.",
+      "is_core": false,
+      "node_id": 26,
+      "id": "local__playerCount"
+    },
+    {
+      "type": "local_var",
+      "description": "Local copy of lastWinner returned by canBet.",
+      "is_core": false,
+      "node_id": 27,
+      "id": "local__lastWinner"
+    },
+    {
+      "type": "local_var",
+      "description": "Local copy of block.number captured in revealWinner for the 255-block check.",
+      "is_core": false,
+      "node_id": 28,
+      "id": "local__thisBlock"
+    },
+    {
+      "type": "local_var",
+      "description": "Local winning player number computed from blockhash modulo in revealWinner.",
+      "is_core": false,
+      "node_id": 29,
+      "id": "local__winningNumber"
+    },
+    {
+      "type": "local_var",
+      "description": "Local winning address looked up from numberToAddress in revealWinner.",
+      "is_core": false,
+      "node_id": 30,
+      "id": "local__winningAddress"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "access_control",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "msg.sender is written into the owner state variable during construction, establishing the privileged role.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "onlyOwner modifier compares msg.sender with owner before allowing ownership transfer.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "changeBet is gated by onlyOwner which validates msg.sender against owner.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "betConditions uses msg.sender to read playerRegistrationStatus and confirmedWinners before accepting the bet.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "revealWinner has no caller restriction but the payout recipient is msg.sender.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "winnerWithdrawConditions requires confirmedWinners[msg.sender] == 1 before withdrawal.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "msg.sender receives the currentBet transfer from the revealWinner payout.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "msg.sender receives the jackpot transfer from winnerWithdraw.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "newOwner parameter flows into the ownership transfer logic.",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "transferOwnership writes newOwner into the owner state variable.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "_newBet parameter is consumed by the owner-restricted changeBet function.",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "changeBet writes _newBet into the currentBet state variable.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "canBet reads playerRegistrationStatus[msg.sender] to compute the status flag.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "canBet compares playerRegistrationStatus against currentGame.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "canBet copies playerCount into the returned tuple.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "canBet copies lastWinner into the returned tuple.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "_status local variable is assigned and returned by canBet.",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "_playerCount local variable is assigned and returned by canBet.",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "_lastWinner local variable is assigned and returned by canBet.",
+      "from_id": 27
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "betConditions compares stored registration against currentGame before accepting a bet.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "betConditions requires playerCount < currentPlayersRequired.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "betConditions requires msg.value == currentBet.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "betConditions requires confirmedWinners[msg.sender] == 0 to block prior winners.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "placeBet increments and reads playerCount to seat the player.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "placeBet writes playerRegistrationStatus[msg.sender] = currentGame.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "placeBet stores msg.sender in numberToAddress indexed by playerCount.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "placeBet increments playerCount.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "placeBet sets revealBlock = block.number when the round fills.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "revealWinner reads revealBlock to derive the winner and to validate the 255-block window.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "_thisBlock caches block.number inside revealWinner.",
+      "from_id": 28
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "revealWinner computes the winning number by modulo of blockhash, an unchecked arithmetic derivation of randomness.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "The blockhash modulo result is stored in the _winningNumber local variable.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "revealWinner looks up numberToAddress[_winningNumber] to find the winning address.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "_winningNumber indexes numberToAddress inside revealWinner.",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "_winningAddress holds the resolved winner used for state updates and payout.",
+      "from_id": 30
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "revealWinner resets playerCount to 0 for the next round.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "revealWinner increments currentGame.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "revealWinner sets confirmedWinners[_winningAddress] = 1, granting withdrawal rights.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "revealWinner updates lastWinner with the winning address.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "revealWinner pays currentBet to msg.sender via an external transfer after state updates.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "winnerWithdrawConditions requires confirmedWinners[msg.sender] == 1.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "winnerWithdraw clears confirmedWinners[msg.sender] to 0 before paying out.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "winnerWithdraw reads currentBet when computing the jackpot.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "winnerWithdraw reads currentPlayersRequired when computing the jackpot.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "jackpot = currentBet * (currentPlayersRequired - 1) is an unchecked multiplication written to jackpot.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "winnerWithdraw transfers the computed jackpot to msg.sender externally.",
+      "from_id": 18
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "func_transferOwnership",
+      "reason": "Parameter is only consumed by the ownership transfer function and should be folded into it.",
+      "normal_node": "param_newOwner"
+    },
+    {
+      "merge_into": "func_changeBet",
+      "reason": "Parameter is only used to update currentBet inside changeBet.",
+      "normal_node": "param__newBet"
+    },
+    {
+      "merge_into": "func_canBet",
+      "reason": "Temporary return flag local to the canBet view function.",
+      "normal_node": "local__status"
+    },
+    {
+      "merge_into": "func_canBet",
+      "reason": "Temporary copy of state read only inside canBet.",
+      "normal_node": "local__playerCount"
+    },
+    {
+      "merge_into": "func_canBet",
+      "reason": "Temporary copy of state read only inside canBet.",
+      "normal_node": "local__lastWinner"
+    },
+    {
+      "merge_into": "func_revealWinner",
+      "reason": "Block number snapshot used only within revealWinner.",
+      "normal_node": "local__thisBlock"
+    },
+    {
+      "merge_into": "unsafe_blockhash_modulo",
+      "reason": "Derived directly from the blockhash modulo computation that determines the winner.",
+      "normal_node": "local__winningNumber"
+    },
+    {
+      "merge_into": "func_revealWinner",
+      "reason": "Resolved winner address used only for state updates inside revealWinner.",
+      "normal_node": "local__winningAddress"
+    }
+  ]
+}

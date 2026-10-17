@@ -1,0 +1,1078 @@
+{
+  "nodes": [
+    {
+      "id": "MAX_OWNER_COUNT",
+      "description": "Constant upper bound (50) on the number of owners.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "transactions",
+      "description": "Mapping of transactionId to Transaction struct (destination, value, data, executed).",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "confirmations",
+      "description": "Mapping transactionId => owner => bool recording confirmations.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "state_var"
+    },
+    {
+      "id": "isOwner",
+      "description": "Mapping address => bool marking wallet owners.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "state_var"
+    },
+    {
+      "id": "owners",
+      "description": "Dynamic array holding the current owner addresses.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "state_var"
+    },
+    {
+      "id": "required",
+      "description": "Number of confirmations required to execute a transaction.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "state_var"
+    },
+    {
+      "id": "transactionCount",
+      "description": "Total number of submitted transactions.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "state_var"
+    },
+    {
+      "id": "dailyLimit",
+      "description": "Amount in wei withdrawable without confirmations each day.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "state_var"
+    },
+    {
+      "id": "lastDay",
+      "description": "Timestamp of the last day on which the daily limit was reset.",
+      "is_core": true,
+      "node_id": 8,
+      "type": "state_var"
+    },
+    {
+      "id": "spentToday",
+      "description": "Amount in wei already withdrawn today outside the multisig flow.",
+      "is_core": true,
+      "node_id": 9,
+      "type": "state_var"
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller-controlled address used for ownership and authorization checks.",
+      "is_core": true,
+      "node_id": 10,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "block.timestamp",
+      "description": "Block timestamp (now) used for the 24 hour daily limit window.",
+      "is_core": true,
+      "node_id": 11,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "call_executeTransaction_base",
+      "description": "External call txi.destination.call.value(txi.value)(txi.data) in the base executeTransaction.",
+      "is_core": true,
+      "node_id": 12,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "call_executeTransaction_dailyLimit",
+      "description": "External call txi.destination.call.value(txi.value)(txi.data) in the daily-limit executeTransaction.",
+      "is_core": true,
+      "node_id": 13,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "arith_spentToday_update",
+      "description": "spentToday += txi.value before the call and spentToday -= txi.value on failure.",
+      "is_core": true,
+      "node_id": 14,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "arith_owners_length_decrement",
+      "description": "owners.length -= 1 in removeOwner, relies on non-empty array.",
+      "is_core": true,
+      "node_id": 15,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "arith_spentToday_overflow_check",
+      "description": "spentToday + amount > dailyLimit and the wrap-around check spentToday + amount < spentToday in isUnderLimit.",
+      "is_core": true,
+      "node_id": 16,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "modifier_onlyWallet_check",
+      "description": "Access control require(msg.sender == address(this)) in the onlyWallet modifier.",
+      "is_core": true,
+      "node_id": 17,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "modifier_ownerExists_msgSender",
+      "description": "Access control require(isOwner[msg.sender]) used to gate confirm/revoke operations.",
+      "is_core": true,
+      "node_id": 18,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "fallback",
+      "description": "Payable fallback function that emits Deposit for incoming ether.",
+      "is_core": true,
+      "node_id": 19,
+      "type": "function"
+    },
+    {
+      "id": "MultiSigWallet",
+      "description": "Constructor initializing owners, isOwner flags and required confirmations.",
+      "is_core": true,
+      "node_id": 20,
+      "type": "function"
+    },
+    {
+      "id": "addOwner",
+      "description": "Adds a new owner; must be called by the wallet itself.",
+      "is_core": true,
+      "node_id": 21,
+      "type": "function"
+    },
+    {
+      "id": "removeOwner",
+      "description": "Removes an owner, shrinks owners array and may lower required.",
+      "is_core": true,
+      "node_id": 22,
+      "type": "function"
+    },
+    {
+      "id": "replaceOwner",
+      "description": "Replaces an existing owner with a new one.",
+      "is_core": true,
+      "node_id": 23,
+      "type": "function"
+    },
+    {
+      "id": "changeRequirement",
+      "description": "Changes the number of required confirmations.",
+      "is_core": true,
+      "node_id": 24,
+      "type": "function"
+    },
+    {
+      "id": "submitTransaction",
+      "description": "Adds a new transaction and immediately confirms it.",
+      "is_core": true,
+      "node_id": 25,
+      "type": "function"
+    },
+    {
+      "id": "confirmTransaction",
+      "description": "Owner confirms a pending transaction and triggers execution attempt.",
+      "is_core": true,
+      "node_id": 26,
+      "type": "function"
+    },
+    {
+      "id": "revokeConfirmation",
+      "description": "Owner revokes a previous confirmation of a non-executed transaction.",
+      "is_core": true,
+      "node_id": 27,
+      "type": "function"
+    },
+    {
+      "id": "executeTransaction",
+      "description": "Base execution of a fully confirmed transaction via external call.",
+      "is_core": true,
+      "node_id": 28,
+      "type": "function"
+    },
+    {
+      "id": "isConfirmed",
+      "description": "View helper counting confirmations against required.",
+      "is_core": true,
+      "node_id": 29,
+      "type": "function"
+    },
+    {
+      "id": "addTransaction",
+      "description": "Internal function creating a new Transaction entry and incrementing transactionCount.",
+      "is_core": true,
+      "node_id": 30,
+      "type": "function"
+    },
+    {
+      "id": "getConfirmationCount",
+      "description": "View helper returning the confirmation count of a transaction.",
+      "is_core": true,
+      "node_id": 31,
+      "type": "function"
+    },
+    {
+      "id": "getTransactionCount",
+      "description": "View helper counting pending/executed transactions.",
+      "is_core": true,
+      "node_id": 32,
+      "type": "function"
+    },
+    {
+      "id": "getOwners",
+      "description": "View helper returning the owner array.",
+      "is_core": true,
+      "node_id": 33,
+      "type": "function"
+    },
+    {
+      "id": "getConfirmations",
+      "description": "View helper returning the list of owners that confirmed a transaction.",
+      "is_core": true,
+      "node_id": 34,
+      "type": "function"
+    },
+    {
+      "id": "getTransactionIds",
+      "description": "View helper returning transaction ids in a given range and state.",
+      "is_core": true,
+      "node_id": 35,
+      "type": "function"
+    },
+    {
+      "id": "MultiSigWalletWithDailyLimit",
+      "description": "Constructor extending the wallet with a daily withdraw limit.",
+      "is_core": true,
+      "node_id": 36,
+      "type": "function"
+    },
+    {
+      "id": "changeDailyLimit",
+      "description": "Changes the daily limit; callable only by the wallet itself.",
+      "is_core": true,
+      "node_id": 37,
+      "type": "function"
+    },
+    {
+      "id": "executeTransactionWithDailyLimit",
+      "description": "Overridden execution allowing confirmed or under-limit simple transfers.",
+      "is_core": true,
+      "node_id": 38,
+      "type": "function"
+    },
+    {
+      "id": "isUnderLimit",
+      "description": "Internal function checking and resetting the daily spend window.",
+      "is_core": true,
+      "node_id": 39,
+      "type": "function"
+    },
+    {
+      "id": "calcMaxWithdraw",
+      "description": "View helper returning the maximum withdrawable amount today.",
+      "is_core": true,
+      "node_id": 40,
+      "type": "function"
+    },
+    {
+      "id": "_owners",
+      "description": "Initial owner list passed to the MultiSigWallet constructor.",
+      "is_core": false,
+      "node_id": 41,
+      "type": "parameter"
+    },
+    {
+      "id": "_required",
+      "description": "Initial required confirmation count passed to the constructor.",
+      "is_core": false,
+      "node_id": 42,
+      "type": "parameter"
+    },
+    {
+      "id": "owner",
+      "description": "Owner address argument of addOwner/removeOwner/replaceOwner.",
+      "is_core": false,
+      "node_id": 43,
+      "type": "parameter"
+    },
+    {
+      "id": "newOwner",
+      "description": "Replacement owner address argument of replaceOwner.",
+      "is_core": false,
+      "node_id": 44,
+      "type": "parameter"
+    },
+    {
+      "id": "destination",
+      "description": "Transaction target address argument of submitTransaction/addTransaction.",
+      "is_core": false,
+      "node_id": 45,
+      "type": "parameter"
+    },
+    {
+      "id": "value",
+      "description": "Transaction ether value argument of submitTransaction/addTransaction.",
+      "is_core": false,
+      "node_id": 46,
+      "type": "parameter"
+    },
+    {
+      "id": "data",
+      "description": "Transaction payload argument of submitTransaction/addTransaction.",
+      "is_core": false,
+      "node_id": 47,
+      "type": "parameter"
+    },
+    {
+      "id": "transactionId",
+      "description": "Transaction identifier argument of confirm/revoke/execute/isConfirmed.",
+      "is_core": false,
+      "node_id": 48,
+      "type": "parameter"
+    },
+    {
+      "id": "_dailyLimit",
+      "description": "New daily limit argument of changeDailyLimit.",
+      "is_core": false,
+      "node_id": 49,
+      "type": "parameter"
+    },
+    {
+      "id": "amount",
+      "description": "Amount argument of isUnderLimit.",
+      "is_core": false,
+      "node_id": 50,
+      "type": "parameter"
+    },
+    {
+      "id": "i",
+      "description": "Loop counter local variable.",
+      "is_core": false,
+      "node_id": 51,
+      "type": "local_var"
+    },
+    {
+      "id": "count",
+      "description": "Accumulator local variable for confirmations.",
+      "is_core": false,
+      "node_id": 52,
+      "type": "local_var"
+    },
+    {
+      "id": "txi",
+      "description": "Storage pointer to the Transaction being executed.",
+      "is_core": false,
+      "node_id": 53,
+      "type": "local_var"
+    },
+    {
+      "id": "confirmed",
+      "description": "Local boolean caching isConfirmed result in the daily-limit executor.",
+      "is_core": false,
+      "node_id": 54,
+      "type": "local_var"
+    },
+    {
+      "id": "from",
+      "description": "Start index argument of getTransactionIds.",
+      "is_core": false,
+      "node_id": 55,
+      "type": "parameter"
+    },
+    {
+      "id": "to",
+      "description": "End index argument of getTransactionIds.",
+      "is_core": false,
+      "node_id": 56,
+      "type": "parameter"
+    },
+    {
+      "id": "pending",
+      "description": "Filter flag for pending transactions.",
+      "is_core": false,
+      "node_id": 57,
+      "type": "parameter"
+    },
+    {
+      "id": "executed",
+      "description": "Filter flag for executed transactions.",
+      "is_core": false,
+      "node_id": 58,
+      "type": "parameter"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor parameter _owners flows into owner registration.",
+      "to_id": 20,
+      "vuln_type": "none",
+      "from_id": 41,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Constructor parameter _required initializes the required threshold.",
+      "to_id": 20,
+      "vuln_type": "none",
+      "from_id": 42,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Each _owners element is written into the isOwner mapping.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 41,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_required is stored into the required state variable.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 42,
+      "type": "dataflow"
+    },
+    {
+      "reason": "owner parameter is registered as a new owner in addOwner.",
+      "to_id": 21,
+      "vuln_type": "none",
+      "from_id": 43,
+      "type": "dataflow"
+    },
+    {
+      "reason": "owner parameter selects the entry to remove in removeOwner.",
+      "to_id": 22,
+      "vuln_type": "none",
+      "from_id": 43,
+      "type": "dataflow"
+    },
+    {
+      "reason": "owner parameter selects the entry to replace in replaceOwner.",
+      "to_id": 23,
+      "vuln_type": "none",
+      "from_id": 43,
+      "type": "dataflow"
+    },
+    {
+      "reason": "newOwner parameter replaces the old owner entry.",
+      "to_id": 23,
+      "vuln_type": "none",
+      "from_id": 44,
+      "type": "dataflow"
+    },
+    {
+      "reason": "destination parameter is stored into the new Transaction struct.",
+      "to_id": 30,
+      "vuln_type": "none",
+      "from_id": 45,
+      "type": "dataflow"
+    },
+    {
+      "reason": "value parameter is stored into the new Transaction struct.",
+      "to_id": 30,
+      "vuln_type": "none",
+      "from_id": 46,
+      "type": "dataflow"
+    },
+    {
+      "reason": "data parameter is stored into the new Transaction struct.",
+      "to_id": 30,
+      "vuln_type": "none",
+      "from_id": 47,
+      "type": "dataflow"
+    },
+    {
+      "reason": "transactionId indexes the confirmations mapping in confirmTransaction.",
+      "to_id": 26,
+      "vuln_type": "none",
+      "from_id": 48,
+      "type": "dataflow"
+    },
+    {
+      "reason": "transactionId indexes the confirmations mapping in revokeConfirmation.",
+      "to_id": 27,
+      "vuln_type": "none",
+      "from_id": 48,
+      "type": "dataflow"
+    },
+    {
+      "reason": "transactionId selects the Transaction executed in executeTransaction.",
+      "to_id": 28,
+      "vuln_type": "none",
+      "from_id": 48,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_dailyLimit parameter is written into the dailyLimit state variable.",
+      "to_id": 37,
+      "vuln_type": "none",
+      "from_id": 49,
+      "type": "dataflow"
+    },
+    {
+      "reason": "amount parameter is added to spentToday inside isUnderLimit.",
+      "to_id": 39,
+      "vuln_type": "none",
+      "from_id": 50,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Loop counter i iterates over owners in isConfirmed.",
+      "to_id": 29,
+      "vuln_type": "none",
+      "from_id": 51,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Local count accumulates confirmations in isConfirmed.",
+      "to_id": 29,
+      "vuln_type": "none",
+      "from_id": 52,
+      "type": "dataflow"
+    },
+    {
+      "reason": "txi storage pointer supplies destination/value/data to the external call.",
+      "to_id": 12,
+      "vuln_type": "none",
+      "from_id": 53,
+      "type": "dataflow"
+    },
+    {
+      "reason": "txi storage pointer supplies destination/value/data to the external call in the daily-limit variant.",
+      "to_id": 13,
+      "vuln_type": "none",
+      "from_id": 53,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Local confirmed flag is computed and reused to gate value accounting.",
+      "to_id": 38,
+      "vuln_type": "none",
+      "from_id": 54,
+      "type": "dataflow"
+    },
+    {
+      "reason": "from parameter bounds the returned transaction id range.",
+      "to_id": 35,
+      "vuln_type": "none",
+      "from_id": 55,
+      "type": "dataflow"
+    },
+    {
+      "reason": "to parameter bounds the returned transaction id range.",
+      "to_id": 35,
+      "vuln_type": "none",
+      "from_id": 56,
+      "type": "dataflow"
+    },
+    {
+      "reason": "pending flag filters transactions counted in getTransactionCount.",
+      "to_id": 32,
+      "vuln_type": "none",
+      "from_id": 57,
+      "type": "dataflow"
+    },
+    {
+      "reason": "executed flag filters transactions counted in getTransactionCount.",
+      "to_id": 32,
+      "vuln_type": "none",
+      "from_id": 58,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender is emitted as the depositor in the fallback Deposit event.",
+      "to_id": 19,
+      "vuln_type": "none",
+      "from_id": 10,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender is compared to address(this) in the onlyWallet modifier.",
+      "to_id": 17,
+      "vuln_type": "access_control",
+      "from_id": 10,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender is checked against the isOwner mapping in ownerExists.",
+      "to_id": 18,
+      "vuln_type": "access_control",
+      "from_id": 10,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender is used as the confirming owner key in confirmTransaction.",
+      "to_id": 26,
+      "vuln_type": "access_control",
+      "from_id": 10,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender is used as the revoking owner key in revokeConfirmation.",
+      "to_id": 27,
+      "vuln_type": "access_control",
+      "from_id": 10,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender indexes into the confirmations mapping.",
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "from_id": 10,
+      "type": "dataflow"
+    },
+    {
+      "reason": "block.timestamp drives the 24 hour daily limit reset in isUnderLimit.",
+      "to_id": 39,
+      "vuln_type": "access_control",
+      "from_id": 11,
+      "type": "dataflow"
+    },
+    {
+      "reason": "block.timestamp determines the withdrawable amount in calcMaxWithdraw.",
+      "to_id": 40,
+      "vuln_type": "access_control",
+      "from_id": 11,
+      "type": "dataflow"
+    },
+    {
+      "reason": "block.timestamp is written into lastDay when the day rolls over.",
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "from_id": 11,
+      "type": "dataflow"
+    },
+    {
+      "reason": "onlyWallet gates addOwner to self-calls only.",
+      "to_id": 21,
+      "vuln_type": "access_control",
+      "from_id": 17,
+      "type": "controlflow"
+    },
+    {
+      "reason": "onlyWallet gates removeOwner to self-calls only.",
+      "to_id": 22,
+      "vuln_type": "access_control",
+      "from_id": 17,
+      "type": "controlflow"
+    },
+    {
+      "reason": "onlyWallet gates changeRequirement to self-calls only.",
+      "to_id": 24,
+      "vuln_type": "access_control",
+      "from_id": 17,
+      "type": "controlflow"
+    },
+    {
+      "reason": "onlyWallet gates changeDailyLimit to self-calls only.",
+      "to_id": 37,
+      "vuln_type": "access_control",
+      "from_id": 17,
+      "type": "controlflow"
+    },
+    {
+      "reason": "ownerExists(msg.sender) gates confirmTransaction.",
+      "to_id": 26,
+      "vuln_type": "access_control",
+      "from_id": 18,
+      "type": "controlflow"
+    },
+    {
+      "reason": "ownerExists(msg.sender) gates revokeConfirmation.",
+      "to_id": 27,
+      "vuln_type": "access_control",
+      "from_id": 18,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Constructor writes the isOwner flags during initialization.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 20,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Constructor assigns the owners array.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 20,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Constructor sets the required confirmation count.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 20,
+      "type": "dataflow"
+    },
+    {
+      "reason": "addOwner sets isOwner[owner] to true.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 21,
+      "type": "dataflow"
+    },
+    {
+      "reason": "addOwner pushes the new owner onto the owners array.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 21,
+      "type": "dataflow"
+    },
+    {
+      "reason": "removeOwner clears the isOwner flag.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 22,
+      "type": "dataflow"
+    },
+    {
+      "reason": "removeOwner rewrites and shrinks the owners array.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 22,
+      "type": "dataflow"
+    },
+    {
+      "reason": "removeOwner may call changeRequirement when required exceeds owners.length.",
+      "to_id": 24,
+      "vuln_type": "none",
+      "from_id": 22,
+      "type": "controlflow"
+    },
+    {
+      "reason": "replaceOwner flips isOwner flags for old and new owner.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 23,
+      "type": "dataflow"
+    },
+    {
+      "reason": "replaceOwner overwrites an entry in the owners array.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 23,
+      "type": "dataflow"
+    },
+    {
+      "reason": "changeRequirement writes the new required value.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 24,
+      "type": "dataflow"
+    },
+    {
+      "reason": "submitTransaction calls addTransaction to create the transaction.",
+      "to_id": 30,
+      "vuln_type": "none",
+      "from_id": 25,
+      "type": "controlflow"
+    },
+    {
+      "reason": "submitTransaction immediately calls confirmTransaction.",
+      "to_id": 26,
+      "vuln_type": "none",
+      "from_id": 25,
+      "type": "controlflow"
+    },
+    {
+      "reason": "confirmTransaction sets confirmations[transactionId][msg.sender] to true.",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 26,
+      "type": "dataflow"
+    },
+    {
+      "reason": "confirmTransaction calls executeTransaction after confirming.",
+      "to_id": 28,
+      "vuln_type": "none",
+      "from_id": 26,
+      "type": "controlflow"
+    },
+    {
+      "reason": "revokeConfirmation clears the confirmation flag.",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 27,
+      "type": "dataflow"
+    },
+    {
+      "reason": "executeTransaction checks confirmation status via isConfirmed.",
+      "to_id": 29,
+      "vuln_type": "none",
+      "from_id": 28,
+      "type": "controlflow"
+    },
+    {
+      "reason": "executeTransaction performs the external value call.",
+      "to_id": 12,
+      "vuln_type": "none",
+      "from_id": 28,
+      "type": "controlflow"
+    },
+    {
+      "reason": "executeTransaction reads and updates the executed flag of the Transaction.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 28,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Daily-limit executor reads and updates the executed flag of the Transaction.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 13,
+      "type": "dataflow"
+    },
+    {
+      "reason": "External call arguments are read from the transactions mapping.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 12,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The external call into destination can re-enter executeTransaction before state settles.",
+      "to_id": 28,
+      "vuln_type": "reentrancy",
+      "from_id": 12,
+      "type": "callback"
+    },
+    {
+      "reason": "The external call into destination can re-enter the daily-limit executeTransaction.",
+      "to_id": 38,
+      "vuln_type": "reentrancy",
+      "from_id": 13,
+      "type": "callback"
+    },
+    {
+      "reason": "spentToday is credited before the external call and only debited on failure, exposing reentrancy-sensitive accounting.",
+      "to_id": 9,
+      "vuln_type": "reentrancy",
+      "from_id": 13,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Unchecked += / -= mutations of spentToday around the external call.",
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "from_id": 14,
+      "type": "dataflow"
+    },
+    {
+      "reason": "owners.length -= 1 relies on the array being non-empty to avoid underflow.",
+      "to_id": 4,
+      "vuln_type": "arithmetic",
+      "from_id": 15,
+      "type": "dataflow"
+    },
+    {
+      "reason": "spentToday + amount is compared against dailyLimit with a manual overflow guard.",
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "from_id": 16,
+      "type": "dataflow"
+    },
+    {
+      "reason": "addTransaction writes the new Transaction struct into the mapping.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 30,
+      "type": "dataflow"
+    },
+    {
+      "reason": "addTransaction increments transactionCount.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 30,
+      "type": "dataflow"
+    },
+    {
+      "reason": "isConfirmed reads the confirmations mapping.",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 29,
+      "type": "dataflow"
+    },
+    {
+      "reason": "isConfirmed compares accumulated count against required.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 29,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Daily-limit constructor sets the initial dailyLimit.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 36,
+      "type": "dataflow"
+    },
+    {
+      "reason": "changeDailyLimit writes the new daily limit.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 37,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Daily-limit executor calls isUnderLimit for non-confirmed withdrawals.",
+      "to_id": 39,
+      "vuln_type": "none",
+      "from_id": 38,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Daily-limit executor performs the external value call.",
+      "to_id": 13,
+      "vuln_type": "none",
+      "from_id": 38,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Daily-limit executor updates spentToday around the call.",
+      "to_id": 14,
+      "vuln_type": "none",
+      "from_id": 38,
+      "type": "controlflow"
+    },
+    {
+      "reason": "isUnderLimit resets lastDay when the day has elapsed.",
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 39,
+      "type": "dataflow"
+    },
+    {
+      "reason": "isUnderLimit reads and resets spentToday.",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 39,
+      "type": "dataflow"
+    },
+    {
+      "reason": "isUnderLimit performs the overflow-guarded limit comparison.",
+      "to_id": 16,
+      "vuln_type": "none",
+      "from_id": 39,
+      "type": "controlflow"
+    },
+    {
+      "reason": "calcMaxWithdraw reads the dailyLimit.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 40,
+      "type": "dataflow"
+    },
+    {
+      "reason": "calcMaxWithdraw reads spentToday to compute the remainder.",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 40,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Constructor argument only participates in the initialization performed by the MultiSigWallet constructor.",
+      "normal_node": "_owners",
+      "merge_into": "MultiSigWallet"
+    },
+    {
+      "reason": "Confirmation threshold argument is consumed by the constructor's required assignment.",
+      "normal_node": "_required",
+      "merge_into": "MultiSigWallet"
+    },
+    {
+      "reason": "Owner address argument is normalized into the owner-management function that writes isOwner/owners.",
+      "normal_node": "owner",
+      "merge_into": "addOwner"
+    },
+    {
+      "reason": "Replacement owner argument is only meaningful inside replaceOwner's owner swap.",
+      "normal_node": "newOwner",
+      "merge_into": "replaceOwner"
+    },
+    {
+      "reason": "Transaction target argument flows directly into the Transaction struct written by addTransaction.",
+      "normal_node": "destination",
+      "merge_into": "addTransaction"
+    },
+    {
+      "reason": "Transaction value argument flows directly into the Transaction struct written by addTransaction.",
+      "normal_node": "value",
+      "merge_into": "addTransaction"
+    },
+    {
+      "reason": "Transaction payload argument flows directly into the Transaction struct written by addTransaction.",
+      "normal_node": "data",
+      "merge_into": "addTransaction"
+    },
+    {
+      "reason": "Transaction identifier is normalized into the confirmation flow that indexes confirmations.",
+      "normal_node": "transactionId",
+      "merge_into": "confirmTransaction"
+    },
+    {
+      "reason": "New limit argument is only used to overwrite the dailyLimit state variable.",
+      "normal_node": "_dailyLimit",
+      "merge_into": "changeDailyLimit"
+    },
+    {
+      "reason": "Amount argument is only consumed by the daily limit arithmetic in isUnderLimit.",
+      "normal_node": "amount",
+      "merge_into": "isUnderLimit"
+    },
+    {
+      "reason": "Generic loop counter is normalized into the confirmation counting loop.",
+      "normal_node": "i",
+      "merge_into": "isConfirmed"
+    },
+    {
+      "reason": "Local accumulator belongs to the confirmation counting performed by isConfirmed.",
+      "normal_node": "count",
+      "merge_into": "isConfirmed"
+    },
+    {
+      "reason": "Storage pointer local encapsulates the Transaction consumed by the base executor's external call.",
+      "normal_node": "txi",
+      "merge_into": "executeTransaction"
+    },
+    {
+      "reason": "Cached confirmation boolean is only used to branch accounting in the daily-limit executor.",
+      "normal_node": "confirmed",
+      "merge_into": "executeTransactionWithDailyLimit"
+    },
+    {
+      "reason": "Range start argument is only used by the transaction id range helper.",
+      "normal_node": "from",
+      "merge_into": "getTransactionIds"
+    },
+    {
+      "reason": "Range end argument is only used by the transaction id range helper.",
+      "normal_node": "to",
+      "merge_into": "getTransactionIds"
+    },
+    {
+      "reason": "Pending filter flag is only consumed by transaction counting filters.",
+      "normal_node": "pending",
+      "merge_into": "getTransactionCount"
+    },
+    {
+      "reason": "Executed filter flag is only consumed by transaction counting filters.",
+      "normal_node": "executed",
+      "merge_into": "getTransactionCount"
+    }
+  ]
+}

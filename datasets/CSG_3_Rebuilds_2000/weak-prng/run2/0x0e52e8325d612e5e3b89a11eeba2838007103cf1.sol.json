@@ -1,0 +1,341 @@
+{
+  "nodes": [
+    {
+      "id": "zethr",
+      "description": "State variable zethr, a ZethrInterface instance hard-coded to the Zethr token contract address; external contract used for token purchases and balance queries.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "bankroll",
+      "description": "State variable bankroll, the address that receives the proxy contract balance when sendDivsToBankroll is called; writable via changeBankroll.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "owner",
+      "description": "State variable owner, initialized to msg.sender at deployment and used as the sole access-control authority for privileged functions.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "state_var"
+    },
+    {
+      "id": "buyTokensWithProperEvent",
+      "description": "External payable function that reads the caller's token balance before and after calling zethr.buyAndTransfer.value(msg.value) and emits onTokenPurchase with the minted token amount.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "fallback",
+      "description": "Payable fallback function that accepts plain Ether transfers without any logic or state update.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "changeBankroll",
+      "description": "Privileged function guarded by require(msg.sender == owner) that rewrites the bankroll state variable to _newBankroll.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "function"
+    },
+    {
+      "id": "sendDivsToBankroll",
+      "description": "Privileged function guarded by require(msg.sender == owner) that forwards the entire contract balance to bankroll via transfer.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "function"
+    },
+    {
+      "id": "msg.sender",
+      "description": "Untrusted caller-controlled address used for owner initialization, token purchase targeting, balance queries and privilege checks.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "zethr.buyAndTransfer.value",
+      "description": "External payable call to the untrusted Zethr contract forwarding msg.value; executes arbitrary external code before the post-call balance read, enabling reentrancy.",
+      "is_core": true,
+      "node_id": 8,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "balanceAfter-balanceBefore",
+      "description": "Unsigned subtraction of balanceBefore from balanceAfter used to derive tokensMinted; can underflow if the post-call balance is lower than the pre-call balance.",
+      "is_core": true,
+      "node_id": 9,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "bankroll.transfer",
+      "description": "External transfer of the whole contract balance to the bankroll address, which executes recipient code and can reenter or fail.",
+      "is_core": true,
+      "node_id": 10,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "bankroll-assignment",
+      "description": "Privileged state write assigning _newBankroll to the bankroll storage variable.",
+      "is_core": true,
+      "node_id": 11,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "zethr.balanceOf",
+      "description": "External static call to the untrusted Zethr contract to read the token balance of an address; return value feeds the minted-amount arithmetic.",
+      "is_core": true,
+      "node_id": 12,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "_referredBy",
+      "description": "Parameter of buyTokensWithProperEvent holding the referrer address forwarded to zethr.buyAndTransfer and to the onTokenPurchase event.",
+      "is_core": false,
+      "node_id": 13,
+      "type": "parameter"
+    },
+    {
+      "id": "divChoice",
+      "description": "Parameter of buyTokensWithProperEvent selecting the dividend rate passed into zethr.buyAndTransfer.",
+      "is_core": false,
+      "node_id": 14,
+      "type": "parameter"
+    },
+    {
+      "id": "_newBankroll",
+      "description": "Parameter of changeBankroll holding the new bankroll address written to storage.",
+      "is_core": false,
+      "node_id": 15,
+      "type": "parameter"
+    },
+    {
+      "id": "balanceBefore",
+      "description": "Local variable in buyTokensWithProperEvent caching the caller's token balance prior to the purchase.",
+      "is_core": false,
+      "node_id": 16,
+      "type": "local_var"
+    },
+    {
+      "id": "balanceAfter",
+      "description": "Local variable in buyTokensWithProperEvent caching the caller's token balance after the purchase.",
+      "is_core": false,
+      "node_id": 17,
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "owner state variable is initialized directly from msg.sender at contract deployment.",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender is the beneficiary of buyTokensWithProperEvent; its balance is read and tokens are transferred to it.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender is passed as the target address argument of the external zethr.buyAndTransfer call.",
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender is supplied as the owner argument of the external zethr.balanceOf call.",
+      "to_id": 12,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "require(msg.sender == owner) gates changeBankroll, so the untrusted caller must equal the stored owner.",
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "from_id": 7,
+      "type": "controlflow"
+    },
+    {
+      "reason": "require(msg.sender == owner) gates sendDivsToBankroll, so the untrusted caller must equal the stored owner.",
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "from_id": 7,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The owner state variable is the reference value compared against msg.sender in changeBankroll's access-control check.",
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "from_id": 2,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The owner state variable is the reference value compared against msg.sender in sendDivsToBankroll's access-control check.",
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "from_id": 2,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The return value of zethr.balanceOf(msg.sender) is stored into balanceBefore.",
+      "to_id": 16,
+      "vuln_type": "none",
+      "from_id": 12,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The return value of zethr.balanceOf(msg.sender) after the purchase is stored into balanceAfter.",
+      "to_id": 17,
+      "vuln_type": "none",
+      "from_id": 12,
+      "type": "dataflow"
+    },
+    {
+      "reason": "balanceBefore is a subtraction operand in balanceAfter - balanceBefore, whose unsigned result can underflow.",
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "from_id": 16,
+      "type": "dataflow"
+    },
+    {
+      "reason": "balanceAfter is a subtraction operand in balanceAfter - balanceBefore, whose unsigned result can underflow.",
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "from_id": 17,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_referredBy is the caller-supplied parameter consumed by buyTokensWithProperEvent.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 13,
+      "type": "dataflow"
+    },
+    {
+      "reason": "divChoice is the caller-supplied parameter consumed by buyTokensWithProperEvent.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 14,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_referredBy is forwarded as an argument into the external zethr.buyAndTransfer call.",
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 13,
+      "type": "dataflow"
+    },
+    {
+      "reason": "divChoice is forwarded as the dividend-rate argument into the external zethr.buyAndTransfer call.",
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 14,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_newBankroll is written into the bankroll storage slot by the assignment operation.",
+      "to_id": 11,
+      "vuln_type": "none",
+      "from_id": 15,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The bankroll state variable is the storage slot mutated by the assignment in changeBankroll.",
+      "to_id": 11,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The bankroll state variable provides the recipient address for the outgoing transfer.",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "buyTokensWithProperEvent executes the external zethr.buyAndTransfer.value(msg.value) call.",
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "buyTokensWithProperEvent performs the balanceAfter - balanceBefore subtraction to compute tokensMinted.",
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "buyTokensWithProperEvent invokes zethr.balanceOf before and after the purchase.",
+      "to_id": 12,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "changeBankroll performs the privileged bankroll assignment only after the owner check passes.",
+      "to_id": 11,
+      "vuln_type": "access_control",
+      "from_id": 5,
+      "type": "controlflow"
+    },
+    {
+      "reason": "sendDivsToBankroll executes bankroll.transfer(address(this).balance), forwarding the whole contract balance.",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The external call to the untrusted Zethr contract can reenter buyTokensWithProperEvent before the post-call balance query completes, altering the minted-amount computation.",
+      "to_id": 3,
+      "vuln_type": "reentrancy",
+      "from_id": 8,
+      "type": "callback"
+    },
+    {
+      "reason": "bankroll.transfer executes code at the bankroll address and could reenter sendDivsToBankroll, though the recipient is owner-controlled.",
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "from_id": 10,
+      "type": "callback"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "_referredBy is a non-core parameter belonging to buyTokensWithProperEvent and should be folded into that function node.",
+      "normal_node": "_referredBy",
+      "merge_into": "buyTokensWithProperEvent"
+    },
+    {
+      "reason": "divChoice is a non-core parameter belonging to buyTokensWithProperEvent and should be folded into that function node.",
+      "normal_node": "divChoice",
+      "merge_into": "buyTokensWithProperEvent"
+    },
+    {
+      "reason": "balanceBefore is a non-core local variable declared inside buyTokensWithProperEvent and should be folded into that function node.",
+      "normal_node": "balanceBefore",
+      "merge_into": "buyTokensWithProperEvent"
+    },
+    {
+      "reason": "balanceAfter is a non-core local variable declared inside buyTokensWithProperEvent and should be folded into that function node.",
+      "normal_node": "balanceAfter",
+      "merge_into": "buyTokensWithProperEvent"
+    },
+    {
+      "reason": "_newBankroll is a non-core parameter belonging to changeBankroll and should be folded into that function node.",
+      "normal_node": "_newBankroll",
+      "merge_into": "changeBankroll"
+    }
+  ]
+}

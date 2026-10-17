@@ -1,0 +1,126 @@
+{
+  "nodes": [
+    {
+      "description": "Public pure function of migrateOS that validates a BubbleBudz id by comparing the upper 96 bits against a hardcoded address-like constant and checking the low 40 bits equal 1 via bitwise shift/mask.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 0,
+      "id": "isValidBubbleBudz"
+    },
+    {
+      "description": "Public pure function of migrateOS that derives a genesis id by masking/shifting tokenId_ and subtracting 2 from the intermediate value, then returning the result.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 1,
+      "id": "bubbleBudsGenesisId"
+    },
+    {
+      "description": "Caller-supplied identifier argument consumed by isValidBubbleBudz and used in bitwise shift/mask comparisons.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 2,
+      "id": "id_"
+    },
+    {
+      "description": "Caller-supplied token identifier argument consumed by bubbleBudsGenesisId to compute the raw masked id.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 3,
+      "id": "tokenId_"
+    },
+    {
+      "description": "Intermediate value obtained by masking tokenId_ with 0x...ffffffffffffff0000000000 and right-shifting by 40 bits.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 4,
+      "id": "_rawId"
+    },
+    {
+      "description": "Final computed value returned by bubbleBudsGenesisId, equal to _rawId minus 2.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 5,
+      "id": "_fixedId"
+    },
+    {
+      "description": "Arithmetic subtraction (_rawId - 2) performed on a caller-influenced value; underflows/reverts under ^0.8.0 checked arithmetic.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 6,
+      "id": "arith_sub_rawId_minus_2"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The parameter id_ is read directly by isValidBubbleBudz inside its bitwise validation checks.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "The parameter tokenId_ is the sole input consumed by bubbleBudsGenesisId to compute the returned id.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "_rawId is derived from tokenId_ through a mask and a 40-bit right shift.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "The intermediate _rawId feeds the subtraction _rawId - 2, which can underflow for small raw ids.",
+      "from_id": 4,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "The result of the subtraction operation is stored into the local _fixedId.",
+      "from_id": 6,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "bubbleBudsGenesisId unconditionally executes the subtraction operation on every call.",
+      "from_id": 1,
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "to_id": 6
+    },
+    {
+      "reason": "The local _fixedId is returned as the output value of bubbleBudsGenesisId.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The parameter id_ exists only to feed the pure validation logic of isValidBubbleBudz and has no independent identity, so it is folded into that core function.",
+      "normal_node": "id_",
+      "merge_into": "isValidBubbleBudz"
+    },
+    {
+      "reason": "The parameter tokenId_ is used exclusively by bubbleBudsGenesisId to derive the returned id and can be merged into that core function node.",
+      "normal_node": "tokenId_",
+      "merge_into": "bubbleBudsGenesisId"
+    },
+    {
+      "reason": "_rawId is a temporary value that exists only as the left operand of the subtraction operation, so it is merged into that core unsafe_operation node.",
+      "normal_node": "_rawId",
+      "merge_into": "arith_sub_rawId_minus_2"
+    },
+    {
+      "reason": "_fixedId is a temporary value whose only purpose is to be returned by bubbleBudsGenesisId, so it is merged into that core function node.",
+      "normal_node": "_fixedId",
+      "merge_into": "bubbleBudsGenesisId"
+    }
+  ]
+}

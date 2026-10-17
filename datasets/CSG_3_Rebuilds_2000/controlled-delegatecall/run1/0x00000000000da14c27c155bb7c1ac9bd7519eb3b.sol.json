@@ -1,0 +1,172 @@
+{
+  "nodes": [
+    {
+      "description": "Public state variable holding the external Registry contract address used for attribute storage.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "registry"
+    },
+    {
+      "description": "Constant bytes32 attribute key 'isDepositAddress' used when reading/writing registry attributes.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "IS_DEPOSIT_ADDRESS"
+    },
+    {
+      "description": "Constructor that casts the supplied address to Registry and stores it in the registry state variable.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 2,
+      "id": "constructor"
+    },
+    {
+      "description": "Public function deriving a shifted address from msg.sender, checking hasAttribute and calling registry.setAttributeValue, then emitting an event.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "registerDepositAddress"
+    },
+    {
+      "description": "Payable fallback function that calls registerDepositAddress() and afterwards forwards msg.value to msg.sender.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 4,
+      "id": "fallback"
+    },
+    {
+      "description": "Caller-controlled address used as the attribute value, as the base for the shifted address, and as the ETH transfer recipient.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 5,
+      "id": "msg.sender"
+    },
+    {
+      "description": "External call to registry.setAttributeValue(shiftedAddress, IS_DEPOSIT_ADDRESS, uint(msg.sender)) on an arbitrary, constructor-supplied contract.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 6,
+      "id": "registry.setAttributeValue"
+    },
+    {
+      "description": "ETH transfer of msg.value to the untrusted caller performed after the external registry interaction.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 7,
+      "id": "msg.sender.transfer"
+    },
+    {
+      "description": "Constructor parameter supplying the address that will be cast to Registry and stored in state.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 8,
+      "id": "_registry"
+    },
+    {
+      "description": "Local variable holding address(uint(msg.sender) >> 20), the truncated address used as the attribute owner.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 9,
+      "id": "shiftedAddress"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is right-shifted by 20 bits and truncated to derive the shiftedAddress local, an unchecked arithmetic transformation of attacker-controlled data.",
+      "from_id": 5,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 9
+    },
+    {
+      "reason": "The derived shiftedAddress is passed as the 'who' argument to the external registry.setAttributeValue call.",
+      "from_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "uint(msg.sender) is passed directly as the 'val' attribute value to the external registry.setAttributeValue call.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "The external call setAttributeValue is executed on the registry contract referenced by the registry state variable.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 6
+    },
+    {
+      "reason": "registerDepositAddress performs the external registry.setAttributeValue invocation after its attribute check.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 6
+    },
+    {
+      "reason": "Caller-controlled msg.sender is consumed inside registerDepositAddress to build the key/attribute value.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "The constructor writes the cast Registry instance into the registry state variable.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 0
+    },
+    {
+      "reason": "The registry state variable (which governs privileged external attribute writes) is initialized from an unvalidated constructor parameter.",
+      "from_id": 8,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "The payable fallback function invokes registerDepositAddress() before forwarding funds.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 3
+    },
+    {
+      "reason": "After the external registry interaction, the fallback executes msg.sender.transfer(msg.value).",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 7
+    },
+    {
+      "reason": "An untrusted external call is made before the ETH transfer completes, leaving a state-change-before-send ordering exploitable by a malicious registry.",
+      "from_id": 6,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 7
+    },
+    {
+      "reason": "ETH is sent to the untrusted caller msg.sender after external calls, so the recipient can re-enter the contract's payable fallback during the transfer window.",
+      "from_id": 5,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 7
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The constructor parameter _registry is a transient value consumed only by the constructor to initialize the registry state variable; it can be normalized into the constructor function node.",
+      "normal_node": "_registry",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "The local shiftedAddress is derived from msg.sender and immediately forwarded into the registry.setAttributeValue unsafe operation; it can be normalized into that unsafe_operation node.",
+      "normal_node": "shiftedAddress",
+      "merge_into": "registry.setAttributeValue"
+    }
+  ]
+}

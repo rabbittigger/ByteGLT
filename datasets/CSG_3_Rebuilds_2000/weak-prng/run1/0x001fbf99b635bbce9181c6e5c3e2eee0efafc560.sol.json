@@ -1,0 +1,252 @@
+{
+  "nodes": [
+    {
+      "description": "Owner address state variable of Ownable; determines authorization for privileged functions.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "owner"
+    },
+    {
+      "description": "Constructor function that assigns the deploying caller to owner.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 1,
+      "id": "Ownable"
+    },
+    {
+      "description": "Modifier requiring msg.sender to equal owner before the guarded function executes.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 2,
+      "id": "onlyOwner"
+    },
+    {
+      "description": "onlyOwner function that validates newOwner is non-zero and reassigns ownership.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "transferOwnership"
+    },
+    {
+      "description": "onlyOwner function that loops over _addrs and sends _bals[i] ETH to each recipient.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 4,
+      "id": "distribute"
+    },
+    {
+      "description": "Payable fallback function of DistributeETH that accepts plain ETH transfers.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 5,
+      "id": "fallback"
+    },
+    {
+      "description": "Caller-controlled address used for owner assignment and for the onlyOwner authorization check.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 6,
+      "id": "msg.sender"
+    },
+    {
+      "description": "Parameter of transferOwnership: address that receives ownership.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 7,
+      "id": "newOwner"
+    },
+    {
+      "description": "Parameter of distribute: array of recipient addresses supplied by the caller.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 8,
+      "id": "_addrs"
+    },
+    {
+      "description": "Parameter of distribute: array of ETH amounts to send to each recipient.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 9,
+      "id": "_bals"
+    },
+    {
+      "description": "Loop counter local variable used in distribute.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 10,
+      "id": "i"
+    },
+    {
+      "description": "External low-level ETH send to _addrs[i]; interacts with arbitrary addresses and can fail, causing throw.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 11,
+      "id": "send_call"
+    },
+    {
+      "description": "Unchecked increment ++i of the loop counter inside distribute (arithmetic).",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 12,
+      "id": "loop_increment"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is read inside the constructor and written into the owner state variable.",
+      "from_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "The constructor writes the caller-derived address into owner.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "The onlyOwner modifier reads msg.sender to evaluate its require statement.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 6
+    },
+    {
+      "reason": "msg.sender is the value compared against owner in the onlyOwner authorization check.",
+      "from_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "The owner state variable is compared with msg.sender in the onlyOwner guard.",
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "transferOwnership is gated by the onlyOwner modifier.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 2
+    },
+    {
+      "reason": "The newOwner parameter is consumed by transferOwnership.",
+      "from_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "newOwner is assigned into the owner state variable at the end of transferOwnership.",
+      "from_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "transferOwnership performs a write to the owner state variable.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "distribute iterates over the _addrs array parameter.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "distribute indexes the _bals array parameter to determine transfer amounts.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 9
+    },
+    {
+      "reason": "_addrs[i] is the recipient target of the external send call.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "_bals[i] is the value passed to the external send call.",
+      "from_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "The external send is executed within the distribute loop body.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 11
+    },
+    {
+      "reason": "The external send to an attacker-controlled address can invoke that address's fallback and re-enter DistributeETH's payable fallback.",
+      "from_id": 11,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 5
+    },
+    {
+      "reason": "distribute initialises and uses the loop counter i.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 10
+    },
+    {
+      "reason": "The loop condition i < _addrs.length controls the number of iterations of distribute.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 4
+    },
+    {
+      "reason": "The local counter i feeds the unchecked increment ++i.",
+      "from_id": 10,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "The incremented value is written back into the loop counter i used by the loop condition.",
+      "from_id": 12,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 10
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "newOwner is a transferOwnership parameter whose only purpose is to be validated and written to owner; it can be folded into the transferOwnership function node.",
+      "normal_node": "newOwner",
+      "merge_into": "transferOwnership"
+    },
+    {
+      "reason": "_addrs is a distribute parameter used solely as the recipient array of the loop; it can be folded into the distribute function node.",
+      "normal_node": "_addrs",
+      "merge_into": "distribute"
+    },
+    {
+      "reason": "_bals is a distribute parameter used solely as the value array of the loop; it can be folded into the distribute function node.",
+      "normal_node": "_bals",
+      "merge_into": "distribute"
+    },
+    {
+      "reason": "i is a loop-local counter existing only for distribute iteration; it can be folded into the distribute function node.",
+      "normal_node": "i",
+      "merge_into": "distribute"
+    }
+  ]
+}

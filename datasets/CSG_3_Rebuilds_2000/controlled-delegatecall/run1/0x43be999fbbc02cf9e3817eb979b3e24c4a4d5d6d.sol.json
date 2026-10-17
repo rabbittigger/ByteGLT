@@ -1,0 +1,160 @@
+{
+  "nodes": [
+    {
+      "id": "me",
+      "type": "state_var",
+      "node_id": 0,
+      "is_core": true,
+      "description": "Immutable address state variable set to msg.sender in the constructor; used as the sole access-control identity and as the payout recipient in withdraw."
+    },
+    {
+      "id": "weth",
+      "type": "state_var",
+      "node_id": 1,
+      "is_core": true,
+      "description": "Immutable IERC20 reference hardcoded to the mainnet WETH address 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2; never used in logic."
+    },
+    {
+      "id": "sneakyAllowance",
+      "type": "state_var",
+      "node_id": 2,
+      "is_core": true,
+      "description": "Public constant uint256 of 1000000000 ether that appears as a large allowance-like bait value; never used in logic."
+    },
+    {
+      "id": "wallet",
+      "type": "state_var",
+      "node_id": 3,
+      "is_core": true,
+      "description": "Immutable hardcoded address 0xFd495eeEd737b002Ea62Cf0534e7707a9656ba19 used as bait; never used in logic."
+    },
+    {
+      "id": "constructor",
+      "type": "function",
+      "node_id": 4,
+      "is_core": true,
+      "description": "Deployment-time constructor that assigns me = msg.sender, fixing the privileged withdraw address to the deployer."
+    },
+    {
+      "id": "receive",
+      "type": "function",
+      "node_id": 5,
+      "is_core": true,
+      "description": "Payable receive hook that accepts ether and allows the contract balance to be funded by any sender."
+    },
+    {
+      "id": "withdraw",
+      "type": "function",
+      "node_id": 6,
+      "is_core": true,
+      "description": "External function guarded by require(msg.sender == me) that forwards the entire contract balance to me through a low-level call."
+    },
+    {
+      "id": "bait",
+      "type": "function",
+      "node_id": 7,
+      "is_core": true,
+      "description": "Unrestricted external function that delegatecalls an attacker-supplied address with the finesse() selector, enabling arbitrary code execution in this contract's storage context."
+    },
+    {
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "node_id": 8,
+      "is_core": true,
+      "description": "Caller address supplied by the transaction; consumed by the constructor and as the only authorization check in withdraw."
+    },
+    {
+      "id": "delegatecall",
+      "type": "unsafe_operation",
+      "node_id": 9,
+      "is_core": true,
+      "description": "Low-level delegatecall inside bait that executes attacker-controlled code at _pickpocket, allowing total takeover of the contract's storage and balance."
+    },
+    {
+      "id": "call",
+      "type": "unsafe_operation",
+      "node_id": 10,
+      "is_core": true,
+      "description": "Low-level value call inside withdraw that sends address(this).balance to me before checking success, a state-changing external interaction that can reenter."
+    },
+    {
+      "id": "_pickpocket",
+      "type": "parameter",
+      "node_id": 11,
+      "is_core": false,
+      "description": "Caller-supplied address parameter of bait that becomes the delegatecall target for the finesse() payload."
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "msg.sender is assigned to the immutable state variable me during construction."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 8,
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "reason": "Entry into withdraw is gated only by require(msg.sender == me), so the caller identity fully determines the privileged path."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 7,
+      "to_id": 11,
+      "vuln_type": "access_control",
+      "reason": "The unrestricted external function bait accepts an arbitrary caller-supplied address parameter _pickpocket."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 9,
+      "vuln_type": "access_control",
+      "reason": "The attacker-controlled parameter _pickpocket flows directly into the delegatecall target, allowing arbitrary external code to be executed."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 7,
+      "to_id": 9,
+      "vuln_type": "access_control",
+      "reason": "Any caller can reach bait and therefore trigger the delegatecall, executing attacker-chosen code without authorization."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 6,
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "reason": "withdraw performs an external low-level value call to me, letting the recipient reenter the contract before completion."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "reason": "State variable me supplies the destination of the balance transfer, so the recipient controls the external call."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "reason": "msg.sender must equal me to pass the check, linking the untrusted caller to the reentrant low-level call."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "withdraw reads the immutable state variable me for both the authorization check and the payout address."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "_pickpocket",
+      "merge_into": "bait",
+      "reason": "Parameter _pickpocket is only meaningful as the attacker-controlled argument of bait; it is absorbed into the bait function node for normalization."
+    }
+  ]
+}

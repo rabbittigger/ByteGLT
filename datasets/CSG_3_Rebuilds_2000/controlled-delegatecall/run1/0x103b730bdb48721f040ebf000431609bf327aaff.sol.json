@@ -1,0 +1,146 @@
+{
+  "nodes": [
+    {
+      "description": "Private address state variable holding the contract owner; written in constructor, changeOwner and read in getOwner / isOwner modifier.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "owner"
+    },
+    {
+      "description": "Constructor that initializes owner to msg.sender and emits OwnerSet.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 1,
+      "id": "Owner.constructor"
+    },
+    {
+      "description": "Public function guarded by isOwner modifier that updates owner to newOwner.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 2,
+      "id": "changeOwner"
+    },
+    {
+      "description": "External view function returning the current owner address.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "getOwner"
+    },
+    {
+      "description": "Modifier requiring msg.sender == owner; acts as the access-control gate for changeOwner.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 4,
+      "id": "isOwner_modifier"
+    },
+    {
+      "description": "Caller-supplied address; used to set the initial owner and to authorize changeOwner.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 5,
+      "id": "msg.sender"
+    },
+    {
+      "description": "State write owner = msg.sender performed during construction (owner initialization).",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 6,
+      "id": "assign_owner_msg_sender"
+    },
+    {
+      "description": "State write owner = newOwner performing a privileged ownership transfer.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 7,
+      "id": "assign_owner_newOwner"
+    },
+    {
+      "description": "Address parameter of changeOwner that becomes the new owner.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 8,
+      "id": "newOwner"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor reads msg.sender to determine the deployer.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "msg.sender value flows into the owner initialization write.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "Initialization write sets the owner state variable.",
+      "from_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "Modifier compares the untrusted msg.sender against owner to decide whether the caller is authorized.",
+      "from_id": 5,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "isOwner modifier gates execution of changeOwner, enforcing owner-only access.",
+      "from_id": 4,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 2
+    },
+    {
+      "reason": "changeOwner parameter newOwner is consumed by the function body.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "Execution of changeOwner reaches the ownership write operation.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 7
+    },
+    {
+      "reason": "newOwner parameter flows directly into the owner assignment.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "Ownership write overwrites the owner state variable after authorization.",
+      "from_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "getOwner reads the owner state variable and returns it.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The parameter newOwner is a non-core node whose only role is to feed the owner assignment inside changeOwner; it can be normalized into that core function node.",
+      "normal_node": "newOwner",
+      "merge_into": "changeOwner"
+    }
+  ]
+}

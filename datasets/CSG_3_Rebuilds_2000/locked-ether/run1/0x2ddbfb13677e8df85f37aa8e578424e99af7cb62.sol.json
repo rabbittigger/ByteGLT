@@ -1,0 +1,173 @@
+{
+  "nodes": [
+    {
+      "id": "PROXIABLE_MEM_SLOT",
+      "is_core": true,
+      "description": "Constant uint256 storage slot holding the address of the logic (implementation) contract, keccak256(\"PROXIABLE\").",
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "Proxy.constructor",
+      "is_core": true,
+      "description": "Constructor that validates the logic address (non-zero) and stores it into PROXIABLE_MEM_SLOT via inline assembly sstore.",
+      "node_id": 1,
+      "type": "function"
+    },
+    {
+      "id": "Proxy.fallback",
+      "is_core": true,
+      "description": "Payable fallback that loads the logic address from storage and delegatecalls it with the full incoming calldata, forwarding return data or reverting.",
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "delegatecall_logic",
+      "is_core": true,
+      "description": "Inline-assembly delegatecall to the stored logic address; executes arbitrary external code in the context of this proxy's storage.",
+      "node_id": 3,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "sstore_logic_slot",
+      "is_core": true,
+      "description": "Inline-assembly sstore writing contractLogic into PROXIABLE_MEM_SLOT; the only state-mutating write in the contract.",
+      "node_id": 4,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "contractLogic_param",
+      "is_core": false,
+      "description": "Address parameter of the constructor representing the logic contract to be registered.",
+      "node_id": 5,
+      "type": "parameter"
+    },
+    {
+      "id": "fallback_contractLogic_local",
+      "is_core": false,
+      "description": "Assembly local holding the logic address loaded from PROXIABLE_MEM_SLOT inside the fallback.",
+      "node_id": 6,
+      "type": "local_var"
+    },
+    {
+      "id": "ptr_local",
+      "is_core": false,
+      "description": "Assembly local memory pointer taken from the free memory pointer (0x40) used for calldata copy and return data copy.",
+      "node_id": 7,
+      "type": "local_var"
+    },
+    {
+      "id": "success_local",
+      "is_core": false,
+      "description": "Assembly local storing the boolean result of the delegatecall.",
+      "node_id": 8,
+      "type": "local_var"
+    },
+    {
+      "id": "retSz_local",
+      "is_core": false,
+      "description": "Assembly local storing the size of the return data produced by the delegatecall.",
+      "node_id": 9,
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "controlflow",
+      "reason": "The constructor body executes the inline-assembly sstore that persists the logic address."
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow",
+      "reason": "The constructor parameter contractLogic is written into storage by the sstore operation."
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow",
+      "reason": "PROXIABLE_MEM_SLOT is the storage key used as the sstore destination."
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "controlflow",
+      "reason": "The fallback function body reaches the delegatecall assembly block."
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow",
+      "reason": "PROXIABLE_MEM_SLOT is sloaded into the fallback's local contractLogic variable."
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow",
+      "reason": "The logic address local is the target of the delegatecall."
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow",
+      "reason": "The memory pointer holding calldata is passed as input to the delegatecall."
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow",
+      "reason": "The delegatecall result is captured in the success local variable."
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow",
+      "reason": "The delegatecall return data size is captured in the retSz local variable."
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "reentrancy",
+      "from_id": 3,
+      "type": "callback",
+      "reason": "delegatecall executes arbitrary logic-contract code in this proxy's storage context, which can re-enter the fallback (possibly while state is mid-update)."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "contractLogic_param",
+      "merge_into": "sstore_logic_slot",
+      "reason": "The constructor parameter contractLogic is only used as the value written by the sstore operation, so it folds into that unsafe operation."
+    },
+    {
+      "normal_node": "fallback_contractLogic_local",
+      "merge_into": "delegatecall_logic",
+      "reason": "The fallback's local contractLogic only feeds the delegatecall target, so it folds into the delegatecall node."
+    },
+    {
+      "normal_node": "ptr_local",
+      "merge_into": "delegatecall_logic",
+      "reason": "The assembly memory pointer local exists only as delegatecall input, so it folds into the delegatecall node."
+    },
+    {
+      "normal_node": "success_local",
+      "merge_into": "delegatecall_logic",
+      "reason": "The success local only records the delegatecall outcome, so it folds into the delegatecall node."
+    },
+    {
+      "normal_node": "retSz_local",
+      "merge_into": "delegatecall_logic",
+      "reason": "The retSz local only records the delegatecall return data size, so it folds into the delegatecall node."
+    }
+  ]
+}

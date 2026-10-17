@@ -1,0 +1,379 @@
+{
+  "nodes": [
+    {
+      "id": "state._enabled",
+      "type": "state_var",
+      "node_id": 0,
+      "is_core": true,
+      "description": "Global boolean gate controlling whether swapping credits is enabled; written by setEnabled and read by the isEnabled modifier."
+    },
+    {
+      "id": "state._tokenSwapOptions",
+      "type": "state_var",
+      "node_id": 1,
+      "is_core": true,
+      "description": "Mapping(address => SwapOption) holding per-token swap configuration (enabled, burn, price with 18 decimals)."
+    },
+    {
+      "id": "state._owner",
+      "type": "state_var",
+      "node_id": 2,
+      "is_core": true,
+      "description": "Owner address inherited from OwnableUpgradeable; governs all onlyOwner restricted functions."
+    },
+    {
+      "id": "function.initialize",
+      "type": "function",
+      "node_id": 3,
+      "is_core": true,
+      "description": "Initializer that sets up Ownable and UUPS upgradeability; protected by the initializer modifier."
+    },
+    {
+      "id": "function._authorizeUpgrade",
+      "type": "function",
+      "node_id": 4,
+      "is_core": true,
+      "description": "UUPS upgrade authorization hook, restricted with onlyOwner; gates all implementation upgrades."
+    },
+    {
+      "id": "function.tokenSwapOption",
+      "type": "function",
+      "node_id": 5,
+      "is_core": true,
+      "description": "Public view returning the SwapOption struct for a given token contract."
+    },
+    {
+      "id": "function.swapTokensForCredits",
+      "type": "function",
+      "node_id": 6,
+      "is_core": true,
+      "description": "User-facing entry point that computes value from amount*price/1e18 and pulls/burns tokens; performs external calls before emitting CreditsChanged."
+    },
+    {
+      "id": "function.giftCredits",
+      "type": "function",
+      "node_id": 7,
+      "is_core": true,
+      "description": "Owner-only function emitting a CreditsChanged event crediting an account without any token transfer."
+    },
+    {
+      "id": "function.setTokenSwapOption",
+      "type": "function",
+      "node_id": 8,
+      "is_core": true,
+      "description": "Owner-only setter for per-token swap options with price bounds checks (<= uint128 max, > 0)."
+    },
+    {
+      "id": "function.withdrawTokens",
+      "type": "function",
+      "node_id": 9,
+      "is_core": true,
+      "description": "Owner-only withdrawal that incorrectly uses safeTransferFrom(address(this), owner, amount) instead of safeTransfer; requires allowance to self."
+    },
+    {
+      "id": "function.setEnabled",
+      "type": "function",
+      "node_id": 10,
+      "is_core": true,
+      "description": "Owner-only toggle of the global _enabled swap gate."
+    },
+    {
+      "id": "untrusted_input.msg_sender",
+      "type": "untrusted_input",
+      "node_id": 11,
+      "is_core": true,
+      "description": "Caller-controlled msg.sender accessed via _msgSender(); used as the swap account and for owner checks."
+    },
+    {
+      "id": "unsafe_operation.burnFrom",
+      "type": "unsafe_operation",
+      "node_id": 12,
+      "is_core": true,
+      "description": "External call IERC20Burn(tokenContract).burnFrom(account, value) to an attacker-influenced token contract."
+    },
+    {
+      "id": "unsafe_operation.safeTransferFrom_swap",
+      "type": "unsafe_operation",
+      "node_id": 13,
+      "is_core": true,
+      "description": "External token transfer IERC20Upgradeable(tokenContract).safeTransferFrom(account, address(this), value) inside swapTokensForCredits."
+    },
+    {
+      "id": "unsafe_operation.safeTransferFrom_withdraw",
+      "type": "unsafe_operation",
+      "node_id": 14,
+      "is_core": true,
+      "description": "External token call IERC20Upgradeable(tokenContract).safeTransferFrom(address(this), _msgSender(), amount) inside withdrawTokens (wrong helper, breaks transfer semantics)."
+    },
+    {
+      "id": "unsafe_operation.delegatecall_upgrade",
+      "type": "unsafe_operation",
+      "node_id": 15,
+      "is_core": true,
+      "description": "UUPS delegatecall to a new implementation address via upgradeTo/upgradeToAndCall, executing arbitrary code in the proxy context."
+    },
+    {
+      "id": "local.amount_swap",
+      "type": "parameter",
+      "node_id": 16,
+      "is_core": false,
+      "description": "int256 amount parameter of swapTokensForCredits; validated > 0 then cast to uint256."
+    },
+    {
+      "id": "local.tokenContract_swap",
+      "type": "parameter",
+      "node_id": 17,
+      "is_core": false,
+      "description": "address tokenContract parameter of swapTokensForCredits selecting the external token and swap option."
+    },
+    {
+      "id": "local.account",
+      "type": "local_var",
+      "node_id": 18,
+      "is_core": false,
+      "description": "account = _msgSender() local used as the source of tokens in swapTokensForCredits."
+    },
+    {
+      "id": "local.value",
+      "type": "local_var",
+      "node_id": 19,
+      "is_core": false,
+      "description": "value = (uint256(amount) * option.price) / 10**18 local computed in swapTokensForCredits."
+    },
+    {
+      "id": "local.price_param",
+      "type": "parameter",
+      "node_id": 20,
+      "is_core": false,
+      "description": "uint256 price parameter of setTokenSwapOption, bounded and downcast to uint128 before storage."
+    },
+    {
+      "id": "local.account_gift",
+      "type": "parameter",
+      "node_id": 21,
+      "is_core": false,
+      "description": "address account parameter of giftCredits, credited via event only."
+    },
+    {
+      "id": "local.amount_withdraw",
+      "type": "parameter",
+      "node_id": 22,
+      "is_core": false,
+      "description": "uint256 amount parameter of withdrawTokens passed directly to the token transfer call."
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 18,
+      "vuln_type": "none",
+      "reason": "_msgSender() (msg.sender) is assigned to the local variable account in swapTokensForCredits."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 19,
+      "vuln_type": "arithmetic",
+      "reason": "amount is cast to uint256 and multiplied by option.price and divided by 10**18 to derive value."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 19,
+      "vuln_type": "arithmetic",
+      "reason": "option.price read from _tokenSwapOptions feeds the value computation amount*price/1e18."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 12,
+      "vuln_type": "reentrancy",
+      "reason": "Caller-derived account is passed as the burnFrom target to the external token contract before state is finalized."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 13,
+      "vuln_type": "reentrancy",
+      "reason": "Caller-derived account is passed as the from address of the external safeTransferFrom call."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 19,
+      "to_id": 12,
+      "vuln_type": "reentrancy",
+      "reason": "Computed value is passed as the burn amount to the external burnFrom call."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 19,
+      "to_id": 13,
+      "vuln_type": "reentrancy",
+      "reason": "Computed value is passed as the transfer amount to the external safeTransferFrom call."
+    },
+    {
+      "type": "callback",
+      "from_id": 12,
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "reason": "External call into an attacker-influenced token contract can reenter swapTokensForCredits before the event/state finalization."
+    },
+    {
+      "type": "callback",
+      "from_id": 13,
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "reason": "External safeTransferFrom on an untrusted token can reenter swapTokensForCredits."
+    },
+    {
+      "type": "callback",
+      "from_id": 14,
+      "to_id": 9,
+      "vuln_type": "reentrancy",
+      "reason": "External token call in withdrawTokens can reenter the owner-only withdrawal flow."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 15,
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "reason": "upgradeTo/upgradeToAndCall invokes _authorizeUpgrade before performing the delegatecall-based upgrade."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 4,
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "reason": "onlyOwner on _authorizeUpgrade compares the caller against the _owner state variable."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "reason": "msg.sender is checked against owner() in the onlyOwner guard protecting upgrades."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "tokenContract is used as the key to read _tokenSwapOptions."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "tokenContract determines which external token contract is called by burnFrom."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 13,
+      "vuln_type": "none",
+      "reason": "tokenContract determines which external token contract is called by safeTransferFrom in the swap."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 20,
+      "to_id": 1,
+      "vuln_type": "arithmetic",
+      "reason": "price parameter is downcast to uint128 and stored into _tokenSwapOptions[tokenContract].price."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 8,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "setTokenSwapOption writes enabled, burn and price into the _tokenSwapOptions mapping."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 10,
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "setEnabled writes the _enabled gate state variable."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 0,
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "isEnabled modifier reads _enabled to gate swapTokensForCredits execution."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "tokenSwapOption view function reads _tokenSwapOptions and returns the SwapOption struct."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 14,
+      "vuln_type": "none",
+      "reason": "amount parameter of withdrawTokens is passed directly to the external token transfer call."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "account parameter of giftCredits is emitted in the CreditsChanged event."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "_msgSender() is recorded as the source in the giftCredits CreditsChanged event."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 6,
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "swapTokensForCredits depends on the initialized state set up by initialize."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "local.amount_swap",
+      "merge_into": "function.swapTokensForCredits",
+      "reason": "Parameter amount only exists to compute value and drive external calls within swapTokensForCredits."
+    },
+    {
+      "normal_node": "local.tokenContract_swap",
+      "merge_into": "function.swapTokensForCredits",
+      "reason": "Parameter tokenContract is only used to index _tokenSwapOptions and select the external token within swapTokensForCredits."
+    },
+    {
+      "normal_node": "local.account",
+      "merge_into": "function.swapTokensForCredits",
+      "reason": "Local account is a direct alias of _msgSender() scoped to swapTokensForCredits."
+    },
+    {
+      "normal_node": "local.value",
+      "merge_into": "unsafe_operation.safeTransferFrom_swap",
+      "reason": "Local value is the computed token amount fed into the external burn/transfer operations."
+    },
+    {
+      "normal_node": "local.price_param",
+      "merge_into": "function.setTokenSwapOption",
+      "reason": "Parameter price is only validated and stored inside setTokenSwapOption."
+    },
+    {
+      "normal_node": "local.account_gift",
+      "merge_into": "function.giftCredits",
+      "reason": "Parameter account is only emitted in the event of giftCredits."
+    },
+    {
+      "normal_node": "local.amount_withdraw",
+      "merge_into": "function.withdrawTokens",
+      "reason": "Parameter amount is only forwarded to the external token call inside withdrawTokens."
+    }
+  ]
+}

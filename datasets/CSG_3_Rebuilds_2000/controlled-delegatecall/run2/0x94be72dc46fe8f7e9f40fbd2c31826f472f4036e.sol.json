@@ -1,0 +1,714 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Immutable IInterestToken contract that tracks yield accrual for the tranche",
+      "is_core": true,
+      "id": "interestToken"
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Immutable IWrappedPosition vault holding the wrapped yield-bearing assets",
+      "is_core": true,
+      "id": "position"
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "description": "Immutable IERC20 underlying token accepted for deposits",
+      "is_core": true,
+      "id": "underlying"
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "description": "uint128 outstanding underlying redeemable by principal tokens",
+      "is_core": true,
+      "id": "valueSupplied"
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "description": "uint128 total supply of interest (yield) tokens",
+      "is_core": true,
+      "id": "interestSupply"
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "description": "Immutable timestamp after which redemptions are permitted",
+      "is_core": true,
+      "id": "unlockTimestamp"
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "description": "Timestamp when a loss event was first recorded; enforces 48h redemption delay",
+      "is_core": true,
+      "id": "speedbump"
+    },
+    {
+      "node_id": 7,
+      "type": "function",
+      "description": "Tranche constructor; reads factory data via msg.sender and sets immutables",
+      "is_core": true,
+      "id": "constructor"
+    },
+    {
+      "node_id": 8,
+      "type": "function",
+      "description": "Internal hook that delegatecalls DateString to write the token name and symbol",
+      "is_core": true,
+      "id": "_extraConstruction"
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "description": "External view aliasing valueSupplied as the ERC20 total supply",
+      "is_core": true,
+      "id": "totalSupply"
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "description": "External deposit: pulls underlying via transferFrom then calls prefundedDeposit",
+      "is_core": true,
+      "id": "deposit"
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "description": "Public deposit path; calls position.prefundedDeposit and mints principal/yield tokens",
+      "is_core": true,
+      "id": "prefundedDeposit"
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "description": "Burns principal tokens and withdraws underlying, applying pro-rata loss and speedbump checks",
+      "is_core": true,
+      "id": "withdrawPrincipal"
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "description": "Records the speedbump timestamp when vault holdings fall below principal supply",
+      "is_core": true,
+      "id": "hitSpeedbump"
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "description": "Burns interest tokens and withdraws accrued yield from the position",
+      "is_core": true,
+      "id": "withdrawInterest"
+    },
+    {
+      "node_id": 15,
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used for mint/burn/transfer authorization and factory lookup",
+      "is_core": true,
+      "id": "msg.sender"
+    },
+    {
+      "node_id": 16,
+      "type": "untrusted_input",
+      "description": "Miner-influenced timestamp gating deposits, withdrawals and the speedbump",
+      "is_core": true,
+      "id": "block.timestamp"
+    },
+    {
+      "node_id": 17,
+      "type": "untrusted_input",
+      "description": "Transaction origin address; not consulted by this contract",
+      "is_core": true,
+      "id": "tx.origin"
+    },
+    {
+      "node_id": 18,
+      "type": "unsafe_operation",
+      "description": "delegatecall into the DateString library from _extraConstruction",
+      "is_core": true,
+      "id": "dateLib_delegatecall"
+    },
+    {
+      "node_id": 19,
+      "type": "unsafe_operation",
+      "description": "External call pulling underlying from msg.sender into the position contract",
+      "is_core": true,
+      "id": "underlying_transferFrom"
+    },
+    {
+      "node_id": 20,
+      "type": "unsafe_operation",
+      "description": "External call into IWrappedPosition.prefundedDeposit",
+      "is_core": true,
+      "id": "position_prefundedDeposit"
+    },
+    {
+      "node_id": 21,
+      "type": "unsafe_operation",
+      "description": "External call minting yield tokens to the destination address",
+      "is_core": true,
+      "id": "interestToken_mint"
+    },
+    {
+      "node_id": 22,
+      "type": "unsafe_operation",
+      "description": "External call withdrawing underlying during a principal redemption",
+      "is_core": true,
+      "id": "position_withdrawUnderlying_principal"
+    },
+    {
+      "node_id": 23,
+      "type": "unsafe_operation",
+      "description": "External call burning yield tokens from msg.sender",
+      "is_core": true,
+      "id": "interestToken_burn"
+    },
+    {
+      "node_id": 24,
+      "type": "unsafe_operation",
+      "description": "External call withdrawing accrued yield during an interest redemption",
+      "is_core": true,
+      "id": "position_withdrawUnderlying_interest"
+    },
+    {
+      "node_id": 25,
+      "type": "unsafe_operation",
+      "description": "Pro-rata loss arithmetic withdrawAmount = (_amount * holdings) / localSupply",
+      "is_core": true,
+      "id": "proRataWithdrawArithmetic"
+    },
+    {
+      "node_id": 26,
+      "type": "unsafe_operation",
+      "description": "Writes block.timestamp into the speedbump state variable",
+      "is_core": true,
+      "id": "speedbumpWrite"
+    },
+    {
+      "node_id": 27,
+      "type": "parameter",
+      "description": "Parameter _amount of deposit()",
+      "is_core": false,
+      "id": "_amount_deposit"
+    },
+    {
+      "node_id": 28,
+      "type": "parameter",
+      "description": "Parameter _destination of deposit()",
+      "is_core": false,
+      "id": "_destination_deposit"
+    },
+    {
+      "node_id": 29,
+      "type": "parameter",
+      "description": "Parameter _destination of prefundedDeposit()",
+      "is_core": false,
+      "id": "_destination_prefundedDeposit"
+    },
+    {
+      "node_id": 30,
+      "type": "parameter",
+      "description": "Parameter _amount of withdrawPrincipal()",
+      "is_core": false,
+      "id": "_amount_withdrawPrincipal"
+    },
+    {
+      "node_id": 31,
+      "type": "parameter",
+      "description": "Parameter _destination of withdrawPrincipal()",
+      "is_core": false,
+      "id": "_destination_withdrawPrincipal"
+    },
+    {
+      "node_id": 32,
+      "type": "parameter",
+      "description": "Parameter _amount of withdrawInterest()",
+      "is_core": false,
+      "id": "_amount_withdrawInterest"
+    },
+    {
+      "node_id": 33,
+      "type": "parameter",
+      "description": "Parameter _destination of withdrawInterest()",
+      "is_core": false,
+      "id": "_destination_withdrawInterest"
+    },
+    {
+      "node_id": 34,
+      "type": "local_var",
+      "description": "Local copy of the speedbump state variable inside withdrawPrincipal()",
+      "is_core": false,
+      "id": "localSpeedbump"
+    },
+    {
+      "node_id": 35,
+      "type": "local_var",
+      "description": "Local copy of valueSupplied inside withdrawPrincipal()",
+      "is_core": false,
+      "id": "localSupply"
+    },
+    {
+      "node_id": 36,
+      "type": "local_var",
+      "description": "Local redeemable amount, reduced pro rata on loss",
+      "is_core": false,
+      "id": "withdrawAmount"
+    },
+    {
+      "node_id": 37,
+      "type": "local_var",
+      "description": "Local balanceOfUnderlying result used for pro-rata loss computation",
+      "is_core": false,
+      "id": "holdings"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "Constructor trusts msg.sender as the Tranche factory",
+      "from_id": 15
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_extraConstruction trusts msg.sender as the Tranche factory",
+      "from_id": 15
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "deposit transfers underlying from msg.sender",
+      "from_id": 15
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "withdrawPrincipal burns principal tokens from msg.sender",
+      "from_id": 15
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "withdrawInterest burns interest tokens from msg.sender",
+      "from_id": 15
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "prefundedDeposit requires block.timestamp < unlockTimestamp",
+      "from_id": 16
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "withdrawPrincipal gates and asserts on block.timestamp plus the 48h delay",
+      "from_id": 16
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "hitSpeedbump requires block.timestamp >= unlockTimestamp",
+      "from_id": 16
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "withdrawInterest requires block.timestamp >= unlockTimestamp",
+      "from_id": 16
+    },
+    {
+      "to_id": 26,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "block.timestamp is written into the speedbump variable",
+      "from_id": 16
+    },
+    {
+      "to_id": 18,
+      "vuln_type": "none",
+      "type": "callback",
+      "reason": "_extraConstruction delegatecalls the DateString library",
+      "from_id": 8
+    },
+    {
+      "to_id": 19,
+      "vuln_type": "none",
+      "type": "callback",
+      "reason": "deposit makes an external ERC20 transferFrom call",
+      "from_id": 10
+    },
+    {
+      "to_id": 20,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "prefundedDeposit makes an external call into the wrapped position",
+      "from_id": 11
+    },
+    {
+      "to_id": 21,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "prefundedDeposit makes an external mint call on the interest token",
+      "from_id": 11
+    },
+    {
+      "to_id": 22,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "withdrawPrincipal makes an external withdraw call into the position",
+      "from_id": 12
+    },
+    {
+      "to_id": 25,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "reason": "withdrawPrincipal computes the pro-rata redeemable amount",
+      "from_id": 12
+    },
+    {
+      "to_id": 26,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "hitSpeedbump writes the speedbump state variable",
+      "from_id": 13
+    },
+    {
+      "to_id": 23,
+      "vuln_type": "none",
+      "type": "callback",
+      "reason": "withdrawInterest makes an external burn call on the interest token",
+      "from_id": 14
+    },
+    {
+      "to_id": 24,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "withdrawInterest makes an external withdraw call into the position",
+      "from_id": 14
+    },
+    {
+      "to_id": 36,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "reason": "Pro-rata arithmetic result is stored in withdrawAmount",
+      "from_id": 25
+    },
+    {
+      "to_id": 22,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "withdrawAmount is passed to position.withdrawUnderlying",
+      "from_id": 36
+    },
+    {
+      "to_id": 25,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "reason": "_amount multiplies holdings in the pro-rata loss formula",
+      "from_id": 30
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "speedbump write produces the stored speedbump value",
+      "from_id": 26
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "totalSupply reads valueSupplied",
+      "from_id": 9
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "Constructor assigns the interestToken immutable",
+      "from_id": 7
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "Constructor assigns the position immutable",
+      "from_id": 7
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "Constructor assigns the underlying immutable",
+      "from_id": 7
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "Constructor assigns the unlockTimestamp immutable",
+      "from_id": 7
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "deposit reads the position address",
+      "from_id": 10
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "deposit transfers the underlying token",
+      "from_id": 10
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "prefundedDeposit uses the position contract",
+      "from_id": 11
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "prefundedDeposit mints via the interest token",
+      "from_id": 11
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "prefundedDeposit reads and updates valueSupplied",
+      "from_id": 11
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "prefundedDeposit reads and updates interestSupply",
+      "from_id": 11
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "prefundedDeposit checks unlockTimestamp",
+      "from_id": 11
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "withdrawPrincipal reads and decrements valueSupplied",
+      "from_id": 12
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "withdrawPrincipal checks unlockTimestamp",
+      "from_id": 12
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "withdrawPrincipal reads the speedbump variable",
+      "from_id": 12
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "hitSpeedbump reads holdings from the position",
+      "from_id": 13
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "hitSpeedbump compares holdings to valueSupplied",
+      "from_id": 13
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "hitSpeedbump reads and sets the speedbump variable",
+      "from_id": 13
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "withdrawInterest burns via the interest token",
+      "from_id": 14
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "withdrawInterest reads valueSupplied",
+      "from_id": 14
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "withdrawInterest reads and reduces interestSupply",
+      "from_id": 14
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "deposit _amount is forwarded to the underlying transferFrom",
+      "from_id": 27
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "deposit _destination is forwarded to prefundedDeposit",
+      "from_id": 28
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "prefundedDeposit _destination receives minted tokens",
+      "from_id": 29
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "withdrawPrincipal _amount is burned and redeemed",
+      "from_id": 30
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "withdrawPrincipal _destination receives the withdrawn underlying",
+      "from_id": 31
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "withdrawInterest _amount is burned from the interest token",
+      "from_id": 32
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "withdrawInterest _destination receives the withdrawn underlying",
+      "from_id": 33
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "localSpeedbump caches the speedbump state variable",
+      "from_id": 34
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "localSupply caches valueSupplied for redemption math",
+      "from_id": 35
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "withdrawAmount carries the redeemable amount within withdrawPrincipal",
+      "from_id": 36
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "reason": "holdings is used in the pro-rata loss computation",
+      "from_id": 37
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "deposit",
+      "normal_node": "_amount_deposit",
+      "reason": "Parameter _amount only feeds deposit() and has no standalone semantics"
+    },
+    {
+      "merge_into": "deposit",
+      "normal_node": "_destination_deposit",
+      "reason": "Parameter _destination only feeds deposit() and has no standalone semantics"
+    },
+    {
+      "merge_into": "prefundedDeposit",
+      "normal_node": "_destination_prefundedDeposit",
+      "reason": "Parameter _destination only feeds prefundedDeposit() and has no standalone semantics"
+    },
+    {
+      "merge_into": "withdrawPrincipal",
+      "normal_node": "_amount_withdrawPrincipal",
+      "reason": "Parameter _amount only feeds withdrawPrincipal() and has no standalone semantics"
+    },
+    {
+      "merge_into": "withdrawPrincipal",
+      "normal_node": "_destination_withdrawPrincipal",
+      "reason": "Parameter _destination only feeds withdrawPrincipal() and has no standalone semantics"
+    },
+    {
+      "merge_into": "withdrawInterest",
+      "normal_node": "_amount_withdrawInterest",
+      "reason": "Parameter _amount only feeds withdrawInterest() and has no standalone semantics"
+    },
+    {
+      "merge_into": "withdrawInterest",
+      "normal_node": "_destination_withdrawInterest",
+      "reason": "Parameter _destination only feeds withdrawInterest() and has no standalone semantics"
+    },
+    {
+      "merge_into": "withdrawPrincipal",
+      "normal_node": "localSpeedbump",
+      "reason": "Local cache of the speedbump state variable used only inside withdrawPrincipal()"
+    },
+    {
+      "merge_into": "withdrawPrincipal",
+      "normal_node": "localSupply",
+      "reason": "Local cache of valueSupplied used only inside withdrawPrincipal()"
+    },
+    {
+      "merge_into": "proRataWithdrawArithmetic",
+      "normal_node": "withdrawAmount",
+      "reason": "Local result of the pro-rata loss arithmetic that is passed to the position withdraw"
+    },
+    {
+      "merge_into": "proRataWithdrawArithmetic",
+      "normal_node": "holdings",
+      "reason": "Local holdings value that parameterizes the pro-rata loss arithmetic"
+    }
+  ]
+}

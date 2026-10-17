@@ -1,0 +1,291 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "gameOwner",
+      "is_core": true,
+      "description": "Owner address state variable, initialized to address(0)."
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "id": "locked",
+      "is_core": true,
+      "description": "Boolean lock state var used to guard bet()."
+    },
+    {
+      "node_id": 2,
+      "type": "function",
+      "id": "bet",
+      "is_core": true,
+      "description": "Payable bet function that pays out 2 ether on a pseudo-random win."
+    },
+    {
+      "node_id": 3,
+      "type": "function",
+      "id": "lock",
+      "is_core": true,
+      "description": "Owner-only function setting locked to true."
+    },
+    {
+      "node_id": 4,
+      "type": "function",
+      "id": "unlock",
+      "is_core": true,
+      "description": "Owner-only function setting locked to false."
+    },
+    {
+      "node_id": 5,
+      "type": "function",
+      "id": "own",
+      "is_core": true,
+      "description": "Assigns gameOwner, callable when owner is zero address or caller is owner."
+    },
+    {
+      "node_id": 6,
+      "type": "function",
+      "id": "releaseFunds",
+      "is_core": true,
+      "description": "Owner-only function transferring amount ether to msg.sender."
+    },
+    {
+      "node_id": 7,
+      "type": "function",
+      "id": "random",
+      "is_core": true,
+      "description": "View pseudo-random generator using block.timestamp and block.difficulty."
+    },
+    {
+      "node_id": 8,
+      "type": "function",
+      "id": "fallback",
+      "is_core": true,
+      "description": "Payable fallback that forwards to bet()."
+    },
+    {
+      "node_id": 9,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "is_core": true,
+      "description": "Caller-controlled address used for ownership checks and as call/transfer target."
+    },
+    {
+      "node_id": 10,
+      "type": "untrusted_input",
+      "id": "block.timestamp",
+      "is_core": true,
+      "description": "Miner-influenced timestamp used as randomness seed."
+    },
+    {
+      "node_id": 11,
+      "type": "unsafe_operation",
+      "id": "unsafe_call",
+      "is_core": true,
+      "description": "Low-level msg.sender.call.value(2 ether)() executed before state is finalized, enabling reentrancy."
+    },
+    {
+      "node_id": 12,
+      "type": "unsafe_operation",
+      "id": "unsafe_transfer",
+      "is_core": true,
+      "description": "msg.sender.transfer(amount * 1 ether) with unvalidated amount."
+    },
+    {
+      "node_id": 13,
+      "type": "unsafe_operation",
+      "id": "unsafe_mul",
+      "is_core": true,
+      "description": "Multiplication amount * (1 ether) that can overflow in Solidity 0.4.x."
+    },
+    {
+      "node_id": 14,
+      "type": "parameter",
+      "id": "owner",
+      "is_core": false,
+      "description": "Parameter of own(address) used to set the new gameOwner."
+    },
+    {
+      "node_id": 15,
+      "type": "parameter",
+      "id": "amount",
+      "is_core": false,
+      "description": "Parameter of releaseFunds(uint) scaled by 1 ether before transfer."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "lock() reads gameOwner to authorize the caller.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 3
+    },
+    {
+      "reason": "unlock() reads gameOwner to authorize the caller.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 4
+    },
+    {
+      "reason": "own() reads gameOwner to decide whether reassignment is allowed.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 5
+    },
+    {
+      "reason": "releaseFunds() reads gameOwner to authorize the transfer.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 6
+    },
+    {
+      "reason": "bet() reads the locked flag to guard the payout path.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 2
+    },
+    {
+      "reason": "bet() performs an external low-level call to msg.sender before resolving state, enabling reentrancy.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 11
+    },
+    {
+      "reason": "lock() writes locked = true.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 1
+    },
+    {
+      "reason": "unlock() writes locked = false.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 1
+    },
+    {
+      "reason": "own() writes the gameOwner state variable.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 0
+    },
+    {
+      "reason": "releaseFunds() forwards the scaled amount into the transfer.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 12
+    },
+    {
+      "reason": "bet() uses random() derived from miner-influenced values to decide the payout.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 2
+    },
+    {
+      "reason": "The fallback function invokes bet().",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 8,
+      "to_id": 2
+    },
+    {
+      "reason": "msg.sender is compared to gameOwner in lock().",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 3
+    },
+    {
+      "reason": "msg.sender is compared to gameOwner in unlock().",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 4
+    },
+    {
+      "reason": "msg.sender is used to authorize ownership change in own().",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 5
+    },
+    {
+      "reason": "msg.sender is checked and receives funds in releaseFunds().",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 6
+    },
+    {
+      "reason": "The external call target is the untrusted msg.sender.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 11
+    },
+    {
+      "reason": "random() depends on block.timestamp, making outcome miner-manipulable.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 7
+    },
+    {
+      "reason": "The ether-sending call can re-enter the contract via its payable fallback.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 11,
+      "to_id": 8
+    },
+    {
+      "reason": "The unchecked multiplication result feeds the transfer amount.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 12
+    },
+    {
+      "reason": "The owner parameter becomes the new privileged gameOwner.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 5
+    },
+    {
+      "reason": "The unvalidated amount parameter determines the transferred value.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 12
+    },
+    {
+      "reason": "The amount parameter is multiplied by 1 ether without overflow checks.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 13
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The owner parameter only exists to set gameOwner inside own() and has no independent security role.",
+      "merge_into": "own",
+      "normal_node": "owner"
+    },
+    {
+      "reason": "The amount parameter is only used inside releaseFunds() to compute the transfer value and can be merged into that core function.",
+      "merge_into": "releaseFunds",
+      "normal_node": "amount"
+    }
+  ]
+}

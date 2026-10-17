@@ -1,0 +1,202 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Private address state variable holding the contract owner, assigned from msg.sender in the constructor.",
+      "id": "owner",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Constant address 0x0625fAaD99bCD3d22C91aB317079F6616e81e3c0 used as the only authorized caller of getMyCoinsPlease.",
+      "id": "SLAV_ADDR",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Constant address 0x8Fc065565E3e44aef229F1D06aac009D6A524e82 of the external DateTime helper contract.",
+      "id": "DATE_TIME_ADDR",
+      "type": "state_var",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "DateTime interface instance bound to DATE_TIME_ADDR and used for the getHour external call.",
+      "id": "dateTime",
+      "type": "state_var",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "Constructor that sets owner = msg.sender.",
+      "id": "constructor",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "Empty external payable receive function allowing plain ether transfers.",
+      "id": "receive",
+      "type": "function",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "Empty external payable fallback function allowing ether transfers with data.",
+      "id": "fallback",
+      "type": "function",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "Public payout function requiring hour > 16 UTC and msg.sender == SLAV_ADDR, then transfers the whole contract balance.",
+      "id": "getMyCoinsPlease",
+      "type": "function",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "View function returning address(this).balance.",
+      "id": "getBalance",
+      "type": "function",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "description": "Caller-controlled address used for ownership assignment, the payout authorization check and as transfer recipient.",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "node_id": 9
+    },
+    {
+      "is_core": true,
+      "description": "Miner-influenced timestamp passed to DateTime.getHour to derive the current hour.",
+      "id": "block.timestamp",
+      "type": "untrusted_input",
+      "node_id": 10
+    },
+    {
+      "is_core": true,
+      "description": "msg.sender.transfer(address(this).balance) sends the entire contract balance to the caller-controlled address.",
+      "id": "unsafe_transfer",
+      "type": "unsafe_operation",
+      "node_id": 11
+    },
+    {
+      "is_core": true,
+      "description": "External call dateTime.getHour(block.timestamp) into the DATE_TIME_ADDR contract, returning the hour.",
+      "id": "unsafe_extcall_getHour",
+      "type": "unsafe_operation",
+      "node_id": 12
+    },
+    {
+      "is_core": false,
+      "description": "Local uint8 holding the hour returned by the external DateTime call, used in the require check.",
+      "id": "hour",
+      "type": "local_var",
+      "node_id": 13
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "msg.sender is written into the owner state variable inside the constructor.",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "reason": "require(msg.sender == SLAV_ADDR) gates execution of the payout, so caller identity directly controls the flow.",
+      "type": "controlflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "reason": "The require(hour > 16) guard depends on block.timestamp, creating timestamp-dependent authorization.",
+      "type": "controlflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "block.timestamp is passed as the argument to the external getHour call.",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "The dateTime state variable is the receiver of the external getHour call.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "DATE_TIME_ADDR constant is used to construct the dateTime interface instance.",
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "none",
+      "reason": "Return value of the external getHour call is stored in the local variable hour.",
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "The local hour value is consumed by the require check inside getMyCoinsPlease.",
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "reason": "SLAV_ADDR is compared against msg.sender to authorize the payout.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "reason": "getMyCoinsPlease performs an external value transfer of the full balance, exposing the classic reentrancy/external-call pattern.",
+      "type": "controlflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "msg.sender is the recipient of the balance transfer.",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "reason": "If the recipient is a contract with fallback logic, the transfer may re-enter the contract through the payable fallback.",
+      "type": "callback",
+      "from_id": 11
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "reentrancy",
+      "reason": "If the recipient is a contract with receive logic, the transfer may re-enter the contract through the payable receive function.",
+      "type": "callback",
+      "from_id": 11
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "getMyCoinsPlease",
+      "reason": "The local variable hour is only produced by the getHour external call and consumed by the require check inside getMyCoinsPlease, so it can be merged into that core function node.",
+      "normal_node": "hour"
+    }
+  ]
+}

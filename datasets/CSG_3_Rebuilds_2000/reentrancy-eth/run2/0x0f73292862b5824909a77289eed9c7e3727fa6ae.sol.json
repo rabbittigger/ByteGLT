@@ -1,0 +1,370 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Mapping (address => Holder) storing per-user unlockTime and balance in pig_BANK.",
+      "id": "Acc",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Reference to the Log contract used to record Put/Collect messages.",
+      "id": "LogFile",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "description": "Public uint minimum balance threshold (1 ether) required to Collect.",
+      "id": "MinSum",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "type": "function",
+      "description": "Public payable function that credits msg.value to Acc[msg.sender].balance and sets unlockTime.",
+      "id": "Put",
+      "is_core": true
+    },
+    {
+      "node_id": 4,
+      "type": "function",
+      "description": "Public payable function that performs an external call to msg.sender before updating balance (reentrancy vulnerable).",
+      "id": "Collect",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "type": "function",
+      "description": "Anonymous payable fallback function that forwards to Put(0).",
+      "id": "fallback",
+      "is_core": true
+    },
+    {
+      "node_id": 6,
+      "type": "function",
+      "description": "Constructor that wires the Log contract reference into LogFile.",
+      "id": "pig_BANK_constructor",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used as mapping key, call target and log sender.",
+      "id": "msg.sender",
+      "is_core": true
+    },
+    {
+      "node_id": 8,
+      "type": "untrusted_input",
+      "description": "now (block.timestamp) used for unlockTime comparison and log timestamping.",
+      "id": "block.timestamp",
+      "is_core": true
+    },
+    {
+      "node_id": 9,
+      "type": "unsafe_operation",
+      "description": "msg.sender.call.value(_am)() low-level external call executed before balance is decremented.",
+      "id": "external_call_msg_sender",
+      "is_core": true
+    },
+    {
+      "node_id": 10,
+      "type": "parameter",
+      "description": "Parameter of Put controlling the account unlock timestamp.",
+      "id": "_unlockTime",
+      "is_core": false
+    },
+    {
+      "node_id": 11,
+      "type": "parameter",
+      "description": "Parameter of Collect specifying the amount to withdraw.",
+      "id": "_am",
+      "is_core": false
+    },
+    {
+      "node_id": 12,
+      "type": "local_var",
+      "description": "Local storage reference to Acc[msg.sender] inside Put.",
+      "id": "acc_Put",
+      "is_core": false
+    },
+    {
+      "node_id": 13,
+      "type": "local_var",
+      "description": "Local storage reference to Acc[msg.sender] inside Collect.",
+      "id": "acc_Collect",
+      "is_core": false
+    },
+    {
+      "node_id": 14,
+      "type": "parameter",
+      "description": "Constructor parameter supplying the Log contract address.",
+      "id": "log",
+      "is_core": false
+    },
+    {
+      "node_id": 15,
+      "type": "state_var",
+      "description": "Public array of Message structs storing the full log history in Log.",
+      "id": "History",
+      "is_core": true
+    },
+    {
+      "node_id": 16,
+      "type": "state_var",
+      "description": "Temporary Message struct assembled before being pushed to History.",
+      "id": "LastMsg",
+      "is_core": true
+    },
+    {
+      "node_id": 17,
+      "type": "function",
+      "description": "Public function in Log that fills LastMsg and pushes it onto History.",
+      "id": "AddMessage",
+      "is_core": true
+    },
+    {
+      "node_id": 18,
+      "type": "parameter",
+      "description": "Address parameter of AddMessage stored in LastMsg.Sender.",
+      "id": "_adr",
+      "is_core": false
+    },
+    {
+      "node_id": 19,
+      "type": "parameter",
+      "description": "Value parameter of AddMessage stored in LastMsg.Val.",
+      "id": "_val",
+      "is_core": false
+    },
+    {
+      "node_id": 20,
+      "type": "parameter",
+      "description": "String data parameter of AddMessage stored in LastMsg.Data.",
+      "id": "_data",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Put uses msg.sender as the key into the Acc mapping to select the caller's Holder record.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 7,
+      "to_id": 3
+    },
+    {
+      "reason": "_unlockTime parameter flows into acc.unlockTime assignment in Put.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 10,
+      "to_id": 3
+    },
+    {
+      "reason": "block.timestamp (now) determines the stored unlockTime, making Put timestamp dependent.",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 8,
+      "to_id": 3
+    },
+    {
+      "reason": "Local acc aliases Acc[msg.sender] and is written to inside Put.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 12,
+      "to_id": 3
+    },
+    {
+      "reason": "Put writes a message through LogFile.AddMessage.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 1
+    },
+    {
+      "reason": "msg.sender is the destination of the low-level value call in Collect.",
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 7,
+      "to_id": 9
+    },
+    {
+      "reason": "_am parameter is used in the balance checks and in the external call value.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 11,
+      "to_id": 4
+    },
+    {
+      "reason": "Collect requires now > acc.unlockTime, making withdrawal timestamp dependent.",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 8,
+      "to_id": 4
+    },
+    {
+      "reason": "MinSum is read in the Collect balance guard condition.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 2,
+      "to_id": 4
+    },
+    {
+      "reason": "Local acc aliases Acc[msg.sender] and its balance is decremented in Collect.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 13,
+      "to_id": 4
+    },
+    {
+      "reason": "Collect transfers control to an external contract via the low-level call.",
+      "type": "controlflow",
+      "vuln_type": "reentrancy",
+      "from_id": 4,
+      "to_id": 9
+    },
+    {
+      "reason": "The external call can re-enter Collect before acc.balance is decremented.",
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 9,
+      "to_id": 4
+    },
+    {
+      "reason": "State write acc.balance -= _am happens only after the untrusted external call succeeds.",
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 9,
+      "to_id": 13
+    },
+    {
+      "reason": "Collect logs the successful withdrawal through LogFile.AddMessage.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 4,
+      "to_id": 1
+    },
+    {
+      "reason": "Fallback function forwards all value to Put(0).",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 5,
+      "to_id": 3
+    },
+    {
+      "reason": "Constructor parameter log is assigned to the LogFile state variable.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 14,
+      "to_id": 6
+    },
+    {
+      "reason": "Constructor initializes LogFile from the supplied Log address.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 6,
+      "to_id": 1
+    },
+    {
+      "reason": "msg.sender is written into LastMsg.Sender by AddMessage.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 7,
+      "to_id": 17
+    },
+    {
+      "reason": "AddMessage records block.timestamp in LastMsg.Time.",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 8,
+      "to_id": 17
+    },
+    {
+      "reason": "_adr parameter is stored into LastMsg.Sender.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 18,
+      "to_id": 17
+    },
+    {
+      "reason": "_val parameter is stored into LastMsg.Val.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 19,
+      "to_id": 17
+    },
+    {
+      "reason": "_data parameter is stored into LastMsg.Data.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 20,
+      "to_id": 17
+    },
+    {
+      "reason": "LastMsg struct is populated by AddMessage.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 16,
+      "to_id": 17
+    },
+    {
+      "reason": "AddMessage pushes LastMsg into the History array.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 17,
+      "to_id": 15
+    },
+    {
+      "reason": "AddMessage mutates the LastMsg state variable.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 17,
+      "to_id": 16
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "_unlockTime",
+      "reason": "Parameter _unlockTime only exists to feed the Put function's unlockTime assignment.",
+      "merge_into": "Put"
+    },
+    {
+      "normal_node": "_am",
+      "reason": "Parameter _am only exists to feed the Collect function's balance check and external call value.",
+      "merge_into": "Collect"
+    },
+    {
+      "normal_node": "acc_Put",
+      "reason": "Local acc is a temporary alias of Acc[msg.sender] used exclusively inside Put.",
+      "merge_into": "Put"
+    },
+    {
+      "normal_node": "acc_Collect",
+      "reason": "Local acc is a temporary alias of Acc[msg.sender] used exclusively inside Collect and updated after the unsafe call.",
+      "merge_into": "Collect"
+    },
+    {
+      "normal_node": "log",
+      "reason": "Parameter log is only used to initialize LogFile in the pig_BANK constructor.",
+      "merge_into": "pig_BANK_constructor"
+    },
+    {
+      "normal_node": "_adr",
+      "reason": "Parameter _adr is only written into LastMsg inside AddMessage.",
+      "merge_into": "AddMessage"
+    },
+    {
+      "normal_node": "_val",
+      "reason": "Parameter _val is only written into LastMsg inside AddMessage.",
+      "merge_into": "AddMessage"
+    },
+    {
+      "normal_node": "_data",
+      "reason": "Parameter _data is only written into LastMsg inside AddMessage.",
+      "merge_into": "AddMessage"
+    }
+  ]
+}

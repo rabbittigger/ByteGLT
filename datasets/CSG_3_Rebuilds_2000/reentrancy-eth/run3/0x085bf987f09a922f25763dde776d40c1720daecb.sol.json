@@ -1,0 +1,632 @@
+{
+  "nodes": [
+    {
+      "id": "state_marketingAddress",
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Owner-settable payable marketing address that receives swapped ETH from swapBack and is excluded from fees.",
+      "is_core": true
+    },
+    {
+      "id": "state_inSwapAndLiquify",
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Reentrancy lock flag set by lockTheSwap modifier around swapBack.",
+      "is_core": true
+    },
+    {
+      "id": "state_swapAndLiquifyEnabled",
+      "node_id": 2,
+      "type": "state_var",
+      "description": "Boolean gate that enables automatic swapAndLiquify during transfers.",
+      "is_core": true
+    },
+    {
+      "id": "state_tradingActive",
+      "node_id": 3,
+      "type": "state_var",
+      "description": "Boolean flag controlling whether general trading/transfers are permitted.",
+      "is_core": true
+    },
+    {
+      "id": "state_holderLastTransferTimestamp",
+      "node_id": 4,
+      "type": "state_var",
+      "description": "Mapping keyed by tx.origin storing the last transfer block to enforce one purchase per block during launch.",
+      "is_core": true
+    },
+    {
+      "id": "state_gasPriceLimit",
+      "node_id": 5,
+      "type": "state_var",
+      "description": "Maximum allowed tx.gasprice during launch anti-sniper window.",
+      "is_core": true
+    },
+    {
+      "id": "state_rOwned",
+      "node_id": 6,
+      "type": "state_var",
+      "description": "Mapping of reflection balances (_rOwned) updated on every token transfer.",
+      "is_core": true
+    },
+    {
+      "id": "func_transfer_internal",
+      "node_id": 7,
+      "type": "function",
+      "description": "Private _transfer core routine handling limits, delays, fee selection, swapBack trigger and token transfer.",
+      "is_core": true
+    },
+    {
+      "id": "func_swapBack",
+      "node_id": 8,
+      "type": "function",
+      "description": "Private swapBack guarded by lockTheSwap: swaps contract tokens for ETH, adds liquidity and forwards remainder to marketingAddress.",
+      "is_core": true
+    },
+    {
+      "id": "func_swapTokensForETH",
+      "node_id": 9,
+      "type": "function",
+      "description": "Private helper approving and calling the Uniswap router to swap tokens for ETH.",
+      "is_core": true
+    },
+    {
+      "id": "func_addLiquidity",
+      "node_id": 10,
+      "type": "function",
+      "description": "Private helper adding liquidity to the Uniswap pair via addLiquidityETH.",
+      "is_core": true
+    },
+    {
+      "id": "func_withdrawStuckETH",
+      "node_id": 11,
+      "type": "function",
+      "description": "onlyOwner function that drains the whole contract ETH balance to msg.sender before trading is active.",
+      "is_core": true
+    },
+    {
+      "id": "func_setMarketingAddress",
+      "node_id": 12,
+      "type": "function",
+      "description": "onlyOwner setter updating marketingAddress and its fee-exclusion status.",
+      "is_core": true
+    },
+    {
+      "id": "func_transferForeignToken",
+      "node_id": 13,
+      "type": "function",
+      "description": "onlyOwner function transferring arbitrary ERC20 tokens held by the contract to an arbitrary recipient.",
+      "is_core": true
+    },
+    {
+      "id": "func_tokenTransfer",
+      "node_id": 14,
+      "type": "function",
+      "description": "Private dispatcher selecting the correct reflection transfer variant.",
+      "is_core": true
+    },
+    {
+      "id": "input_msg_sender",
+      "node_id": 15,
+      "type": "untrusted_input",
+      "description": "External caller msg.sender used for ownership, authorization and ETH withdrawal destination.",
+      "is_core": true
+    },
+    {
+      "id": "input_tx_origin",
+      "node_id": 16,
+      "type": "untrusted_input",
+      "description": "tx.origin used as key for per-block purchase throttling.",
+      "is_core": true
+    },
+    {
+      "id": "input_block_timestamp",
+      "node_id": 17,
+      "type": "untrusted_input",
+      "description": "block.timestamp supplied as Uniswap router deadline for swaps and liquidity adds.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_call_swapback_marketing",
+      "node_id": 18,
+      "type": "unsafe_operation",
+      "description": "Low-level call forwarding the entire contract ETH balance to marketingAddress inside swapBack.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_call_withdrawStuckETH",
+      "node_id": 19,
+      "type": "unsafe_operation",
+      "description": "Low-level call sending the entire contract ETH balance to msg.sender inside withdrawStuckETH.",
+      "is_core": true
+    },
+    {
+      "id": "func_constructor",
+      "node_id": 20,
+      "type": "function",
+      "description": "Constructor minting the full supply to msg.sender, deploying the Uniswap pair and configuring exclusions.",
+      "is_core": true
+    },
+    {
+      "id": "func_enableTrading",
+      "node_id": 21,
+      "type": "function",
+      "description": "onlyOwner one-way switch enabling trading, swapAndLiquify and recording tradingActiveBlock.",
+      "is_core": true
+    },
+    {
+      "id": "state_automatedMarketMakerPairs",
+      "node_id": 22,
+      "type": "state_var",
+      "description": "Mapping marking addresses as AMM pairs, used to classify buys/sells and apply max transaction limits.",
+      "is_core": true
+    },
+    {
+      "id": "state_minimumTokensBeforeSwap",
+      "node_id": 23,
+      "type": "state_var",
+      "description": "Minimum contract token balance required to trigger swapBack.",
+      "is_core": true
+    },
+    {
+      "id": "func_takeLiquidity",
+      "node_id": 24,
+      "type": "function",
+      "description": "Private _takeLiquidity crediting liquidity/marketing accumulators and _rOwned for the contract.",
+      "is_core": true
+    },
+    {
+      "id": "func_getRate",
+      "node_id": 25,
+      "type": "function",
+      "description": "Private _getRate computing the reflection rate from current rSupply/tSupply.",
+      "is_core": true
+    },
+    {
+      "id": "func_balanceOf",
+      "node_id": 26,
+      "type": "function",
+      "description": "Public balanceOf returning tOwned for excluded accounts or reflection-derived balances otherwise.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_op_division_liquidityFee",
+      "node_id": 27,
+      "type": "unsafe_operation",
+      "description": "Division by _liquidityFee in _takeLiquidity can revert or divide by zero when fee state is zero.",
+      "is_core": true
+    },
+    {
+      "id": "param_transfer_amount",
+      "node_id": 28,
+      "type": "parameter",
+      "description": "amount parameter of _transfer.",
+      "is_core": false
+    },
+    {
+      "id": "param_transfer_from",
+      "node_id": 29,
+      "type": "parameter",
+      "description": "from parameter of _transfer.",
+      "is_core": false
+    },
+    {
+      "id": "param_transfer_to",
+      "node_id": 30,
+      "type": "parameter",
+      "description": "to parameter of _transfer.",
+      "is_core": false
+    },
+    {
+      "id": "local_contractTokenBalance",
+      "node_id": 31,
+      "type": "local_var",
+      "description": "Local contractTokenBalance read in _transfer to decide whether swapBack should run.",
+      "is_core": false
+    },
+    {
+      "id": "param_newAmount",
+      "node_id": 32,
+      "type": "parameter",
+      "description": "newAmount parameter of updateMinimumTokensBeforeSwap.",
+      "is_core": false
+    },
+    {
+      "id": "param_marketingAddress",
+      "node_id": 33,
+      "type": "parameter",
+      "description": "_marketingAddress parameter of setMarketingAddress.",
+      "is_core": false
+    },
+    {
+      "id": "param_tokenAmount",
+      "node_id": 34,
+      "type": "parameter",
+      "description": "tokenAmount parameter of swapTokensForETH.",
+      "is_core": false
+    },
+    {
+      "id": "local_tokensForLiquidity",
+      "node_id": 35,
+      "type": "local_var",
+      "description": "Local tokensForLiquidity computed in swapBack and passed to addLiquidity.",
+      "is_core": false
+    },
+    {
+      "id": "param_foreign_token",
+      "node_id": 36,
+      "type": "parameter",
+      "description": "_token parameter of transferForeignToken.",
+      "is_core": false
+    },
+    {
+      "id": "param_foreign_to",
+      "node_id": 37,
+      "type": "parameter",
+      "description": "_to parameter of transferForeignToken.",
+      "is_core": false
+    },
+    {
+      "id": "local_success",
+      "node_id": 38,
+      "type": "local_var",
+      "description": "Local success flag capturing the low-level call result in swapBack.",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 7,
+      "reason": "msg.sender supplies the sender used for the internal _transfer call.",
+      "type": "dataflow",
+      "from_id": 15,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "tx.origin is used inside _transfer to enforce the per-block transfer delay, creating a tx.origin dependency.",
+      "type": "dataflow",
+      "from_id": 16,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 4,
+      "reason": "tx.origin indexes _holderLastTransferTimestamp, allowing one purchase per block keyed on tx.origin.",
+      "type": "dataflow",
+      "from_id": 16,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 9,
+      "reason": "block.timestamp is passed as the router swap deadline in swapTokensForETH.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "block.timestamp is passed as the addLiquidityETH deadline in addLiquidity.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "amount parameter flows into transfer, limit checks and token accounting.",
+      "type": "dataflow",
+      "from_id": 28,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "from parameter flows into limit checks, fee classification and balance updates.",
+      "type": "dataflow",
+      "from_id": 29,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "to parameter flows into limit checks, delay checks and fee classification.",
+      "type": "dataflow",
+      "from_id": 30,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "contractTokenBalance local is derived inside _transfer for the swap threshold comparison.",
+      "type": "dataflow",
+      "from_id": 31,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "The over-minimum contract balance condition determines whether swapBack is executed.",
+      "type": "dataflow",
+      "from_id": 31,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 14,
+      "reason": "_transfer delegates the actual balance mutation to _tokenTransfer.",
+      "type": "controlflow",
+      "from_id": 7,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 6,
+      "reason": "_transfer path updates _rOwned reflection balances.",
+      "type": "dataflow",
+      "from_id": 7,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "_transfer invokes swapBack, which performs external calls before the transfer state changes complete.",
+      "type": "controlflow",
+      "from_id": 7,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 18,
+      "reason": "swapBack performs a raw ETH call to marketingAddress, an external interaction reachable from token transfers.",
+      "type": "controlflow",
+      "from_id": 8,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 9,
+      "reason": "swapBack calls swapTokensForETH to convert tokens into ETH.",
+      "type": "controlflow",
+      "from_id": 8,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "swapBack calls addLiquidity when liquidity tokens and ETH are available.",
+      "type": "controlflow",
+      "from_id": 8,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "The low-level call transfers the contract ETH balance to marketingAddress.",
+      "type": "dataflow",
+      "from_id": 18,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "inSwapAndLiquify is set by lockTheSwap to prevent reentrant entry into swapBack.",
+      "type": "controlflow",
+      "from_id": 1,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 8,
+      "reason": "swapAndLiquifyEnabled gates the swapBack invocation.",
+      "type": "controlflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "tradingActive restricts transfers to fee-excluded accounts before launch.",
+      "type": "controlflow",
+      "from_id": 3,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "automatedMarketMakerPairs classifies transfers as buys or sells and applies max-amount limits.",
+      "type": "controlflow",
+      "from_id": 22,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "minimumTokensBeforeSwap bounds the contract balance used in swapBack.",
+      "type": "dataflow",
+      "from_id": 23,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 19,
+      "reason": "withdrawStuckETH performs a raw ETH call to msg.sender.",
+      "type": "controlflow",
+      "from_id": 11,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 15,
+      "reason": "The full contract ETH balance is sent to msg.sender via the low-level call.",
+      "type": "dataflow",
+      "from_id": 19,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 11,
+      "reason": "onlyOwner restricts withdrawStuckETH to the owner derived from msg.sender.",
+      "type": "controlflow",
+      "from_id": 15,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 12,
+      "reason": "onlyOwner restricts setMarketingAddress using the _owner == _msgSender check.",
+      "type": "controlflow",
+      "from_id": 15,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 13,
+      "reason": "onlyOwner restricts transferForeignToken to the owner.",
+      "type": "controlflow",
+      "from_id": 15,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 12,
+      "reason": "_marketingAddress parameter is validated and assigned to marketingAddress.",
+      "type": "dataflow",
+      "from_id": 33,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "setMarketingAddress writes the new marketing address into state.",
+      "type": "dataflow",
+      "from_id": 12,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "The supplied marketing address is stored directly into the marketingAddress state variable.",
+      "type": "dataflow",
+      "from_id": 33,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 9,
+      "reason": "tokenAmount parameter is swapped for ETH through the Uniswap router.",
+      "type": "dataflow",
+      "from_id": 34,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 27,
+      "reason": "_takeLiquidity divides by _liquidityFee, which may be zero, causing division-by-zero arithmetic failure.",
+      "type": "controlflow",
+      "from_id": 24,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 6,
+      "reason": "_takeLiquidity credits _rOwned[address(this)] with the computed liquidity reflection amount.",
+      "type": "dataflow",
+      "from_id": 24,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 24,
+      "reason": "_getRate supplies currentRate used to convert liquidity tokens to reflection amounts.",
+      "type": "dataflow",
+      "from_id": 25,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "tokensForLiquidity local is passed as tokenAmount into addLiquidity.",
+      "type": "dataflow",
+      "from_id": 35,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 23,
+      "reason": "newAmount parameter overwrites minimumTokensBeforeSwap after bounds checks.",
+      "type": "dataflow",
+      "from_id": 32,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 15,
+      "reason": "Constructor assigns the full reflection supply and ownership to msg.sender.",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 3,
+      "reason": "enableTrading flips tradingActive to true.",
+      "type": "controlflow",
+      "from_id": 21,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 2,
+      "reason": "enableTrading enables swapAndLiquify by setting swapAndLiquifyEnabled.",
+      "type": "controlflow",
+      "from_id": 21,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 38,
+      "reason": "The low-level call result is captured in the local success flag.",
+      "type": "dataflow",
+      "from_id": 18,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 13,
+      "reason": "_token parameter selects the ERC20 contract whose balance is drained.",
+      "type": "dataflow",
+      "from_id": 36,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 13,
+      "reason": "_to parameter is the recipient of the foreign token transfer.",
+      "type": "dataflow",
+      "from_id": 37,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "balanceOf reads are the basis of swapBack token accounting and threshold checks.",
+      "type": "dataflow",
+      "from_id": 26,
+      "vuln_type": "none"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "func_transfer_internal",
+      "reason": "The amount parameter is only meaningful inside _transfer and should be folded into that core function node.",
+      "normal_node": "param_transfer_amount"
+    },
+    {
+      "merge_into": "func_transfer_internal",
+      "reason": "The from parameter is only used by _transfer for limit and fee logic.",
+      "normal_node": "param_transfer_from"
+    },
+    {
+      "merge_into": "func_transfer_internal",
+      "reason": "The to parameter is only used by _transfer for limit, delay and fee logic.",
+      "normal_node": "param_transfer_to"
+    },
+    {
+      "merge_into": "func_swapBack",
+      "reason": "The contractTokenBalance local determines the swapBack threshold and is absorbed by swapBack.",
+      "normal_node": "local_contractTokenBalance"
+    },
+    {
+      "merge_into": "func_setMarketingAddress",
+      "reason": "The _marketingAddress parameter is consumed only by setMarketingAddress.",
+      "normal_node": "param_marketingAddress"
+    },
+    {
+      "merge_into": "func_swapTokensForETH",
+      "reason": "The tokenAmount parameter is consumed only by swapTokensForETH.",
+      "normal_node": "param_tokenAmount"
+    },
+    {
+      "merge_into": "func_addLiquidity",
+      "reason": "The tokensForLiquidity local is consumed by addLiquidity inside swapBack.",
+      "normal_node": "local_tokensForLiquidity"
+    },
+    {
+      "merge_into": "func_transferForeignToken",
+      "reason": "The _token parameter is consumed only by transferForeignToken.",
+      "normal_node": "param_foreign_token"
+    },
+    {
+      "merge_into": "func_transferForeignToken",
+      "reason": "The _to parameter is consumed only by transferForeignToken.",
+      "normal_node": "param_foreign_to"
+    },
+    {
+      "merge_into": "unsafe_call_swapback_marketing",
+      "reason": "The success local only stores the result of the low-level call in swapBack.",
+      "normal_node": "local_success"
+    }
+  ]
+}

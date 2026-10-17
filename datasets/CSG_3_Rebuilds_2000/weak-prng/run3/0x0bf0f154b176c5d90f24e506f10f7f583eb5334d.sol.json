@@ -1,0 +1,174 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Contract owner address, initialized from msg.sender at deployment and used as the withdraw authorization guard and payout recipient.",
+      "id": "owner",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Hardcoded keccak256 hash of the secret number stored on-chain (0x04994f...b829).",
+      "id": "secretNumberHash",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Public owner-only function that transfers the entire contract balance to the owner.",
+      "id": "withdraw",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "Public payable function: if keccak256(number) matches secretNumberHash and msg.value > this.balance, sends jackpot to the caller.",
+      "id": "guess",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "Caller-controlled address; used as owner during construction, as withdraw guard and as recipient of the jackpot.",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "External value transfer of this.balance to owner executed inside withdraw.",
+      "id": "owner.transfer",
+      "type": "unsafe_operation",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "External value transfer of the jackpot to the caller executed inside guess.",
+      "id": "msg.sender.transfer",
+      "type": "unsafe_operation",
+      "node_id": 6
+    },
+    {
+      "is_core": false,
+      "description": "uint8 guess parameter supplied by the caller to guess.",
+      "id": "number",
+      "type": "parameter",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "Weak guess/authorization check: the 8-bit secret space (256 values) can be brute-forced off-chain because the hash is public and the winner also takes the contract balance.",
+      "id": "keccak256(number)==secretNumberHash",
+      "type": "unsafe_operation",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "description": "Unchecked arithmetic addition of the contract balance and msg.value (Solidity 0.4.x has no overflow protection).",
+      "id": "this.balance+msg.value",
+      "type": "unsafe_operation",
+      "node_id": 9
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "reason": "owner state variable is initialized directly from msg.sender at deployment, so the deployer controls withdrawal rights.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "reason": "withdraw is gated by require(msg.sender == owner); the caller identity decides whether the transfer executes.",
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "reentrancy",
+      "reason": "withdraw unconditionally triggers an external value transfer of this.balance to owner.",
+      "type": "controlflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "reason": "The caller address msg.sender is the recipient of the jackpot transfer in guess, making the caller an external party receiving funds.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "reason": "guess conditionally performs an external value transfer to msg.sender when the guard conditions hold.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "guess consumes the caller-supplied uint8 number parameter.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "The number parameter is hashed and used as the left operand of the guess comparison.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "secretNumberHash is read as the right operand of the guess comparison.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "reason": "guess evaluates keccak256(number) == secretNumberHash; passing this weak check is the only access condition for the jackpot.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "reason": "Satisfying the brute-forceable hash check unlocks execution of the jackpot transfer.",
+      "type": "controlflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "reason": "guess computes this.balance + msg.value without checked arithmetic.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "arithmetic",
+      "reason": "The unchecked sum this.balance + msg.value flows into the payable transfer as the amount.",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "The owner address is the destination of the value transferred in withdraw.",
+      "type": "dataflow",
+      "from_id": 0
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "guess",
+      "reason": "The uint8 number parameter only exists to feed the guess function's hash check, so it is folded into the core guess function node.",
+      "normal_node": "number"
+    }
+  ]
+}

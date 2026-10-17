@@ -1,0 +1,918 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Private address of the contract owner/chef, set to msg.sender in the constructor and receiving tips.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "_chef"
+    },
+    {
+      "type": "state_var",
+      "description": "Public mapping from address to Bet struct holding each player's pending wager.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "Bets"
+    },
+    {
+      "type": "state_var",
+      "description": "Public array of addresses used as a lookup table of players with pending bets.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "BetLUT"
+    },
+    {
+      "type": "state_var",
+      "description": "Private accumulator of total tips collected by the chef.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "_chefTips"
+    },
+    {
+      "type": "state_var",
+      "description": "Private tip rate in 1/10000 units used to compute the house cut on a winning bet.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "_tipsRate"
+    },
+    {
+      "type": "state_var",
+      "description": "Private referral rate in 1/10000 units used to share tips with the bet referrer.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "_refRate"
+    },
+    {
+      "type": "state_var",
+      "description": "Private cancellation fee rate in 1/10000 units charged when a creator cancels a bet.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "_cancelFee"
+    },
+    {
+      "type": "function",
+      "description": "Sets _chef to msg.sender and initialises _tipsRate, _cancelFee and _refRate.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "constructor"
+    },
+    {
+      "type": "function",
+      "description": "Internal view coin toss returning 0 or 1 derived from block.difficulty, block.timestamp, block.gaslimit, block.coinbase and block.number.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "toss"
+    },
+    {
+      "type": "function",
+      "description": "Private payout helper that performs raw external calls to the winner, the referrer and the chef.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "send"
+    },
+    {
+      "type": "function",
+      "description": "Private helper that deletes a Bet from Bets and removes the address from BetLUT.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "removeBet"
+    },
+    {
+      "type": "function",
+      "description": "Public payable entry point letting a player place a bet on heads/tails with an optional referrer.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "createBet"
+    },
+    {
+      "type": "function",
+      "description": "Public payable function refunding a pending bet minus the cancellation fee and then removing the bet.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "cancelBet"
+    },
+    {
+      "type": "function",
+      "description": "Public payable function joining an existing bet, resolving the toss and paying the winner.",
+      "is_core": true,
+      "node_id": 13,
+      "id": "takeBet"
+    },
+    {
+      "type": "function",
+      "description": "Public view returning the length of BetLUT.",
+      "is_core": true,
+      "node_id": 14,
+      "id": "countBets"
+    },
+    {
+      "type": "function",
+      "description": "Public view restricted to the chef returning the accumulated _chefTips.",
+      "is_core": true,
+      "node_id": 15,
+      "id": "chefTips"
+    },
+    {
+      "type": "function",
+      "description": "Chef-only setter updating _tipsRate with a maximum of 1500 (15%).",
+      "is_core": true,
+      "node_id": 16,
+      "id": "setTipRate"
+    },
+    {
+      "type": "function",
+      "description": "Chef-only setter updating _refRate with a maximum of 1500 (15%).",
+      "is_core": true,
+      "node_id": 17,
+      "id": "setRefRate"
+    },
+    {
+      "type": "function",
+      "description": "Chef-only setter updating _cancelFee with a maximum of 300 (3%).",
+      "is_core": true,
+      "node_id": 18,
+      "id": "setCancelRate"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller address controlling bet creation, cancellation, joining and owner-restricted functions.",
+      "is_core": true,
+      "node_id": 19,
+      "id": "msg.sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Block timestamp used as randomness input in toss and stored in the Bet struct.",
+      "is_core": true,
+      "node_id": 20,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Transaction origin checked in takeBet as a 'humans only' guard, bypassable via intermediary contracts.",
+      "is_core": true,
+      "node_id": 21,
+      "id": "tx.origin"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Raw address(to).call{value: amt-tips} transfer inside send, invoked before state cleanup.",
+      "is_core": true,
+      "node_id": 22,
+      "id": "external_call_to_receiver"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Raw address(ref).call{value: refEarn} transfer inside send, paying the referrer share.",
+      "is_core": true,
+      "node_id": 23,
+      "id": "external_call_to_referrer"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Raw address(_chef).call{value: tips} transfer inside send, paying the house.",
+      "is_core": true,
+      "node_id": 24,
+      "id": "external_call_to_chef"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Unchecked addition win = bet.value + msg.value computed in takeBet.",
+      "is_core": true,
+      "node_id": 25,
+      "id": "arithmetic_win_sum"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Unchecked multiplication/division fee = Bets[msg.sender].value * _cancelFee / 10000 in cancelBet.",
+      "is_core": true,
+      "node_id": 26,
+      "id": "arithmetic_cancel_fee"
+    },
+    {
+      "type": "parameter",
+      "description": "Address parameter to of send, the payout recipient.",
+      "is_core": false,
+      "node_id": 27,
+      "id": "param_to"
+    },
+    {
+      "type": "parameter",
+      "description": "uint256 parameter amt of send, the gross payout amount.",
+      "is_core": false,
+      "node_id": 28,
+      "id": "param_amt"
+    },
+    {
+      "type": "parameter",
+      "description": "uint256 parameter tips of send, the fee deducted from the payout.",
+      "is_core": false,
+      "node_id": 29,
+      "id": "param_tips"
+    },
+    {
+      "type": "parameter",
+      "description": "Address parameter ref of send, the referrer receiving a tip share.",
+      "is_core": false,
+      "node_id": 30,
+      "id": "param_ref_send"
+    },
+    {
+      "type": "parameter",
+      "description": "Address parameter addr of removeBet, selecting the entry to delete.",
+      "is_core": false,
+      "node_id": 31,
+      "id": "param_addr"
+    },
+    {
+      "type": "parameter",
+      "description": "uint256 parameter betFor of createBet, the chosen side (0 or 1).",
+      "is_core": false,
+      "node_id": 32,
+      "id": "param_betFor"
+    },
+    {
+      "type": "parameter",
+      "description": "Address parameter ref of createBet, the referrer stored in the Bet.",
+      "is_core": false,
+      "node_id": 33,
+      "id": "param_ref_createBet"
+    },
+    {
+      "type": "parameter",
+      "description": "Address parameter with of takeBet, the bet creator being joined.",
+      "is_core": false,
+      "node_id": 34,
+      "id": "param_with"
+    },
+    {
+      "type": "parameter",
+      "description": "uint256 parameter rate of setTipRate assigned to _tipsRate.",
+      "is_core": false,
+      "node_id": 35,
+      "id": "param_rate_tip"
+    },
+    {
+      "type": "parameter",
+      "description": "uint256 parameter rate of setRefRate assigned to _refRate.",
+      "is_core": false,
+      "node_id": 36,
+      "id": "param_rate_ref"
+    },
+    {
+      "type": "parameter",
+      "description": "uint256 parameter rate of setCancelRate assigned to _cancelFee.",
+      "is_core": false,
+      "node_id": 37,
+      "id": "param_rate_cancel"
+    },
+    {
+      "type": "local_var",
+      "description": "Memory copy of the Bet struct loaded from Bets[with] in takeBet.",
+      "is_core": false,
+      "node_id": 38,
+      "id": "local_bet"
+    },
+    {
+      "type": "local_var",
+      "description": "Local tips amount computed from bet.value * _tipsRate / 10000 in takeBet.",
+      "is_core": false,
+      "node_id": 39,
+      "id": "local_tips"
+    },
+    {
+      "type": "local_var",
+      "description": "Local pot value bet.value + msg.value in takeBet.",
+      "is_core": false,
+      "node_id": 40,
+      "id": "local_win"
+    },
+    {
+      "type": "local_var",
+      "description": "Local result of toss() used to select the winner in takeBet.",
+      "is_core": false,
+      "node_id": 41,
+      "id": "local_winNum"
+    },
+    {
+      "type": "local_var",
+      "description": "Local cancellation fee computed in cancelBet.",
+      "is_core": false,
+      "node_id": 42,
+      "id": "local_fee"
+    },
+    {
+      "type": "local_var",
+      "description": "Loop index used to scan BetLUT in removeBet.",
+      "is_core": false,
+      "node_id": 43,
+      "id": "local_i"
+    },
+    {
+      "type": "local_var",
+      "description": "Success flag of the raw call to the payout recipient in send.",
+      "is_core": false,
+      "node_id": 44,
+      "id": "local_sentTo"
+    },
+    {
+      "type": "local_var",
+      "description": "Success flag of the raw call to the referrer in send.",
+      "is_core": false,
+      "node_id": 45,
+      "id": "local_sentRef"
+    },
+    {
+      "type": "local_var",
+      "description": "Success flag of the raw call to the chef in send.",
+      "is_core": false,
+      "node_id": 46,
+      "id": "local_sentFee"
+    },
+    {
+      "type": "local_var",
+      "description": "Referral share amt/2*_refRate/10000 subtracted from tips in send.",
+      "is_core": false,
+      "node_id": 47,
+      "id": "local_refEarn"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "msg.sender is stored as the owner _chef in the constructor.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "msg.sender is used as the creator key when writing Bets[msg.sender].",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "msg.sender identifies the bet being cancelled and refunded.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "msg.sender is compared with tx.origin and is the potential joiner/winner.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "chefTips requires msg.sender == _chef before revealing _chefTips.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "setTipRate is gated by require(msg.sender == _chef).",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "setRefRate is gated by require(msg.sender == _chef).",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "setCancelRate is gated by require(msg.sender == _chef).",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "cancelBet passes msg.sender as the payout recipient of send.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "takeBet relies on tx.origin == msg.sender, which is spoofable through an intermediary contract.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "toss builds its randomness from block.timestamp, making the outcome miner-influenceable.",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "block.timestamp is written into the Bet.time field and the NewBet event.",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "block.timestamp is emitted in the WinBet event.",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "The toss result determines which party wins inside takeBet.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 41,
+      "type": "dataflow",
+      "reason": "toss() return value is assigned to the local winNum.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 9,
+      "type": "controlflow",
+      "reason": "takeBet performs the prize payout through send() before removeBet clears state.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 9,
+      "type": "controlflow",
+      "reason": "cancelBet performs the refund through send() before removeBet clears state.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 22,
+      "type": "controlflow",
+      "reason": "send executes address(to).call{value: amt-tips} on an attacker-controlled recipient.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 23,
+      "type": "controlflow",
+      "reason": "send executes address(ref).call{value: refEarn} on an attacker-controlled referrer.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 24,
+      "type": "controlflow",
+      "reason": "send executes address(_chef).call{value: tips} paying the house.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 13,
+      "type": "callback",
+      "reason": "A malicious recipient can re-enter takeBet while the bet is still recorded in Bets.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "callback",
+      "reason": "A malicious recipient can re-enter cancelBet before removeBet deletes the entry.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "controlflow",
+      "reason": "takeBet calls removeBet after resolving the bet.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "controlflow",
+      "reason": "cancelBet calls removeBet after refunding.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "removeBet deletes the Bets[addr] entry.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "removeBet swaps and pops the entry in BetLUT.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "createBet writes the new Bet struct into Bets[msg.sender].",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "createBet pushes msg.sender onto BetLUT.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "takeBet reads the pending bet from Bets[with].",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "cancelBet reads Bets[msg.sender] value and betFor.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 25,
+      "type": "controlflow",
+      "reason": "takeBet computes win = bet.value + msg.value without overflow protection.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 26,
+      "type": "controlflow",
+      "reason": "cancelBet computes value * _cancelFee / 10000 without overflow protection.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 40,
+      "type": "dataflow",
+      "reason": "The unchecked sum is stored in the local win used as the payout amount.",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 42,
+      "type": "dataflow",
+      "reason": "The unchecked fee computation feeds the local fee charged on cancellation.",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "_tipsRate scales the tips deducted in takeBet.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "_refRate scales the referrer share refEarn in send.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "_cancelFee determines the cancellation fee in cancelBet.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "dataflow",
+      "reason": "_cancelFee is a direct operand of the fee arithmetic operation.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "_chef is the destination of the tips external call in send.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "send increments _chefTips by the tips amount after the chef call.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "chefTips returns the _chefTips accumulator.",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "setTipRate writes the new value into _tipsRate.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "setRefRate writes the new value into _refRate.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "setCancelRate writes the new value into _cancelFee.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "countBets returns BetLUT.length.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 38,
+      "type": "dataflow",
+      "reason": "The with parameter indexes Bets to populate the memory bet local.",
+      "from_id": 34
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 38,
+      "type": "controlflow",
+      "reason": "takeBet loads the Bet struct into the local bet variable.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 39,
+      "type": "controlflow",
+      "reason": "takeBet computes the local tips from _tipsRate.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 40,
+      "type": "controlflow",
+      "reason": "takeBet computes the local win pot.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 41,
+      "type": "controlflow",
+      "reason": "takeBet stores the toss result in the local winNum.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 44,
+      "type": "controlflow",
+      "reason": "send captures the recipient call result in sentTo.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 45,
+      "type": "controlflow",
+      "reason": "send captures the referrer call result in sentRef.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 46,
+      "type": "controlflow",
+      "reason": "send captures the chef call result in sentFee.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 47,
+      "type": "controlflow",
+      "reason": "send computes the local refEarn referral share.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 45,
+      "type": "dataflow",
+      "reason": "refEarn is subtracted from tips when the referrer call succeeds.",
+      "from_id": 47
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "The loop index i iterates over BetLUT in removeBet.",
+      "from_id": 43
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "The addr parameter selects which address is removed from BetLUT.",
+      "from_id": 31
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "The to parameter is the recipient of the raw value transfer in send.",
+      "from_id": 27
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "The amt parameter is the gross amount transferred in send.",
+      "from_id": 28
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "The tips parameter is deducted from amt and routed to referrer and chef.",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "The ref parameter determines the referrer paid inside send.",
+      "from_id": 30
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "betFor is stored in the Bet struct as the chosen side.",
+      "from_id": 32
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "ref is stored as the referrer of the new Bet.",
+      "from_id": 33
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "rate sets the new _tipsRate value.",
+      "from_id": 35
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "rate sets the new _refRate value.",
+      "from_id": 36
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "rate sets the new _cancelFee value.",
+      "from_id": 37
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "msg.sender is the recipient address of the external refund call in cancelBet's send.",
+      "from_id": 19
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "send",
+      "reason": "The to parameter only exists to feed the payout helper send and should be folded into that function node.",
+      "normal_node": "param_to"
+    },
+    {
+      "merge_into": "send",
+      "reason": "amt is a call-local payout amount consumed exclusively by send.",
+      "normal_node": "param_amt"
+    },
+    {
+      "merge_into": "send",
+      "reason": "tips is a call-local fee amount consumed exclusively by send.",
+      "normal_node": "param_tips"
+    },
+    {
+      "merge_into": "send",
+      "reason": "ref is a call-local referrer address only used by send.",
+      "normal_node": "param_ref_send"
+    },
+    {
+      "merge_into": "removeBet",
+      "reason": "addr is used solely to locate the BetLUT entry in removeBet.",
+      "normal_node": "param_addr"
+    },
+    {
+      "merge_into": "createBet",
+      "reason": "betFor is only used to populate the Bet struct in createBet.",
+      "normal_node": "param_betFor"
+    },
+    {
+      "merge_into": "createBet",
+      "reason": "ref is only stored as the Bet referrer in createBet.",
+      "normal_node": "param_ref_createBet"
+    },
+    {
+      "merge_into": "takeBet",
+      "reason": "with is only used to read Bets[with] and clear the bet in takeBet.",
+      "normal_node": "param_with"
+    },
+    {
+      "merge_into": "setTipRate",
+      "reason": "rate is only assigned to _tipsRate inside setTipRate.",
+      "normal_node": "param_rate_tip"
+    },
+    {
+      "merge_into": "setRefRate",
+      "reason": "rate is only assigned to _refRate inside setRefRate.",
+      "normal_node": "param_rate_ref"
+    },
+    {
+      "merge_into": "setCancelRate",
+      "reason": "rate is only assigned to _cancelFee inside setCancelRate.",
+      "normal_node": "param_rate_cancel"
+    },
+    {
+      "merge_into": "takeBet",
+      "reason": "The memory copy of the Bet struct is a transient view used only within takeBet.",
+      "normal_node": "local_bet"
+    },
+    {
+      "merge_into": "takeBet",
+      "reason": "The tips local is computed and consumed only inside takeBet.",
+      "normal_node": "local_tips"
+    },
+    {
+      "merge_into": "takeBet",
+      "reason": "The win local is the payout pot derived from the unchecked sum in takeBet.",
+      "normal_node": "local_win"
+    },
+    {
+      "merge_into": "takeBet",
+      "reason": "winNum holds the toss outcome and drives the branch only in takeBet.",
+      "normal_node": "local_winNum"
+    },
+    {
+      "merge_into": "cancelBet",
+      "reason": "The fee local is computed and consumed only inside cancelBet.",
+      "normal_node": "local_fee"
+    },
+    {
+      "merge_into": "removeBet",
+      "reason": "The loop index only exists for the BetLUT scan in removeBet.",
+      "normal_node": "local_i"
+    },
+    {
+      "merge_into": "send",
+      "reason": "The recipient call success flag is only meaningful inside send.",
+      "normal_node": "local_sentTo"
+    },
+    {
+      "merge_into": "send",
+      "reason": "The referrer call success flag is only meaningful inside send.",
+      "normal_node": "local_sentRef"
+    },
+    {
+      "merge_into": "send",
+      "reason": "The chef call success flag is only meaningful inside send.",
+      "normal_node": "local_sentFee"
+    },
+    {
+      "merge_into": "send",
+      "reason": "The referral share local is computed and deducted only inside send.",
+      "normal_node": "local_refEarn"
+    }
+  ]
+}

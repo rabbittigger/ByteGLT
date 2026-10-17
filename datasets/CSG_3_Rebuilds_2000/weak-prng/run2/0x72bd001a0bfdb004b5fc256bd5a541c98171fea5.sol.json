@@ -1,0 +1,315 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Public string extension appended to token URIs ('.json')",
+      "is_core": true,
+      "node_id": 0,
+      "id": "baseExtension"
+    },
+    {
+      "type": "state_var",
+      "description": "Mint price per token in wei (0.01 ether)",
+      "is_core": true,
+      "node_id": 1,
+      "id": "cost"
+    },
+    {
+      "type": "state_var",
+      "description": "Maximum number of FREN tokens that can ever be minted",
+      "is_core": true,
+      "node_id": 2,
+      "id": "maxFREN"
+    },
+    {
+      "type": "state_var",
+      "description": "Maximum number of tokens mintable in a single transaction",
+      "is_core": true,
+      "node_id": 3,
+      "id": "maxFRENMintAmount"
+    },
+    {
+      "type": "state_var",
+      "description": "Flag that pauses the public mint function when true",
+      "is_core": true,
+      "node_id": 4,
+      "id": "paused"
+    },
+    {
+      "type": "state_var",
+      "description": "Base IPFS URI used to build token metadata URIs",
+      "is_core": true,
+      "node_id": 5,
+      "id": "baseURI"
+    },
+    {
+      "type": "function",
+      "description": "MettiFrens constructor initializing ERC721('MettiFrens','FREN') and RandomlyAssigned(100,1)",
+      "is_core": true,
+      "node_id": 6,
+      "id": "constructor"
+    },
+    {
+      "type": "function",
+      "description": "Internal view function returning the baseURI state variable",
+      "is_core": true,
+      "node_id": 7,
+      "id": "_baseURI"
+    },
+    {
+      "type": "function",
+      "description": "Public payable mint function validating paused/amount/supply/payment then minting in a loop",
+      "is_core": true,
+      "node_id": 8,
+      "id": "mintFRENS"
+    },
+    {
+      "type": "function",
+      "description": "Returns metadata URI by concatenating baseURI, tokenId and baseExtension",
+      "is_core": true,
+      "node_id": 9,
+      "id": "tokenURI"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner function that sends the entire contract balance to msg.sender via send",
+      "is_core": true,
+      "node_id": 10,
+      "id": "withdraw"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used as mint recipient and withdraw destination",
+      "is_core": true,
+      "node_id": 11,
+      "id": "msg.sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Miner-influenced block timestamp used as entropy in RandomlyAssigned.nextToken randomness",
+      "is_core": true,
+      "node_id": 12,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "keccak256 over msg.sender/coinbase/difficulty/gaslimit/timestamp used to derive a pseudo-random token index",
+      "is_core": true,
+      "node_id": 13,
+      "id": "weak_randomness"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "payable(msg.sender).send(address(this).balance) fixed-gas ETH transfer wrapped in require",
+      "is_core": true,
+      "node_id": 14,
+      "id": "send_balance"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "_safeMint invokes IERC721Receiver.onERC721Received on the recipient, an external callback",
+      "is_core": true,
+      "node_id": 15,
+      "id": "_safeMint_callback"
+    },
+    {
+      "type": "parameter",
+      "description": "Caller-supplied requested mint amount parameter of mintFRENS",
+      "is_core": false,
+      "node_id": 16,
+      "id": "_FRENMintAmount"
+    },
+    {
+      "type": "parameter",
+      "description": "Token id parameter used by tokenURI to build the metadata URI",
+      "is_core": false,
+      "node_id": 17,
+      "id": "tokenId"
+    },
+    {
+      "type": "local_var",
+      "description": "Local token id obtained from nextToken() inside mintFRENS",
+      "is_core": false,
+      "node_id": 18,
+      "id": "mintIndex"
+    },
+    {
+      "type": "local_var",
+      "description": "Loop counter for the mint loop in mintFRENS",
+      "is_core": false,
+      "node_id": 19,
+      "id": "i"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "_FRENMintAmount parameter is consumed by mintFRENS validation and loop bound",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "tokenId parameter is used to construct the URI in tokenURI",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "msg.sender is used as the mint recipient inside mintFRENS",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "mintFRENS assigns the nextToken() result to the mintIndex local",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "mintIndex derives from the weakly random nextToken() output",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "mintIndex is passed as tokenId into the _safeMint external callback",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "msg.sender becomes the recipient of _safeMint, triggering onERC721Received",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 15,
+      "type": "controlflow",
+      "reason": "mintFRENS calls _safeMint which performs an external callback before state is final",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "block.timestamp is part of the entropy feeding the weak randomness computation",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "cost is read to compute the required payment in mintFRENS",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "maxFREN is read for the total supply cap check in mintFRENS",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "maxFRENMintAmount is read for the per-transaction mint limit check",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "paused flag gates execution of mintFRENS",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "_baseURI returns the baseURI state variable",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "baseURI is concatenated into the URI returned by tokenURI",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "baseExtension is appended to the URI returned by tokenURI",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "controlflow",
+      "reason": "tokenURI calls _baseURI to obtain the base URI",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "withdraw sends the whole balance to msg.sender",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "withdraw performs the send-based ETH transfer to msg.sender",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "loop counter i drives the mint loop in mintFRENS",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "mintFRENS maintains and increments the loop counter i",
+      "from_id": 8
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "mintFRENS",
+      "reason": "The _FRENMintAmount parameter is only meaningful as an argument of mintFRENS and should be folded into that core function node",
+      "normal_node": "_FRENMintAmount"
+    },
+    {
+      "merge_into": "tokenURI",
+      "reason": "The tokenId parameter only exists to parameterize tokenURI and should be folded into that core function node",
+      "normal_node": "tokenId"
+    },
+    {
+      "merge_into": "_safeMint_callback",
+      "reason": "The mintIndex local flows directly into the _safeMint external callback and should be merged into that unsafe operation to preserve the reentrancy relation",
+      "normal_node": "mintIndex"
+    },
+    {
+      "merge_into": "mintFRENS",
+      "reason": "The loop counter i is internal to mintFRENS and should be merged into that core function node",
+      "normal_node": "i"
+    }
+  ]
+}

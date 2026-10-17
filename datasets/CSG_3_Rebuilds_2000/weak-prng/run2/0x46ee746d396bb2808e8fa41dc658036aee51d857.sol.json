@@ -1,0 +1,355 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Contract owner address; set to msg.sender in constructor and used as access-control anchor and fee recipient.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "owner"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping of player address to withdrawable balance; credited in userChallenge and drained in userWithdraw.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "balances"
+    },
+    {
+      "type": "state_var",
+      "description": "Fixed array of six leader addresses holding the current champions of each tier.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "leaders"
+    },
+    {
+      "type": "state_var",
+      "description": "Fixed array of six buy-in amounts (20/60/100/200/600/1000 finney) for each leader tier.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "buyins"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller-controlled address; used for ownership checks, balance keys, leader replacement and randomness.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "msg.sender"
+    },
+    {
+      "type": "function",
+      "description": "Deployment constructor: sets owner and initializes leaders and buyins arrays.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "constructor"
+    },
+    {
+      "type": "function",
+      "description": "View function returning balances[player] for an arbitrary address.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "publicGetBalance"
+    },
+    {
+      "type": "function",
+      "description": "View function returning the current leaders array.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "publicGetState"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only function that swaps a leader slot, guarded by msg.sender == owner and leaders[index] == owner.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "ownerChange"
+    },
+    {
+      "type": "function",
+      "description": "Withdraws the caller's full balance and forwards it with msg.sender.transfer.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "userWithdraw"
+    },
+    {
+      "type": "function",
+      "description": "Payable challenge function: requires msg.value == buyins[index], computes pseudo-random outcome and updates balances/leaders.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "userChallenge"
+    },
+    {
+      "type": "local_var",
+      "description": "Local variable caching balances[msg.sender] before it is zeroed and transferred.",
+      "is_core": false,
+      "node_id": 11,
+      "id": "amount"
+    },
+    {
+      "type": "parameter",
+      "description": "Tier index parameter selecting a leader/buyin slot; masked by require(index >= 0 && index < 6).",
+      "is_core": false,
+      "node_id": 12,
+      "id": "index"
+    },
+    {
+      "type": "parameter",
+      "description": "New leader address parameter written into leaders[index] by ownerChange.",
+      "is_core": false,
+      "node_id": 13,
+      "id": "holder"
+    },
+    {
+      "type": "parameter",
+      "description": "Address parameter used as the lookup key into balances in publicGetBalance.",
+      "is_core": false,
+      "node_id": 14,
+      "id": "player"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External ether transfer msg.sender.transfer(amount) after balance zeroing; classic reentrancy sink.",
+      "is_core": true,
+      "node_id": 15,
+      "id": "transfer_call"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Unchecked additions/multiplications on balances in userChallenge (balances[...] += buyins[index], buyins[index] * 95 / 100).",
+      "is_core": true,
+      "node_id": 16,
+      "id": "balance_arithmetic"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Pseudo-random draw from blockhash(block.number - 1), leader address and msg.sender, which is predictable/manipulable.",
+      "is_core": true,
+      "node_id": 17,
+      "id": "weak_randomness"
+    },
+    {
+      "type": "local_var",
+      "description": "Local variable holding the 1..100 draw used to decide the challenge outcome.",
+      "is_core": false,
+      "node_id": 18,
+      "id": "random"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "Constructor assigns owner = msg.sender during initialization.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "Caller address msg.sender becomes the privileged owner in the constructor.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "Constructor seeds all six leaders slots with the owner address.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "Constructor fixes the buyin amounts for every tier.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "publicGetBalance consumes the player parameter as a lookup key.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "balances[player] is read and returned by publicGetBalance.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "publicGetState returns the leaders array.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "ownerChange authenticates with the caller-controlled msg.sender.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "controlflow",
+      "reason": "require(msg.sender == owner) gates the state mutation in ownerChange.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "ownerChange reads and rewrites a leaders slot.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "index parameter selects which leaders slot ownerChange modifies.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "holder parameter is written into leaders[index].",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "userWithdraw keys the balances mapping with msg.sender.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "userWithdraw zeroes balances[msg.sender] before paying out.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "amount local copies the stored balance before it is cleared.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 15,
+      "type": "controlflow",
+      "reason": "userWithdraw reaches the external ether transfer sink.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "The transferred value derives from the stored balance amount.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 9,
+      "type": "callback",
+      "reason": "transfer forwards ether/gas to msg.sender, allowing re-entry into userWithdraw (and userChallenge).",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "userChallenge validates msg.value against buyins[index].",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "index parameter selects the leader/buyin tier in userChallenge.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "userChallenge reads and can overwrite leaders[index].",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 16,
+      "type": "controlflow",
+      "reason": "userChallenge executes unchecked balance additions and percentage math.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "Balances credits from buyins[index] can overflow unchecked in Solidity 0.4.x.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "The predictable random value controls which branch and payout userChallenge takes.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "msg.sender feeds the randomness computation, letting the caller influence the draw.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 17,
+      "type": "controlflow",
+      "reason": "userChallenge derives its outcome from blockhash/block state, a miner/challenger-influenceable source.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "Local random is assigned from the weak randomness expression.",
+      "from_id": 17
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "transfer_call",
+      "reason": "amount is a temporary holder of the payout value and exists only to feed msg.sender.transfer, so it collapses into the transfer unsafe_operation.",
+      "normal_node": "amount"
+    },
+    {
+      "merge_into": "userChallenge",
+      "reason": "index is a tier selector consumed directly by userChallenge's require and array accesses; it folds into that core function.",
+      "normal_node": "index"
+    },
+    {
+      "merge_into": "ownerChange",
+      "reason": "holder is a pure argument written into leaders only through ownerChange and has no independent semantics.",
+      "normal_node": "holder"
+    },
+    {
+      "merge_into": "publicGetBalance",
+      "reason": "player is used solely as the balances lookup key inside publicGetBalance.",
+      "normal_node": "player"
+    },
+    {
+      "merge_into": "weak_randomness",
+      "reason": "random is the local result of the weak randomness expression and carries no meaning beyond that unsafe source.",
+      "normal_node": "random"
+    }
+  ]
+}

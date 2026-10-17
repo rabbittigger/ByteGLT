@@ -1,0 +1,833 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Address with governance rights over airdrop creation and recycling.",
+      "is_core": true,
+      "id": "governance"
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Monotonic counter of airdrop ids, initialized to MIN_ID (1e4).",
+      "is_core": true,
+      "id": "_idTracker"
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "description": "Mapping id => Airdrop struct storing token, merkle root, amounts and claim bitmap.",
+      "is_core": true,
+      "id": "_airdrops"
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "description": "Mapping token => amount reserved for active or pending airdrops.",
+      "is_core": true,
+      "id": "_assignedBalances"
+    },
+    {
+      "node_id": 4,
+      "type": "function",
+      "description": "Initializer that sets _idTracker to MIN_ID and governance to the caller.",
+      "is_core": true,
+      "id": "initialize"
+    },
+    {
+      "node_id": 5,
+      "type": "function",
+      "description": "Owner-only function updating the governance address.",
+      "is_core": true,
+      "id": "setGovernance"
+    },
+    {
+      "node_id": 6,
+      "type": "function",
+      "description": "Governance-only creation of a new airdrop with merkle root, deadline, amount and count.",
+      "is_core": true,
+      "id": "create"
+    },
+    {
+      "node_id": 7,
+      "type": "function",
+      "description": "Claims an airdrop share after merkle proof verification and transfers tokens.",
+      "is_core": true,
+      "id": "claim"
+    },
+    {
+      "node_id": 8,
+      "type": "function",
+      "description": "Governance-only recovery of unclaimed tokens after airdrop expiry.",
+      "is_core": true,
+      "id": "recycle"
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "description": "External view returning the unreserved token balance of the contract.",
+      "is_core": true,
+      "id": "availableBalance"
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "description": "External view returning the unclaimed amount for a valid airdrop id.",
+      "is_core": true,
+      "id": "getUnclaimed"
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "description": "External view reporting expiry state of an airdrop id.",
+      "is_core": true,
+      "id": "isExpired"
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "description": "External view reporting whether a given index was claimed.",
+      "is_core": true,
+      "id": "isClaimed"
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "description": "External view reporting whether all entries of an airdrop were claimed.",
+      "is_core": true,
+      "id": "isAllClaimed"
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "description": "Internal helper computing token balance minus assigned balances.",
+      "is_core": true,
+      "id": "_availableBalance"
+    },
+    {
+      "node_id": 15,
+      "type": "function",
+      "description": "Internal helper returning amount minus claimedAmount for an airdrop.",
+      "is_core": true,
+      "id": "_getUnclaimed"
+    },
+    {
+      "node_id": 16,
+      "type": "function",
+      "description": "Internal helper checking id >= MIN_ID and id < _idTracker.",
+      "is_core": true,
+      "id": "_isValid"
+    },
+    {
+      "node_id": 17,
+      "type": "function",
+      "description": "Internal helper comparing airdrop deadline with current timestamp.",
+      "is_core": true,
+      "id": "_isExpired"
+    },
+    {
+      "node_id": 18,
+      "type": "function",
+      "description": "Internal helper reading the claimed bitmap word and mask for an index.",
+      "is_core": true,
+      "id": "_isClaimed"
+    },
+    {
+      "node_id": 19,
+      "type": "function",
+      "description": "Internal helper comparing claimedCount with count for an airdrop.",
+      "is_core": true,
+      "id": "_isAllClaimed"
+    },
+    {
+      "node_id": 20,
+      "type": "function",
+      "description": "Internal helper returning block.timestamp.",
+      "is_core": true,
+      "id": "_getTimestamp"
+    },
+    {
+      "node_id": 21,
+      "type": "function",
+      "description": "UUPS authorization hook, restricted to the owner via onlyOwner.",
+      "is_core": true,
+      "id": "_authorizeUpgrade"
+    },
+    {
+      "node_id": 22,
+      "type": "function",
+      "description": "UUPS external upgrade entrypoint guarded by onlyProxy.",
+      "is_core": true,
+      "id": "upgradeTo"
+    },
+    {
+      "node_id": 23,
+      "type": "function",
+      "description": "UUPS payable upgrade entrypoint that also performs a delegatecall with data.",
+      "is_core": true,
+      "id": "upgradeToAndCall"
+    },
+    {
+      "node_id": 24,
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used for ownership and governance checks.",
+      "is_core": true,
+      "id": "msg.sender"
+    },
+    {
+      "node_id": 25,
+      "type": "untrusted_input",
+      "description": "Miner-influenced timestamp used for deadline and expiry logic.",
+      "is_core": true,
+      "id": "block.timestamp"
+    },
+    {
+      "node_id": 26,
+      "type": "unsafe_operation",
+      "description": "External ERC20 token transfer in claim executed before balance bookkeeping completes.",
+      "is_core": true,
+      "id": "claim_safeTransfer"
+    },
+    {
+      "node_id": 27,
+      "type": "unsafe_operation",
+      "description": "External ERC20 token transfer in recycle sending unclaimed tokens to recipient.",
+      "is_core": true,
+      "id": "recycle_safeTransfer"
+    },
+    {
+      "node_id": 28,
+      "type": "unsafe_operation",
+      "description": "Low-level delegatecall to an arbitrary implementation address inside ERC1967 upgrade logic.",
+      "is_core": true,
+      "id": "_functionDelegateCall"
+    },
+    {
+      "node_id": 29,
+      "type": "parameter",
+      "description": "New governance address argument of setGovernance.",
+      "is_core": false,
+      "id": "governance_"
+    },
+    {
+      "node_id": 30,
+      "type": "parameter",
+      "description": "Token address argument of create.",
+      "is_core": false,
+      "id": "create_token"
+    },
+    {
+      "node_id": 31,
+      "type": "parameter",
+      "description": "Deadline argument of create.",
+      "is_core": false,
+      "id": "create_deadline"
+    },
+    {
+      "node_id": 32,
+      "type": "parameter",
+      "description": "Amount argument of create.",
+      "is_core": false,
+      "id": "create_amount"
+    },
+    {
+      "node_id": 33,
+      "type": "parameter",
+      "description": "Merkle root argument of create.",
+      "is_core": false,
+      "id": "create_merkleRoot"
+    },
+    {
+      "node_id": 34,
+      "type": "parameter",
+      "description": "Count argument of create.",
+      "is_core": false,
+      "id": "create_count"
+    },
+    {
+      "node_id": 35,
+      "type": "parameter",
+      "description": "Locally returned airdrop id produced by create.",
+      "is_core": false,
+      "id": "create_id_out"
+    },
+    {
+      "node_id": 36,
+      "type": "parameter",
+      "description": "Index argument of claim used for bitmap bookkeeping.",
+      "is_core": false,
+      "id": "claim_index"
+    },
+    {
+      "node_id": 37,
+      "type": "parameter",
+      "description": "Account argument of claim receiving the tokens.",
+      "is_core": false,
+      "id": "claim_account"
+    },
+    {
+      "node_id": 38,
+      "type": "parameter",
+      "description": "Amount argument of claim transferred to the account.",
+      "is_core": false,
+      "id": "claim_amount"
+    },
+    {
+      "node_id": 39,
+      "type": "parameter",
+      "description": "Merkle proof array argument of claim.",
+      "is_core": false,
+      "id": "claim_merkleProof"
+    },
+    {
+      "node_id": 40,
+      "type": "parameter",
+      "description": "Airdrop id argument of claim.",
+      "is_core": false,
+      "id": "claim_id"
+    },
+    {
+      "node_id": 41,
+      "type": "parameter",
+      "description": "Recipient argument of recycle receiving refunded tokens.",
+      "is_core": false,
+      "id": "recycle_recipient"
+    },
+    {
+      "node_id": 42,
+      "type": "parameter",
+      "description": "Airdrop id argument of recycle.",
+      "is_core": false,
+      "id": "recycle_id"
+    },
+    {
+      "node_id": 43,
+      "type": "local_var",
+      "description": "Local variable holding the next airdrop id in create.",
+      "is_core": false,
+      "id": "create_id_local"
+    },
+    {
+      "node_id": 44,
+      "type": "local_var",
+      "description": "Storage pointer to the Airdrop struct used inside claim.",
+      "is_core": false,
+      "id": "claim_airdrop_local"
+    },
+    {
+      "node_id": 45,
+      "type": "local_var",
+      "description": "Computed merkle leaf hash inside claim.",
+      "is_core": false,
+      "id": "claim_node_local"
+    },
+    {
+      "node_id": 46,
+      "type": "local_var",
+      "description": "Local unclaimed amount computed inside recycle.",
+      "is_core": false,
+      "id": "recycle_amount_local"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "initialize assigns governance from _msgSender(), i.e. caller-controlled msg.sender.",
+      "from_id": 24
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "setGovernance is gated by the onlyOwner modifier which compares owner() to _msgSender().",
+      "from_id": 24
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "create is gated by onlyGovernance which compares _msgSender() to governance.",
+      "from_id": 24
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "recycle is gated by onlyGovernance which compares _msgSender() to governance.",
+      "from_id": 24
+    },
+    {
+      "to_id": 21,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "_authorizeUpgrade is empty but restricted by onlyOwner, relying on msg.sender ownership.",
+      "from_id": 24
+    },
+    {
+      "to_id": 20,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "_getTimestamp returns block.timestamp, an externally influenced value.",
+      "from_id": 25
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "create validates deadline against the current timestamp.",
+      "from_id": 20
+    },
+    {
+      "to_id": 17,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "_isExpired compares the airdrop deadline against the current timestamp.",
+      "from_id": 20
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "claim requires the airdrop to not be expired, gating on timestamp.",
+      "from_id": 17
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "recycle requires the airdrop to be expired, gating on timestamp.",
+      "from_id": 17
+    },
+    {
+      "to_id": 43,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "create reads _idTracker into the local id variable.",
+      "from_id": 6
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "create mutates _idTracker through the post-increment of the airdrop id.",
+      "from_id": 6
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The new id indexes the _airdrops mapping when the Airdrop struct is created.",
+      "from_id": 43
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The token argument is stored into the new Airdrop struct.",
+      "from_id": 30
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The amount argument is stored into the new Airdrop struct.",
+      "from_id": 32
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The merkleRoot argument is stored into the new Airdrop struct.",
+      "from_id": 33
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The deadline argument is stored into the new Airdrop struct.",
+      "from_id": 31
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The count argument is stored into the new Airdrop struct.",
+      "from_id": 34
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The token argument keys the _assignedBalances increment in create.",
+      "from_id": 30
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The amount argument increases the reserved balance for the token.",
+      "from_id": 32
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "create enforces available balance by calling _availableBalance.",
+      "from_id": 6
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_availableBalance subtracts _assignedBalances from the token balance.",
+      "from_id": 3
+    },
+    {
+      "to_id": 44,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "claim loads the Airdrop storage pointer for the given id.",
+      "from_id": 7
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The airdrop storage pointer inside claim resolves to the _airdrops mapping entry.",
+      "from_id": 44
+    },
+    {
+      "to_id": 16,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The claim id argument is validated through _isValid.",
+      "from_id": 40
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "The onlyValid modifier gates claim execution on id validity.",
+      "from_id": 16
+    },
+    {
+      "to_id": 26,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "reason": "claim performs an external token transfer via safeTransfer, yielding control to the token contract.",
+      "from_id": 7
+    },
+    {
+      "to_id": 26,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "reason": "The claim account argument is the recipient of the external token transfer.",
+      "from_id": 37
+    },
+    {
+      "to_id": 26,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The claim amount argument is the value of the external token transfer.",
+      "from_id": 38
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "After transferring, claim decrements the _assignedBalances entry for the token.",
+      "from_id": 26
+    },
+    {
+      "to_id": 18,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The claim index argument feeds the bitmap check in _isClaimed.",
+      "from_id": 36
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "claim reverts when _isClaimed reports the index was already claimed.",
+      "from_id": 18
+    },
+    {
+      "to_id": 45,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The merkle proof argument is used with the computed leaf hash.",
+      "from_id": 39
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The computed leaf hash is verified against the stored merkleRoot.",
+      "from_id": 45
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "claim reduces the assigned balance bookkeeping for the transferred token.",
+      "from_id": 7
+    },
+    {
+      "to_id": 46,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "recycle computes the unclaimed amount into a local variable.",
+      "from_id": 8
+    },
+    {
+      "to_id": 27,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The computed unclaimed amount is forwarded to the external token transfer.",
+      "from_id": 46
+    },
+    {
+      "to_id": 27,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "reason": "The recycle recipient argument receives the external token transfer.",
+      "from_id": 41
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "recycle decrements the _assignedBalances entry after transferring.",
+      "from_id": 27
+    },
+    {
+      "to_id": 16,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The recycle id argument is validated through _isValid.",
+      "from_id": 42
+    },
+    {
+      "to_id": 22,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "upgradeTo reaches _functionDelegateCall through _upgradeToAndCallSecure, executing arbitrary delegatecall.",
+      "from_id": 28
+    },
+    {
+      "to_id": 23,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "upgradeToAndCall delegates arbitrary calldata to the new implementation.",
+      "from_id": 28
+    },
+    {
+      "to_id": 21,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "upgradeTo invokes _authorizeUpgrade before changing the implementation.",
+      "from_id": 22
+    },
+    {
+      "to_id": 21,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "upgradeToAndCall invokes _authorizeUpgrade before changing the implementation.",
+      "from_id": 23
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The external availableBalance view wraps the internal _availableBalance helper.",
+      "from_id": 9
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "getUnclaimed delegates to _getUnclaimed for valid ids.",
+      "from_id": 10
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_getUnclaimed reads amount and claimedAmount from the _airdrops entry.",
+      "from_id": 15
+    },
+    {
+      "to_id": 17,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "isExpired delegates to the internal _isExpired helper.",
+      "from_id": 11
+    },
+    {
+      "to_id": 18,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "isClaimed delegates to the internal _isClaimed bitmap helper.",
+      "from_id": 12
+    },
+    {
+      "to_id": 19,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "isAllClaimed delegates to the internal _isAllClaimed helper.",
+      "from_id": 13
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_isClaimed reads the claimedBitMap word from the _airdrops entry.",
+      "from_id": 18
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_isAllClaimed reads claimedCount and count from the _airdrops entry.",
+      "from_id": 19
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_isValid compares the id against the _idTracker upper bound.",
+      "from_id": 16
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The _airdrops mapping supplies the values read by _getUnclaimed.",
+      "from_id": 2
+    },
+    {
+      "to_id": 17,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The _airdrops mapping supplies the deadline read by _isExpired.",
+      "from_id": 2
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "create returns the locally generated airdrop id.",
+      "from_id": 35
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "The ERC20 transfer gives the token contract control flow that can re-enter claim before bookkeeping settles.",
+      "from_id": 26
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "The ERC20 transfer gives the token contract control flow that can re-enter recycle before bookkeeping settles.",
+      "from_id": 27
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "setGovernance",
+      "normal_node": "governance_",
+      "reason": "The governance_ parameter only exists to assign the governance state variable inside setGovernance."
+    },
+    {
+      "merge_into": "create",
+      "normal_node": "create_token",
+      "reason": "The token parameter is consumed solely by create to populate the Airdrop struct and assigned balance."
+    },
+    {
+      "merge_into": "create",
+      "normal_node": "create_deadline",
+      "reason": "The deadline parameter is only used by create to timestamp a new airdrop."
+    },
+    {
+      "merge_into": "create",
+      "normal_node": "create_amount",
+      "reason": "The amount parameter is only used by create to size the new airdrop."
+    },
+    {
+      "merge_into": "create",
+      "normal_node": "create_merkleRoot",
+      "reason": "The merkleRoot parameter is only stored by create."
+    },
+    {
+      "merge_into": "create",
+      "normal_node": "create_count",
+      "reason": "The count parameter is only stored by create."
+    },
+    {
+      "merge_into": "create",
+      "normal_node": "create_id_out",
+      "reason": "The returned airdrop id is a create-local value."
+    },
+    {
+      "merge_into": "claim",
+      "normal_node": "claim_index",
+      "reason": "The index parameter is only meaningful inside claim bitmap bookkeeping."
+    },
+    {
+      "merge_into": "claim",
+      "normal_node": "claim_account",
+      "reason": "The account parameter is only used inside claim to route the transfer."
+    },
+    {
+      "merge_into": "claim_safeTransfer",
+      "normal_node": "claim_amount",
+      "reason": "The amount parameter directly feeds the external token transfer in claim."
+    },
+    {
+      "merge_into": "claim",
+      "normal_node": "claim_merkleProof",
+      "reason": "The merkleProof parameter is only used inside claim proof verification."
+    },
+    {
+      "merge_into": "claim",
+      "normal_node": "claim_id",
+      "reason": "The id parameter is only used inside claim validation and lookup."
+    },
+    {
+      "merge_into": "recycle_safeTransfer",
+      "normal_node": "recycle_recipient",
+      "reason": "The recipient parameter directly feeds the external token transfer in recycle."
+    },
+    {
+      "merge_into": "recycle",
+      "normal_node": "recycle_id",
+      "reason": "The id parameter is only used inside recycle validation and lookup."
+    },
+    {
+      "merge_into": "create",
+      "normal_node": "create_id_local",
+      "reason": "The local id variable is an intermediate assignment inside create."
+    },
+    {
+      "merge_into": "claim",
+      "normal_node": "claim_airdrop_local",
+      "reason": "The airdrop storage pointer is a claim-local reference into _airdrops."
+    },
+    {
+      "merge_into": "claim",
+      "normal_node": "claim_node_local",
+      "reason": "The node leaf hash is a claim-local computation."
+    },
+    {
+      "merge_into": "recycle",
+      "normal_node": "recycle_amount_local",
+      "reason": "The unclaimed amount local is an intermediate computation inside recycle."
+    }
+  ]
+}

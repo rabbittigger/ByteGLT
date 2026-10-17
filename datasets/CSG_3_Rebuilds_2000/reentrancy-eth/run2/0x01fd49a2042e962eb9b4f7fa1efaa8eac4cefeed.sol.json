@@ -1,0 +1,640 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Private owner address stored in Accessibility; set to msg.sender in constructor and used by onlyOwner.",
+      "id": "owner",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "description": "InvestorsStorage instance holding all investor investments and payment times; recreated on each new wave.",
+      "id": "m_investors",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "description": "RapidGrowthProtection struct tracking daily investment limits and activity window.",
+      "id": "m_rgp",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "description": "PrivateEntrance struct gating whitelisted investor max investment until endTimestamp.",
+      "id": "m_privEnter",
+      "is_core": true
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "description": "Mapping marking addresses that already consumed the one-time referral bonus.",
+      "id": "m_referrals",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "description": "Address receiving advertising commission sent during doInvest; settable only by owner.",
+      "id": "advertisingAddress",
+      "is_core": true
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "description": "Address receiving admin commission sent during doInvest; settable only by owner.",
+      "id": "adminsAddress",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "description": "Counter of investments, incremented in doInvest and reset in nextWave.",
+      "id": "investmentsNumber",
+      "is_core": true
+    },
+    {
+      "node_id": 8,
+      "type": "state_var",
+      "description": "Timestamp of the current wave startup, set in nextWave.",
+      "id": "waveStartup",
+      "is_core": true
+    },
+    {
+      "node_id": 9,
+      "type": "state_var",
+      "description": "Percent struct defining the advertising commission rate applied to received ether.",
+      "id": "m_advertisingPercent",
+      "is_core": true
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "description": "Payable fallback: routes zero-value calls to getMyDividends and value calls to doInvest with referrer decoded from msg.data.",
+      "id": "finplether_fallback",
+      "is_core": true
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "description": "Main deposit routine: applies growth/private limits, pays commissions, handles referrals, reinvests dividends and registers investor.",
+      "id": "doInvest",
+      "is_core": true
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "description": "Withdraws accrued dividends for msg.sender, updates payment time and transfers ETH; can trigger nextWave.",
+      "id": "getMyDividends",
+      "is_core": true
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "description": "Computes accrued dividends from investment, elapsed time and current daily percent.",
+      "id": "calcDividends",
+      "is_core": true
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "description": "Selects the daily percent tier based on the contract ETH balance.",
+      "id": "dailyPercent",
+      "is_core": true
+    },
+    {
+      "node_id": 15,
+      "type": "function",
+      "description": "Private routine replacing m_investors with a fresh InvestorsStorage, resetting counters and restarting growth protection.",
+      "id": "nextWave",
+      "is_core": true
+    },
+    {
+      "node_id": 16,
+      "type": "function",
+      "description": "Reads investor info from storage into an in-memory Investor struct.",
+      "id": "getMemInvestor",
+      "is_core": true
+    },
+    {
+      "node_id": 17,
+      "type": "function",
+      "description": "Owner-only initializer configuring rapid growth protection and private entrance parameters.",
+      "id": "init",
+      "is_core": true
+    },
+    {
+      "node_id": 18,
+      "type": "function",
+      "description": "Owner-only setter validating non-zero address before updating advertisingAddress.",
+      "id": "setAdvertisingAddress",
+      "is_core": true
+    },
+    {
+      "node_id": 19,
+      "type": "function",
+      "description": "Owner-only setter validating non-zero address before updating adminsAddress.",
+      "id": "setAdminsAddress",
+      "is_core": true
+    },
+    {
+      "node_id": 20,
+      "type": "function",
+      "description": "Constructor setting admin/advertising addresses and calling nextWave to bootstrap the first wave.",
+      "id": "finplether_constructor",
+      "is_core": true
+    },
+    {
+      "node_id": 21,
+      "type": "function",
+      "description": "Accessibility constructor assigning owner from msg.sender.",
+      "id": "accessibility_constructor",
+      "is_core": true
+    },
+    {
+      "node_id": 22,
+      "type": "function",
+      "description": "Modifier enforcing msg.sender == owner on privileged functions.",
+      "id": "onlyOwner",
+      "is_core": true
+    },
+    {
+      "node_id": 23,
+      "type": "untrusted_input",
+      "description": "Caller address; used for ownership checks, investor identity and ETH transfers.",
+      "id": "msg.sender",
+      "is_core": true
+    },
+    {
+      "node_id": 24,
+      "type": "untrusted_input",
+      "description": "Current block time (now); used for payment timing, dividend accrual and wave start.",
+      "id": "block.timestamp",
+      "is_core": true
+    },
+    {
+      "node_id": 25,
+      "type": "unsafe_operation",
+      "description": "msg.sender.transfer(dividends) inside getMyDividends; external ETH transfer made after state updates.",
+      "id": "call_transfer_dividends",
+      "is_core": true
+    },
+    {
+      "node_id": 26,
+      "type": "unsafe_operation",
+      "description": "advertisingAddress.send(percent amount) inside doInvest; raw send whose failure is ignored.",
+      "id": "call_send_advertising",
+      "is_core": true
+    },
+    {
+      "node_id": 27,
+      "type": "unsafe_operation",
+      "description": "adminsAddress.send(percent amount) inside doInvest; raw send whose failure is ignored.",
+      "id": "call_send_admins",
+      "is_core": true
+    },
+    {
+      "node_id": 28,
+      "type": "unsafe_operation",
+      "description": "msg.sender.transfer(excess) refunding overpayment inside doInvest.",
+      "id": "call_transfer_excess",
+      "is_core": true
+    },
+    {
+      "node_id": 29,
+      "type": "unsafe_operation",
+      "description": "Inline assembly mload in Address.toAddress decoding an address from attacker-controlled msg.data.",
+      "id": "assembly_toAddress",
+      "is_core": true
+    },
+    {
+      "node_id": 30,
+      "type": "parameter",
+      "description": "Referrer address argument of doInvest.",
+      "id": "param_referrerAddr",
+      "is_core": false
+    },
+    {
+      "node_id": 31,
+      "type": "local_var",
+      "description": "Working investment amount local variable in doInvest.",
+      "id": "local_investment",
+      "is_core": false
+    },
+    {
+      "node_id": 32,
+      "type": "local_var",
+      "description": "Computed dividends local variable in getMyDividends.",
+      "id": "local_dividends",
+      "is_core": false
+    },
+    {
+      "node_id": 33,
+      "type": "parameter",
+      "description": "Investor address argument of calcDividends.",
+      "id": "param_investorAddr",
+      "is_core": false
+    },
+    {
+      "node_id": 34,
+      "type": "local_var",
+      "description": "Contract ETH balance local variable in dailyPercent.",
+      "id": "local_balance",
+      "is_core": false
+    },
+    {
+      "node_id": 35,
+      "type": "local_var",
+      "description": "Overpayment excess amount local variable in doInvest.",
+      "id": "local_excess",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "reason": "onlyOwner modifier compares msg.sender against the stored owner state variable to gate privileged functions.",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 22,
+      "to_id": 0
+    },
+    {
+      "reason": "onlyOwner reads msg.sender as the caller identity for the access check.",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 22,
+      "to_id": 23
+    },
+    {
+      "reason": "Accessibility constructor initializes owner from msg.sender, establishing privileged control.",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 21,
+      "to_id": 0
+    },
+    {
+      "reason": "getMyDividends uses msg.sender both to look up investor state and as the ETH transfer recipient.",
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 23,
+      "to_id": 12
+    },
+    {
+      "reason": "msg.sender is the recipient of transfer(dividends), enabling callback into the contract.",
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 23,
+      "to_id": 25
+    },
+    {
+      "reason": "doInvest uses msg.sender for investor registration, referral checks and refunds.",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 23,
+      "to_id": 11
+    },
+    {
+      "reason": "getMyDividends enforces a 24 hour interval and stores payment time using block.timestamp.",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 24,
+      "to_id": 12
+    },
+    {
+      "reason": "calcDividends derives accrued dividends from block.timestamp minus payment time, a timestamp dependency.",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 24,
+      "to_id": 13
+    },
+    {
+      "reason": "doInvest records payment time and emits time-dependent values using now.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 24,
+      "to_id": 11
+    },
+    {
+      "reason": "nextWave records waveStartup and restarts growth protection using now.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 24,
+      "to_id": 15
+    },
+    {
+      "reason": "Computed dividends flow into an external ETH transfer to the caller before the function returns.",
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 12,
+      "to_id": 25
+    },
+    {
+      "reason": "getMyDividends obtains the dividend amount from calcDividends.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 12,
+      "to_id": 13
+    },
+    {
+      "reason": "getMyDividends triggers nextWave when the contract balance cannot cover the dividends.",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 12,
+      "to_id": 15
+    },
+    {
+      "reason": "Commission computed from received ether is forwarded to advertisingAddress via send.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 11,
+      "to_id": 26
+    },
+    {
+      "reason": "Commission computed from received ether is forwarded to adminsAddress via send.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 11,
+      "to_id": 27
+    },
+    {
+      "reason": "Excess ether is refunded to the caller with transfer, an external call during deposit processing.",
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 11,
+      "to_id": 28
+    },
+    {
+      "reason": "doInvest reads accrued dividends from calcDividends for automatic reinvestment.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 11,
+      "to_id": 13
+    },
+    {
+      "reason": "doInvest increments the investmentsNumber state counter.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 11,
+      "to_id": 7
+    },
+    {
+      "reason": "doInvest writes m_referrals to mark that the caller consumed the referral bonus.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 11,
+      "to_id": 4
+    },
+    {
+      "reason": "doInvest queries and updates investor records inside m_investors.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 11,
+      "to_id": 1
+    },
+    {
+      "reason": "doInvest reads and writes the rapid growth protection struct when it is active.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 11,
+      "to_id": 2
+    },
+    {
+      "reason": "doInvest consults private entrance limits when growth protection is inactive.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 11,
+      "to_id": 3
+    },
+    {
+      "reason": "calcDividends loads the investor record through getMemInvestor.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 13,
+      "to_id": 16
+    },
+    {
+      "reason": "calcDividends scales the investment by the current daily percent tier.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 13,
+      "to_id": 14
+    },
+    {
+      "reason": "getMemInvestor reads investment and payment time from the m_investors storage contract.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 16,
+      "to_id": 1
+    },
+    {
+      "reason": "nextWave deploys and assigns a fresh InvestorsStorage to m_investors.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 15,
+      "to_id": 1
+    },
+    {
+      "reason": "nextWave writes the waveStartup timestamp state variable.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 15,
+      "to_id": 8
+    },
+    {
+      "reason": "nextWave restarts the rapid growth protection window via startAt.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 15,
+      "to_id": 2
+    },
+    {
+      "reason": "init configures maximum daily investment and activity days in m_rgp.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 17,
+      "to_id": 2
+    },
+    {
+      "reason": "init configures the private entrance storages, max investment and end timestamp.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 17,
+      "to_id": 3
+    },
+    {
+      "reason": "Finplether constructor assigns the initial advertisingAddress from msg.sender.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 20,
+      "to_id": 5
+    },
+    {
+      "reason": "Finplether constructor assigns the initial adminsAddress from msg.sender.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 20,
+      "to_id": 6
+    },
+    {
+      "reason": "Finplether constructor invokes nextWave to bootstrap the initial wave.",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 20,
+      "to_id": 15
+    },
+    {
+      "reason": "setAdvertisingAddress writes the advertisingAddress state variable.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 18,
+      "to_id": 5
+    },
+    {
+      "reason": "setAdminsAddress writes the adminsAddress state variable.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 19,
+      "to_id": 6
+    },
+    {
+      "reason": "Fallback dispatches zero-value calls to getMyDividends.",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 10,
+      "to_id": 12
+    },
+    {
+      "reason": "Fallback dispatches value-bearing calls to doInvest.",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 10,
+      "to_id": 11
+    },
+    {
+      "reason": "Fallback decodes the referrer address from msg.data using inline assembly toAddress.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 10,
+      "to_id": 29
+    },
+    {
+      "reason": "The address decoded from msg.data is passed as referrerAddr into doInvest.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 29,
+      "to_id": 11
+    },
+    {
+      "reason": "External transfer to msg.sender can re-enter getMyDividends during withdrawal.",
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 25,
+      "to_id": 12
+    },
+    {
+      "reason": "send to advertisingAddress can execute fallback code of that address during doInvest.",
+      "type": "callback",
+      "vuln_type": "none",
+      "from_id": 26,
+      "to_id": 11
+    },
+    {
+      "reason": "send to adminsAddress can execute fallback code of that address during doInvest.",
+      "type": "callback",
+      "vuln_type": "none",
+      "from_id": 27,
+      "to_id": 11
+    },
+    {
+      "reason": "Refund transfer to msg.sender re-enters doInvest before deposits complete.",
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 28,
+      "to_id": 11
+    },
+    {
+      "reason": "dailyPercent selects the tier from percent state variables such as m_advertisingPercent.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 14,
+      "to_id": 9
+    },
+    {
+      "reason": "referrerAddr parameter feeds the referral logic of doInvest.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 30,
+      "to_id": 11
+    },
+    {
+      "reason": "investment local variable carries the deposit amount through doInvest.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 31,
+      "to_id": 11
+    },
+    {
+      "reason": "dividends local variable holds the payout amount in getMyDividends.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 32,
+      "to_id": 12
+    },
+    {
+      "reason": "investorAddr parameter drives the dividend lookup in calcDividends.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 33,
+      "to_id": 13
+    },
+    {
+      "reason": "balance local variable selects the percent tier in dailyPercent.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 34,
+      "to_id": 14
+    },
+    {
+      "reason": "excess local variable sets the refund amount for transfer in doInvest.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 35,
+      "to_id": 28
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param_referrerAddr",
+      "reason": "The referrerAddr parameter exists only to feed the referral logic of doInvest and has no independent semantic identity.",
+      "merge_into": "doInvest"
+    },
+    {
+      "normal_node": "local_investment",
+      "reason": "The investment local variable is a temporary accumulator entirely contained within doInvest.",
+      "merge_into": "doInvest"
+    },
+    {
+      "normal_node": "local_dividends",
+      "reason": "The dividends local variable is a temporary payout value computed and consumed inside getMyDividends.",
+      "merge_into": "getMyDividends"
+    },
+    {
+      "normal_node": "param_investorAddr",
+      "reason": "The investorAddr parameter is used solely by calcDividends to read the investor record.",
+      "merge_into": "calcDividends"
+    },
+    {
+      "normal_node": "local_balance",
+      "reason": "The balance local variable is a transient value used only to pick the percent tier in dailyPercent.",
+      "merge_into": "dailyPercent"
+    },
+    {
+      "normal_node": "local_excess",
+      "reason": "The excess local variable directly determines the refund amount passed to the external transfer.",
+      "merge_into": "call_transfer_excess"
+    }
+  ]
+}

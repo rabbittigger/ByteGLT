@@ -1,0 +1,285 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Public bool gating mint execution; set by setPaused, read by mint.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "paused"
+    },
+    {
+      "type": "state_var",
+      "description": "Public uint256 mint price used in the payment requirement of mint.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "cost"
+    },
+    {
+      "type": "state_var",
+      "description": "Public uint256 maximum supply, passed to RandomlyAssigned and reflected in totalSupply().",
+      "is_core": true,
+      "node_id": 2,
+      "id": "maxSupply"
+    },
+    {
+      "type": "state_var",
+      "description": "Public uint256 counter incremented inside the mint loop.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "currentSupply"
+    },
+    {
+      "type": "state_var",
+      "description": "Public string base URI returned by _baseURI() and consumed by tokenURI.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "baseURI"
+    },
+    {
+      "type": "state_var",
+      "description": "Public uint256 declared as per-transaction mint cap but never enforced in mint.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "maxMintAmount"
+    },
+    {
+      "type": "function",
+      "description": "External payable mint function; validates paused flag, amount and supply, charges cost for non-owners, and mints tokens in a loop.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "mint"
+    },
+    {
+      "type": "function",
+      "description": "View function returning the concatenated base URI, token id and .json extension.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "tokenURI"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner function that toggles the paused state variable.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "setPaused"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner function that updates the base URI string.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "setBaseURI"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner payable function that forwards 50% of the balance to a hardcoded address and the remainder to the owner via low-level calls.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "withdraw"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used as mint recipient, fee payer and ownership check subject.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "msg.sender"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Low-level .call{value: ...} transfers inside withdraw which forward ether to an arbitrary/hardcoded address before state finalization.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "low_level_call_withdraw"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Arithmetic expression cost * _mintAmount used in the mint payment requirement.",
+      "is_core": true,
+      "node_id": 13,
+      "id": "multiply_cost_mintamount"
+    },
+    {
+      "type": "parameter",
+      "description": "Caller-supplied number of tokens to mint; drives the mint loop and the cost multiplication.",
+      "is_core": false,
+      "node_id": 14,
+      "id": "param__mintAmount"
+    },
+    {
+      "type": "local_var",
+      "description": "Local variable holding the token id returned by nextToken() and passed to _safeMint.",
+      "is_core": false,
+      "node_id": 15,
+      "id": "local_id"
+    },
+    {
+      "type": "parameter",
+      "description": "Caller-supplied boolean written into the paused state variable.",
+      "is_core": false,
+      "node_id": 16,
+      "id": "param__state"
+    },
+    {
+      "type": "parameter",
+      "description": "Caller-supplied string written into the baseURI state variable.",
+      "is_core": false,
+      "node_id": 17,
+      "id": "param__newBaseURI"
+    },
+    {
+      "type": "parameter",
+      "description": "Caller-supplied token id used for the existence check and URI construction in tokenURI.",
+      "is_core": false,
+      "node_id": 18,
+      "id": "param_tokenId"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "access_control",
+      "to_id": 6,
+      "type": "controlflow",
+      "reason": "msg.sender decides whether the fee requirement applies inside mint and becomes the mint recipient.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 10,
+      "type": "controlflow",
+      "reason": "msg.sender is compared against owner() by the onlyOwner modifier restricting withdraw.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "The paused state variable gates the access to the mint function via require(!paused).",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "cost is an operand of the cost * _mintAmount multiplication.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "_mintAmount is an operand of the cost * _mintAmount multiplication.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "The multiplication result is consumed by the payment require inside mint.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "withdraw performs externally-visible low-level value calls that can re-enter before completion.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "callback",
+      "reason": "Value transfer in withdraw is triggered by the caller and can invoke the recipient, enabling reentrancy.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "_mintAmount bounds the mint loop counter.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "The local id returned by nextToken() is passed to _safeMint inside the mint loop.",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "currentSupply is incremented on each mint iteration.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "The _state parameter is written into the paused variable through the owner-only setPaused function.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "The _newBaseURI parameter is written into baseURI by the owner-only setBaseURI function.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "baseURI is read by tokenURI to build the metadata URI.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "The tokenId parameter is used for the existence check and URI concatenation in tokenURI.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "maxSupply (via totalSupply and RandomlyAssigned) caps how many tokens mint can create.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "maxSupply initializes the RandomlyAssigned base which shapes the minted supply withdrawn against.",
+      "from_id": 2
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "mint",
+      "reason": "_mintAmount is a parameter of mint; fold it into the mint function node.",
+      "normal_node": "param__mintAmount"
+    },
+    {
+      "merge_into": "mint",
+      "reason": "local_id only exists inside the mint loop and should be merged into the mint function node.",
+      "normal_node": "local_id"
+    },
+    {
+      "merge_into": "setPaused",
+      "reason": "_state is the parameter of setPaused and should be merged into that function node.",
+      "normal_node": "param__state"
+    },
+    {
+      "merge_into": "setBaseURI",
+      "reason": "_newBaseURI is the parameter of setBaseURI and should be merged into that function node.",
+      "normal_node": "param__newBaseURI"
+    },
+    {
+      "merge_into": "tokenURI",
+      "reason": "tokenId is the parameter of tokenURI and should be merged into that function node.",
+      "normal_node": "param_tokenId"
+    }
+  ]
+}

@@ -1,0 +1,153 @@
+{
+  "nodes": [
+    {
+      "id": "owner",
+      "description": "Address of the contract owner, initialized to msg.sender at deployment.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "secretNumberHash",
+      "description": "Stored keccak256 hash of the secret winning number used by guess().",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "withdraw",
+      "description": "Public withdraw function that checks msg.sender == owner and transfers the whole balance to owner.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "guess",
+      "description": "Public payable guess function that compares keccak256(number) with the secret hash and pays out the jackpot.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller-controlled address used for access control in withdraw() and as payout recipient in guess().",
+      "is_core": true,
+      "node_id": 4,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "owner_transfer_call",
+      "description": "External value transfer owner.transfer(this.balance) executed inside withdraw().",
+      "is_core": true,
+      "node_id": 5,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "msg_sender_transfer_call",
+      "description": "External value transfer msg.sender.transfer(this.balance + msg.value) executed inside guess() on a successful guess.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "number_param",
+      "description": "uint8 guess parameter hashed with keccak256 and compared against secretNumberHash.",
+      "is_core": false,
+      "node_id": 7,
+      "type": "parameter"
+    },
+    {
+      "id": "balance_plus_value_addition",
+      "description": "Arithmetic expression this.balance + msg.value used as the payout amount in guess().",
+      "is_core": true,
+      "node_id": 8,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The owner state variable is read in the require(msg.sender == owner) gate that controls whether withdraw() proceeds.",
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "type": "controlflow"
+    },
+    {
+      "reason": "msg.sender is the caller identity checked against owner, gating privileged withdrawal of the contract balance.",
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Execution of withdraw() leads directly to the external owner.transfer(this.balance) call.",
+      "to_id": 5,
+      "vuln_type": "reentrancy",
+      "from_id": 2,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The owner address determines the recipient of the full contract balance in the external transfer.",
+      "to_id": 5,
+      "vuln_type": "reentrancy",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "secretNumberHash is read and compared against keccak256(number) inside guess().",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender funds and receives from guess(); the caller and msg.value drive the jackpot condition and payout.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The number parameter controls the branch condition keccak256(number) == secretNumberHash in guess().",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "controlflow"
+    },
+    {
+      "reason": "A successful guess() execution reaches the external msg.sender.transfer(...) call before state is updated.",
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "msg.sender is the untrusted recipient of the jackpot transfer, enabling reentrancy/callback on payment.",
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "guess() computes this.balance + msg.value when building the payout amount.",
+      "to_id": 8,
+      "vuln_type": "arithmetic",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The computed sum this.balance + msg.value is passed as the value of the external msg.sender.transfer call.",
+      "to_id": 6,
+      "vuln_type": "arithmetic",
+      "from_id": 8,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The uint8 parameter number is only used inside guess() to derive the hash comparison, so it normalizes into the guess function node.",
+      "normal_node": "number_param",
+      "merge_into": "guess"
+    }
+  ]
+}

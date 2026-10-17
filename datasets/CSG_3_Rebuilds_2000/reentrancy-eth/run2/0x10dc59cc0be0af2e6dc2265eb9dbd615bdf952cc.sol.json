@@ -1,0 +1,111 @@
+{
+  "nodes": [
+    {
+      "id": "Migrations.owner",
+      "description": "Public address state variable storing the contract owner, initialized to msg.sender at deployment.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "Migrations.last_completed_migration",
+      "description": "Public uint state variable tracking the last completed migration index.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "Migrations.restricted",
+      "description": "Access-control modifier that requires msg.sender == owner before executing the modified function body.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "Migrations.setCompleted",
+      "description": "Public function guarded by the restricted modifier that updates the migration counter.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller-controlled address used for ownership initialization and access-control checks.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "Migrations.setCompleted.completed",
+      "description": "Caller-supplied uint parameter that becomes the new value of last_completed_migration.",
+      "is_core": false,
+      "node_id": 5,
+      "type": "parameter"
+    },
+    {
+      "id": "Migrations.setCompleted.state_write",
+      "description": "State-mutating assignment last_completed_migration = completed executed inside setCompleted.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "owner is initialized directly from msg.sender, so the deploying caller becomes the privileged owner.",
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "restricted modifier uses msg.sender in its authorization comparison against owner.",
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "restricted modifier reads the owner state variable as the trusted reference address.",
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The restricted modifier gates execution of setCompleted, enforcing owner-only access.",
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "from_id": 2,
+      "type": "controlflow"
+    },
+    {
+      "reason": "setCompleted executes the state-mutating assignment to last_completed_migration.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The completed parameter flows directly into the state write.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The assignment writes the caller-supplied value into the last_completed_migration state variable.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The completed parameter is only used as the input value for the setCompleted function's state write and should be normalized into the enclosing function node.",
+      "normal_node": "Migrations.setCompleted.completed",
+      "merge_into": "Migrations.setCompleted"
+    }
+  ]
+}

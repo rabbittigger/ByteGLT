@@ -1,0 +1,611 @@
+{
+  "nodes": [
+    {
+      "id": "balances",
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Public mapping(address=>uint256) tracking ETH balances per beneficiary; written in deposit/buy paths and decremented in withdraw paths.",
+      "is_core": true
+    },
+    {
+      "id": "tokenBalances",
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Public mapping(address=>mapping(address=>uint256)) [owner][token] tracking credited ERC20 balances per user.",
+      "is_core": true
+    },
+    {
+      "id": "sumWeightOfMultiToken",
+      "node_id": 2,
+      "type": "function",
+      "description": "View function looping over IMultiToken tokens and summing weights; makes external calls to changeableTokenCount/tokens/weights.",
+      "is_core": true
+    },
+    {
+      "id": "allBalances",
+      "node_id": 3,
+      "type": "function",
+      "description": "View function returning the caller-supplied account's tokenBalances for a list of tokens.",
+      "is_core": true
+    },
+    {
+      "id": "deposit",
+      "node_id": 4,
+      "type": "function",
+      "description": "Payable external deposit crediting ETH to balances[_beneficiary] and pulling ERC20 tokens via transferFrom from msg.sender.",
+      "is_core": true
+    },
+    {
+      "id": "withdrawInternal",
+      "node_id": 5,
+      "type": "function",
+      "description": "Internal withdrawal that sends ETH via _to.transfer and ERC20 tokens via token.transfer, then decrements balances/tokenBalances of msg.sender.",
+      "is_core": true
+    },
+    {
+      "id": "withdraw",
+      "node_id": 6,
+      "type": "function",
+      "description": "External wrapper delegating to withdrawInternal with caller-supplied recipient, value and token arrays.",
+      "is_core": true
+    },
+    {
+      "id": "withdrawAll",
+      "node_id": 7,
+      "type": "function",
+      "description": "External function that reads allBalances(msg.sender) and calls withdrawInternal to withdraw everything.",
+      "is_core": true
+    },
+    {
+      "id": "buyInternal",
+      "node_id": 8,
+      "type": "function",
+      "description": "Internal function that performs an arbitrary low-level call.value(_data) to _exchange, then decrements balances and credits tokenBalances.",
+      "is_core": true
+    },
+    {
+      "id": "mintInternal",
+      "node_id": 9,
+      "type": "function",
+      "description": "Internal function approving tokens to an IMultiToken, computing best mint amount and calling _mtkn.mint for msg.sender.",
+      "is_core": true
+    },
+    {
+      "id": "buy10",
+      "node_id": 10,
+      "type": "function",
+      "description": "Payable public batch function crediting msg.value and performing up to ten buyInternal calls with early returns.",
+      "is_core": true
+    },
+    {
+      "id": "buy10mint",
+      "node_id": 11,
+      "type": "function",
+      "description": "Payable public function calling buy10 then mintInternal on the multi-token.",
+      "is_core": true
+    },
+    {
+      "id": "buyOne",
+      "node_id": 12,
+      "type": "function",
+      "description": "Payable public single-buy entry point crediting msg.value then calling buyInternal.",
+      "is_core": true
+    },
+    {
+      "id": "msg.sender",
+      "node_id": 13,
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used to index balances/tokenBalances and as transferFrom source and mint recipient.",
+      "is_core": true
+    },
+    {
+      "id": "lowLevelCall_buyInternal",
+      "node_id": 14,
+      "type": "unsafe_operation",
+      "description": "_exchange.call.value(_value)(_data) low-level arbitrary external call in buyInternal with caller-controlled target and calldata.",
+      "is_core": true
+    },
+    {
+      "id": "ethTransfer_withdrawInternal",
+      "node_id": 15,
+      "type": "unsafe_operation",
+      "description": "_to.transfer(_value) ETH transfer to an arbitrary recipient executed before state balance updates in withdrawInternal.",
+      "is_core": true
+    },
+    {
+      "id": "safeMath_arithmetic",
+      "node_id": 16,
+      "type": "unsafe_operation",
+      "description": "Arithmetic on balances/tokenBalances via SafeMath add/sub and raw loop arithmetic; relies on assertions for overflow/underflow safety.",
+      "is_core": true
+    },
+    {
+      "id": "externalTokenCalls",
+      "node_id": 17,
+      "type": "unsafe_operation",
+      "description": "External calls to user-supplied ERC20 contracts (balanceOf, transfer, transferFrom, approve) and IMultiToken (mint, totalSupply, tokens, weights).",
+      "is_core": true
+    },
+    {
+      "id": "param_beneficiary",
+      "node_id": 18,
+      "type": "parameter",
+      "description": "deposit parameter _beneficiary: address credited in balances and tokenBalances.",
+      "is_core": false
+    },
+    {
+      "id": "param_tokens",
+      "node_id": 19,
+      "type": "parameter",
+      "description": "deposit/withdraw parameter _tokens: array of ERC20 token addresses supplied by caller.",
+      "is_core": false
+    },
+    {
+      "id": "param_tokenValues",
+      "node_id": 20,
+      "type": "parameter",
+      "description": "deposit parameter _tokenValues: array of token amounts credited to the beneficiary.",
+      "is_core": false
+    },
+    {
+      "id": "local_token",
+      "node_id": 21,
+      "type": "local_var",
+      "description": "Local ERC20 token handle created from _tokens[i] inside deposit/withdraw loops.",
+      "is_core": false
+    },
+    {
+      "id": "local_tokenValue",
+      "node_id": 22,
+      "type": "local_var",
+      "description": "Local token amount read from _tokenValues[i] inside deposit/withdraw loops.",
+      "is_core": false
+    },
+    {
+      "id": "local_balance",
+      "node_id": 23,
+      "type": "local_var",
+      "description": "Local snapshot of the contract's token balance before transferFrom in deposit, used in the post-transfer require.",
+      "is_core": false
+    },
+    {
+      "id": "param_account",
+      "node_id": 24,
+      "type": "parameter",
+      "description": "allBalances parameter _account: arbitrary address whose tokenBalances are read.",
+      "is_core": false
+    },
+    {
+      "id": "param_to",
+      "node_id": 25,
+      "type": "parameter",
+      "description": "withdraw/withdrawInternal parameter _to: arbitrary recipient of ETH and tokens.",
+      "is_core": false
+    },
+    {
+      "id": "param_value",
+      "node_id": 26,
+      "type": "parameter",
+      "description": "withdraw/withdrawInternal parameter _value: ETH amount subtracted from msg.sender balances.",
+      "is_core": false
+    },
+    {
+      "id": "local_tokenBalance",
+      "node_id": 27,
+      "type": "local_var",
+      "description": "Local snapshot of the contract token balance before token.transfer in withdrawInternal, used in the post-transfer require.",
+      "is_core": false
+    },
+    {
+      "id": "param_exchange",
+      "node_id": 28,
+      "type": "parameter",
+      "description": "buyInternal parameter _exchange: caller-controlled address targeted by the low-level value call.",
+      "is_core": false
+    },
+    {
+      "id": "param_data",
+      "node_id": 29,
+      "type": "parameter",
+      "description": "buyInternal parameter _data: arbitrary calldata forwarded to the low-level call.",
+      "is_core": false
+    },
+    {
+      "id": "param_mtkn",
+      "node_id": 30,
+      "type": "parameter",
+      "description": "mintInternal parameter _mtkn: caller-supplied IMultiToken contract that is approved and minted on.",
+      "is_core": false
+    },
+    {
+      "id": "param_notUsedValues",
+      "node_id": 31,
+      "type": "parameter",
+      "description": "mintInternal parameter _notUsedValues: array reused to store pre-mint balances for post-mint accounting.",
+      "is_core": false
+    },
+    {
+      "id": "param_data1",
+      "node_id": 32,
+      "type": "parameter",
+      "description": "buy10 parameter _data1: calldata forwarded to the first buyInternal call.",
+      "is_core": false
+    },
+    {
+      "id": "param_exchanges",
+      "node_id": 33,
+      "type": "parameter",
+      "description": "buy10 parameter _exchanges: array of exchange addresses used as low-level call targets.",
+      "is_core": false
+    },
+    {
+      "id": "param_values",
+      "node_id": 34,
+      "type": "parameter",
+      "description": "buy10 parameter _values: array of ETH values forwarded to buyInternal calls.",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 4,
+      "reason": "msg.sender is the payer whose tokens are pulled by deposit via transferFrom.",
+      "type": "dataflow",
+      "from_id": 13,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 5,
+      "reason": "withdrawInternal indexes and decrements balances and tokenBalances of msg.sender.",
+      "type": "dataflow",
+      "from_id": 13,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "withdrawAll reads allBalances(msg.sender, _tokens) to determine amounts to withdraw.",
+      "type": "dataflow",
+      "from_id": 13,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "buyInternal credits tokenBalances[msg.sender][token] after the external call.",
+      "type": "dataflow",
+      "from_id": 13,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "buy10 credits balances[msg.sender] with msg.value.",
+      "type": "dataflow",
+      "from_id": 13,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 9,
+      "reason": "mintInternal approves and mints multi-token for msg.sender and updates tokenBalances[msg.sender].",
+      "type": "dataflow",
+      "from_id": 13,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "msg.sender is used as the balance key when updating balances in withdraw/buy flows.",
+      "type": "dataflow",
+      "from_id": 13,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "deposit writes balances[_beneficiary] with the received msg.value.",
+      "type": "dataflow",
+      "from_id": 18,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 1,
+      "reason": "deposit credits tokenBalances[_beneficiary][token] with _tokenValues[i].",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 3,
+      "reason": "allBalances reads tokenBalances[_account][_tokens[i]] for the supplied account.",
+      "type": "dataflow",
+      "from_id": 24,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 1,
+      "reason": "allBalances returns values read from the tokenBalances state mapping.",
+      "type": "dataflow",
+      "from_id": 3,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "Caller-supplied _tokens addresses are cast to ERC20 and invoked externally.",
+      "type": "dataflow",
+      "from_id": 19,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "Local token handle derived from _tokens is used for external balanceOf/transfer/transferFrom calls.",
+      "type": "dataflow",
+      "from_id": 21,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "Caller-supplied _mtkn contract is invoked externally (totalSupply, tokens, approve, mint).",
+      "type": "dataflow",
+      "from_id": 30,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 15,
+      "reason": "Caller-controlled _to receives ETH through transfer before balances/tokenBalances are updated.",
+      "type": "dataflow",
+      "from_id": 25,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 16,
+      "reason": "_value is subtracted from balances[msg.sender] via SafeMath sub, underflow guarded only by assertions.",
+      "type": "dataflow",
+      "from_id": 26,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 14,
+      "reason": "Attacker-controlled _exchange is the target of the low-level call.value in buyInternal, allowing code execution before state updates.",
+      "type": "dataflow",
+      "from_id": 28,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 14,
+      "reason": "Arbitrary _data is forwarded as calldata to the low-level exchange call.",
+      "type": "dataflow",
+      "from_id": 29,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "Pre-transfer snapshot tokenBalance is subtracted inside a require to validate the transferred amount.",
+      "type": "dataflow",
+      "from_id": 27,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 16,
+      "reason": "Pre-transfer snapshot balance is added to tokenValue via SafeMath add in the deposit require.",
+      "type": "dataflow",
+      "from_id": 23,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 16,
+      "reason": "_notUsedValues[i] is subtracted by the post-mint token balance to derive spent amounts, risking underflow if balances change.",
+      "type": "dataflow",
+      "from_id": 31,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 8,
+      "reason": "Element of _exchanges is used as the _exchange target for each buyInternal call.",
+      "type": "dataflow",
+      "from_id": 33,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "Element of _values is used as the ETH _value forwarded to each buyInternal call.",
+      "type": "dataflow",
+      "from_id": 34,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "_data1 calldata flows into buy10 and then into the first buyInternal call.",
+      "type": "dataflow",
+      "from_id": 32,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 5,
+      "reason": "withdraw delegates execution to withdrawInternal.",
+      "type": "controlflow",
+      "from_id": 6,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 5,
+      "reason": "withdrawAll delegates execution to withdrawInternal after collecting balances.",
+      "type": "controlflow",
+      "from_id": 7,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "buy10mint first executes buy10.",
+      "type": "controlflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 9,
+      "reason": "buy10mint executes mintInternal after buying.",
+      "type": "controlflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "buy10 performs sequential buyInternal calls with early returns.",
+      "type": "controlflow",
+      "from_id": 10,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "buyOne delegates to buyInternal.",
+      "type": "controlflow",
+      "from_id": 12,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "sumWeightOfMultiToken calls external IMultiToken getters (changeableTokenCount, tokens, weights).",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "deposit increases balances[_beneficiary] by msg.value.",
+      "type": "dataflow",
+      "from_id": 4,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "withdrawInternal decreases balances[msg.sender] by _value.",
+      "type": "dataflow",
+      "from_id": 5,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 1,
+      "reason": "withdrawInternal decreases tokenBalances[msg.sender][token] for each withdrawn token.",
+      "type": "dataflow",
+      "from_id": 5,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 1,
+      "reason": "mintInternal decreases tokenBalances[msg.sender][token] for each approved token.",
+      "type": "dataflow",
+      "from_id": 9,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "The low-level exchange call executes external code before balances[msg.sender].sub(_value), enabling reentrant balance manipulation.",
+      "type": "callback",
+      "from_id": 14,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 1,
+      "reason": "During the external call in buyInternal the tokenBalances entry is still stale, allowing reentrant double-crediting.",
+      "type": "callback",
+      "from_id": 14,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 0,
+      "reason": "ETH transfer via _to.transfer executes before balances[msg.sender] is decremented, allowing reentrant withdrawal.",
+      "type": "callback",
+      "from_id": 15,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 1,
+      "reason": "Recipient code can re-enter before tokenBalances[msg.sender][token] is decremented in withdrawInternal.",
+      "type": "callback",
+      "from_id": 15,
+      "vuln_type": "reentrancy"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "deposit",
+      "reason": "_beneficiary is a deposit parameter used only to index the balances state var written by deposit.",
+      "normal_node": "param_beneficiary"
+    },
+    {
+      "merge_into": "deposit",
+      "reason": "_tokens only supplies ERC20 addresses consumed by the deposit loop.",
+      "normal_node": "param_tokens"
+    },
+    {
+      "merge_into": "deposit",
+      "reason": "_tokenValues only supplies credited amounts inside the deposit loop.",
+      "normal_node": "param_tokenValues"
+    },
+    {
+      "merge_into": "deposit",
+      "reason": "Local ERC20 token handle exists solely within deposit/withdraw token loops.",
+      "normal_node": "local_token"
+    },
+    {
+      "merge_into": "deposit",
+      "reason": "Local tokenValue is a loop-scoped copy of _tokenValues[i] in deposit.",
+      "normal_node": "local_tokenValue"
+    },
+    {
+      "merge_into": "deposit",
+      "reason": "Local balance snapshot is used only for the deposit post-transfer require.",
+      "normal_node": "local_balance"
+    },
+    {
+      "merge_into": "allBalances",
+      "reason": "_account is only used to read tokenBalances inside allBalances.",
+      "normal_node": "param_account"
+    },
+    {
+      "merge_into": "withdrawInternal",
+      "reason": "_to is the recipient of the ETH transfer unsafe operation in withdrawInternal.",
+      "normal_node": "param_to"
+    },
+    {
+      "merge_into": "withdrawInternal",
+      "reason": "_value feeds the SafeMath sub arithmetic on balances in withdrawInternal.",
+      "normal_node": "param_value"
+    },
+    {
+      "merge_into": "withdrawInternal",
+      "reason": "tokenBalance snapshot is used only for the withdrawInternal post-transfer require arithmetic.",
+      "normal_node": "local_tokenBalance"
+    },
+    {
+      "merge_into": "lowLevelCall_buyInternal",
+      "reason": "_exchange is the caller-controlled target of the low-level call.value unsafe operation.",
+      "normal_node": "param_exchange"
+    },
+    {
+      "merge_into": "lowLevelCall_buyInternal",
+      "reason": "_data is the arbitrary calldata forwarded to the low-level call unsafe operation.",
+      "normal_node": "param_data"
+    },
+    {
+      "merge_into": "mintInternal",
+      "reason": "_mtkn is the untrusted multi-token contract externally invoked by mintInternal.",
+      "normal_node": "param_mtkn"
+    },
+    {
+      "merge_into": "mintInternal",
+      "reason": "_notUsedValues is reused by mintInternal for pre-mint balance snapshots used in subtraction arithmetic.",
+      "normal_node": "param_notUsedValues"
+    },
+    {
+      "merge_into": "buy10",
+      "reason": "_data1 is forwarded by buy10 into the first buyInternal low-level call.",
+      "normal_node": "param_data1"
+    },
+    {
+      "merge_into": "buy10",
+      "reason": "_exchanges supplies the call targets for buy10's sequence of buyInternal calls.",
+      "normal_node": "param_exchanges"
+    },
+    {
+      "merge_into": "buy10",
+      "reason": "_values supplies the ETH amounts for buy10's sequence of buyInternal calls.",
+      "normal_node": "param_values"
+    }
+  ]
+}

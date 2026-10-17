@@ -1,0 +1,210 @@
+{
+  "nodes": [
+    {
+      "description": "Address of the contract creator, assigned in the constructor from msg.sender and used as the authorization check in kill().",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "creator"
+    },
+    {
+      "description": "Counter of deposit events, incremented inside deposit() and read by getNumberOfDeposits().",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "deposits"
+    },
+    {
+      "description": "Timestamp (now + 5 minutes) after which kill() becomes callable; read by getUnlockTime() and kill().",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 2,
+      "id": "unlockTime"
+    },
+    {
+      "description": "Constructor: sets creator = msg.sender, deposits = 0 and unlockTime = now + 5 minutes.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "PiggyBank"
+    },
+    {
+      "description": "Payable fallback function that forwards any received ether to deposit().",
+      "is_core": true,
+      "type": "function",
+      "node_id": 4,
+      "id": "fallback"
+    },
+    {
+      "description": "Payable function that increments deposits when msg.value > 0 and returns getNumberOfDeposits().",
+      "is_core": true,
+      "type": "function",
+      "node_id": 5,
+      "id": "deposit"
+    },
+    {
+      "description": "Constant getter returning the current value of deposits.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 6,
+      "id": "getNumberOfDeposits"
+    },
+    {
+      "description": "Constant getter returning the current value of unlockTime.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 7,
+      "id": "getUnlockTime"
+    },
+    {
+      "description": "Destroys the contract via selfdestruct(creator) if msg.sender == creator and now >= unlockTime.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 8,
+      "id": "kill"
+    },
+    {
+      "description": "Caller-controlled address used for creator assignment in the constructor and for the authorization check in kill().",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 9,
+      "id": "msg.sender"
+    },
+    {
+      "description": "Block timestamp (now) used to compute unlockTime in the constructor and to gate kill().",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 10,
+      "id": "block.timestamp"
+    },
+    {
+      "description": "selfdestruct(creator) inside kill(): destroys the contract and forwards the balance to creator.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 11,
+      "id": "selfdestruct"
+    },
+    {
+      "description": "Unchecked integer addition deposits = deposits + 1 in deposit(), susceptible to overflow.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 12,
+      "id": "deposits + 1"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor assigns the caller-controlled msg.sender to the creator state variable, defining the privileged account.",
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "The constructor writes the creator state variable.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "Timestamp value now + 5 minutes is stored into unlockTime, creating a timestamp dependency that controls kill().",
+      "from_id": 10,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "The payable fallback function forwards incoming ether to deposit(), so any plain value transfer enters the deposit logic.",
+      "from_id": 4,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 5
+    },
+    {
+      "reason": "deposit() executes the unchecked increment operation deposits = deposits + 1.",
+      "from_id": 5,
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "to_id": 12
+    },
+    {
+      "reason": "The current value of deposits is read as an operand of the unchecked addition.",
+      "from_id": 1,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "The result of the unchecked addition is written back into the deposits state variable.",
+      "from_id": 12,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "getNumberOfDeposits() reads the deposits state variable and returns it.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "deposit() returns the value produced by getNumberOfDeposits().",
+      "from_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "getUnlockTime() reads and returns the unlockTime state variable.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "kill() compares the caller-controlled msg.sender against creator as its authorization guard.",
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "kill() reads the creator state variable to perform the msg.sender == creator check.",
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "kill() uses the block timestamp (now >= unlockTime) as a time-based authorization condition.",
+      "from_id": 10,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "kill() reads the unlockTime state variable in its guarding condition.",
+      "from_id": 2,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "kill() executes the dangerous selfdestruct operation once its authorization condition holds.",
+      "from_id": 8,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 11
+    },
+    {
+      "reason": "selfdestruct forwards the contract balance to the creator address held in state.",
+      "from_id": 11,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 0
+    }
+  ],
+  "normalization_plan": []
+}

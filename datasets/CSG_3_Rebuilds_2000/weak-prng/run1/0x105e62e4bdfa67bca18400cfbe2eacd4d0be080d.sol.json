@@ -1,0 +1,782 @@
+{
+  "nodes": [
+    {
+      "description": "Address holding administrative privileges; can queue, cancel and execute timelocked transactions.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "admin"
+    },
+    {
+      "description": "Address proposed as the next admin; must call acceptAdmin to take over the role.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "pendingAdmin"
+    },
+    {
+      "description": "Secondary role allowed to queue transactions alongside admin.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 2,
+      "id": "operator"
+    },
+    {
+      "description": "Minimum timelock delay that queued transactions must satisfy.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 3,
+      "id": "delay"
+    },
+    {
+      "description": "Flag enabling a one-time bootstrap of pendingAdmin by admin.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 4,
+      "id": "admin_initialized"
+    },
+    {
+      "description": "Mapping from transaction hash to queued/executed boolean state.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 5,
+      "id": "queuedTransactions"
+    },
+    {
+      "description": "Constant 14 day window after eta during which a queued transaction may still execute.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 6,
+      "id": "GRACE_PERIOD"
+    },
+    {
+      "description": "Constant 24 hour lower bound enforced on delay.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 7,
+      "id": "MINIMUM_DELAY"
+    },
+    {
+      "description": "Constant 30 day upper bound enforced on delay.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 8,
+      "id": "MAXIMUM_DELAY"
+    },
+    {
+      "description": "Initializes admin, operator, delay and admin_initialized after validating delay bounds.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 9,
+      "id": "constructor"
+    },
+    {
+      "description": "Payable fallback that accepts plain ETH transfers.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 10,
+      "id": "receive"
+    },
+    {
+      "description": "Self-call only setter for the delay state variable.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 11,
+      "id": "setDelay"
+    },
+    {
+      "description": "Self-call only setter for the operator role.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 12,
+      "id": "setOperator"
+    },
+    {
+      "description": "Lets pendingAdmin become admin and clears pendingAdmin.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 13,
+      "id": "acceptAdmin"
+    },
+    {
+      "description": "Sets pendingAdmin; self-call after initialization, admin-only for the first call.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 14,
+      "id": "setPendingAdmin"
+    },
+    {
+      "description": "Admin/operator only entry that hashes a pending call and marks it queued after checking eta against delay.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 15,
+      "id": "queueTransaction"
+    },
+    {
+      "description": "Admin only entry that clears the queued flag of a transaction hash.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 16,
+      "id": "cancelTransaction"
+    },
+    {
+      "description": "Admin only entry that validates the timelock window and performs an arbitrary external call with value.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 17,
+      "id": "executeTransaction"
+    },
+    {
+      "description": "Internal view helper returning block.timestamp.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 18,
+      "id": "getBlockTimestamp"
+    },
+    {
+      "description": "Caller-controlled address used for every authorization check and for admin assignment.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 19,
+      "id": "msg.sender"
+    },
+    {
+      "description": "Miner-influenceable timestamp driving all timelock window checks.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 20,
+      "id": "block.timestamp"
+    },
+    {
+      "description": "Low-level target.call{value: value}(callData) forwarding arbitrary calldata and ETH to an admin-supplied address.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 21,
+      "id": "lowLevelCall_target"
+    },
+    {
+      "description": "Constructor parameter admin_ assigned to admin.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 22,
+      "id": "param_admin_"
+    },
+    {
+      "description": "Constructor parameter delay_ assigned to delay.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 23,
+      "id": "param_delay_ctor"
+    },
+    {
+      "description": "setDelay parameter delay_ written into delay.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 24,
+      "id": "param_delay_setDelay"
+    },
+    {
+      "description": "setOperator parameter operator_ written into operator.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 25,
+      "id": "param_operator_"
+    },
+    {
+      "description": "setPendingAdmin parameter pendingAdmin_ written into pendingAdmin.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 26,
+      "id": "param_pendingAdmin_"
+    },
+    {
+      "description": "queueTransaction parameter target used in the transaction hash.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 27,
+      "id": "param_queue_target"
+    },
+    {
+      "description": "queueTransaction parameter value used in the transaction hash.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 28,
+      "id": "param_queue_value"
+    },
+    {
+      "description": "queueTransaction parameter signature used in the transaction hash.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 29,
+      "id": "param_queue_signature"
+    },
+    {
+      "description": "queueTransaction parameter data used in the transaction hash.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 30,
+      "id": "param_queue_data"
+    },
+    {
+      "description": "queueTransaction parameter eta compared against block.timestamp plus delay.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 31,
+      "id": "param_queue_eta"
+    },
+    {
+      "description": "cancelTransaction parameter target used in the transaction hash.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 32,
+      "id": "param_cancel_target"
+    },
+    {
+      "description": "cancelTransaction parameter value used in the transaction hash.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 33,
+      "id": "param_cancel_value"
+    },
+    {
+      "description": "cancelTransaction parameter signature used in the transaction hash.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 34,
+      "id": "param_cancel_signature"
+    },
+    {
+      "description": "cancelTransaction parameter data used in the transaction hash.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 35,
+      "id": "param_cancel_data"
+    },
+    {
+      "description": "cancelTransaction parameter eta used in the transaction hash.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 36,
+      "id": "param_cancel_eta"
+    },
+    {
+      "description": "executeTransaction parameter target receiving the low-level call.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 37,
+      "id": "param_exec_target"
+    },
+    {
+      "description": "executeTransaction parameter value forwarded as ETH in the low-level call.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 38,
+      "id": "param_exec_value"
+    },
+    {
+      "description": "executeTransaction parameter signature turned into the callData selector.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 39,
+      "id": "param_exec_signature"
+    },
+    {
+      "description": "executeTransaction parameter data appended to the callData.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 40,
+      "id": "param_exec_data"
+    },
+    {
+      "description": "executeTransaction parameter eta bounding the execution window.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 41,
+      "id": "param_exec_eta"
+    },
+    {
+      "description": "queueTransaction local hash keying queuedTransactions.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 42,
+      "id": "local_txHash_queue"
+    },
+    {
+      "description": "cancelTransaction local hash keying queuedTransactions.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 43,
+      "id": "local_txHash_cancel"
+    },
+    {
+      "description": "executeTransaction local hash keying queuedTransactions.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 44,
+      "id": "local_txHash_execute"
+    },
+    {
+      "description": "executeTransaction local calldata passed to the low-level call.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 45,
+      "id": "local_callData"
+    },
+    {
+      "description": "executeTransaction local success flag returned by the low-level call.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 46,
+      "id": "local_success"
+    },
+    {
+      "description": "executeTransaction local return data returned by the low-level call.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 47,
+      "id": "local_returnData"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor parameter admin_ is written into the admin state variable.",
+      "from_id": 22,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "Constructor parameter delay_ initializes the delay state variable.",
+      "from_id": 23,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "Constructor validates delay_ against MINIMUM_DELAY.",
+      "from_id": 9,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 7
+    },
+    {
+      "reason": "Constructor validates delay_ against MAXIMUM_DELAY.",
+      "from_id": 9,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 8
+    },
+    {
+      "reason": "setDelay writes the delay_ parameter into delay.",
+      "from_id": 24,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "setDelay requires delay_ to be at least MINIMUM_DELAY.",
+      "from_id": 11,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 7
+    },
+    {
+      "reason": "setDelay requires delay_ to be at most MAXIMUM_DELAY.",
+      "from_id": 11,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 8
+    },
+    {
+      "reason": "setDelay authorization depends on msg.sender == address(this).",
+      "from_id": 19,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "setOperator authorization depends on msg.sender == address(this).",
+      "from_id": 19,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "setOperator writes the operator_ parameter into operator.",
+      "from_id": 25,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "acceptAdmin requires msg.sender == pendingAdmin.",
+      "from_id": 19,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 13
+    },
+    {
+      "reason": "acceptAdmin assigns the caller to the admin state variable.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "acceptAdmin copies the untrusted msg.sender into admin.",
+      "from_id": 19,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "acceptAdmin resets pendingAdmin to address(0).",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "setPendingAdmin authorization depends on msg.sender and admin_initialized.",
+      "from_id": 19,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 14
+    },
+    {
+      "reason": "First setPendingAdmin call flips admin_initialized to true.",
+      "from_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "setPendingAdmin writes pendingAdmin_ into pendingAdmin.",
+      "from_id": 26,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "queueTransaction requires msg.sender == admin or operator.",
+      "from_id": 19,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 15
+    },
+    {
+      "reason": "queueTransaction compares eta against block.timestamp obtained through getBlockTimestamp.",
+      "from_id": 18,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 15
+    },
+    {
+      "reason": "queueTransaction calls getBlockTimestamp to read the current time.",
+      "from_id": 15,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 18
+    },
+    {
+      "reason": "queueTransaction computes getBlockTimestamp().add(delay) with SafeMath addition.",
+      "from_id": 31,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "queueTransaction hashes target into the txHash local.",
+      "from_id": 27,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 42
+    },
+    {
+      "reason": "queueTransaction hashes eta into the txHash local.",
+      "from_id": 31,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 42
+    },
+    {
+      "reason": "queueTransaction sets queuedTransactions[txHash] = true.",
+      "from_id": 42,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "cancelTransaction requires msg.sender == admin.",
+      "from_id": 19,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 16
+    },
+    {
+      "reason": "cancelTransaction hashes target into the txHash local.",
+      "from_id": 32,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 43
+    },
+    {
+      "reason": "cancelTransaction hashes eta into the txHash local.",
+      "from_id": 36,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 43
+    },
+    {
+      "reason": "cancelTransaction sets queuedTransactions[txHash] = false.",
+      "from_id": 43,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "executeTransaction requires msg.sender == admin.",
+      "from_id": 19,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 17
+    },
+    {
+      "reason": "executeTransaction enforces the timelock and grace window using block.timestamp.",
+      "from_id": 18,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 17
+    },
+    {
+      "reason": "executeTransaction calls getBlockTimestamp three times for its time checks.",
+      "from_id": 17,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 18
+    },
+    {
+      "reason": "executeTransaction hashes target into the txHash local.",
+      "from_id": 37,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 44
+    },
+    {
+      "reason": "executeTransaction hashes eta into the txHash local.",
+      "from_id": 41,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 44
+    },
+    {
+      "reason": "executeTransaction reads and then clears queuedTransactions[txHash].",
+      "from_id": 44,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "executeTransaction computes eta.add(GRACE_PERIOD) with SafeMath addition.",
+      "from_id": 41,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "executeTransaction derives the 4-byte selector from signature and packs it into callData.",
+      "from_id": 39,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 45
+    },
+    {
+      "reason": "executeTransaction appends data into callData.",
+      "from_id": 40,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 45
+    },
+    {
+      "reason": "Admin-supplied target becomes the receiver of the external low-level call.",
+      "from_id": 37,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 21
+    },
+    {
+      "reason": "Admin-supplied value is forwarded as ETH in the low-level call.",
+      "from_id": 38,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 21
+    },
+    {
+      "reason": "callData is the payload passed to the low-level call.",
+      "from_id": 45,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 21
+    },
+    {
+      "reason": "executeTransaction triggers the arbitrary low-level call before returning.",
+      "from_id": 17,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 21
+    },
+    {
+      "reason": "The arbitrary external call can re-enter the Timelock contract.",
+      "from_id": 21,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 17
+    },
+    {
+      "reason": "The low-level call returns the success flag checked by require.",
+      "from_id": 21,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 46
+    },
+    {
+      "reason": "The low-level call returns returnData which is propagated to the caller.",
+      "from_id": 21,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 47
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Transient constructor argument whose only purpose is initializing admin.",
+      "normal_node": "param_admin_",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "Transient constructor argument whose only purpose is initializing delay.",
+      "normal_node": "param_delay_ctor",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "Transient setter argument absorbed by the setDelay body before writing delay.",
+      "normal_node": "param_delay_setDelay",
+      "merge_into": "setDelay"
+    },
+    {
+      "reason": "Transient setter argument absorbed by the setOperator body before writing operator.",
+      "normal_node": "param_operator_",
+      "merge_into": "setOperator"
+    },
+    {
+      "reason": "Transient setter argument absorbed by setPendingAdmin before writing pendingAdmin.",
+      "normal_node": "param_pendingAdmin_",
+      "merge_into": "setPendingAdmin"
+    },
+    {
+      "reason": "Transient input folded into the queueTransaction transaction hash computation.",
+      "normal_node": "param_queue_target",
+      "merge_into": "queueTransaction"
+    },
+    {
+      "reason": "Transient input folded into the queueTransaction transaction hash computation.",
+      "normal_node": "param_queue_value",
+      "merge_into": "queueTransaction"
+    },
+    {
+      "reason": "Transient input folded into the queueTransaction transaction hash computation.",
+      "normal_node": "param_queue_signature",
+      "merge_into": "queueTransaction"
+    },
+    {
+      "reason": "Transient input folded into the queueTransaction transaction hash computation.",
+      "normal_node": "param_queue_data",
+      "merge_into": "queueTransaction"
+    },
+    {
+      "reason": "Transient input consumed by the delay comparison inside queueTransaction.",
+      "normal_node": "param_queue_eta",
+      "merge_into": "queueTransaction"
+    },
+    {
+      "reason": "Transient input folded into the cancelTransaction transaction hash computation.",
+      "normal_node": "param_cancel_target",
+      "merge_into": "cancelTransaction"
+    },
+    {
+      "reason": "Transient input folded into the cancelTransaction transaction hash computation.",
+      "normal_node": "param_cancel_value",
+      "merge_into": "cancelTransaction"
+    },
+    {
+      "reason": "Transient input folded into the cancelTransaction transaction hash computation.",
+      "normal_node": "param_cancel_signature",
+      "merge_into": "cancelTransaction"
+    },
+    {
+      "reason": "Transient input folded into the cancelTransaction transaction hash computation.",
+      "normal_node": "param_cancel_data",
+      "merge_into": "cancelTransaction"
+    },
+    {
+      "reason": "Transient input folded into the cancelTransaction transaction hash computation.",
+      "normal_node": "param_cancel_eta",
+      "merge_into": "cancelTransaction"
+    },
+    {
+      "reason": "Transient input consumed by the queued-hash lookup and the external call target.",
+      "normal_node": "param_exec_target",
+      "merge_into": "executeTransaction"
+    },
+    {
+      "reason": "Transient input forwarded as ETH by executeTransaction.",
+      "normal_node": "param_exec_value",
+      "merge_into": "executeTransaction"
+    },
+    {
+      "reason": "Transient input converted into the callData selector inside executeTransaction.",
+      "normal_node": "param_exec_signature",
+      "merge_into": "executeTransaction"
+    },
+    {
+      "reason": "Transient input appended to callData inside executeTransaction.",
+      "normal_node": "param_exec_data",
+      "merge_into": "executeTransaction"
+    },
+    {
+      "reason": "Transient input consumed by the timelock and grace period checks.",
+      "normal_node": "param_exec_eta",
+      "merge_into": "executeTransaction"
+    },
+    {
+      "reason": "Ephemeral hash key produced and immediately stored by queueTransaction.",
+      "normal_node": "local_txHash_queue",
+      "merge_into": "queueTransaction"
+    },
+    {
+      "reason": "Ephemeral hash key produced and immediately used by cancelTransaction.",
+      "normal_node": "local_txHash_cancel",
+      "merge_into": "cancelTransaction"
+    },
+    {
+      "reason": "Ephemeral hash key produced and immediately used by executeTransaction.",
+      "normal_node": "local_txHash_execute",
+      "merge_into": "executeTransaction"
+    },
+    {
+      "reason": "Temporary payload built solely to feed the unsafe low-level call.",
+      "normal_node": "local_callData",
+      "merge_into": "lowLevelCall_target"
+    },
+    {
+      "reason": "Temporary result of the low-level call immediately checked by require.",
+      "normal_node": "local_success",
+      "merge_into": "lowLevelCall_target"
+    },
+    {
+      "reason": "Temporary return buffer of the low-level call propagated to the caller.",
+      "normal_node": "local_returnData",
+      "merge_into": "lowLevelCall_target"
+    }
+  ]
+}

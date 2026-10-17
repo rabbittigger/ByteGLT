@@ -1,0 +1,433 @@
+{
+  "nodes": [
+    {
+      "description": "Total shares held by all payees; used as divisor in release payment computation.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "_totalShares"
+    },
+    {
+      "description": "Total amount of Ether already released to payees.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "_totalReleased"
+    },
+    {
+      "description": "Mapping of payee address to shares; gates release and tokenRescue authorization.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 2,
+      "id": "_shares"
+    },
+    {
+      "description": "Mapping of payee address to Ether already released; subtracted from entitlement.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 3,
+      "id": "_released"
+    },
+    {
+      "description": "Array of payee addresses iterated by tokenRescue.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 4,
+      "id": "_payees"
+    },
+    {
+      "description": "Public function computing a payee entitlement and sending Ether via Address.sendValue.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 5,
+      "id": "release"
+    },
+    {
+      "description": "Public function allowing any shareholder to sweep ERC20 tokens proportional to shares in a loop.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 6,
+      "id": "tokenRescue"
+    },
+    {
+      "description": "Private helper performing token.safeTransfer to a recipient.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 7,
+      "id": "tokenTransfer"
+    },
+    {
+      "description": "Private function registering a payee, its shares and updating totals.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 8,
+      "id": "_addPayee"
+    },
+    {
+      "description": "Payable fallback logging received Ether with the sender address.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 9,
+      "id": "receive"
+    },
+    {
+      "description": "Payable constructor validating payee arrays and adding each payee.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 10,
+      "id": "constructor"
+    },
+    {
+      "description": "Public getter returning _shares[account]; used for authorization in tokenRescue.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 11,
+      "id": "shares"
+    },
+    {
+      "description": "Public getter returning _payees[index]; used as transfer recipient.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 12,
+      "id": "payee"
+    },
+    {
+      "description": "Caller-controlled address used for authorization in tokenRescue.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 13,
+      "id": "msg.sender"
+    },
+    {
+      "description": "Low-level call forwarding all gas to the payee, enabling reentrancy.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 14,
+      "id": "Address.sendValue"
+    },
+    {
+      "description": "External ERC20 transfer executed inside the tokenRescue loop.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 15,
+      "id": "token.safeTransfer"
+    },
+    {
+      "description": "Public getter returning _totalShares; used as divisor in tokenRescue.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 16,
+      "id": "totalShares"
+    },
+    {
+      "description": "Payee address argument of release.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 17,
+      "id": "param_account_release"
+    },
+    {
+      "description": "ERC20 token contract argument of tokenRescue.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 18,
+      "id": "param_token_tokenRescue"
+    },
+    {
+      "description": "Recipient address argument of tokenTransfer.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 19,
+      "id": "param_recipient_tokenTransfer"
+    },
+    {
+      "description": "Amount argument of tokenTransfer.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 20,
+      "id": "param_amount_tokenTransfer"
+    },
+    {
+      "description": "Computed payment entitlement in release.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 21,
+      "id": "local_payment_release"
+    },
+    {
+      "description": "Contract balance plus _totalReleased in release.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 22,
+      "id": "local_totalReceived_release"
+    },
+    {
+      "description": "Token balance of the contract read in tokenRescue.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 23,
+      "id": "local_amount_tokenRescue"
+    },
+    {
+      "description": "Loop index iterating over _payees in tokenRescue.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 24,
+      "id": "local_i_tokenRescue"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "release forwards Ether to the payee through Address.sendValue low-level call, transferring control to an external address.",
+      "from_id": 5,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 14
+    },
+    {
+      "reason": "tokenTransfer performs an external ERC20 transfer that can re-enter the contract.",
+      "from_id": 7,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 15
+    },
+    {
+      "reason": "tokenRescue reads the token balance once and then executes external transfers in a loop, allowing a malicious token to re-enter tokenRescue.",
+      "from_id": 6,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 15
+    },
+    {
+      "reason": "tokenRescue invokes the private tokenTransfer helper for each payee.",
+      "from_id": 6,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 7
+    },
+    {
+      "reason": "tokenRescue calls the shares getter for authorization and share computation.",
+      "from_id": 6,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 11
+    },
+    {
+      "reason": "tokenRescue calls the payee getter to obtain transfer recipients.",
+      "from_id": 6,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 12
+    },
+    {
+      "reason": "tokenRescue calls totalShares to scale each payee amount.",
+      "from_id": 6,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 16
+    },
+    {
+      "reason": "tokenRescue reads _shares through shares() for the caller check and proportionality.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "tokenRescue iterates over the _payees array.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "tokenRescue authorization depends on untrusted msg.sender having a non-zero share balance.",
+      "from_id": 13,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "receive emits an event carrying the untrusted _msgSender() address.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 9
+    },
+    {
+      "reason": "release requires and reads _shares[account] to determine the entitlement.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "release reads and updates _released[account] before the external call.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "release reads and updates the _totalReleased accumulator.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "release divides by _totalShares when computing the payee payment.",
+      "from_id": 0,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "payment is computed by multiplying the total received by _shares[account].",
+      "from_id": 2,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 21
+    },
+    {
+      "reason": "payment subtracts _released[account]; underflow would revert without a prior check.",
+      "from_id": 3,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 21
+    },
+    {
+      "reason": "totalReceived is used to derive the payment value.",
+      "from_id": 22,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 21
+    },
+    {
+      "reason": "the payment amount is passed to the external Ether transfer.",
+      "from_id": 21,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 14
+    },
+    {
+      "reason": "the account parameter selects the payee whose shares and releases are read.",
+      "from_id": 17,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "_addPayee increases _totalShares by the new payee shares.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "_addPayee writes the new share balance into _shares.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "_addPayee pushes the new payee address into _payees.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "the constructor loops over the provided arrays and calls _addPayee.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 8
+    },
+    {
+      "reason": "the token parameter determines which ERC20 contract is queried and drained.",
+      "from_id": 18,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "the token parameter is the target of the external safeTransfer call.",
+      "from_id": 18,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 15
+    },
+    {
+      "reason": "the recipient parameter is forwarded to the token transfer.",
+      "from_id": 19,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "the amount parameter is forwarded to the external token transfer.",
+      "from_id": 20,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 15
+    },
+    {
+      "reason": "the token balance amount scales the proportional transfer value.",
+      "from_id": 23,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "the loop index drives iteration over the payee list.",
+      "from_id": 24,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "account is only used inside release to index _shares and _released and to receive Ether.",
+      "normal_node": "param_account_release",
+      "merge_into": "release"
+    },
+    {
+      "reason": "token is only used inside tokenRescue for balanceOf and subsequent transfers.",
+      "normal_node": "param_token_tokenRescue",
+      "merge_into": "tokenRescue"
+    },
+    {
+      "reason": "recipient is only meaningful as an argument of the tokenTransfer external transfer.",
+      "normal_node": "param_recipient_tokenTransfer",
+      "merge_into": "tokenTransfer"
+    },
+    {
+      "reason": "amount is only consumed by the tokenTransfer external call.",
+      "normal_node": "param_amount_tokenTransfer",
+      "merge_into": "tokenTransfer"
+    },
+    {
+      "reason": "payment is the value handed to the external Ether transfer in release.",
+      "normal_node": "local_payment_release",
+      "merge_into": "Address.sendValue"
+    },
+    {
+      "reason": "totalReceived exists only to compute the payment inside release.",
+      "normal_node": "local_totalReceived_release",
+      "merge_into": "release"
+    },
+    {
+      "reason": "amount is the cached token balance read by tokenRescue before the transfer loop.",
+      "normal_node": "local_amount_tokenRescue",
+      "merge_into": "tokenRescue"
+    },
+    {
+      "reason": "i is the loop counter used only within tokenRescue.",
+      "normal_node": "local_i_tokenRescue",
+      "merge_into": "tokenRescue"
+    }
+  ]
+}

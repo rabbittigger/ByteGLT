@@ -1,0 +1,212 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "state_var.salt",
+      "is_core": true,
+      "description": "ISalt public state variable holding the external ISalt interface instance used by tokenURI"
+    },
+    {
+      "node_id": 1,
+      "type": "function",
+      "id": "function.constructor",
+      "is_core": true,
+      "description": "Constructor(address a) that casts the supplied address to ISalt and writes it into state variable salt"
+    },
+    {
+      "node_id": 2,
+      "type": "function",
+      "id": "function.tokenURI",
+      "is_core": true,
+      "description": "Public view tokenURI(uint256) that branches on salt.startDate() and computes a shifted token id using block.timestamp"
+    },
+    {
+      "node_id": 3,
+      "type": "untrusted_input",
+      "id": "untrusted_input.block.timestamp",
+      "is_core": true,
+      "description": "block.timestamp, miner/validator influenced value used directly in the day calculation"
+    },
+    {
+      "node_id": 4,
+      "type": "unsafe_operation",
+      "id": "unsafe_op.timestamp_arithmetic",
+      "is_core": true,
+      "description": "Unchecked arithmetic ((block.timestamp - salt.startDate()) % 180 days) / 1 days; underflows if startDate() > block.timestamp and is timestamp dependent"
+    },
+    {
+      "node_id": 5,
+      "type": "unsafe_operation",
+      "id": "unsafe_op.tokenid_arithmetic",
+      "is_core": true,
+      "description": "Unchecked arithmetic (tokenId + daysPassed) % 180; addition can overflow uint256 and wraps silently in Solidity 0.6.8"
+    },
+    {
+      "node_id": 6,
+      "type": "unsafe_operation",
+      "id": "unsafe_op.external_interface_call",
+      "is_core": true,
+      "description": "External calls to the interface target salt (startDate() and rawURI()), executed before the return value is produced"
+    },
+    {
+      "node_id": 7,
+      "type": "parameter",
+      "id": "param.a",
+      "is_core": false,
+      "description": "Address parameter a of the constructor, converted to ISalt"
+    },
+    {
+      "node_id": 8,
+      "type": "parameter",
+      "id": "param.tokenId",
+      "is_core": false,
+      "description": "uint256 tokenId parameter of tokenURI, feeds the unchecked addition"
+    },
+    {
+      "node_id": 9,
+      "type": "local_var",
+      "id": "local.daysPassed",
+      "is_core": false,
+      "description": "Local uint256 daysPassed derived from timestamp arithmetic and added to tokenId"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor parameter a is bound to the constructor execution scope",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 7,
+      "to_id": 1
+    },
+    {
+      "reason": "Constructor parameter a is cast to ISalt and stored into state variable salt",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 0
+    },
+    {
+      "reason": "Constructor writes the salt state variable",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 0
+    },
+    {
+      "reason": "tokenURI reads the salt state variable to invoke startDate() and rawURI()",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 2
+    },
+    {
+      "reason": "block.timestamp is subtracted from salt.startDate() in unchecked integer arithmetic",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 4
+    },
+    {
+      "reason": "tokenURI output depends on the miner-influenceable block.timestamp",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 2
+    },
+    {
+      "reason": "daysPassed is assigned the result of the unchecked timestamp arithmetic",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 9
+    },
+    {
+      "reason": "daysPassed is added to tokenId without overflow checking",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 5
+    },
+    {
+      "reason": "tokenId takes part in the unchecked addition with daysPassed",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 5
+    },
+    {
+      "reason": "daysPassed is used to derive the token id passed to salt.rawURI",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 6
+    },
+    {
+      "reason": "tokenId is passed as argument to salt.rawURI",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 6
+    },
+    {
+      "reason": "tokenURI invokes the external salt interface functions startDate() and rawURI()",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 2,
+      "to_id": 6
+    },
+    {
+      "reason": "Control returns from the external ISalt call back into tokenURI; salt address is fixed at construction so no state-changing reentrancy is possible in a view function",
+      "vuln_type": "none",
+      "type": "callback",
+      "from_id": 6,
+      "to_id": 2
+    },
+    {
+      "reason": "The timestamp arithmetic statement is executed inside tokenURI",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 2,
+      "to_id": 4
+    },
+    {
+      "reason": "The tokenId addition statement is executed inside tokenURI",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 2,
+      "to_id": 5
+    },
+    {
+      "reason": "tokenId is the input parameter of tokenURI",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 2,
+      "to_id": 8
+    },
+    {
+      "reason": "daysPassed local variable is declared and used inside tokenURI",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 2,
+      "to_id": 9
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Constructor parameter a is only used to cast and initialize the salt state variable, so it can be folded into the constructor function node",
+      "merge_into": "function.constructor",
+      "normal_node": "param.a"
+    },
+    {
+      "reason": "tokenURI parameter tokenId only flows into the unchecked (tokenId + daysPassed) arithmetic, so it can be merged into the arithmetic unsafe operation",
+      "merge_into": "unsafe_op.tokenid_arithmetic",
+      "normal_node": "param.tokenId"
+    },
+    {
+      "reason": "daysPassed is a temporary local computed directly from the unchecked timestamp arithmetic and can be absorbed into that unsafe operation",
+      "merge_into": "unsafe_op.timestamp_arithmetic",
+      "normal_node": "local.daysPassed"
+    }
+  ]
+}

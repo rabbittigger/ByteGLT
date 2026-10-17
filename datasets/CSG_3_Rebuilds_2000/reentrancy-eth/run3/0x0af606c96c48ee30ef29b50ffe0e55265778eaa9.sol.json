@@ -1,0 +1,114 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Public state variable holding the WhaleSharkContract interface instance at 0xA87121eDa32661C0c178f06F8b44F12f80ae4E88; external contract reference used for balance lookups.",
+      "id": "CollabMux.whaleSharkContract",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Public state variable holding the StakingContract interface instance at 0x5a20c57a7e76e967ED284b8894b26bEd8ef7e785; external contract reference used for staked-token queries.",
+      "id": "CollabMux.stakingContract",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Public view function balanceOf(address owner) that queries the external whale shark and staking contracts and returns the combined count of held and staked tokens.",
+      "id": "CollabMux.balanceOf",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": false,
+      "description": "Address parameter supplied by the caller and forwarded to both external contract calls.",
+      "id": "CollabMux.balanceOf.owner",
+      "type": "parameter",
+      "node_id": 3
+    },
+    {
+      "is_core": false,
+      "description": "Local variable receiving the return value of whaleSharkContract.balanceOf(owner).",
+      "id": "CollabMux.balanceOf.numHoldingSharks",
+      "type": "local_var",
+      "node_id": 4
+    },
+    {
+      "is_core": false,
+      "description": "Local variable receiving the length of the StakingInfo array returned by stakingContract.getTokensStaked(owner).",
+      "id": "CollabMux.balanceOf.numStaked",
+      "type": "local_var",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "uint256 addition of numHoldingSharks and numStaked produced with Solidity 0.8.10 checked arithmetic before being returned by balanceOf.",
+      "id": "CollabMux.balanceOf.addBalances",
+      "type": "unsafe_operation",
+      "node_id": 6
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "The state variable whaleSharkContract is read inside balanceOf to perform the external balanceOf call and its result is required to compute the function return value.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "The state variable stakingContract is read inside balanceOf to perform the external getTokensStaked call and its result is required to compute the function return value.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "The caller-supplied owner parameter flows directly into both external calls made by balanceOf, influencing the returned balance.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "arithmetic",
+      "reason": "Local variable numHoldingSharks is an operand of the uint256 addition, so its value propagates into the arithmetic result.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "arithmetic",
+      "reason": "Local variable numStaked is an operand of the uint256 addition, so its value propagates into the arithmetic result.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "The addition result produced by the unsafe_operation node is returned as the output of balanceOf.",
+      "type": "dataflow",
+      "from_id": 6
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "CollabMux.balanceOf",
+      "reason": "The owner parameter is only a temporary input binding of balanceOf; it can be collapsed into the enclosing core function node.",
+      "normal_node": "CollabMux.balanceOf.owner"
+    },
+    {
+      "merge_into": "CollabMux.balanceOf.addBalances",
+      "reason": "numHoldingSharks is a short-lived local that exists only to feed the uint256 addition, so it merges into that core unsafe_operation node.",
+      "normal_node": "CollabMux.balanceOf.numHoldingSharks"
+    },
+    {
+      "merge_into": "CollabMux.balanceOf.addBalances",
+      "reason": "numStaked is a short-lived local whose only purpose is to be added, so it merges into that core unsafe_operation node.",
+      "normal_node": "CollabMux.balanceOf.numStaked"
+    }
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "nodes": [
+    {
+      "description": "External pure function compute(uint256 x) that evaluates a high-degree polynomial (Pedersen hash Y column point precomputation) using inline assembly and returns result % PRIME.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 0,
+      "id": "PedersenHashPointsYColumn.compute"
+    },
+    {
+      "description": "Input parameter x, the evaluation point of the polynomial; multiplied repeatedly inside the assembly Horner loop.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 1,
+      "id": "compute.x"
+    },
+    {
+      "description": "Local constant PRIME = 0x800000000000011000000000000000000000000000000000000000000000001 used as the modulus for every mulmod operation and for the final reduction.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 2,
+      "id": "compute.PRIME"
+    },
+    {
+      "description": "Inline assembly Horner evaluation performing chained add(mulmod(..., x, PRIME)) over dozens of hardcoded coefficients; arithmetic is unchecked and non-reverting inside assembly.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 3,
+      "id": "compute.assembly_mulmod"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The function body unconditionally transfers control into the inline assembly block that computes the polynomial via Horner's method.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 3
+    },
+    {
+      "reason": "Parameter x flows directly into every mulmod(accumulator, x, PRIME) step of the assembly evaluation, so its value drives all unchecked modular multiplications.",
+      "from_id": 1,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "The local PRIME constant is the modulus argument of every mulmod in the assembly and the divisor of the final result % PRIME reduction.",
+      "from_id": 2,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "Parameter x is consumed by the function compute and returned as the reduced polynomial value.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "PRIME is used outside the assembly for the final modulo reduction of result, affecting the returned value.",
+      "from_id": 2,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 0
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Parameter x is only meaningful as the argument of the compute function and should be folded into that core function node.",
+      "normal_node": "compute.x",
+      "merge_into": "PedersenHashPointsYColumn.compute"
+    },
+    {
+      "reason": "Local constant PRIME exists solely to serve as the modulus of the assembly mulmod unsafe operation and is merged into it.",
+      "normal_node": "compute.PRIME",
+      "merge_into": "compute.assembly_mulmod"
+    }
+  ]
+}

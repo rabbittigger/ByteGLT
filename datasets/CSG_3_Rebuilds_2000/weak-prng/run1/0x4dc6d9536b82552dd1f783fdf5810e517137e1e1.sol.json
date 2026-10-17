@@ -1,0 +1,860 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "function",
+      "id": "mintCharacter",
+      "is_core": true,
+      "description": "Public payable mint function for characters; presale and sale paths, writes charactersMinted and _characterMinted then transfers msg.value to owner."
+    },
+    {
+      "node_id": 1,
+      "type": "function",
+      "id": "mintRocketParts",
+      "is_core": true,
+      "description": "Public payable function minting up to 10 random rocket parts per transaction and paying 20% of msg.value to owner."
+    },
+    {
+      "node_id": 2,
+      "type": "function",
+      "id": "migration",
+      "is_core": true,
+      "description": "onlyOwner function that records block.timestamp or, after pPeriod, ends the game and drains the contract balance to the owner."
+    },
+    {
+      "node_id": 3,
+      "type": "function",
+      "id": "claimEachRocketPartWin",
+      "is_core": true,
+      "description": "Burns a full rocket set held by the caller and transfers half of the contract balance to msg.sender."
+    },
+    {
+      "node_id": 4,
+      "type": "function",
+      "id": "claimFullSetOfColors",
+      "is_core": true,
+      "description": "Burns a color-complete part set, computes a win percentage per part type and triggers the payout path; Fuel set ends the game."
+    },
+    {
+      "node_id": 5,
+      "type": "function",
+      "id": "validateColorsAndBurn",
+      "is_core": true,
+      "description": "Private helper validating four colored parts and the character, burning them, then transferring a percentage of the balance to msg.sender."
+    },
+    {
+      "node_id": 6,
+      "type": "function",
+      "id": "validatePartType",
+      "is_core": true,
+      "description": "Private view helper asserting token existence, caller ownership, matching part type and optional color."
+    },
+    {
+      "node_id": 7,
+      "type": "function",
+      "id": "mintRandomRocketPart",
+      "is_core": true,
+      "description": "Private function deriving a pseudo-random number from blockhash, coinbase and difficulty to pick and mint a rocket part from remaining supply."
+    },
+    {
+      "node_id": 8,
+      "type": "function",
+      "id": "updateSale",
+      "is_core": true,
+      "description": "onlyOwner setter toggling the public sale flag."
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "id": "updatePresale",
+      "is_core": true,
+      "description": "onlyOwner setter toggling the presale flag."
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "id": "tokenURI",
+      "is_core": true,
+      "description": "View function that unpacks token metadata and builds a base64 encoded data URI including the image URL."
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "id": "pack",
+      "is_core": true,
+      "description": "Private pure helper packing color and part type into a uint16."
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "id": "unpack",
+      "is_core": true,
+      "description": "Private pure helper splitting a uint16 metadata value into color and part type."
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "id": "addRocketPartSupply",
+      "is_core": true,
+      "description": "Private function registering a rocket part type and its initial supply."
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "id": "tokenAttributes",
+      "is_core": true,
+      "description": "Internal view function building the JSON attributes string from token type and color names."
+    },
+    {
+      "node_id": 15,
+      "type": "state_var",
+      "id": "hasGameEnded",
+      "is_core": true,
+      "description": "Boolean flag marking the game as ended; guards state-changing functions and is set in migration and claimFullSetOfColors."
+    },
+    {
+      "node_id": 16,
+      "type": "state_var",
+      "id": "hasSaleStarted",
+      "is_core": true,
+      "description": "Boolean flag for the public sale, set only by updateSale."
+    },
+    {
+      "node_id": 17,
+      "type": "state_var",
+      "id": "hasPresaleStarted",
+      "is_core": true,
+      "description": "Boolean flag for the presale, set only by updatePresale."
+    },
+    {
+      "node_id": 18,
+      "type": "state_var",
+      "id": "charactersMinted",
+      "is_core": true,
+      "description": "Counter of minted characters used for supply limits and token id derivation."
+    },
+    {
+      "node_id": 19,
+      "type": "state_var",
+      "id": "rocketPartsMinted",
+      "is_core": true,
+      "description": "Counter of minted rocket parts used for supply limits, randomness seed and token id derivation."
+    },
+    {
+      "node_id": 20,
+      "type": "state_var",
+      "id": "tTimestamp",
+      "is_core": true,
+      "description": "Timestamp recorded at migration start, compared against block.timestamp plus pPeriod."
+    },
+    {
+      "node_id": 21,
+      "type": "state_var",
+      "id": "pPeriod",
+      "is_core": true,
+      "description": "Constant period (864000) used together with tTimestamp for the migration time gate."
+    },
+    {
+      "node_id": 22,
+      "type": "state_var",
+      "id": "_tokenIdToMetadata",
+      "is_core": true,
+      "description": "Mapping from token id to packed color/part-type metadata, written on mint and read on validation and URI generation."
+    },
+    {
+      "node_id": 23,
+      "type": "state_var",
+      "id": "_rocketPartSupply",
+      "is_core": true,
+      "description": "Mapping from packed part id to remaining supply, decremented on each random mint."
+    },
+    {
+      "node_id": 24,
+      "type": "state_var",
+      "id": "_rocketPartTypes",
+      "is_core": true,
+      "description": "Array of the 20 packed rocket part types iterated during random mint selection."
+    },
+    {
+      "node_id": 25,
+      "type": "state_var",
+      "id": "_characterMinted",
+      "is_core": true,
+      "description": "Mapping tracking wallets that already minted a character, enforcing one character per address."
+    },
+    {
+      "node_id": 26,
+      "type": "state_var",
+      "id": "imageUrls",
+      "is_core": true,
+      "description": "Two dimensional array of Arweave image URLs indexed by token type and color."
+    },
+    {
+      "node_id": 27,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "is_core": true,
+      "description": "Caller controlled address used for ownership checks, mint recipients, randomness seed and payout recipients."
+    },
+    {
+      "node_id": 28,
+      "type": "untrusted_input",
+      "id": "block.timestamp",
+      "is_core": true,
+      "description": "Miner controlled timestamp used in migration for starting and ending the game."
+    },
+    {
+      "node_id": 29,
+      "type": "unsafe_operation",
+      "id": "ownerCutTransferMintCharacter",
+      "is_core": true,
+      "description": "payable(owner()).transfer(ownerCut) in mintCharacter forwarding full sale value to the owner."
+    },
+    {
+      "node_id": 30,
+      "type": "unsafe_operation",
+      "id": "ownerCutTransferMintRocketParts",
+      "is_core": true,
+      "description": "payable(owner()).transfer(ownerCut) in mintRocketParts forwarding 20% of msg.value to the owner."
+    },
+    {
+      "node_id": 31,
+      "type": "unsafe_operation",
+      "id": "winTransferClaimEachRocketPartWin",
+      "is_core": true,
+      "description": "payable(msg.sender).transfer(winAmount) paying half of the contract balance after burning the parts."
+    },
+    {
+      "node_id": 32,
+      "type": "unsafe_operation",
+      "id": "winTransferValidateColorsAndBurn",
+      "is_core": true,
+      "description": "payable(msg.sender).transfer(winAmount) paying a percentage of the contract balance after burning color sets."
+    },
+    {
+      "node_id": 33,
+      "type": "unsafe_operation",
+      "id": "balanceTransferMigration",
+      "is_core": true,
+      "description": "payable(owner()).transfer(address(this).balance) draining the whole contract balance when the game ends."
+    },
+    {
+      "node_id": 34,
+      "type": "unsafe_operation",
+      "id": "weakRandomnessMintRandomRocketPart",
+      "is_core": true,
+      "description": "Pseudo-random selection relying on blockhash(block.number-1), block.coinbase, block.difficulty and msg.sender, which is miner/caller influenced."
+    },
+    {
+      "node_id": 35,
+      "type": "parameter",
+      "id": "param_presale",
+      "is_core": false,
+      "description": "Boolean parameter of mintCharacter choosing the presale branch."
+    },
+    {
+      "node_id": 36,
+      "type": "parameter",
+      "id": "param_numRocketParts",
+      "is_core": false,
+      "description": "uint8 parameter of mintRocketParts limiting the number of mints per transaction."
+    },
+    {
+      "node_id": 37,
+      "type": "parameter",
+      "id": "param_saleStarted",
+      "is_core": false,
+      "description": "Boolean parameter of updateSale setting hasSaleStarted."
+    },
+    {
+      "node_id": 38,
+      "type": "parameter",
+      "id": "param_presaleStarted",
+      "is_core": false,
+      "description": "Boolean parameter of updatePresale setting hasPresaleStarted."
+    },
+    {
+      "node_id": 39,
+      "type": "parameter",
+      "id": "param_startDeploy",
+      "is_core": false,
+      "description": "Boolean parameter of migration selecting start or end of the game."
+    },
+    {
+      "node_id": 40,
+      "type": "parameter",
+      "id": "param_characterId",
+      "is_core": false,
+      "description": "Character token id parameter validated in claimEachRocketPartWin."
+    },
+    {
+      "node_id": 41,
+      "type": "parameter",
+      "id": "param_partType",
+      "is_core": false,
+      "description": "Part type parameter of claimFullSetOfColors selecting the win percentage."
+    },
+    {
+      "node_id": 42,
+      "type": "parameter",
+      "id": "param_percentage",
+      "is_core": false,
+      "description": "Win percentage parameter of validateColorsAndBurn multiplied against the balance."
+    },
+    {
+      "node_id": 43,
+      "type": "parameter",
+      "id": "param_tokenId_validate",
+      "is_core": false,
+      "description": "Token id parameter of validatePartType checked for existence and ownership."
+    },
+    {
+      "node_id": 44,
+      "type": "parameter",
+      "id": "param_recepient",
+      "is_core": false,
+      "description": "Recipient address parameter of mintRandomRocketPart."
+    },
+    {
+      "node_id": 45,
+      "type": "parameter",
+      "id": "param_tokenId_mintRandom",
+      "is_core": false,
+      "description": "Token id parameter of mintRandomRocketPart receiving the packed metadata."
+    },
+    {
+      "node_id": 46,
+      "type": "local_var",
+      "id": "local_mintIndex",
+      "is_core": false,
+      "description": "Local variable in mintCharacter derived from charactersMinted plus rocketPartsMinted plus one."
+    },
+    {
+      "node_id": 47,
+      "type": "local_var",
+      "id": "local_ownerCut",
+      "is_core": false,
+      "description": "Local variable holding the amount transferred to the owner in mintCharacter/mintRocketParts."
+    },
+    {
+      "node_id": 48,
+      "type": "local_var",
+      "id": "local_winAmount",
+      "is_core": false,
+      "description": "Local variable holding the payout amount computed from the contract balance."
+    },
+    {
+      "node_id": 49,
+      "type": "local_var",
+      "id": "local_randomNumber",
+      "is_core": false,
+      "description": "Local variable holding the keccak based pseudo-random number used for part selection."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is used to enforce one character per wallet and as the mint recipient in mintCharacter.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 27,
+      "to_id": 0
+    },
+    {
+      "reason": "msg.sender is passed as the recipient of randomly minted rocket parts in mintRocketParts.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 27,
+      "to_id": 1
+    },
+    {
+      "reason": "msg.sender feeds into the keccak based randomness seed in mintRandomRocketPart.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 27,
+      "to_id": 7
+    },
+    {
+      "reason": "msg.sender is compared against ownerOf(tokenId) in validatePartType to authorize burning.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 27,
+      "to_id": 6
+    },
+    {
+      "reason": "msg.sender is used indirectly through validatePartType ownership checks in claimEachRocketPartWin.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 27,
+      "to_id": 3
+    },
+    {
+      "reason": "block.timestamp is read to set tTimestamp and to gate the game ending in migration.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 28,
+      "to_id": 2
+    },
+    {
+      "reason": "mintCharacter is guarded by the gameNotEnded modifier that reads hasGameEnded.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 0,
+      "to_id": 15
+    },
+    {
+      "reason": "mintCharacter reads and increments charactersMinted for supply checks and token id derivation.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 18
+    },
+    {
+      "reason": "mintCharacter writes packed metadata into _tokenIdToMetadata for the new token.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 22
+    },
+    {
+      "reason": "mintCharacter checks and sets _characterMinted to limit one character per address.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 25
+    },
+    {
+      "reason": "mintCharacter requires hasPresaleStarted on the presale branch.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 0,
+      "to_id": 17
+    },
+    {
+      "reason": "mintCharacter requires hasSaleStarted on the sale branch and forbids it during presale.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 0,
+      "to_id": 16
+    },
+    {
+      "reason": "mintCharacter forwards the sale value to the owner via an external transfer after state updates.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 29
+    },
+    {
+      "reason": "mintRocketParts reads and increments rocketPartsMinted for supply limits and token ids.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 19
+    },
+    {
+      "reason": "mintRocketParts calls mintRandomRocketPart inside the mint loop.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 7
+    },
+    {
+      "reason": "mintRocketParts sends 20% of msg.value to the owner after the mint loop.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 30
+    },
+    {
+      "reason": "mintRocketParts requires hasSaleStarted before allowing mints.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 16
+    },
+    {
+      "reason": "mintRocketParts is guarded by the gameNotEnded modifier reading hasGameEnded.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 15
+    },
+    {
+      "reason": "mintRandomRocketPart reads and decrements _rocketPartSupply when selecting a part.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 23
+    },
+    {
+      "reason": "mintRandomRocketPart iterates _rocketPartTypes to find an available part.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 24
+    },
+    {
+      "reason": "mintRandomRocketPart writes the selected packed part type into _tokenIdToMetadata.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 22
+    },
+    {
+      "reason": "mintRandomRocketPart computes its selection using manipulable block values as randomness.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 34
+    },
+    {
+      "reason": "migration writes tTimestamp from block.timestamp and later compares it against the current timestamp.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 20
+    },
+    {
+      "reason": "migration sets hasGameEnded to true when the period elapses.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 15
+    },
+    {
+      "reason": "migration drains the full contract balance to the owner on game end.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 33
+    },
+    {
+      "reason": "migration compares block.timestamp against tTimestamp plus the pPeriod constant.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 21
+    },
+    {
+      "reason": "claimEachRocketPartWin delegates ownership authorization to validatePartType before burning.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 3,
+      "to_id": 6
+    },
+    {
+      "reason": "claimEachRocketPartWin transfers half the balance to msg.sender with no reentrancy guard.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 31
+    },
+    {
+      "reason": "claimEachRocketPartWin is guarded by the gameNotEnded modifier reading hasGameEnded.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 3,
+      "to_id": 15
+    },
+    {
+      "reason": "claimFullSetOfColors calls validateColorsAndBurn to validate, burn and pay out.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 4,
+      "to_id": 5
+    },
+    {
+      "reason": "claimFullSetOfColors sets hasGameEnded when a Fuel color set is claimed and is itself guarded by gameNotEnded.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 15
+    },
+    {
+      "reason": "claimFullSetOfColors reaches validatePartType indirectly through validateColorsAndBurn.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 4,
+      "to_id": 6
+    },
+    {
+      "reason": "validateColorsAndBurn validates ownership of every burned part through validatePartType.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 5,
+      "to_id": 6
+    },
+    {
+      "reason": "validateColorsAndBurn transfers a percentage of the balance to msg.sender after burning, without a reentrancy guard.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 32
+    },
+    {
+      "reason": "validatePartType reads packed metadata from _tokenIdToMetadata to check part type and color.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 22
+    },
+    {
+      "reason": "validatePartType calls unpack to decode the token metadata.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 6,
+      "to_id": 12
+    },
+    {
+      "reason": "validatePartType authorizes the caller by requiring ownerOf(tokenId) equals msg.sender.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 27
+    },
+    {
+      "reason": "tokenURI reads the packed metadata for the requested token id.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 22
+    },
+    {
+      "reason": "tokenURI calls unpack to derive color and token type.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 10,
+      "to_id": 12
+    },
+    {
+      "reason": "tokenURI calls tokenAttributes to build the attributes JSON.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 10,
+      "to_id": 14
+    },
+    {
+      "reason": "tokenURI indexes imageUrls with the decoded type and color.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 26
+    },
+    {
+      "reason": "addRocketPartSupply writes packed part ids into _rocketPartTypes.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 24
+    },
+    {
+      "reason": "addRocketPartSupply initializes the supply entry in _rocketPartSupply.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 23
+    },
+    {
+      "reason": "addRocketPartSupply calls pack to combine color and part type.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 13,
+      "to_id": 11
+    },
+    {
+      "reason": "updateSale is onlyOwner and writes the hasSaleStarted flag.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 16
+    },
+    {
+      "reason": "updatePresale is onlyOwner and writes the hasPresaleStarted flag.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 17
+    },
+    {
+      "reason": "The presale boolean parameter steers the mintCharacter branch and validation.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 35,
+      "to_id": 0
+    },
+    {
+      "reason": "numRocketParts bounds the mint loop and participates in supply and price arithmetic.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 36,
+      "to_id": 1
+    },
+    {
+      "reason": "saleStarted is written to hasSaleStarted by the onlyOwner updateSale.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 37,
+      "to_id": 8
+    },
+    {
+      "reason": "presaleStarted is written to hasPresaleStarted by the onlyOwner updatePresale.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 38,
+      "to_id": 9
+    },
+    {
+      "reason": "startDeploy selects between recording tTimestamp and ending the game in migration.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 39,
+      "to_id": 2
+    },
+    {
+      "reason": "characterId is validated by validatePartType inside claimEachRocketPartWin.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 40,
+      "to_id": 3
+    },
+    {
+      "reason": "partType drives the win percentage ladder in claimFullSetOfColors.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 41,
+      "to_id": 4
+    },
+    {
+      "reason": "percentage is multiplied with the contract balance and divided by 100 in validateColorsAndBurn.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 42,
+      "to_id": 5
+    },
+    {
+      "reason": "tokenId is checked for existence and caller ownership in validatePartType.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 43,
+      "to_id": 6
+    },
+    {
+      "reason": "recepient is the address that receives the randomly minted part.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 44,
+      "to_id": 7
+    },
+    {
+      "reason": "tokenId is the token that receives the packed metadata in mintRandomRocketPart.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 45,
+      "to_id": 7
+    },
+    {
+      "reason": "mintIndex is computed in mintCharacter and used for metadata and _safeMint.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 46,
+      "to_id": 0
+    },
+    {
+      "reason": "ownerCut carries msg.value into the owner transfer in mintCharacter.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 47,
+      "to_id": 29
+    },
+    {
+      "reason": "winAmount carries the computed payout into the transfer in validateColorsAndBurn.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 48,
+      "to_id": 32
+    },
+    {
+      "reason": "randomNumber is the manipulable value derived from block fields that drives part selection.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 49,
+      "to_id": 34
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Transient input parameter of mintCharacter, its semantics are captured by the calling function.",
+      "merge_into": "mintCharacter",
+      "normal_node": "param_presale"
+    },
+    {
+      "reason": "Loop bound parameter of mintRocketParts, folded into the minting function.",
+      "merge_into": "mintRocketParts",
+      "normal_node": "param_numRocketParts"
+    },
+    {
+      "reason": "OnlyOwner setter argument, equivalent to the hasSaleStarted state transition.",
+      "merge_into": "updateSale",
+      "normal_node": "param_saleStarted"
+    },
+    {
+      "reason": "OnlyOwner setter argument, equivalent to the hasPresaleStarted state transition.",
+      "merge_into": "updatePresale",
+      "normal_node": "param_presaleStarted"
+    },
+    {
+      "reason": "Branch selector for migration, its effect is the tTimestamp/hasGameEnded write.",
+      "merge_into": "migration",
+      "normal_node": "param_startDeploy"
+    },
+    {
+      "reason": "Ownership validated token id argument of the claim function.",
+      "merge_into": "claimEachRocketPartWin",
+      "normal_node": "param_characterId"
+    },
+    {
+      "reason": "Selector parameter determining the payout percentage inside the claim function.",
+      "merge_into": "claimFullSetOfColors",
+      "normal_node": "param_partType"
+    },
+    {
+      "reason": "Arithmetic factor merged into the payout computation of validateColorsAndBurn.",
+      "merge_into": "validateColorsAndBurn",
+      "normal_node": "param_percentage"
+    },
+    {
+      "reason": "Token id argument of the view validator, folded into its checks.",
+      "merge_into": "validatePartType",
+      "normal_node": "param_tokenId_validate"
+    },
+    {
+      "reason": "Recipient argument passed to _safeMint inside the random mint helper.",
+      "merge_into": "mintRandomRocketPart",
+      "normal_node": "param_recepient"
+    },
+    {
+      "reason": "Token id argument written into _tokenIdToMetadata inside the random mint helper.",
+      "merge_into": "mintRandomRocketPart",
+      "normal_node": "param_tokenId_mintRandom"
+    },
+    {
+      "reason": "Temporary token id computed and immediately consumed by mintCharacter.",
+      "merge_into": "mintCharacter",
+      "normal_node": "local_mintIndex"
+    },
+    {
+      "reason": "Temporary payment amount consumed by the owner transfer unsafe operation.",
+      "merge_into": "ownerCutTransferMintCharacter",
+      "normal_node": "local_ownerCut"
+    },
+    {
+      "reason": "Temporary payout result consumed by the msg.sender transfer unsafe operation.",
+      "merge_into": "winTransferValidateColorsAndBurn",
+      "normal_node": "local_winAmount"
+    },
+    {
+      "reason": "Temporary pseudo-random value consumed by the weak randomness selection operation.",
+      "merge_into": "weakRandomnessMintRandomRocketPart",
+      "normal_node": "local_randomNumber"
+    }
+  ]
+}

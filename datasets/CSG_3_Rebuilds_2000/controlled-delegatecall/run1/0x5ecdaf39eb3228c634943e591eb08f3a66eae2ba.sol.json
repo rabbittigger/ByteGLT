@@ -1,0 +1,74 @@
+{
+  "nodes": [
+    {
+      "id": "Destroy.delegatecall_selfdestruct",
+      "type": "function",
+      "node_id": 0,
+      "is_core": true,
+      "description": "External function delegatecall_selfdestruct(address _target) that performs an arbitrary delegatecall to a caller-supplied address and returns the success flag; no access control on the caller."
+    },
+    {
+      "id": "Destroy.delegatecall_selfdestruct._target",
+      "type": "parameter",
+      "node_id": 1,
+      "is_core": false,
+      "description": "Caller-controlled address parameter _target used as the delegatecall destination, allowing arbitrary external code to be executed in this contract's storage context."
+    },
+    {
+      "id": "Destroy.delegatecall_selfdestruct._ans",
+      "type": "local_var",
+      "node_id": 2,
+      "is_core": false,
+      "description": "Named return variable _ans that receives the boolean result of the delegatecall (including the 0.4.x behavior of returning false only on revert/failure)."
+    },
+    {
+      "id": "unsafe_operation.delegatecall",
+      "type": "unsafe_operation",
+      "node_id": 3,
+      "is_core": true,
+      "description": "Low-level _target.delegatecall(...) executed with this contract's storage and address, unbounded to any whitelisted callee; enables execution of arbitrary code (e.g. selfdestruct) and full control of the contract."
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "The externally supplied parameter _target flows directly into the delegatecall destination, letting any caller choose the code executed in this contract's context."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 0,
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "The function body unconditionally reaches the _target.delegatecall(...) statement; no guard, owner check or whitelist gates the call."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "The boolean success flag produced by the delegatecall is assigned to the local return variable _ans."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "The local variable _ans is the named return value that the function returns to the caller."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "Destroy.delegatecall_selfdestruct._target",
+      "merge_into": "unsafe_operation.delegatecall",
+      "reason": "The parameter _target has no independent semantic role: it is consumed solely as the delegatecall target, so it collapses into the unsafe delegatecall operation node."
+    },
+    {
+      "normal_node": "Destroy.delegatecall_selfdestruct._ans",
+      "merge_into": "Destroy.delegatecall_selfdestruct",
+      "reason": "The local variable _ans is only the named return value of the function and carries no external effect beyond that return, so it merges into the enclosing function node."
+    }
+  ]
+}

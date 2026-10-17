@@ -1,0 +1,88 @@
+{
+  "nodes": [
+    {
+      "id": "func_delegatecall_selfdestruct",
+      "is_core": true,
+      "node_id": 0,
+      "description": "External function delegatecall_selfdestruct(address _target) that performs a delegatecall into an arbitrary, caller-supplied target contract.",
+      "type": "function"
+    },
+    {
+      "id": "param_target",
+      "is_core": false,
+      "node_id": 1,
+      "description": "Parameter _target of delegatecall_selfdestruct: fully attacker-controlled address used as the delegatecall destination.",
+      "type": "parameter"
+    },
+    {
+      "id": "local_ans",
+      "is_core": false,
+      "node_id": 2,
+      "description": "Return variable _ans holding the boolean success flag of the low-level delegatecall.",
+      "type": "local_var"
+    },
+    {
+      "id": "unsafe_delegatecall",
+      "is_core": true,
+      "node_id": 3,
+      "description": "Low-level _target.delegatecall(bytes4(sha3(\"address)\")), this) executed against an untrusted address, allowing arbitrary code execution in the context of this contract (including selfdestruct).",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "input_msg_sender",
+      "is_core": true,
+      "node_id": 4,
+      "description": "msg.sender: the implicit external caller of the public/external function, uncontrolled and not restricted by any access-control modifier.",
+      "type": "untrusted_input"
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 4,
+      "to_id": 0,
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "reason": "The function is external with no owner/role check, so any msg.sender can invoke delegatecall_selfdestruct and drive the execution path."
+    },
+    {
+      "from_id": 1,
+      "to_id": 3,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "The attacker-controlled parameter _target flows directly into the delegatecall destination, letting the caller choose arbitrary code to be executed in this contract's storage context."
+    },
+    {
+      "from_id": 0,
+      "to_id": 3,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "The function body unconditionally transfers execution into the unsafe delegatecall operation."
+    },
+    {
+      "from_id": 3,
+      "to_id": 2,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The boolean success result of the delegatecall is written into the local variable _ans and returned."
+    },
+    {
+      "from_id": 3,
+      "to_id": 1,
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "reason": "The delegatecall hands execution control to the caller-supplied target, which can re-enter the vulnerable function before the current call completes."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param_target",
+      "merge_into": "func_delegatecall_selfdestruct",
+      "reason": "The parameter _target is only an input carrier for the function and should be collapsed into the core function node delegatecall_selfdestruct."
+    },
+    {
+      "normal_node": "local_ans",
+      "merge_into": "unsafe_delegatecall",
+      "reason": "The local variable _ans merely stores the success flag of the delegatecall and should be merged into the related core unsafe_operation node."
+    }
+  ]
+}

@@ -1,0 +1,112 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Immutable constant prize amount of 0.05 ether used as the funding requirement in the constructor.",
+      "id": "Game1.prize",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Public address array that stores every caller who invokes the prize function; written before the balance transfer.",
+      "id": "Game1.friends",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Payable constructor that requires msg.value >= prize, ensuring the contract is actually funded.",
+      "id": "Game1.constructor",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "Public function that records msg.sender, enforces msg.sender == tx.origin, then transfers the entire contract balance to the caller.",
+      "id": "Game1.winPrizeAndFeelGoodAboutSelf",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "Caller-controlled address used both as the recorded friend and as the recipient of the full balance transfer.",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "Origin of the transaction used as an anti-bot authorization check, enabling tx.origin based access control.",
+      "id": "tx.origin",
+      "type": "untrusted_input",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "External value transfer of the whole contract balance to msg.sender, executed after state mutation and gated only by a tx.origin comparison.",
+      "id": "payable(msg.sender).transfer(address(this).balance)",
+      "type": "unsafe_operation",
+      "node_id": 6
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "msg.sender is pushed into the friends state array, so caller-controlled data flows into persistent state.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "The prize function writes to the friends state array via friends.push(msg.sender).",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "reason": "Invoking the prize function unconditionally reaches the external balance transfer to the caller.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "reason": "msg.sender controls the recipient of the external transfer, making the call target attacker-influenced.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "reason": "tx.origin is compared against msg.sender in the require statement, forming a tx.origin-dependent authorization check.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "Execution of the prize function is gated by the tx.origin equality requirement, so the transaction origin influences control flow.",
+      "type": "controlflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "msg.sender must equal tx.origin for the require to pass, so the caller identity controls whether execution continues.",
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "The constant prize is read in the constructor require to validate the funding amount.",
+      "type": "dataflow",
+      "from_id": 0
+    }
+  ],
+  "normalization_plan": []
+}

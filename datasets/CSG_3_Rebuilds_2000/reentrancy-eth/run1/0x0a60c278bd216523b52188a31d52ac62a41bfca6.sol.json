@@ -1,0 +1,781 @@
+{
+  "nodes": [
+    {
+      "id": "MFI",
+      "is_core": true,
+      "type": "state_var",
+      "description": "IERC20 token contract reference used for balanceOf/transferFrom/transfer.",
+      "node_id": 0
+    },
+    {
+      "id": "presaleSupply",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Constant cap of 4_000_000 ether tokens available in the presale.",
+      "node_id": 1
+    },
+    {
+      "id": "presaleIssued",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Tracks how many presale tokens have already been issued.",
+      "node_id": 2
+    },
+    {
+      "id": "treasury",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Treasury address receiving ETH and supplying presale tokens.",
+      "node_id": 3
+    },
+    {
+      "id": "USDC",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Constant USDC address used as price-feed quote asset.",
+      "node_id": 4
+    },
+    {
+      "id": "uniRouter",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Constant Uniswap router address used for price discovery.",
+      "node_id": 5
+    },
+    {
+      "id": "WETH",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Constant WETH address used as price-feed base asset.",
+      "node_id": 6
+    },
+    {
+      "id": "startDate",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Presale start timestamp; presale window is startDate..startDate+2 days.",
+      "node_id": 7
+    },
+    {
+      "id": "lastVestedQuarter",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Last quarter index for which vested tokens were already withdrawn.",
+      "node_id": 8
+    },
+    {
+      "id": "vestingQuarterly",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Constant 187_500 ether released per vesting quarter.",
+      "node_id": 9
+    },
+    {
+      "id": "disbursing",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Simple reentrancy guard flag toggled around the receive() disbursement.",
+      "node_id": 10
+    },
+    {
+      "id": "initialDollarsPerETH",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Constant initial ETH price guess of 1400 dollars.",
+      "node_id": 11
+    },
+    {
+      "id": "dollarsPerETH",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Updatable ETH price in dollars used to compute token amounts.",
+      "node_id": 12
+    },
+    {
+      "id": "tokensPerDollar",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Constant rate of 4 tokens per dollar.",
+      "node_id": 13
+    },
+    {
+      "id": "maxPerWallet",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Constant maximum token balance allowed per wallet.",
+      "node_id": 14
+    },
+    {
+      "id": "constructor",
+      "is_core": true,
+      "type": "function",
+      "description": "Initializes MFI, treasury and startDate state variables.",
+      "node_id": 15
+    },
+    {
+      "id": "receive",
+      "is_core": true,
+      "type": "function",
+      "description": "Payable fallback that sells tokens for ETH, issues refunds and forwards ETH to treasury.",
+      "node_id": 16
+    },
+    {
+      "id": "setDollarsPerETH",
+      "is_core": true,
+      "type": "function",
+      "description": "Permissionless price update via Uniswap getAmountsOut(WETH,USDC).",
+      "node_id": 17
+    },
+    {
+      "id": "min",
+      "is_core": true,
+      "type": "function",
+      "description": "Internal pure helper returning the smallest of three values.",
+      "node_id": 18
+    },
+    {
+      "id": "sub",
+      "is_core": true,
+      "type": "function",
+      "description": "Internal pure helper performing checked subtraction with require.",
+      "node_id": 19
+    },
+    {
+      "id": "withdrawVested",
+      "is_core": true,
+      "type": "function",
+      "description": "Permissionless quarterly vesting release of tokens to treasury.",
+      "node_id": 20
+    },
+    {
+      "id": "msg.sender",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "Caller-controlled address receiving tokens/refunds and passing balance checks.",
+      "node_id": 21
+    },
+    {
+      "id": "block.timestamp",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "Miner/validator-influenced timestamp gating presale window and vesting quarters.",
+      "node_id": 22
+    },
+    {
+      "id": "call_transfer_sender",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "payable(msg.sender).transfer(ethReturn) external ETH refund to untrusted caller.",
+      "node_id": 23
+    },
+    {
+      "id": "call_transfer_treasury",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "payable(treasury).transfer(msg.value - ethReturn) external ETH forward.",
+      "node_id": 24
+    },
+    {
+      "id": "call_transferFrom_MFI",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "MFI.transferFrom(treasury, msg.sender, tokensToTransfer) external token call.",
+      "node_id": 25
+    },
+    {
+      "id": "call_transfer_MFI_vested",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "MFI.transfer(treasury, vestingQuarterly) external token call in withdrawVested.",
+      "node_id": 26
+    },
+    {
+      "id": "call_getAmountsOut",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "UniRouter.getAmountsOut external call providing the ETH/USD price.",
+      "node_id": 27
+    },
+    {
+      "id": "mul_dollars_tokens",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "Arithmetic dollarsPerETH * tokensPerDollar computing tokensPerETH.",
+      "node_id": 28
+    },
+    {
+      "id": "mul_value_tokens",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "Arithmetic msg.value * tokensPerETH computing tokensRequested.",
+      "node_id": 29
+    },
+    {
+      "id": "sub_underflow_guard",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "Arithmetic subtraction a - b in sub() with underflow require guard.",
+      "node_id": 30
+    },
+    {
+      "id": "param_tokenContract",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Constructor parameter for the IERC20 presale token.",
+      "node_id": 31
+    },
+    {
+      "id": "param__startDate",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Constructor parameter for the presale start date.",
+      "node_id": 32
+    },
+    {
+      "id": "param__treasury",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Constructor parameter for the treasury address.",
+      "node_id": 33
+    },
+    {
+      "id": "param_min_a",
+      "is_core": false,
+      "type": "parameter",
+      "description": "First candidate value of min().",
+      "node_id": 34
+    },
+    {
+      "id": "param_min_b",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Second candidate value of min().",
+      "node_id": 35
+    },
+    {
+      "id": "param_min_c",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Third candidate value of min().",
+      "node_id": 36
+    },
+    {
+      "id": "param_sub_a",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Minuend of sub().",
+      "node_id": 37
+    },
+    {
+      "id": "param_sub_b",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Subtrahend of sub().",
+      "node_id": 38
+    },
+    {
+      "id": "local_endDate",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Computed presale end date = startDate + 2 days.",
+      "node_id": 39
+    },
+    {
+      "id": "local_tokensPerETH",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Local token-per-ETH rate derived from dollarsPerETH.",
+      "node_id": 40
+    },
+    {
+      "id": "local_tokensRequested",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Requested token amount = msg.value * tokensPerETH.",
+      "node_id": 41
+    },
+    {
+      "id": "local_tokensToTransfer",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Actual tokens transferred after supply and wallet caps.",
+      "node_id": 42
+    },
+    {
+      "id": "local_ethReturn",
+      "is_core": false,
+      "type": "local_var",
+      "description": "ETH refunded to buyer when capped.",
+      "node_id": 43
+    },
+    {
+      "id": "local_path",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Swap path [WETH, USDC] for the router price query.",
+      "node_id": 44
+    },
+    {
+      "id": "local_timeDiff",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Elapsed time since startDate in withdrawVested.",
+      "node_id": 45
+    },
+    {
+      "id": "local_quarter",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Current vesting quarter index.",
+      "node_id": 46
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 0,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "receive() reads MFI for balanceOf and transferFrom"
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "withdrawVested() calls MFI.transfer"
+    },
+    {
+      "from_id": 1,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "presaleSupply caps the tokens that can be issued"
+    },
+    {
+      "from_id": 2,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "presaleIssued is subtracted from presaleSupply for remaining supply"
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "treasury is the ETH sink and token source in receive()"
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "withdrawVested sends vested tokens to treasury"
+    },
+    {
+      "from_id": 7,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "startDate defines the presale window checked in receive()"
+    },
+    {
+      "from_id": 7,
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "startDate is the vesting schedule origin"
+    },
+    {
+      "from_id": 8,
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "lastVestedQuarter prevents double vesting withdrawal"
+    },
+    {
+      "from_id": 9,
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "vestingQuarterly is the amount transferred"
+    },
+    {
+      "from_id": 10,
+      "vuln_type": "reentrancy",
+      "to_id": 16,
+      "type": "controlflow",
+      "reason": "disbursing guard toggled to block reentrant calls"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "dollarsPerETH used to price the purchase"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "setDollarsPerETH writes the updatable price"
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "tokensPerDollar used in the rate multiplication"
+    },
+    {
+      "from_id": 14,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "maxPerWallet caps the buyer balance"
+    },
+    {
+      "from_id": 21,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "msg.sender is the buyer and refund recipient in receive()"
+    },
+    {
+      "from_id": 21,
+      "vuln_type": "reentrancy",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "refund ETH is sent to the untrusted caller address"
+    },
+    {
+      "from_id": 21,
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "msg.sender is the transferFrom recipient"
+    },
+    {
+      "from_id": 22,
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "controlflow",
+      "reason": "block.timestamp gates the presale start and end checks"
+    },
+    {
+      "from_id": 22,
+      "vuln_type": "access_control",
+      "to_id": 20,
+      "type": "controlflow",
+      "reason": "block.timestamp determines the vesting quarter"
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "reentrancy",
+      "to_id": 23,
+      "type": "controlflow",
+      "reason": "receive() performs an external ETH transfer back to msg.sender"
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "none",
+      "to_id": 24,
+      "type": "controlflow",
+      "reason": "receive() forwards the remaining ETH to treasury"
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "controlflow",
+      "reason": "receive() pulls tokens to the buyer via transferFrom"
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "arithmetic",
+      "to_id": 28,
+      "type": "controlflow",
+      "reason": "receive() multiplies dollarsPerETH by tokensPerDollar"
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "arithmetic",
+      "to_id": 29,
+      "type": "controlflow",
+      "reason": "receive() multiplies msg.value by tokensPerETH"
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "arithmetic",
+      "to_id": 19,
+      "type": "controlflow",
+      "reason": "receive() calls sub() for supply/wallet/refund arithmetic"
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "controlflow",
+      "reason": "receive() calls min() to cap the token amount"
+    },
+    {
+      "from_id": 17,
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "controlflow",
+      "reason": "setDollarsPerETH queries the Uniswap router"
+    },
+    {
+      "from_id": 20,
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "controlflow",
+      "reason": "withdrawVested transfers vested tokens out"
+    },
+    {
+      "from_id": 19,
+      "vuln_type": "arithmetic",
+      "to_id": 30,
+      "type": "controlflow",
+      "reason": "sub() executes the guarded subtraction"
+    },
+    {
+      "from_id": 23,
+      "vuln_type": "reentrancy",
+      "to_id": 16,
+      "type": "callback",
+      "reason": "external ETH transfer to msg.sender can re-enter receive()"
+    },
+    {
+      "from_id": 25,
+      "vuln_type": "reentrancy",
+      "to_id": 16,
+      "type": "callback",
+      "reason": "external token transferFrom call can re-enter receive()"
+    },
+    {
+      "from_id": 31,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "tokenContract parameter stored into MFI"
+    },
+    {
+      "from_id": 32,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "_startDate parameter stored into startDate"
+    },
+    {
+      "from_id": 33,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "_treasury parameter stored into treasury"
+    },
+    {
+      "from_id": 34,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "first min() candidate flows into result"
+    },
+    {
+      "from_id": 35,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "second min() candidate flows into result"
+    },
+    {
+      "from_id": 36,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "third min() candidate flows into result"
+    },
+    {
+      "from_id": 37,
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "minuend flows into sub()"
+    },
+    {
+      "from_id": 38,
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "subtrahend flows into sub()"
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "controlflow",
+      "reason": "constructor assigns MFI state variable"
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "controlflow",
+      "reason": "constructor assigns treasury state variable"
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "controlflow",
+      "reason": "constructor assigns startDate state variable"
+    },
+    {
+      "from_id": 28,
+      "vuln_type": "arithmetic",
+      "to_id": 40,
+      "type": "dataflow",
+      "reason": "multiplication result becomes local tokensPerETH"
+    },
+    {
+      "from_id": 40,
+      "vuln_type": "arithmetic",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "tokensPerETH feeds the msg.value multiplication"
+    },
+    {
+      "from_id": 29,
+      "vuln_type": "none",
+      "to_id": 41,
+      "type": "dataflow",
+      "reason": "product becomes local tokensRequested"
+    },
+    {
+      "from_id": 41,
+      "vuln_type": "none",
+      "to_id": 42,
+      "type": "dataflow",
+      "reason": "tokensRequested is capped into tokensToTransfer"
+    },
+    {
+      "from_id": 42,
+      "vuln_type": "none",
+      "to_id": 43,
+      "type": "dataflow",
+      "reason": "difference between requested and transferred becomes ethReturn"
+    },
+    {
+      "from_id": 39,
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "controlflow",
+      "reason": "endDate comparison gates whether the presale is still open"
+    },
+    {
+      "from_id": 44,
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "path array passed to getAmountsOut"
+    },
+    {
+      "from_id": 45,
+      "vuln_type": "none",
+      "to_id": 46,
+      "type": "dataflow",
+      "reason": "timeDiff divided by 90 days yields quarter"
+    },
+    {
+      "from_id": 46,
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "quarter is compared against lastVestedQuarter"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "constructor",
+      "normal_node": "param_tokenContract",
+      "reason": "Constructor token parameter is only an initialization argument for the constructor core node."
+    },
+    {
+      "merge_into": "constructor",
+      "normal_node": "param__startDate",
+      "reason": "Constructor start-date parameter is only an initialization argument for the constructor core node."
+    },
+    {
+      "merge_into": "constructor",
+      "normal_node": "param__treasury",
+      "reason": "Constructor treasury parameter is only an initialization argument for the constructor core node."
+    },
+    {
+      "merge_into": "min",
+      "normal_node": "param_min_a",
+      "reason": "First min() argument is a transient parameter of the min core function."
+    },
+    {
+      "merge_into": "min",
+      "normal_node": "param_min_b",
+      "reason": "Second min() argument is a transient parameter of the min core function."
+    },
+    {
+      "merge_into": "min",
+      "normal_node": "param_min_c",
+      "reason": "Third min() argument is a transient parameter of the min core function."
+    },
+    {
+      "merge_into": "sub",
+      "normal_node": "param_sub_a",
+      "reason": "Minuend parameter is a transient argument of the sub core function."
+    },
+    {
+      "merge_into": "sub",
+      "normal_node": "param_sub_b",
+      "reason": "Subtrahend parameter is a transient argument of the sub core function."
+    },
+    {
+      "merge_into": "receive",
+      "normal_node": "local_endDate",
+      "reason": "endDate is a transient local computed and consumed inside receive()."
+    },
+    {
+      "merge_into": "receive",
+      "normal_node": "local_tokensPerETH",
+      "reason": "tokensPerETH is a transient local computed and consumed inside receive()."
+    },
+    {
+      "merge_into": "receive",
+      "normal_node": "local_tokensRequested",
+      "reason": "tokensRequested is a transient local computed and consumed inside receive()."
+    },
+    {
+      "merge_into": "receive",
+      "normal_node": "local_tokensToTransfer",
+      "reason": "tokensToTransfer is a transient local computed and consumed inside receive()."
+    },
+    {
+      "merge_into": "receive",
+      "normal_node": "local_ethReturn",
+      "reason": "ethReturn is a transient local computed and consumed inside receive()."
+    },
+    {
+      "merge_into": "setDollarsPerETH",
+      "normal_node": "local_path",
+      "reason": "path is a transient local array built and used inside setDollarsPerETH."
+    },
+    {
+      "merge_into": "withdrawVested",
+      "normal_node": "local_timeDiff",
+      "reason": "timeDiff is a transient local computed and consumed inside withdrawVested."
+    },
+    {
+      "merge_into": "withdrawVested",
+      "normal_node": "local_quarter",
+      "reason": "quarter is a transient local computed and consumed inside withdrawVested."
+    }
+  ]
+}

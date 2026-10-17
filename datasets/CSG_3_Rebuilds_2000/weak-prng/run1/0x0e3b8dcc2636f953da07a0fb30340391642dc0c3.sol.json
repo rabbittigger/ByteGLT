@@ -1,0 +1,385 @@
+{
+  "nodes": [
+    {
+      "description": "Public view function getDerivedPrice(address _base, address _quote, uint8 _decimals) that queries two caller-supplied Chainlink aggregators and returns a derived price.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 0,
+      "id": "fn_getDerivedPrice"
+    },
+    {
+      "description": "Internal pure function scalePrice(int256 _price, uint8 _priceDecimals, uint8 _decimals) that rescales a price to the requested decimals.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 1,
+      "id": "fn_scalePrice"
+    },
+    {
+      "description": "Parameter _base: caller-controlled address used as the base price oracle, cast to AggregatorV3Interface and called externally.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 2,
+      "id": "param_base"
+    },
+    {
+      "description": "Parameter _quote: caller-controlled address used as the quote price oracle, cast to AggregatorV3Interface and called externally.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 3,
+      "id": "param_quote"
+    },
+    {
+      "description": "Parameter _decimals of getDerivedPrice, validated to be in (0, 18] and used to build the 10 ** _decimals scaling factor.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 4,
+      "id": "param_decimals"
+    },
+    {
+      "description": "Local variable decimals = int256(10 ** uint256(_decimals)), the fixed-point scaling factor used in the final multiplication.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 5,
+      "id": "local_decimals"
+    },
+    {
+      "description": "Local variable basePrice: raw answer from the base oracle, later overwritten with the scaled value returned by scalePrice.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 6,
+      "id": "local_basePrice"
+    },
+    {
+      "description": "Local variable baseDecimals: decimals() reported by the base oracle contract and used as _priceDecimals.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 7,
+      "id": "local_baseDecimals"
+    },
+    {
+      "description": "Local variable quotePrice: raw answer from the quote oracle, later overwritten with the scaled value returned by scalePrice; used as the divisor.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 8,
+      "id": "local_quotePrice"
+    },
+    {
+      "description": "Local variable quoteDecimals: decimals() reported by the quote oracle contract.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 9,
+      "id": "local_quoteDecimals"
+    },
+    {
+      "description": "External call AggregatorV3Interface(_base).latestRoundData() on a caller-supplied address; returned answer/updatedAt are not validated for staleness or positivity.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 10,
+      "id": "op_latestRoundData_base"
+    },
+    {
+      "description": "External call AggregatorV3Interface(_base).decimals() on a caller-supplied address; unbounded return value flows into the scaling computation.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 11,
+      "id": "op_decimals_base"
+    },
+    {
+      "description": "External call AggregatorV3Interface(_quote).latestRoundData() on a caller-supplied address; answer is used directly as a divisor.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 12,
+      "id": "op_latestRoundData_quote"
+    },
+    {
+      "description": "External call AggregatorV3Interface(_quote).decimals() on a caller-supplied address; unbounded return value flows into the scaling computation.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 13,
+      "id": "op_decimals_quote"
+    },
+    {
+      "description": "Arithmetic expression basePrice * decimals / quotePrice: unchecked int256 multiplication overflow and division by zero / precision loss when quotePrice is zero or tiny.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 14,
+      "id": "op_arith_derivedPrice"
+    },
+    {
+      "description": "Parameter _price of scalePrice: the oracle-reported price value to be rescaled.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 15,
+      "id": "param_price"
+    },
+    {
+      "description": "Parameter _priceDecimals of scalePrice: decimals reported by the oracle, controls which branch executes.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 16,
+      "id": "param_priceDecimals"
+    },
+    {
+      "description": "Parameter _decimals of scalePrice: target decimals used as the branch comparison and exponent base.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 17,
+      "id": "param_decimals_scale"
+    },
+    {
+      "description": "Arithmetic _price * int256(10 ** uint256(_decimals - _priceDecimals)) in scalePrice: unchecked multiplication overflow and uint8 subtraction under its guard.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 18,
+      "id": "op_arith_scalePrice_expand"
+    },
+    {
+      "description": "Arithmetic _price / int256(10 ** uint256(_priceDecimals - _decimals)) in scalePrice: integer division truncation of the price.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 19,
+      "id": "op_arith_scalePrice_shrink"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Caller-supplied _base is cast to AggregatorV3Interface and invoked externally, letting attacker-controlled code execute during latestRoundData().",
+      "from_id": 2,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 10
+    },
+    {
+      "reason": "Caller-supplied _quote is cast to AggregatorV3Interface and invoked externally, letting attacker-controlled code execute during latestRoundData().",
+      "from_id": 3,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "getDerivedPrice executes the external latestRoundData() call on the base oracle.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 10
+    },
+    {
+      "reason": "getDerivedPrice executes the external decimals() call on the base oracle.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 11
+    },
+    {
+      "reason": "getDerivedPrice executes the external latestRoundData() call on the quote oracle.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 12
+    },
+    {
+      "reason": "getDerivedPrice executes the external decimals() call on the quote oracle.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 13
+    },
+    {
+      "reason": "Oracle answer returned by latestRoundData() is assigned to local basePrice.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "Oracle decimals() return value is assigned to local baseDecimals.",
+      "from_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "Oracle answer returned by latestRoundData() is assigned to local quotePrice.",
+      "from_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "Oracle decimals() return value is assigned to local quoteDecimals.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 9
+    },
+    {
+      "reason": "Parameter _decimals is used to compute the scaling factor decimals = 10 ** _decimals.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "basePrice is an operand of the unchecked multiplication basePrice * decimals.",
+      "from_id": 6,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 14
+    },
+    {
+      "reason": "Scaling factor decimals is an operand of the unchecked multiplication, enabling overflow on large prices.",
+      "from_id": 5,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 14
+    },
+    {
+      "reason": "quotePrice is the divisor in basePrice * decimals / quotePrice; a zero or tiny value causes division by zero or truncation.",
+      "from_id": 8,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 14
+    },
+    {
+      "reason": "Result of the arithmetic expression is returned by getDerivedPrice.",
+      "from_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "getDerivedPrice calls internal scalePrice to normalize both oracle price values.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "Scaled base price returned by scalePrice is written back into local basePrice.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "Scaled quote price returned by scalePrice is written back into local quotePrice.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "_price is multiplied by a power-of-ten factor, which can overflow int256.",
+      "from_id": 15,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 18
+    },
+    {
+      "reason": "_priceDecimals drives the branch and the uint8 subtraction _decimals - _priceDecimals used as exponent.",
+      "from_id": 16,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 18
+    },
+    {
+      "reason": "_decimals determines the exponent and the branch condition in the expansion path.",
+      "from_id": 17,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 18
+    },
+    {
+      "reason": "Expanded value is returned by scalePrice.",
+      "from_id": 18,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "_price is divided by a power-of-ten factor, causing rounding/truncation in the shrink path.",
+      "from_id": 15,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 19
+    },
+    {
+      "reason": "_priceDecimals drives the branch and the uint8 subtraction _priceDecimals - _decimals used as exponent.",
+      "from_id": 16,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 19
+    },
+    {
+      "reason": "_decimals determines the exponent and the branch condition in the shrink path.",
+      "from_id": 17,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 19
+    },
+    {
+      "reason": "Shrunk value is returned by scalePrice.",
+      "from_id": 19,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Parameter _base is only used to select and invoke the external oracle contract represented by the unsafe operation node.",
+      "normal_node": "param_base",
+      "merge_into": "op_latestRoundData_base"
+    },
+    {
+      "reason": "Parameter _quote is only used to select and invoke the external oracle contract represented by the unsafe operation node.",
+      "normal_node": "param_quote",
+      "merge_into": "op_latestRoundData_quote"
+    },
+    {
+      "reason": "Parameter _decimals feeds the scaling factor used in the final multiplication/division arithmetic operation.",
+      "normal_node": "param_decimals",
+      "merge_into": "op_arith_derivedPrice"
+    },
+    {
+      "reason": "Local decimals is a temporary scaling factor that exists solely as an operand of the derived-price arithmetic.",
+      "normal_node": "local_decimals",
+      "merge_into": "op_arith_derivedPrice"
+    },
+    {
+      "reason": "Local basePrice is the oracle-derived value consumed by the arithmetic operation that produces the return value.",
+      "normal_node": "local_basePrice",
+      "merge_into": "op_arith_derivedPrice"
+    },
+    {
+      "reason": "Local baseDecimals is only forwarded as the _priceDecimals argument to the internal scalePrice call.",
+      "normal_node": "local_baseDecimals",
+      "merge_into": "fn_scalePrice"
+    },
+    {
+      "reason": "Local quotePrice is the oracle-derived divisor of the arithmetic operation producing the return value.",
+      "normal_node": "local_quotePrice",
+      "merge_into": "op_arith_derivedPrice"
+    },
+    {
+      "reason": "Local quoteDecimals is only forwarded as the _priceDecimals argument to the internal scalePrice call.",
+      "normal_node": "local_quoteDecimals",
+      "merge_into": "fn_scalePrice"
+    },
+    {
+      "reason": "Parameter _price is the direct operand of the multiplication arithmetic in the expansion branch of scalePrice.",
+      "normal_node": "param_price",
+      "merge_into": "op_arith_scalePrice_expand"
+    },
+    {
+      "reason": "Parameter _priceDecimals decides the branch and forms the exponent subtraction for the division arithmetic in scalePrice.",
+      "normal_node": "param_priceDecimals",
+      "merge_into": "op_arith_scalePrice_shrink"
+    },
+    {
+      "reason": "Parameter _decimals of scalePrice sets the exponent compared against _priceDecimals in the expansion arithmetic.",
+      "normal_node": "param_decimals_scale",
+      "merge_into": "op_arith_scalePrice_expand"
+    }
+  ]
+}

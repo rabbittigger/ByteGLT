@@ -1,0 +1,367 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Immutable public initial interest rate set at construction",
+      "id": "state_initialRate",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Immutable lower bound clamped on the resulting interest rate",
+      "id": "state_minRate",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Immutable upper bound clamped on the resulting interest rate",
+      "id": "state_maxRate",
+      "type": "state_var",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "Immutable aggressiveness factor between 0 and 1e18 used to scale rate movement",
+      "id": "state_adjustRate",
+      "type": "state_var",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "Constructor validating min<max and adjustRate<1e18 and assigning immutables",
+      "id": "func_constructor",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "External view computing the next interest rate from utilization and elapsed time",
+      "id": "func_getNextInterestRate",
+      "type": "function",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "block.timestamp, the time source behind the timePassed argument driving rate rebase",
+      "id": "untrusted_block_timestamp",
+      "type": "untrusted_input",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "Arithmetic totalAvailable + totalLoan computing total liquidity",
+      "id": "unsafe_arith_liquidity_sum",
+      "type": "unsafe_operation",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "Arithmetic (totalLoan * 1e18) / totalLiquidity computing utilization rate",
+      "id": "unsafe_arith_utilization",
+      "type": "unsafe_operation",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "description": "Arithmetic scaling of rate: adjustRate*scale*cappedtimePassed, prevRate*multRate, upMaxRate = 1e36/(1e18-adjustRate)-1e18",
+      "id": "unsafe_arith_rate_scaling",
+      "type": "unsafe_operation",
+      "node_id": 9
+    },
+    {
+      "is_core": false,
+      "description": "Parameter prevRate: current interest rate fed into target rate computation",
+      "id": "param_prevRate",
+      "type": "parameter",
+      "node_id": 10
+    },
+    {
+      "is_core": false,
+      "description": "Parameter totalAvailable: available liquidity used in liquidity and utilization math",
+      "id": "param_totalAvailable",
+      "type": "parameter",
+      "node_id": 11
+    },
+    {
+      "is_core": false,
+      "description": "Parameter totalLoan: outstanding loan used in liquidity and utilization math",
+      "id": "param_totalLoan",
+      "type": "parameter",
+      "node_id": 12
+    },
+    {
+      "is_core": false,
+      "description": "Parameter timePassed: seconds since last rebase, derived from block.timestamp",
+      "id": "param_timePassed",
+      "type": "parameter",
+      "node_id": 13
+    },
+    {
+      "is_core": false,
+      "description": "Constructor parameter _initialRate assigned to immutable initialRate",
+      "id": "param__initialRate",
+      "type": "parameter",
+      "node_id": 14
+    },
+    {
+      "is_core": false,
+      "description": "Constructor parameter _minRate assigned to immutable minRate",
+      "id": "param__minRate",
+      "type": "parameter",
+      "node_id": 15
+    },
+    {
+      "is_core": false,
+      "description": "Constructor parameter _maxRate assigned to immutable maxRate",
+      "id": "param__maxRate",
+      "type": "parameter",
+      "node_id": 16
+    },
+    {
+      "is_core": false,
+      "description": "Constructor parameter _adjustRate assigned to immutable adjustRate",
+      "id": "param__adjustRate",
+      "type": "parameter",
+      "node_id": 17
+    },
+    {
+      "is_core": false,
+      "description": "Local totalLiquidity = totalAvailable + totalLoan",
+      "id": "local_totalLiquidity",
+      "type": "local_var",
+      "node_id": 18
+    },
+    {
+      "is_core": false,
+      "description": "Local utilRate = (totalLoan * 1e18) / totalLiquidity",
+      "id": "local_utilRate",
+      "type": "local_var",
+      "node_id": 19
+    },
+    {
+      "is_core": false,
+      "description": "Local cappedtimePassed = min(timePassed, 1 days)",
+      "id": "local_cappedtimePassed",
+      "type": "local_var",
+      "node_id": 20
+    },
+    {
+      "is_core": false,
+      "description": "Local multRate multiplier chosen per utilization bracket",
+      "id": "local_multRate",
+      "type": "local_var",
+      "node_id": 21
+    },
+    {
+      "is_core": false,
+      "description": "Local targetRate = (prevRate * multRate) / 1e18 before clamping",
+      "id": "local_targetRate",
+      "type": "local_var",
+      "node_id": 22
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "reason": "The elapsed time fed as timePassed originates from block.timestamp and controls the interest rate rebase in getNextInterestRate",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "timePassed parameter is consumed by getNextInterestRate to cap and scale the rate change",
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "arithmetic",
+      "reason": "totalAvailable is summed into totalLiquidity by an arithmetic operation",
+      "type": "dataflow",
+      "from_id": 11
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "arithmetic",
+      "reason": "totalLoan is summed into totalLiquidity by an arithmetic operation",
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "arithmetic",
+      "reason": "totalLoan is multiplied by 1e18 and divided by totalLiquidity when computing utilRate",
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "arithmetic",
+      "reason": "prevRate is multiplied by multRate inside the rate arithmetic path",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "prevRate parameter is read by getNextInterestRate as the base rate",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "reason": "adjustRate scales the rate movement and appears in the division 1e36/(1e18-adjustRate)",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "minRate is used as the lower clamp of the arithmetic result",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "maxRate is used as the upper clamp of the arithmetic result",
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "Constructor assigns initialRate immutable",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "Constructor assigns minRate immutable",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "Constructor assigns maxRate immutable",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "Constructor assigns adjustRate immutable",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "arithmetic",
+      "reason": "totalLiquidity local feeds the utilization rate division",
+      "type": "dataflow",
+      "from_id": 18
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "reason": "utilRate local selects and scales the multiplier arithmetic",
+      "type": "dataflow",
+      "from_id": 19
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "reason": "cappedtimePassed local is multiplied into the rate adjustment arithmetic",
+      "type": "dataflow",
+      "from_id": 20
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "reason": "multRate local is multiplied with prevRate in the final rate arithmetic",
+      "type": "dataflow",
+      "from_id": 21
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "reason": "targetRate local is the clamped arithmetic result returned by the function",
+      "type": "dataflow",
+      "from_id": 22
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "unsafe_arith_utilization",
+      "reason": "prevRate is only a transient input consumed by the rate arithmetic, so fold it into the arithmetic core node",
+      "normal_node": "param_prevRate"
+    },
+    {
+      "merge_into": "unsafe_arith_liquidity_sum",
+      "reason": "totalAvailable only feeds the totalLiquidity addition, absorb into that arithmetic operation",
+      "normal_node": "param_totalAvailable"
+    },
+    {
+      "merge_into": "unsafe_arith_liquidity_sum",
+      "reason": "totalLoan feeds the liquidity addition and utilization multiplication, absorb into the arithmetic node",
+      "normal_node": "param_totalLoan"
+    },
+    {
+      "merge_into": "func_getNextInterestRate",
+      "reason": "timePassed exists solely as the elapsed-time argument of the rate function",
+      "normal_node": "param_timePassed"
+    },
+    {
+      "merge_into": "func_constructor",
+      "reason": "Constructor parameter only used to initialize a state variable",
+      "normal_node": "param__initialRate"
+    },
+    {
+      "merge_into": "func_constructor",
+      "reason": "Constructor parameter only used in validation and immutable assignment",
+      "normal_node": "param__minRate"
+    },
+    {
+      "merge_into": "func_constructor",
+      "reason": "Constructor parameter only used in validation and immutable assignment",
+      "normal_node": "param__maxRate"
+    },
+    {
+      "merge_into": "func_constructor",
+      "reason": "Constructor parameter only used in validation and immutable assignment",
+      "normal_node": "param__adjustRate"
+    },
+    {
+      "merge_into": "unsafe_arith_liquidity_sum",
+      "reason": "Local is the direct result of the liquidity addition arithmetic",
+      "normal_node": "local_totalLiquidity"
+    },
+    {
+      "merge_into": "unsafe_arith_utilization",
+      "reason": "Local is the direct result of the utilization division arithmetic",
+      "normal_node": "local_utilRate"
+    },
+    {
+      "merge_into": "unsafe_arith_rate_scaling",
+      "reason": "Local is an intermediate used inside the rate scaling arithmetic",
+      "normal_node": "local_cappedtimePassed"
+    },
+    {
+      "merge_into": "unsafe_arith_rate_scaling",
+      "reason": "Local is an intermediate multiplier of the rate arithmetic",
+      "normal_node": "local_multRate"
+    },
+    {
+      "merge_into": "unsafe_arith_rate_scaling",
+      "reason": "Local is the final target rate produced by the scaling arithmetic",
+      "normal_node": "local_targetRate"
+    }
+  ]
+}

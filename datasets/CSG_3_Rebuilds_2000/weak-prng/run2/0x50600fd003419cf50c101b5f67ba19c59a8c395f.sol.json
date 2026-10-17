@@ -1,0 +1,218 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Address state variable holding the contract owner/developer; set once in the constructor and used by the is_developer modifier.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "developer"
+    },
+    {
+      "type": "function",
+      "description": "Constructor that assigns msg.sender to the developer state variable.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "BingoLight"
+    },
+    {
+      "type": "function",
+      "description": "Public constant function that derives pseudo-random lottery numbers from historical block hashes and the user-supplied targetBlock.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "generateLuckyNumbers"
+    },
+    {
+      "type": "function",
+      "description": "Function guarded by is_developer that self-destructs the contract and sends the balance to msg.sender via suicide.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "del"
+    },
+    {
+      "type": "function",
+      "description": "Modifier that reverts when msg.sender is not the stored developer address.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "is_developer"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used for owner assignment, access control checks and suicide beneficiary.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "msg.sender"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Self-destruct operation transferring the whole contract balance to the supplied address and permanently removing the code.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "suicide"
+    },
+    {
+      "type": "parameter",
+      "description": "Caller-supplied block number parameter of generateLuckyNumbers used for blockhash lookups and arithmetic.",
+      "is_core": false,
+      "node_id": 7,
+      "id": "targetBlock_param"
+    },
+    {
+      "type": "local_var",
+      "description": "Return array of three lottery numbers assembled during execution.",
+      "is_core": false,
+      "node_id": 8,
+      "id": "lotteryLuckyNumbers"
+    },
+    {
+      "type": "local_var",
+      "description": "Local variable caching block.blockhash results used as the randomness source.",
+      "is_core": false,
+      "node_id": 9,
+      "id": "blockHash"
+    },
+    {
+      "type": "local_var",
+      "description": "Local variable holding each derived pseudo-random value between 1 and 10.",
+      "is_core": false,
+      "node_id": 10,
+      "id": "newRnd"
+    },
+    {
+      "type": "local_var",
+      "description": "Loop counter walking backwards through up to 255 previous blocks.",
+      "is_core": false,
+      "node_id": 11,
+      "id": "blockNumber"
+    },
+    {
+      "type": "local_var",
+      "description": "Counter tracking how many distinct lottery numbers have already been accepted.",
+      "is_core": false,
+      "node_id": 12,
+      "id": "currentN"
+    },
+    {
+      "type": "local_var",
+      "description": "Inner loop counter used to shift the block hash byte-wise (/ 256**n).",
+      "is_core": false,
+      "node_id": 13,
+      "id": "n"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Unchecked unsigned subtraction targetBlock - 1 - blockNumber, which underflows when targetBlock is smaller than the walked block offset.",
+      "is_core": true,
+      "node_id": 14,
+      "id": "arith_targetBlock_minus_blockNumber"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "msg.sender is written into the developer state variable inside the constructor, making the ownership value caller-controlled.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "The is_developer modifier reads the developer state variable when comparing against msg.sender.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "msg.sender is the untrusted value compared with developer inside the is_developer access-control check.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "controlflow",
+      "reason": "The is_developer modifier gates execution of del(), so the privileged path depends on the caller identity check.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 6,
+      "type": "controlflow",
+      "reason": "del() invokes suicide(msg.sender), the privileged destructive operation reachable only through the access-control modifier.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "msg.sender is passed directly to suicide, so the caller receives the entire contract balance.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "controlflow",
+      "reason": "The caller-supplied targetBlock parameter drives the loop and blockhash lookups in generateLuckyNumbers.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "targetBlock flows into the unchecked subtraction targetBlock - 1 - blockNumber.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "The result of the unchecked subtraction is used for the blockhash lookup and loop progression, so an underflowed value controls execution.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "generateLuckyNumbers stores block.blockhash results into the local blockHash variable used as randomness entropy.",
+      "from_id": 2
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "generateLuckyNumbers",
+      "reason": "targetBlock is the sole parameter of generateLuckyNumbers and only has meaning within that function body.",
+      "normal_node": "targetBlock_param"
+    },
+    {
+      "merge_into": "generateLuckyNumbers",
+      "reason": "lotteryLuckyNumbers is the function-local return array populated during the execution of generateLuckyNumbers.",
+      "normal_node": "lotteryLuckyNumbers"
+    },
+    {
+      "merge_into": "generateLuckyNumbers",
+      "reason": "blockHash is a temporary local used only to extract pseudo-random values inside generateLuckyNumbers.",
+      "normal_node": "blockHash"
+    },
+    {
+      "merge_into": "generateLuckyNumbers",
+      "reason": "newRnd is a temporary local holding each intermediate random draw inside generateLuckyNumbers.",
+      "normal_node": "newRnd"
+    },
+    {
+      "merge_into": "generateLuckyNumbers",
+      "reason": "blockNumber is the outer loop counter scoped to generateLuckyNumbers.",
+      "normal_node": "blockNumber"
+    },
+    {
+      "merge_into": "generateLuckyNumbers",
+      "reason": "currentN is the accepted-numbers counter scoped to generateLuckyNumbers.",
+      "normal_node": "currentN"
+    },
+    {
+      "merge_into": "generateLuckyNumbers",
+      "reason": "n is the inner byte-shift loop counter scoped to generateLuckyNumbers.",
+      "normal_node": "n"
+    }
+  ]
+}

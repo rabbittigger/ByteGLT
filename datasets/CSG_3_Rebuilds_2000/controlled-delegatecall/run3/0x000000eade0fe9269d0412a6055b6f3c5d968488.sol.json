@@ -1,0 +1,240 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Constant hardcoded address of the legacy TrueUSD token contract (0x8dd5fbCe...); external contract trusted implicitly by the helper.",
+      "id": "oldTrueUSD",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Constant hardcoded address of the new TrueUSD token contract (0x0000000000085d47...); receives ownership and storage.",
+      "id": "newTrueUSD",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Constant hardcoded address of the TokenController contract that is granted ownership over the token contracts.",
+      "id": "tokenController",
+      "type": "state_var",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "Constant registry address configured into the TokenController via setTusdRegistry.",
+      "id": "registry",
+      "type": "state_var",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "Constant global pause address configured into the TokenController via setGlobalPause.",
+      "id": "globalPause",
+      "type": "state_var",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "Public upgrade() function with no access control that reassigns ownership of TokenController, oldTrueUSD and newTrueUSD and migrates storage to the new implementation.",
+      "id": "upgrade",
+      "type": "function",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "Implicit caller of the public upgrade(); never validated, so any external account can trigger the full ownership/state migration.",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "External call that makes UpgradeHelper the owner of the TokenController, enabling all subsequent privileged operations.",
+      "id": "tokenController.claimOwnership()",
+      "type": "unsafe_operation",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "External call that makes UpgradeHelper the owner of the new TrueUSD contract.",
+      "id": "newTrueUSD.claimOwnership()",
+      "type": "unsafe_operation",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "description": "External read of oldTrueUSD.totalSupply() and privileged write of the new token supply; unguarded and depends on the answer of the legacy contract.",
+      "id": "newTrueUSD.setTotalSupply(oldTrueUSD.totalSupply())",
+      "type": "unsafe_operation",
+      "node_id": 9
+    },
+    {
+      "is_core": true,
+      "description": "External call that repoints the legacy token's delegation to the new token; the legacy contract is re-entered and can call back into the helper.",
+      "id": "oldTrueUSD.delegateToNewContract(newTrueUSD)",
+      "type": "unsafe_operation",
+      "node_id": 10
+    },
+    {
+      "is_core": true,
+      "description": "External call transferring TokenController ownership to the owner captured at the start of the unguarded upgrade flow.",
+      "id": "tokenController.transferOwnership(endOwner)",
+      "type": "unsafe_operation",
+      "node_id": 11
+    },
+    {
+      "is_core": false,
+      "description": "Locally cached value of tokenController.owner() used as the final ownership recipient.",
+      "id": "endOwner",
+      "type": "local_var",
+      "node_id": 12
+    },
+    {
+      "is_core": false,
+      "description": "Locally cached oldTrueUSD.balances() address reclaimed from the legacy token and moved to the new token.",
+      "id": "balanceSheetAddress",
+      "type": "local_var",
+      "node_id": 13
+    },
+    {
+      "is_core": false,
+      "description": "Locally cached oldTrueUSD.allowances() address reclaimed from the legacy token and moved to the new token.",
+      "id": "allowanceSheetAddress",
+      "type": "local_var",
+      "node_id": 14
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "reason": "Any external account (msg.sender) may invoke the public upgrade() function; there is no owner/onlyOwner guard, so an attacker can hijack the entire ownership migration.",
+      "type": "controlflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "upgrade() unconditionally executes tokenController.claimOwnership() as part of the privileged migration sequence.",
+      "type": "controlflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "upgrade() unconditionally executes newTrueUSD.claimOwnership() during the migration.",
+      "type": "controlflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "upgrade() sets the new token supply from the legacy token supply.",
+      "type": "controlflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "upgrade() delegates the legacy token to the new token contract.",
+      "type": "controlflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "access_control",
+      "reason": "upgrade() finally transfers TokenController ownership to the previously cached owner; whoever triggers the flow controls when this privileged transfer happens.",
+      "type": "controlflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "The hardcoded tokenController state variable is the target of the claimOwnership() call.",
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "The hardcoded newTrueUSD state variable is the target of the claimOwnership() call.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "The hardcoded newTrueUSD state variable is the target of setTotalSupply().",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "The supply written to the new token is read from the legacy oldTrueUSD contract.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "The legacy oldTrueUSD contract is the receiver of delegateToNewContract().",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "The new token address is the argument that the legacy token is delegated to.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "The hardcoded tokenController is the contract whose ownership is transferred away.",
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "access_control",
+      "reason": "The cached endOwner local determines the final owner of the TokenController.",
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "reentrancy",
+      "reason": "delegateToNewContract() performs an external call to the legacy token; a hostile or compromised oldTrueUSD can re-enter upgrade() mid-migration and desynchronise the ownership handover.",
+      "type": "callback",
+      "from_id": 10
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "reentrancy",
+      "reason": "The external claimOwnership() call to the TokenController can execute arbitrary code in the callee, allowing re-entry into upgrade() before state/ownership is finalised.",
+      "type": "callback",
+      "from_id": 7
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "upgrade",
+      "reason": "Temporary local that only carries the pre-upgrade TokenController owner into the final transferOwnership call and has no independent security semantics.",
+      "normal_node": "endOwner"
+    },
+    {
+      "merge_into": "upgrade",
+      "reason": "Temporary local holding the legacy balance sheet address reclaimed and re-transferred within the same unguarded upgrade() flow.",
+      "normal_node": "balanceSheetAddress"
+    },
+    {
+      "merge_into": "upgrade",
+      "reason": "Temporary local holding the legacy allowance sheet address reclaimed and re-transferred within the same unguarded upgrade() flow.",
+      "normal_node": "allowanceSheetAddress"
+    }
+  ]
+}

@@ -1,0 +1,331 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Library-level constant state variable NUM_TRAITS = 9, bounds the outer trait loop in roll.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "NUM_TRAITS"
+    },
+    {
+      "type": "state_var",
+      "description": "Library-level constant state variable MAX_LENGTH = 40, sizes the genes lookup table and inner loop.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "MAX_LENGTH"
+    },
+    {
+      "type": "function",
+      "description": "External view function roll(uint seed, uint nonce) that derives pseudo-random traits from block entropy and returns uint[NUM_TRAITS].",
+      "is_core": true,
+      "node_id": 2,
+      "id": "roll"
+    },
+    {
+      "type": "parameter",
+      "description": "Function parameter seed, caller-supplied entropy mixed into the keccak256 seed derivation.",
+      "is_core": false,
+      "node_id": 3,
+      "id": "seed"
+    },
+    {
+      "type": "parameter",
+      "description": "Function parameter nonce, caller-supplied counter that is post-incremented and hashed into every keccak256 round.",
+      "is_core": false,
+      "node_id": 4,
+      "id": "nonce"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Miner/validator-influenced block timestamp used as entropy in the keccak256 randomness derivation.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Modulo arithmetic randomSeed % races[1][1] and randomSeed % genes[i][2+r][MAX_LENGTH-1] used to select race and trait indices.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "modulo_randomness"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "keccak256(abi.encodePacked(block.difficulty, seed, block.timestamp, nonce++)) weak randomness source dependent on manipulable block values.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "keccak_randomness"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Post-increment nonce++ performed on a function parameter inside the hash expression.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "nonce_increment"
+    },
+    {
+      "type": "local_var",
+      "description": "Local fixed-size array uint[NUM_TRAITS] holding the generated trait values returned by roll.",
+      "is_core": false,
+      "node_id": 9,
+      "id": "traits"
+    },
+    {
+      "type": "local_var",
+      "description": "Local lookup table uint[MAX_LENGTH][4][NUM_TRAITS] of cumulative trait thresholds.",
+      "is_core": false,
+      "node_id": 10,
+      "id": "genes"
+    },
+    {
+      "type": "local_var",
+      "description": "Local uint[2][2] race table initialized to [[1,2],[50,100]] and used for race selection.",
+      "is_core": false,
+      "node_id": 11,
+      "id": "races"
+    },
+    {
+      "type": "local_var",
+      "description": "Local seed value produced by keccak256 and re-hashed each loop iteration.",
+      "is_core": false,
+      "node_id": 12,
+      "id": "randomSeed"
+    },
+    {
+      "type": "local_var",
+      "description": "Local race index r used to select the gene sub-array variant.",
+      "is_core": false,
+      "node_id": 13,
+      "id": "r"
+    },
+    {
+      "type": "local_var",
+      "description": "Local per-trait threshold value computed as randomSeed % maxGene.",
+      "is_core": false,
+      "node_id": 14,
+      "id": "traitSeed"
+    },
+    {
+      "type": "local_var",
+      "description": "Outer loop counter iterating over traits (1..NUM_TRAITS-1).",
+      "is_core": false,
+      "node_id": 15,
+      "id": "i"
+    },
+    {
+      "type": "local_var",
+      "description": "Inner loop counter iterating over MAX_LENGTH gene thresholds.",
+      "is_core": false,
+      "node_id": 16,
+      "id": "j"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "Caller-supplied seed parameter is consumed by roll.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "Caller-supplied nonce parameter is consumed by roll.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "block.timestamp feeds the keccak256 entropy, making randomness timestamp dependent.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "seed is packed into the keccak256 preimage.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "nonce is packed into the keccak256 preimage.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "randomSeed local variable is assigned from the timestamp-dependent keccak256 output.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "randomSeed is taken modulo the race table maximum to select a race.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "Modulo-derived race index writes traits[0] through races[0][i].",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "randomSeed modulo the max gene value produces traitSeed.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "Post-increment nonce++ mutates the nonce parameter used in the hash.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "roll populates and returns the traits array.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "roll initializes and reads the genes lookup table.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "roll initializes and reads the races table.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "roll assigns the race index r during race selection.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "controlflow",
+      "reason": "NUM_TRAITS bounds the outer loop and array size inside roll.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "MAX_LENGTH determines the gene threshold array length.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "controlflow",
+      "reason": "roll controls the outer loop counter i.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "controlflow",
+      "reason": "roll controls the inner loop counter j.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "genes thresholds are compared against traitSeed for trait selection.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "races table supplies the modulus and thresholds for race selection.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "Race index r selects the genes sub-array used by the modulo lookup.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "block.timestamp is read inside roll via the keccak256 randomness expression.",
+      "from_id": 5
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "roll",
+      "reason": "seed is a parameter used only to compute the seed of roll; merge the parameter node into the roll function node.",
+      "normal_node": "seed"
+    },
+    {
+      "merge_into": "roll",
+      "reason": "nonce is a parameter whose value exists solely to feed roll's hashing loop; merge into roll.",
+      "normal_node": "nonce"
+    },
+    {
+      "merge_into": "roll",
+      "reason": "traits is the local return array produced by roll; merge into the roll function node.",
+      "normal_node": "traits"
+    },
+    {
+      "merge_into": "roll",
+      "reason": "genes is a local constant lookup table initialized and consumed inside roll; merge into roll.",
+      "normal_node": "genes"
+    },
+    {
+      "merge_into": "roll",
+      "reason": "races is a local table initialized and consumed only within roll; merge into roll.",
+      "normal_node": "races"
+    },
+    {
+      "merge_into": "keccak_randomness",
+      "reason": "randomSeed is the local result of the unsafe keccak256 randomness operation; merge into keccak_randomness.",
+      "normal_node": "randomSeed"
+    },
+    {
+      "merge_into": "modulo_randomness",
+      "reason": "r is the local race index produced by the modulo-based race selection unsafe operation; merge into modulo_randomness.",
+      "normal_node": "r"
+    },
+    {
+      "merge_into": "modulo_randomness",
+      "reason": "traitSeed is the local value derived from the modulo threshold computation; merge into modulo_randomness.",
+      "normal_node": "traitSeed"
+    },
+    {
+      "merge_into": "roll",
+      "reason": "i is the outer loop counter fully controlled by roll; merge into roll.",
+      "normal_node": "i"
+    },
+    {
+      "merge_into": "roll",
+      "reason": "j is the inner loop counter fully controlled by roll; merge into roll.",
+      "normal_node": "j"
+    }
+  ]
+}

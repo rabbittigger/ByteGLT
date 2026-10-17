@@ -1,0 +1,212 @@
+{
+  "nodes": [
+    {
+      "id": "state_var_TRADE_RESERVE",
+      "description": "address payable internal constant _TRADE_RESERVE = 0x0eFb068354c10c070ddD64a0E8EaF8f054DF7E26; fixed recipient of all ETH and ERC20 settlements.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "func_receive",
+      "description": "receive() external payable {} — accepts plain ETH transfers from any caller into the contract with no accounting or restrictions.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "function"
+    },
+    {
+      "id": "func_settleEther",
+      "description": "settleEther() external — forwards the entire contract ETH balance to _TRADE_RESERVE using a low-level call and bubbles up revert data via assembly on failure.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "func_settleERC20",
+      "description": "settleERC20(IERC20 token) external — transfers the full token balance of this contract to _TRADE_RESERVE and requires the transfer to return true.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "untrusted_input_msg_sender",
+      "description": "msg.sender / external caller — every external entry point (receive, settleEther, settleERC20) is callable by any account; no access control modifier is present.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "unsafe_low_level_call_reserve",
+      "description": "_TRADE_RESERVE.call{value: address(this).balance}(\"\") — low-level value call that forwards the whole balance and ignores the returned data, enabling re-entrant execution by the callee.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_token_transfer",
+      "description": "token.transfer(_TRADE_RESERVE, token.balanceOf(address(this))) — external call on a caller-supplied token contract; the callee executes arbitrary code during the transfer.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_token_balanceOf",
+      "description": "token.balanceOf(address(this)) — external view call on the caller-supplied token contract, whose return value is not validated.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_assembly_revert",
+      "description": "assembly { returndatacopy(0, 0, returndatasize()) revert(0, returndatasize()) } — raw memory write and revert using unbounded returndatasize.",
+      "is_core": true,
+      "node_id": 8,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "param_token",
+      "description": "IERC20 token — caller-supplied token contract address passed into settleERC20 and used for both balanceOf and transfer.",
+      "is_core": false,
+      "node_id": 9,
+      "type": "parameter"
+    },
+    {
+      "id": "local_ok_settleEther",
+      "description": "bool ok — success flag returned by the low-level call in settleEther, checked before the assembly revert.",
+      "is_core": false,
+      "node_id": 10,
+      "type": "local_var"
+    },
+    {
+      "id": "local_ok_settleERC20",
+      "description": "bool ok — return value of token.transfer in settleERC20, guarded by require(ok, \"Token transfer failed.\").",
+      "is_core": false,
+      "node_id": 11,
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Any external account (msg.sender) can send ETH to the unauthenticated receive() entry point, growing the balance later drained by settleEther.",
+      "to_id": 1,
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "settleEther has no access control: any msg.sender can trigger it and push the contract's entire ETH balance to the fixed reserve address.",
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "settleERC20 has no access control: any msg.sender can choose the token argument and force the contract's full token balance out to the reserve address.",
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "settleEther executes the low-level value call forwarding address(this).balance.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The constant _TRADE_RESERVE supplies the callee address of the low-level call.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "When the low-level call returns ok == false, control reaches the inline assembly block that copies return data and reverts.",
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "controlflow"
+    },
+    {
+      "reason": "_TRADE_RESERVE is the hard-coded recipient argument of token.transfer.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "settleERC20 body invokes token.transfer to move the contract's token balance.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "settleERC20 body invokes token.balanceOf(address(this)) to size the outgoing transfer.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The caller-supplied token parameter determines which contract code is executed by the transfer call.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The caller-supplied token parameter determines which contract is queried by balanceOf.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The success flag returned by the low-level call is bound to the local ok variable.",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The boolean returned by token.transfer is bound to the local ok variable checked by require.",
+      "to_id": 11,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The value call can hand execution to a contract at _TRADE_RESERVE, which may re-enter settleEther before the call returns; no reentrancy guard or state update protects this path.",
+      "to_id": 2,
+      "vuln_type": "reentrancy",
+      "from_id": 5,
+      "type": "callback"
+    },
+    {
+      "reason": "A malicious token contract supplied as the token parameter can re-enter settleERC20 during transfer/balanceOf, again with no state lock or checks-effects-interactions ordering.",
+      "to_id": 3,
+      "vuln_type": "reentrancy",
+      "from_id": 6,
+      "type": "callback"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The token parameter is only meaningful as the argument of settleERC20; it has no independent semantics and should be folded into the settleERC20 core function node.",
+      "normal_node": "param_token",
+      "merge_into": "func_settleERC20"
+    },
+    {
+      "reason": "The local ok flag merely captures the low-level call's success result and is consumed by the adjacent assembly revert, so it normalizes into the low-level call node.",
+      "normal_node": "local_ok_settleEther",
+      "merge_into": "unsafe_low_level_call_reserve"
+    },
+    {
+      "reason": "The local ok flag merely captures the transfer return value and is consumed by the immediately following require, so it normalizes into the token transfer unsafe operation node.",
+      "normal_node": "local_ok_settleERC20",
+      "merge_into": "unsafe_token_transfer"
+    }
+  ]
+}

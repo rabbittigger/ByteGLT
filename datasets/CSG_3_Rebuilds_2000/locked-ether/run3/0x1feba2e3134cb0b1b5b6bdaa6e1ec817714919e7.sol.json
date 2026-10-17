@@ -1,0 +1,999 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "chainlinkwrapper.multiSig",
+      "description": "Address of the multi-signature wallet authorized to change admin/multiSig.",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "chainlinkwrapper.admin",
+      "description": "Admin address allowed to configure oracles and token mappings.",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "chainlinkwrapper.ethToUsdPriceOracle",
+      "description": "ETH/USD Chainlink aggregator address used as reference price.",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "chainlinkwrapper.bnbToUsdPriceOracle",
+      "description": "BNB/USD Chainlink aggregator address used as reference price.",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "chainlinkwrapper.tokenChainlinkMap",
+      "description": "Mapping token => Chainlink aggregator used to price that token.",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "chainlinkwrapper.prices",
+      "description": "Mapping of cached Price structs (price, expiration); declared but never written or read in this version, dead storage.",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "chainlinkwrapper.directTokenMap",
+      "description": "Mapping token => bool, marks tokens whose aggregator already returns a USD price.",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn.initialize",
+      "description": "initialize(address _multiSig): sets multiSig and admin = msg.sender, guarded by the initializer modifier.",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn.receive",
+      "description": "receive() external payable: accepts plain ETH transfers without any logic.",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn.setMultiSig",
+      "description": "setMultiSig(address): replaces multiSig, restricted by onlyMultiSig.",
+      "node_id": 9
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn.setAdmin",
+      "description": "setAdmin(address): replaces admin, restricted by onlyMultiSig.",
+      "node_id": 10
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn.isEthOrBnB",
+      "description": "isEthOrBnB(address): returns true for ETH/BNB sentinel addresses.",
+      "node_id": 11
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn.get",
+      "description": "get(address): public price entry point, resolves a mapped token to getChainLinkPrice.",
+      "node_id": 12
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn.setEthToUsdPriceOracle",
+      "description": "setEthToUsdPriceOracle(address): sets the ETH/USD reference aggregator (onlyAdmin).",
+      "node_id": 13
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn.setBnbToUsdPriceOracle",
+      "description": "setBnbToUsdPriceOracle(address): sets the BNB/USD reference aggregator (onlyAdmin).",
+      "node_id": 14
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn.setTokenChainlinkMap",
+      "description": "setTokenChainlinkMap(address,address): records a token aggregator (onlyAdmin).",
+      "node_id": 15
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn.setTokenChainlinkMaps",
+      "description": "setTokenChainlinkMaps(address[],address[]): batch version that loops over setTokenChainlinkMap (onlyAdmin).",
+      "node_id": 16
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn.setDirectTokenMap",
+      "description": "setDirectTokenMap(address,bool): flags a token as directly quoted in USD (onlyAdmin).",
+      "node_id": 17
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn.setDirectTokenMaps",
+      "description": "setDirectTokenMaps(address[],bool): batch loop writing directTokenMap (onlyAdmin).",
+      "node_id": 18
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn.getChainLinkPrice",
+      "description": "getChainLinkPrice(address): reads reference and token aggregators, scales prices by 1e10/1e8 and returns (price, bool).",
+      "node_id": 19
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn.getLatestRoundData",
+      "description": "getLatestRoundData(address): like getChainLinkPrice but also returns the oldest updatedAt of the aggregators read.",
+      "node_id": 20
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn.gets",
+      "description": "gets(address[]): batch view returning ChainlinkPrice structs for many tokens.",
+      "node_id": 21
+    },
+    {
+      "is_core": true,
+      "type": "untrusted_input",
+      "id": "untrusted.msg.sender",
+      "description": "msg.sender: caller-controlled address used for the initializer assignment and for all onlyAdmin/onlyMultiSig authorization checks.",
+      "node_id": 22
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "unsafe.oracle_latestAnswer",
+      "description": "External call chainlinkContract.latestAnswer() on an admin-configured aggregator; price source is trusted and can be stale/manipulated.",
+      "node_id": 23
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "unsafe.oracle_latestRoundData",
+      "description": "External call chainlinkContract.latestRoundData() on an admin-configured aggregator; updatedAt is consumed without staleness validation.",
+      "node_id": 24
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "unsafe.price_arithmetic",
+      "description": "Price scaling arithmetic basePrice.mul(1e10) and basePrice.mul(tokenPrice).div(1e8) on int256-derived values (SafeMath is used for the math itself).",
+      "node_id": 25
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param.initialize._multiSig",
+      "description": "_multiSig parameter of initialize(address).",
+      "node_id": 26
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param.setMultiSig._multiSig",
+      "description": "_multiSig parameter of setMultiSig(address).",
+      "node_id": 27
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param.setAdmin._admin",
+      "description": "_admin parameter of setAdmin(address).",
+      "node_id": 28
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param.isEthOrBnB.token",
+      "description": "token parameter of isEthOrBnB(address).",
+      "node_id": 29
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param.get.token",
+      "description": "token parameter of get(address).",
+      "node_id": 30
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param.setEthToUsdPriceOracle._ethToUsdPriceOracle",
+      "description": "_ethToUsdPriceOracle parameter of setEthToUsdPriceOracle(address).",
+      "node_id": 31
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param.setBnbToUsdPriceOracle._bnbToUsdPriceOracle",
+      "description": "_bnbToUsdPriceOracle parameter of setBnbToUsdPriceOracle(address).",
+      "node_id": 32
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param.setTokenChainlinkMap.token",
+      "description": "token key parameter of setTokenChainlinkMap.",
+      "node_id": 33
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param.setTokenChainlinkMap.chainlink",
+      "description": "chainlink aggregator value parameter of setTokenChainlinkMap.",
+      "node_id": 34
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param.setTokenChainlinkMaps.tokens",
+      "description": "tokens array parameter of setTokenChainlinkMaps.",
+      "node_id": 35
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param.setTokenChainlinkMaps.chainlinks",
+      "description": "chainlinks array parameter of setTokenChainlinkMaps.",
+      "node_id": 36
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param.setDirectTokenMap.token",
+      "description": "token key parameter of setDirectTokenMap.",
+      "node_id": 37
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param.setDirectTokenMap.direct",
+      "description": "direct flag parameter of setDirectTokenMap.",
+      "node_id": 38
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param.setDirectTokenMaps.tokens",
+      "description": "tokens array parameter of setDirectTokenMaps.",
+      "node_id": 39
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param.setDirectTokenMaps.direct",
+      "description": "direct flag parameter of setDirectTokenMaps.",
+      "node_id": 40
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param.getChainLinkPrice.token",
+      "description": "token parameter of getChainLinkPrice(address).",
+      "node_id": 41
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param.getLatestRoundData.token",
+      "description": "token parameter of getLatestRoundData(address).",
+      "node_id": 42
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param.gets.tokens",
+      "description": "tokens array parameter of gets(address[]).",
+      "node_id": 43
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local.getChainLinkPrice.referenceOracle",
+      "description": "referenceOracle local selecting the ETH/USD or BNB/USD aggregator.",
+      "node_id": 44
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local.getChainLinkPrice.chainlinkContract",
+      "description": "chainlinkContract local AggregatorInterface instance used for external price reads.",
+      "node_id": 45
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local.getChainLinkPrice.basePrice",
+      "description": "basePrice local holding the raw int256 answer of the reference aggregator.",
+      "node_id": 46
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local.getChainLinkPrice.tokenPrice",
+      "description": "tokenPrice local holding the raw int256 answer of the token aggregator.",
+      "node_id": 47
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local.getLatestRoundData.updatedAt",
+      "description": "updatedAt local holding the timestamp returned by the reference aggregator.",
+      "node_id": 48
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local.getLatestRoundData.latest",
+      "description": "latest local, the minimum of the two aggregator update timestamps.",
+      "node_id": 49
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local.gets.n",
+      "description": "n local, the length of the tokens array in gets.",
+      "node_id": 50
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local.gets.res",
+      "description": "res local result array of ChainlinkPrice structs in gets.",
+      "node_id": 51
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 22,
+      "to_id": 7,
+      "reason": "msg.sender is stored as admin in initialize, so the initializer caller gains admin rights if it is front-run."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 22,
+      "to_id": 1,
+      "reason": "Caller-controlled msg.sender is written into the admin state variable."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 22,
+      "to_id": 9,
+      "reason": "onlyMultiSig compares msg.sender with multiSig before executing."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 22,
+      "to_id": 10,
+      "reason": "onlyMultiSig compares msg.sender with multiSig before executing."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 22,
+      "to_id": 13,
+      "reason": "onlyAdmin gate: msg.sender must equal admin."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 22,
+      "to_id": 14,
+      "reason": "onlyAdmin gate: msg.sender must equal admin."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 22,
+      "to_id": 15,
+      "reason": "onlyAdmin gate: msg.sender must equal admin."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 22,
+      "to_id": 16,
+      "reason": "onlyAdmin gate on the batch mapping setter."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 22,
+      "to_id": 17,
+      "reason": "onlyAdmin gate on the direct-token setter."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 22,
+      "to_id": 18,
+      "reason": "onlyAdmin gate on the batch direct-token setter."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 26,
+      "to_id": 0,
+      "reason": "initialize stores the _multiSig argument into multiSig."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 27,
+      "to_id": 0,
+      "reason": "setMultiSig stores the _multiSig argument into multiSig."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 28,
+      "to_id": 1,
+      "reason": "setAdmin stores the _admin argument into admin."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 31,
+      "to_id": 2,
+      "reason": "Admin-supplied address is stored as the trusted ETH/USD reference oracle."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 32,
+      "to_id": 3,
+      "reason": "Admin-supplied address is stored as the trusted BNB/USD reference oracle."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 33,
+      "to_id": 4,
+      "reason": "token argument used as the key of tokenChainlinkMap."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 34,
+      "to_id": 4,
+      "reason": "chainlink argument stored as the aggregator address for the token."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 37,
+      "to_id": 6,
+      "reason": "token argument used as the key of directTokenMap."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 38,
+      "to_id": 6,
+      "reason": "direct flag stored as the value of directTokenMap."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 7,
+      "to_id": 0,
+      "reason": "initialize writes the multiSig state variable."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 7,
+      "to_id": 1,
+      "reason": "initialize writes the admin state variable."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 9,
+      "to_id": 0,
+      "reason": "setMultiSig overwrites the multiSig state variable."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 10,
+      "to_id": 1,
+      "reason": "setAdmin overwrites the admin state variable."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 13,
+      "to_id": 2,
+      "reason": "setEthToUsdPriceOracle writes ethToUsdPriceOracle."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 14,
+      "to_id": 3,
+      "reason": "setBnbToUsdPriceOracle writes bnbToUsdPriceOracle."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 15,
+      "to_id": 4,
+      "reason": "setTokenChainlinkMap writes the tokenChainlinkMap entry."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 17,
+      "to_id": 6,
+      "reason": "setDirectTokenMap writes the directTokenMap entry."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 16,
+      "to_id": 15,
+      "reason": "setTokenChainlinkMaps loops and calls setTokenChainlinkMap for each pair."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 18,
+      "to_id": 6,
+      "reason": "setDirectTokenMaps loop writes directTokenMap entries."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "to_id": 9,
+      "reason": "onlyMultiSig reads multiSig to authorize the caller."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "to_id": 10,
+      "reason": "onlyMultiSig reads multiSig to authorize the caller."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 1,
+      "to_id": 13,
+      "reason": "onlyAdmin reads admin to authorize the caller."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 1,
+      "to_id": 14,
+      "reason": "onlyAdmin reads admin to authorize the caller."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 1,
+      "to_id": 15,
+      "reason": "onlyAdmin reads admin to authorize the caller."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 1,
+      "to_id": 16,
+      "reason": "onlyAdmin reads admin to authorize the caller."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 1,
+      "to_id": 17,
+      "reason": "onlyAdmin reads admin to authorize the caller."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 1,
+      "to_id": 18,
+      "reason": "onlyAdmin reads admin to authorize the caller."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 2,
+      "to_id": 19,
+      "reason": "getChainLinkPrice reads ethToUsdPriceOracle to pick the reference aggregator."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 19,
+      "reason": "getChainLinkPrice reads bnbToUsdPriceOracle to pick the reference aggregator."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 2,
+      "to_id": 20,
+      "reason": "getLatestRoundData reads ethToUsdPriceOracle to pick the reference aggregator."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 20,
+      "reason": "getLatestRoundData reads bnbToUsdPriceOracle to pick the reference aggregator."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 4,
+      "to_id": 12,
+      "reason": "get checks tokenChainlinkMap[token] to decide whether a price exists."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 4,
+      "to_id": 19,
+      "reason": "getChainLinkPrice resolves the token aggregator from tokenChainlinkMap."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 4,
+      "to_id": 20,
+      "reason": "getLatestRoundData resolves the token aggregator from tokenChainlinkMap."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 6,
+      "to_id": 19,
+      "reason": "getChainLinkPrice reads directTokenMap to choose the USD-direct branch."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 6,
+      "to_id": 20,
+      "reason": "getLatestRoundData reads directTokenMap to choose the USD-direct branch."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 12,
+      "to_id": 19,
+      "reason": "get delegates the price computation to getChainLinkPrice."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 19,
+      "to_id": 11,
+      "reason": "getChainLinkPrice calls isEthOrBnB to shortcut ETH/BNB pricing."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 20,
+      "to_id": 11,
+      "reason": "getLatestRoundData calls isEthOrBnB to shortcut ETH/BNB pricing."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 21,
+      "to_id": 20,
+      "reason": "gets loops over tokens calling getLatestRoundData for each one."
+    },
+    {
+      "type": "callback",
+      "vuln_type": "none",
+      "from_id": 19,
+      "to_id": 23,
+      "reason": "Reachable external call to the admin-configured aggregator via latestAnswer(); the function is a view so no state is exposed to reentrancy, but the trusted oracle can revert or return stale/incorrect data."
+    },
+    {
+      "type": "callback",
+      "vuln_type": "none",
+      "from_id": 20,
+      "to_id": 24,
+      "reason": "Reachable external call to the admin-configured aggregator via latestRoundData(); timestamp returned is consumed without staleness checks."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 19,
+      "to_id": 25,
+      "reason": "getChainLinkPrice converts int256 answers with mul(1e10) and mul(tokenPrice).div(1e8); casting/staleness errors propagate into the returned price."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 41,
+      "to_id": 19,
+      "reason": "token argument drives the aggregator lookup inside getChainLinkPrice."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 42,
+      "to_id": 20,
+      "reason": "token argument drives the aggregator lookup inside getLatestRoundData."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 43,
+      "to_id": 21,
+      "reason": "tokens array argument is iterated by gets."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 29,
+      "to_id": 11,
+      "reason": "token argument is compared against the ETH/BNB sentinel addresses."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 30,
+      "to_id": 12,
+      "reason": "token argument indexes tokenChainlinkMap in get."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 35,
+      "to_id": 16,
+      "reason": "tokens array length is validated and iterated in setTokenChainlinkMaps."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 36,
+      "to_id": 16,
+      "reason": "chainlinks array is iterated in parallel with tokens."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 39,
+      "to_id": 18,
+      "reason": "tokens array is iterated by setDirectTokenMaps."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 40,
+      "to_id": 18,
+      "reason": "direct flag is applied to every token in the batch loop."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 44,
+      "to_id": 23,
+      "reason": "referenceOracle determines which aggregator address receives the external call."
+    },
+    {
+      "type": "callback",
+      "vuln_type": "none",
+      "from_id": 45,
+      "to_id": 23,
+      "reason": "chainlinkContract instance is the receiver of the latestAnswer() external call."
+    },
+    {
+      "type": "callback",
+      "vuln_type": "none",
+      "from_id": 45,
+      "to_id": 24,
+      "reason": "chainlinkContract instance is the receiver of the latestRoundData() external call."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 46,
+      "to_id": 25,
+      "reason": "basePrice feeds the 1e10/1e8 scaling arithmetic."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 47,
+      "to_id": 25,
+      "reason": "tokenPrice is multiplied by basePrice and divided by 1e8."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 48,
+      "to_id": 20,
+      "reason": "updatedAt timestamp from the reference oracle is returned to the caller."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 49,
+      "to_id": 20,
+      "reason": "latest (minimum of both updatedAt values) is returned as the freshness timestamp."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 50,
+      "to_id": 21,
+      "reason": "n bounds the result array size and the loop in gets."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 51,
+      "to_id": 21,
+      "reason": "res array is populated in the gets loop and returned."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param.initialize._multiSig",
+      "merge_into": "fn.initialize",
+      "reason": "_multiSig is only used to set multiSig inside initialize."
+    },
+    {
+      "normal_node": "param.setMultiSig._multiSig",
+      "merge_into": "fn.setMultiSig",
+      "reason": "_multiSig is only used to overwrite multiSig inside setMultiSig."
+    },
+    {
+      "normal_node": "param.setAdmin._admin",
+      "merge_into": "fn.setAdmin",
+      "reason": "_admin is only used to overwrite admin inside setAdmin."
+    },
+    {
+      "normal_node": "param.isEthOrBnB.token",
+      "merge_into": "fn.isEthOrBnB",
+      "reason": "token is the sole argument of isEthOrBnB and is consumed by its sentinel comparisons."
+    },
+    {
+      "normal_node": "param.get.token",
+      "merge_into": "fn.get",
+      "reason": "token is the sole argument of get and is consumed by the tokenChainlinkMap lookup."
+    },
+    {
+      "normal_node": "param.setEthToUsdPriceOracle._ethToUsdPriceOracle",
+      "merge_into": "fn.setEthToUsdPriceOracle",
+      "reason": "_ethToUsdPriceOracle is directly stored into ethToUsdPriceOracle."
+    },
+    {
+      "normal_node": "param.setBnbToUsdPriceOracle._bnbToUsdPriceOracle",
+      "merge_into": "fn.setBnbToUsdPriceOracle",
+      "reason": "_bnbToUsdPriceOracle is directly stored into bnbToUsdPriceOracle."
+    },
+    {
+      "normal_node": "param.setTokenChainlinkMap.token",
+      "merge_into": "fn.setTokenChainlinkMap",
+      "reason": "token is the map key written by setTokenChainlinkMap."
+    },
+    {
+      "normal_node": "param.setTokenChainlinkMap.chainlink",
+      "merge_into": "fn.setTokenChainlinkMap",
+      "reason": "chainlink is the map value written by setTokenChainlinkMap."
+    },
+    {
+      "normal_node": "param.setTokenChainlinkMaps.tokens",
+      "merge_into": "fn.setTokenChainlinkMaps",
+      "reason": "tokens array is only iterated by the setTokenChainlinkMaps loop."
+    },
+    {
+      "normal_node": "param.setTokenChainlinkMaps.chainlinks",
+      "merge_into": "fn.setTokenChainlinkMaps",
+      "reason": "chainlinks array is only iterated by the setTokenChainlinkMaps loop."
+    },
+    {
+      "normal_node": "param.setDirectTokenMap.token",
+      "merge_into": "fn.setDirectTokenMap",
+      "reason": "token is the map key written by setDirectTokenMap."
+    },
+    {
+      "normal_node": "param.setDirectTokenMap.direct",
+      "merge_into": "fn.setDirectTokenMap",
+      "reason": "direct is the boolean value written by setDirectTokenMap."
+    },
+    {
+      "normal_node": "param.setDirectTokenMaps.tokens",
+      "merge_into": "fn.setDirectTokenMaps",
+      "reason": "tokens array is only iterated by the setDirectTokenMaps loop."
+    },
+    {
+      "normal_node": "param.setDirectTokenMaps.direct",
+      "merge_into": "fn.setDirectTokenMaps",
+      "reason": "direct flag is only applied inside the setDirectTokenMaps loop."
+    },
+    {
+      "normal_node": "param.getChainLinkPrice.token",
+      "merge_into": "fn.getChainLinkPrice",
+      "reason": "token selects the aggregator branch inside getChainLinkPrice."
+    },
+    {
+      "normal_node": "param.getLatestRoundData.token",
+      "merge_into": "fn.getLatestRoundData",
+      "reason": "token selects the aggregator branch inside getLatestRoundData."
+    },
+    {
+      "normal_node": "param.gets.tokens",
+      "merge_into": "fn.gets",
+      "reason": "tokens array is only read by gets to size and fill the result array."
+    },
+    {
+      "normal_node": "local.getChainLinkPrice.referenceOracle",
+      "merge_into": "unsafe.oracle_latestAnswer",
+      "reason": "referenceOracle exists only to choose the contract addressed by the external latestAnswer call."
+    },
+    {
+      "normal_node": "local.getChainLinkPrice.chainlinkContract",
+      "merge_into": "unsafe.oracle_latestAnswer",
+      "reason": "chainlinkContract is the AggregatorInterface wrapper used for the external oracle calls."
+    },
+    {
+      "normal_node": "local.getChainLinkPrice.basePrice",
+      "merge_into": "unsafe.price_arithmetic",
+      "reason": "basePrice is only used as the operand of the price scaling arithmetic."
+    },
+    {
+      "normal_node": "local.getChainLinkPrice.tokenPrice",
+      "merge_into": "unsafe.price_arithmetic",
+      "reason": "tokenPrice is only used as the operand of the price scaling arithmetic."
+    },
+    {
+      "normal_node": "local.getLatestRoundData.updatedAt",
+      "merge_into": "unsafe.oracle_latestRoundData",
+      "reason": "updatedAt is produced by the latestRoundData external call and returned to the caller."
+    },
+    {
+      "normal_node": "local.getLatestRoundData.latest",
+      "merge_into": "unsafe.oracle_latestRoundData",
+      "reason": "latest is derived from the latestRoundData timestamps and returned to the caller."
+    },
+    {
+      "normal_node": "local.gets.n",
+      "merge_into": "fn.gets",
+      "reason": "n is the length of the tokens array used by the gets loop."
+    },
+    {
+      "normal_node": "local.gets.res",
+      "merge_into": "fn.gets",
+      "reason": "res is the temporary result array populated and returned by gets."
+    }
+  ]
+}

@@ -1,0 +1,233 @@
+{
+  "nodes": [
+    {
+      "description": "Public uint256 counter tracking how many wedding messages were created; used as the index key for the mappings and incremented on each createWeedingMessage call.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "amountOfMessages"
+    },
+    {
+      "description": "Private mapping(uint256 => string) holding the message text indexed by message number.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "_wedMessages"
+    },
+    {
+      "description": "Private mapping(uint256 => string) holding the author/assistant name indexed by message number.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 2,
+      "id": "_assistant"
+    },
+    {
+      "description": "Private address set in the constructor from msg.sender; acts as the access-control guard for cashback.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 3,
+      "id": "owner"
+    },
+    {
+      "description": "Constructor that assigns owner = msg.sender at deployment time.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 4,
+      "id": "constructor"
+    },
+    {
+      "description": "Public payable function that stores the author into _assistant and the message into _wedMessages under the current amountOfMessages index, then increments the counter.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 5,
+      "id": "createWeedingMessage"
+    },
+    {
+      "description": "Public view function returning (_assistant[tokenId], _wedMessages[tokenId]) for a caller-supplied tokenId.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 6,
+      "id": "getWedMessage"
+    },
+    {
+      "description": "Function requiring msg.sender == owner and then transferring the entire contract balance to msg.sender.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 7,
+      "id": "cashback"
+    },
+    {
+      "description": "Caller-controlled address; becomes owner in the constructor and is the destination of the cashback balance transfer.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 8,
+      "id": "msg.sender"
+    },
+    {
+      "description": "External value transfer payable(address(msg.sender)).transfer(address(this).balance) that sends the full contract balance to the caller.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 9,
+      "id": "balance transfer to msg.sender"
+    },
+    {
+      "description": "Arithmetic increment of the message counter performed on every createWeedingMessage call.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 10,
+      "id": "amountOfMessages + 1"
+    },
+    {
+      "description": "Author name string parameter of createWeedingMessage.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 11,
+      "id": "iAm"
+    },
+    {
+      "description": "Message text string parameter of createWeedingMessage.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 12,
+      "id": "message"
+    },
+    {
+      "description": "Lookup key uint256 parameter of getWedMessage.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 13,
+      "id": "tokenId"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is written into the owner state variable in the constructor, so the caller controls the privileged owner role.",
+      "from_id": 8,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "The constructor assigns owner from the untrusted caller address, establishing the access-control principal.",
+      "from_id": 4,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "cashback gates its body on require(msg.sender == owner), so the untrusted caller address determines whether the privileged branch executes.",
+      "from_id": 8,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 7
+    },
+    {
+      "reason": "cashback executes the external balance transfer, giving an untrusted recipient execution control during the function.",
+      "from_id": 7,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 9
+    },
+    {
+      "reason": "The external transfer to msg.sender can re-enter cashback (or other contract entry points) before the function completes.",
+      "from_id": 9,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 7
+    },
+    {
+      "reason": "The untrusted msg.sender value flows directly into the destination address of the balance transfer.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 9
+    },
+    {
+      "reason": "createWeedingMessage performs the counter increment amountOfMessages + 1.",
+      "from_id": 5,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 10
+    },
+    {
+      "reason": "The result of the arithmetic increment is written back into the amountOfMessages state variable.",
+      "from_id": 10,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "createWeedingMessage reads amountOfMessages as the index for both mapping writes.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "The iAm parameter is stored into the _assistant mapping under the current message index.",
+      "from_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "The message parameter is stored into the _wedMessages mapping under the current message index.",
+      "from_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "createWeedingMessage writes the submitted message text into the _wedMessages state mapping.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "createWeedingMessage writes the submitted author name into the _assistant state mapping.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "The tokenId parameter is consumed by getWedMessage as the lookup key.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "getWedMessage reads message text out of the _wedMessages state mapping.",
+      "from_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "getWedMessage reads the author name out of the _assistant state mapping.",
+      "from_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "iAm is a non-core parameter whose only use is being written into _assistant inside createWeedingMessage; it should be folded into that core function node.",
+      "normal_node": "iAm",
+      "merge_into": "createWeedingMessage"
+    },
+    {
+      "reason": "message is a non-core parameter whose only use is being written into _wedMessages inside createWeedingMessage; it should be folded into that core function node.",
+      "normal_node": "message",
+      "merge_into": "createWeedingMessage"
+    },
+    {
+      "reason": "tokenId is a non-core parameter used solely as the lookup key in getWedMessage; it should be folded into that core function node.",
+      "normal_node": "tokenId",
+      "merge_into": "getWedMessage"
+    }
+  ]
+}

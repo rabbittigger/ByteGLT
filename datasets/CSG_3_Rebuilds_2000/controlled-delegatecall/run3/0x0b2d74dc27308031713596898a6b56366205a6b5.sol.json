@@ -1,0 +1,74 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "External pure function compute(uint256 x) returns uint256 result; performs a degree-~130 polynomial evaluation using inline assembly mulmod/add (Horner's method) and returns result % PRIME.",
+      "id": "EcdsaPointsXColumn.compute",
+      "type": "function",
+      "node_id": 0
+    },
+    {
+      "is_core": false,
+      "description": "Caller-supplied input parameter x of compute; the evaluation point of the polynomial, used directly inside the assembly mulmod chain without any range validation.",
+      "id": "EcdsaPointsXColumn.compute.x",
+      "type": "parameter",
+      "node_id": 1
+    },
+    {
+      "is_core": false,
+      "description": "Local constant PRIME = 0x800000000000011000000000000000000000000000000000000000000000001, used as the modulus for every mulmod and for the final result % PRIME reduction.",
+      "id": "EcdsaPointsXColumn.compute.PRIME",
+      "type": "local_var",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "Inline assembly block performing unchecked modular arithmetic (mulmod/add chain) plus the Solidity-level result % PRIME reduction; low-level arithmetic without overflow/underflow guards.",
+      "id": "EcdsaPointsXColumn.compute.assembly_mulmod",
+      "type": "unsafe_operation",
+      "node_id": 3
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "The parameter x is fed directly into the assembly mulmod chain as the Horner multiplier; mulmod keeps every intermediate value below PRIME, so no overflow/underflow is introduced by this flow.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "PRIME is the modulus argument of every mulmod call and of the final result % PRIME reduction, so its value determines the arithmetic domain of the unsafe operation.",
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "Execution of the compute function unconditionally enters the inline assembly arithmetic block before returning the reduced result.",
+      "type": "controlflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "The value produced by the assembly arithmetic block is reduced with result % PRIME and returned by compute as the function's result.",
+      "type": "dataflow",
+      "from_id": 3
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "EcdsaPointsXColumn.compute",
+      "reason": "Parameter x has no independent semantic role outside compute; it exists only as the evaluation point consumed by the function's arithmetic, so it is collapsed into the compute function node.",
+      "normal_node": "EcdsaPointsXColumn.compute.x"
+    },
+    {
+      "merge_into": "EcdsaPointsXColumn.compute.assembly_mulmod",
+      "reason": "The local PRIME constant is a fixed modulus used exclusively by the inline assembly mulmod/add chain and the final reduction, so it is absorbed into the arithmetic unsafe_operation node.",
+      "normal_node": "EcdsaPointsXColumn.compute.PRIME"
+    }
+  ]
+}

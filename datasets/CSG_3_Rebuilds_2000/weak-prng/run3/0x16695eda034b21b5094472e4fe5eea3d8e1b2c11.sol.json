@@ -1,0 +1,201 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "description": "External view function that pseudo-randomly selects a winner from a calldata address array using keccak256 over block values and an entropy salt.",
+      "id": "Giveaway.selectWinner",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "description": "Calldata address array of candidate participants supplied by the caller; its length drives the modulo operation and its elements are indexed by the derived winner index.",
+      "id": "Giveaway.selectWinner.users",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 2,
+      "description": "Caller-supplied uint256 salt mixed into the keccak256 entropy hash; fully controllable by the caller.",
+      "id": "Giveaway.selectWinner.salt",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 3,
+      "description": "Local variable holding users.length; used both as hash input and as the modulo divisor for winner selection.",
+      "id": "Giveaway.selectWinner.size",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 4,
+      "description": "Local bytes32 keccak256 digest over address(this), block.number, block.timestamp, block.coinbase, block.gaslimit, block.difficulty, a past blockhash, size and salt.",
+      "id": "Giveaway.selectWinner.hash",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 5,
+      "description": "Local uint256 index computed as uint256(hash) % size and used to index the users array.",
+      "id": "Giveaway.selectWinner.winnerIndex",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 6,
+      "description": "Block timestamp consumed as entropy for the winner-selection hash, making the outcome miner/validator-influenced.",
+      "id": "block.timestamp",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "description": "Weak on-chain randomness: keccak256 over block.timestamp and other block fields is predictable/manipulable by the block producer.",
+      "id": "unsafe:keccak256_block_entropy",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 8,
+      "description": "Modulo-bounded array indexing users[uint256(hash) % size]; reverts when size is zero and relies on the weak randomness for its result.",
+      "id": "unsafe:users_modulo_index",
+      "type": "unsafe_operation",
+      "is_core": true
+    }
+  ],
+  "edges": [
+    {
+      "reason": "selectWinner is invoked with the caller-supplied calldata array users.",
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "reason": "selectWinner is invoked with the caller-supplied salt argument.",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "reason": "Execution of selectWinner reads the block timestamp as entropy input.",
+      "vuln_type": "access_control",
+      "to_id": 6,
+      "type": "controlflow",
+      "from_id": 0
+    },
+    {
+      "reason": "selectWinner executes the keccak256-based randomness computation.",
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "controlflow",
+      "from_id": 0
+    },
+    {
+      "reason": "selectWinner executes the modulo/index computation on the users array.",
+      "vuln_type": "arithmetic",
+      "to_id": 8,
+      "type": "controlflow",
+      "from_id": 0
+    },
+    {
+      "reason": "size is derived from users.length.",
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "reason": "The users array is indexed with winnerIndex inside the selection step.",
+      "vuln_type": "arithmetic",
+      "to_id": 8,
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "reason": "Caller-controlled salt is encoded into the keccak256 hash.",
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "reason": "users.length is encoded into the keccak256 hash.",
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "reason": "size is used as the modulo divisor when computing winnerIndex.",
+      "vuln_type": "arithmetic",
+      "to_id": 5,
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "reason": "block.timestamp flows into the entropy hash, making winnerIndex timestamp dependent.",
+      "vuln_type": "access_control",
+      "to_id": 4,
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "reason": "The untrusted block timestamp is the entropy source of the unsafe randomness operation.",
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "reason": "winnerIndex = uint256(hash) % size derives from the hash digest.",
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "reason": "The keccak256 digest over block values is consumed as the pseudo-random value.",
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "reason": "winnerIndex is the value used to index users in the selection step.",
+      "vuln_type": "arithmetic",
+      "to_id": 8,
+      "type": "dataflow",
+      "from_id": 5
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Parameter users is only meaningful as input to selectWinner; fold it into the core function node.",
+      "merge_into": "Giveaway.selectWinner",
+      "normal_node": "Giveaway.selectWinner.users"
+    },
+    {
+      "reason": "Parameter salt is only meaningful as input to selectWinner; fold it into the core function node.",
+      "merge_into": "Giveaway.selectWinner",
+      "normal_node": "Giveaway.selectWinner.salt"
+    },
+    {
+      "reason": "Local size exists solely to bound the modulo/index selection operation; fold it into that unsafe operation.",
+      "merge_into": "unsafe:users_modulo_index",
+      "normal_node": "Giveaway.selectWinner.size"
+    },
+    {
+      "reason": "Local hash is the entropy digest consumed by the unsafe randomness operation; fold it into that node.",
+      "merge_into": "unsafe:keccak256_block_entropy",
+      "normal_node": "Giveaway.selectWinner.hash"
+    },
+    {
+      "reason": "Local winnerIndex is the index operand of the unsafe array-index operation; fold it into that node.",
+      "merge_into": "unsafe:users_modulo_index",
+      "normal_node": "Giveaway.selectWinner.winnerIndex"
+    }
+  ]
+}

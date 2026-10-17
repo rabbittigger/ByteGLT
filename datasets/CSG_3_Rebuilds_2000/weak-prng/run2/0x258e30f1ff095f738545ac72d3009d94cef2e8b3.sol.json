@@ -1,0 +1,403 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Public address state variable holding the most recent lottery winner.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "lastWinner"
+    },
+    {
+      "type": "state_var",
+      "description": "Public address state variable holding the contract owner, set in the constructor.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "owner"
+    },
+    {
+      "type": "state_var",
+      "description": "Public uint256 state variable accumulating the pot via msg.value.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "jackpot"
+    },
+    {
+      "type": "state_var",
+      "description": "Public uint256 state variable defining the number of players required to trigger a draw.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "MaxPlayers"
+    },
+    {
+      "type": "state_var",
+      "description": "Public uint256 counter of finished lottery rounds, incremented without SafeMath.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "completedGames"
+    },
+    {
+      "type": "state_var",
+      "description": "Public address array of participants; pushed on deposit and deleted each round.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "players"
+    },
+    {
+      "type": "function",
+      "description": "Constructor: assigns owner from msg.sender and initializes MaxPlayers to 10.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "Lottery.constructor"
+    },
+    {
+      "type": "function",
+      "description": "Owner-restricted setter for MaxPlayers with range validation 3 <= num < 1000.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "UpdateNumPlayers"
+    },
+    {
+      "type": "function",
+      "description": "Payable fallback: requires msg.value >= .01 ether, records sender, grows jackpot, may call RandomWinner.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "fallback"
+    },
+    {
+      "type": "function",
+      "description": "View getter returning the players array.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "getPlayers"
+    },
+    {
+      "type": "function",
+      "description": "Private view randomness helper using block.difficulty, now, msg.sender and players as seed.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "random"
+    },
+    {
+      "type": "function",
+      "description": "Private draw logic: picks winner with random()%players.length, pays winner and owner, resets state.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "RandomWinner"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used for ownership, player registration and randomness seed.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "msg.sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "now (block.timestamp) used as part of the randomness seed in random().",
+      "is_core": true,
+      "node_id": 13,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External value transfer to the winner address chosen from the players array, executed before state reset.",
+      "is_core": true,
+      "node_id": 14,
+      "id": "lastWinner.transfer"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External value transfer of the fee to the owner address, executed after the winner transfer.",
+      "is_core": true,
+      "node_id": 15,
+      "id": "owner.transfer"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Unchecked arithmetic jackpot += msg.value performed without SafeMath.",
+      "is_core": true,
+      "node_id": 16,
+      "id": "jackpot_add_msgvalue"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Unchecked arithmetic completedGames++ performed without SafeMath.",
+      "is_core": true,
+      "node_id": 17,
+      "id": "completedGames_increment"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Manipulation of the players dynamic array via push(msg.sender) inside the payable fallback.",
+      "is_core": true,
+      "node_id": 18,
+      "id": "players_push"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Assignment of MaxPlayers from the num parameter guarded only by the owner check.",
+      "is_core": true,
+      "node_id": 19,
+      "id": "MaxPlayers_assignment"
+    },
+    {
+      "type": "parameter",
+      "description": "uint256 parameter of UpdateNumPlayers used to update MaxPlayers.",
+      "is_core": false,
+      "node_id": 20,
+      "id": "num"
+    },
+    {
+      "type": "local_var",
+      "description": "Local uint256 in RandomWinner computed as balance/100 via SafeMath.div.",
+      "is_core": false,
+      "node_id": 21,
+      "id": "fee"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "Constructor writes owner = msg.sender, granting privileged role to the deployer.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 1,
+      "type": "controlflow",
+      "reason": "Constructor body assigns the owner state variable, establishing the access-control anchor.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "controlflow",
+      "reason": "Constructor initializes MaxPlayers to 10.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "UpdateNumPlayers compares owner against msg.sender to authorize the caller.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "controlflow",
+      "reason": "Function UpdateNumPlayers consumes the num parameter.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "The num parameter flows into the privileged MaxPlayers assignment operation.",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "UpdateNumPlayers writes the untrusted num value into MaxPlayers after the owner check.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "controlflow",
+      "reason": "Fallback executes players.push(msg.sender) for each deposit.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "msg.sender is pushed into the players array, making attacker-controlled addresses participants.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 16,
+      "type": "controlflow",
+      "reason": "Fallback performs jackpot += msg.value without overflow protection.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "jackpot state variable is updated by unchecked addition of msg.value.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "Fallback push mutates the players state array, growing it without bound.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "Fallback transfers control to RandomWinner once players.length >= MaxPlayers.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "RandomWinner reads players to determine its length and the winning index.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "controlflow",
+      "reason": "RandomWinner invokes random() to compute the winner index.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "The players array is embedded in the randomness seed, so seed depends on attacker-controlled pushes.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "block.timestamp (now) is used in the randomness seed, creating timestamp/manipulable randomness dependency.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "msg.sender is part of the randomness seed, letting the caller influence the winner selection.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "The pseudo-random value returns to RandomWinner for modulo indexing.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "RandomWinner assigns lastWinner = players[random() % players.length].",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 14,
+      "type": "callback",
+      "reason": "RandomWinner performs an external value transfer to the winner before resetting contract state.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "lastWinner is the destination of the external transfer; recipient is selected from attacker-joinable players.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "The players array determines the recipient of the external transfer, allowing a malicious participant to receive and reenter.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 15,
+      "type": "callback",
+      "reason": "A second external value transfer to owner occurs while state has not yet been fully reset.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "owner address is the destination of the fee transfer.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "The local fee amount is forwarded to the owner via transfer.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "controlflow",
+      "reason": "RandomWinner computes the local fee with SafeMath.div(address(this).balance, 100).",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "Contract balance derived from jackpot contributions is used in the fee arithmetic.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 17,
+      "type": "controlflow",
+      "reason": "RandomWinner increments completedGames without overflow protection.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "completedGames state variable is modified by the unchecked increment.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "jackpot is reset to 0 only after the external transfers, allowing stale state during a reentrant call.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "players array is deleted only after the external transfers, enabling reentrancy-based state manipulation.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "getPlayers returns the players array state variable.",
+      "from_id": 9
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "UpdateNumPlayers",
+      "reason": "The parameter num of UpdateNumPlayers is a transient value whose only purpose is to feed the MaxPlayers assignment performed by the enclosing restricted function; merge into UpdateNumPlayers.",
+      "normal_node": "num"
+    },
+    {
+      "merge_into": "RandomWinner",
+      "reason": "The local variable fee exists only inside RandomWinner as an intermediate result of the balance division used by the owner transfer; merge into RandomWinner.",
+      "normal_node": "fee"
+    }
+  ]
+}

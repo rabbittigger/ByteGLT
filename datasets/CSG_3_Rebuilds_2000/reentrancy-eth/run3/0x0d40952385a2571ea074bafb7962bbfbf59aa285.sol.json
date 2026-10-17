@@ -1,0 +1,275 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Public address of the Uniswap V2 router, whitelisted as a staker so router-mediated transfers bypass restrictions.",
+      "id": "state_uniV2Router",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Mapping(address=>bool) controller used as the sole authorization gate for deposit, withdraw, _checkBalance and _logRebase.",
+      "id": "state_controller",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Mapping(address=>bool) stakers used by the overridden _bridge to decide whether a sender may transfer tokens.",
+      "id": "state_stakers",
+      "type": "state_var",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "msg.sender, attacker-controllable caller identity used for privilege checks and as the token holder in transfers.",
+      "id": "untrusted_msg_sender",
+      "type": "untrusted_input",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "Constructor: mints 750e18 tokens to msg.sender and grants controller/staker privileges to msg.sender and uniV2Router.",
+      "id": "fn_constructor",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "deposit(address) - controller-only entry point that wipes the balance of an arbitrary account via _deposit.",
+      "id": "fn_deposit",
+      "type": "function",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "withdraw(address,uint) - controller-only entry point that increases total supply and credits an arbitrary account without any asset backing.",
+      "id": "fn_withdraw",
+      "type": "function",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "Overridden _bridge(from_,to_,amount) that requires stakers[from_] before performing the inherited balance transfer.",
+      "id": "fn_bridge",
+      "type": "function",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "_checkBalance(address) - controller-only function that marks an arbitrary account as a staker, enabling transfers.",
+      "id": "fn_checkBalance",
+      "type": "function",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "description": "_logRebase(address) - controller-only function that removes an arbitrary account from the staker whitelist.",
+      "id": "fn_logRebase",
+      "type": "function",
+      "node_id": 9
+    },
+    {
+      "is_core": true,
+      "description": "_deposit(acc) sets _balances[acc]=0, permanently destroying holdings of a caller-supplied address.",
+      "id": "unsafe_deposit_zero",
+      "type": "unsafe_operation",
+      "node_id": 10
+    },
+    {
+      "is_core": true,
+      "description": "_withdraw(account,amount) increases _totalSupply and _balances[account] unconditionally, minting unbacked tokens.",
+      "id": "unsafe_withdraw_mint",
+      "type": "unsafe_operation",
+      "node_id": 11
+    },
+    {
+      "is_core": false,
+      "description": "account parameter of deposit(address), attacker/privileged-actor supplied target of balance wiping.",
+      "id": "param_deposit_account",
+      "type": "parameter",
+      "node_id": 12
+    },
+    {
+      "is_core": false,
+      "description": "account parameter of withdraw(address,uint), recipient of newly minted balances.",
+      "id": "param_withdraw_account",
+      "type": "parameter",
+      "node_id": 13
+    },
+    {
+      "is_core": false,
+      "description": "amount parameter of withdraw(address,uint), unvalidated quantity added to supply and balance.",
+      "id": "param_withdraw_amount",
+      "type": "parameter",
+      "node_id": 14
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "msg.sender receives the initial mint and is written into controller and stakers in the constructor.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "reason": "deposit execution is gated by require(controller[msg.sender]); the caller identity decides whether the privileged balance wipe runs.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "reason": "withdraw execution is gated by require(controller[msg.sender]); caller identity decides whether unbacked minting runs.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "transfer/transferFrom pass _msgSender() (msg.sender) as the from_ argument of _bridge, driving the stakers lookup.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "reason": "_checkBalance is gated by require(controller[msg.sender]); a privileged caller can whitelist arbitrary accounts as stakers.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "access_control",
+      "reason": "_logRebase is gated by require(controller[msg.sender]); a privileged caller can revoke staker status arbitrarily.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "reason": "controller mapping value for msg.sender guards the _deposit call inside deposit.",
+      "type": "controlflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "reason": "controller mapping value for msg.sender guards the _withdraw call inside withdraw.",
+      "type": "controlflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "reason": "controller mapping value for msg.sender guards the stakers[account]=true write.",
+      "type": "controlflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "access_control",
+      "reason": "controller mapping value for msg.sender guards the stakers[account]=false write.",
+      "type": "controlflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "access_control",
+      "reason": "constructor writes controller[msg.sender]=true, establishing the privileged role.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "constructor writes stakers[msg.sender]=true and stakers[uniV2Router]=true, seeding the transfer whitelist.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "uniV2Router state variable is used as the key that is whitelisted as a staker in the constructor.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "reason": "_bridge requires stakers[from_] before forwarding to super._bridge, so the whitelist controls all transfers.",
+      "type": "controlflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "deposit forwards its account argument into the unsafe _deposit balance-zeroing operation.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "withdraw forwards account and amount into the unsafe _withdraw minting operation.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "reason": "_checkBalance writes stakers[account]=true, expanding the set of accounts allowed to move tokens.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "reason": "_logRebase writes stakers[account]=false, shrinking the set of accounts allowed to move tokens.",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "deposit's account parameter is the direct target whose balance is set to zero.",
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "withdraw's account parameter receives the newly minted balance.",
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "arithmetic",
+      "reason": "withdraw's amount parameter is added to _totalSupply and to the target balance with no upper bound or backing check.",
+      "type": "dataflow",
+      "from_id": 14
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "fn_deposit",
+      "reason": "The account parameter of deposit has no independent identity; it exists only as the argument threaded into _deposit and should be absorbed into the deposit function node.",
+      "normal_node": "param_deposit_account"
+    },
+    {
+      "merge_into": "fn_withdraw",
+      "reason": "The account parameter of withdraw is only meaningful as the recipient supplied to _withdraw and should be normalized into the withdraw function node.",
+      "normal_node": "param_withdraw_account"
+    },
+    {
+      "merge_into": "fn_withdraw",
+      "reason": "The amount parameter of withdraw is a plain scalar argument that only feeds _withdraw, so it should be merged into the withdraw function node.",
+      "normal_node": "param_withdraw_amount"
+    }
+  ]
+}

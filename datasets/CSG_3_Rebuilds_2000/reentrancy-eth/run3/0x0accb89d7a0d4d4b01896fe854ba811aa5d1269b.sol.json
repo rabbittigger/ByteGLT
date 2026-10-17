@@ -1,0 +1,195 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Public mapping (address => uint) tracking each hodler's deposited balance; written in the fallback and zeroed in party().",
+      "id": "hodlers",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Constant uint (1749995999) timestamp gate used by party(); part of a block.timestamp dependency check.",
+      "id": "partyTime",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Payable fallback function; adds msg.value to hodlers[msg.sender] and emits Hodl.",
+      "id": "fallback()",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "Withdrawal function; requires block.timestamp > partyTime and hodlers[msg.sender] > 0, zeroes the balance, then transfers value to msg.sender.",
+      "id": "party()",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "Caller-controlled address used as mapping key, transfer recipient and balance owner in both functions.",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "Miner-influenceable timestamp compared against partyTime inside party().",
+      "id": "block.timestamp",
+      "type": "untrusted_input",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "External ETH transfer to caller executed at the end of party(); the reentrancy-relevant interaction with an untrusted address.",
+      "id": "msg.sender.transfer(value)",
+      "type": "unsafe_operation",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "Unchecked addition into the hodlers mapping in the payable fallback; arithmetic overflow candidate.",
+      "id": "hodlers[msg.sender] += msg.value",
+      "type": "unsafe_operation",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "Require condition combining a block.timestamp gate with a caller-balance check; timestamp dependency and access gate.",
+      "id": "block.timestamp > partyTime && hodlers[msg.sender] > 0",
+      "type": "unsafe_operation",
+      "node_id": 8
+    },
+    {
+      "is_core": false,
+      "description": "Local uint in party() caching hodlers[msg.sender] before it is zeroed and transferred out.",
+      "id": "value",
+      "type": "local_var",
+      "node_id": 9
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 7,
+      "vuln_type": "arithmetic",
+      "reason": "The payable fallback executes the unchecked balance addition hodlers[msg.sender] += msg.value.",
+      "type": "controlflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "reason": "msg.sender is the caller-controlled mapping key used in the increment expression.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "arithmetic",
+      "reason": "The increment operation writes the computed value back into the hodlers state variable.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "msg.sender indexes the hodlers mapping to identify the depositor's balance slot.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "The fallback function mutates the hodlers state variable.",
+      "type": "controlflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "reason": "party() enforces the require condition guarding on time and caller balance.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "reason": "block.timestamp flows into the time gate comparison, making the withdrawal timestamp dependent.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "reason": "The partyTime constant is compared against block.timestamp in the guard condition.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "reason": "msg.sender selects hodlers[msg.sender] for the > 0 balance requirement.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "party() declares and assigns the local variable value = hodlers[msg.sender].",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "The hodlers state variable is read into the local value.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "access_control",
+      "reason": "msg.sender indexes hodlers to determine the value read into the local variable.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "reason": "party() performs the external ETH transfer to the caller as its final statement.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "reason": "The untrusted msg.sender is the recipient of the external transfer call.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "The local value is the amount forwarded in the external transfer.",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "reason": "The hodlers balance is zeroed before the external transfer, linking state mutation and the untrusted call.",
+      "type": "dataflow",
+      "from_id": 0
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "msg.sender.transfer(value)",
+      "reason": "The local variable value is only a temporary cache of hodlers[msg.sender] supplied as the amount of the external transfer, so it should be merged into the transfer unsafe_operation.",
+      "normal_node": "value"
+    }
+  ]
+}

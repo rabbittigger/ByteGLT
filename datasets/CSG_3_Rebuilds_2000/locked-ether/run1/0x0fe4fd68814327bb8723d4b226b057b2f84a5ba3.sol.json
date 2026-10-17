@@ -1,0 +1,167 @@
+{
+  "nodes": [
+    {
+      "description": "Private owner address state variable set in the constructor",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "owner"
+    },
+    {
+      "description": "Constant authorized caller address used in the withdrawal check",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "SLAV_ADDR"
+    },
+    {
+      "description": "Constant address of the external DateTime contract",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 2,
+      "id": "DATE_TIME_ADDR"
+    },
+    {
+      "description": "DateTime contract instance used to read the current hour",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 3,
+      "id": "dateTime"
+    },
+    {
+      "description": "Constructor assigning owner = msg.sender",
+      "is_core": true,
+      "type": "function",
+      "node_id": 4,
+      "id": "constructor"
+    },
+    {
+      "description": "Payable receive function accepting ether into the contract",
+      "is_core": true,
+      "type": "function",
+      "node_id": 5,
+      "id": "receive"
+    },
+    {
+      "description": "Payable fallback function accepting ether into the contract",
+      "is_core": true,
+      "type": "function",
+      "node_id": 6,
+      "id": "fallback"
+    },
+    {
+      "description": "Public function that drains the contract balance after timestamp and sender checks",
+      "is_core": true,
+      "type": "function",
+      "node_id": 7,
+      "id": "getMyCoinsPlease"
+    },
+    {
+      "description": "View function returning address(this).balance",
+      "is_core": true,
+      "type": "function",
+      "node_id": 8,
+      "id": "getBalance"
+    },
+    {
+      "description": "Caller-controlled address used for ownership and withdrawal authorization",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 9,
+      "id": "msg.sender"
+    },
+    {
+      "description": "Miner-influenceable timestamp used to gate the withdrawal",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 10,
+      "id": "block.timestamp"
+    },
+    {
+      "description": "msg.sender.transfer(address(this).balance) sends the whole balance to the caller",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 11,
+      "id": "transfer_balance"
+    },
+    {
+      "description": "Local uint8 holding the result of dateTime.getHour(block.timestamp)",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 12,
+      "id": "hour"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is assigned to the owner state variable inside the constructor",
+      "from_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "block.timestamp derived hour value gates getMyCoinsPlease through require(hour > 16), creating a timestamp dependency",
+      "from_id": 10,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 7
+    },
+    {
+      "reason": "require(msg.sender == SLAV_ADDR) restricts execution of getMyCoinsPlease to the caller address",
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 7
+    },
+    {
+      "reason": "SLAV_ADDR constant is compared against msg.sender in the authorization check of getMyCoinsPlease",
+      "from_id": 1,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "caller controlled msg.sender is the recipient of the full-balance external transfer",
+      "from_id": 9,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "getMyCoinsPlease performs an external value transfer of the entire contract balance",
+      "from_id": 7,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 11
+    },
+    {
+      "reason": "block.timestamp is passed to dateTime.getHour and stored in the local hour variable",
+      "from_id": 10,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "local hour is consumed by require(hour > 16) inside getMyCoinsPlease",
+      "from_id": 12,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "getMyCoinsPlease makes an external call to the dateTime contract instance to read the hour",
+      "from_id": 7,
+      "vuln_type": "none",
+      "type": "callback",
+      "to_id": 3
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "local variable hour exists only inside getMyCoinsPlease and only feeds its timestamp gate, so it should collapse into that function node",
+      "normal_node": "hour",
+      "merge_into": "getMyCoinsPlease"
+    }
+  ]
+}

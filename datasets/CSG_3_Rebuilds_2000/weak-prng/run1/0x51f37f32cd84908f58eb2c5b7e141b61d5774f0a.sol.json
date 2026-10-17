@@ -1,0 +1,1634 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "sv_gType",
+      "is_core": true,
+      "description": "uint8 public gType = 3; game type identifier stored in contract state."
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "id": "sv_fee",
+      "is_core": true,
+      "description": "uint8 public fee = 10; commission percentage used in prize distribution math."
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "id": "sv_game",
+      "is_core": true,
+      "description": "uint public game; current game number, also set from block.number in startGame."
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "id": "sv_ticketPrice",
+      "is_core": true,
+      "description": "uint public ticketPrice = 0.05 ether; required msg.value for buyTicket."
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "id": "sv_newPrice",
+      "is_core": true,
+      "description": "uint public newPrice; pending ticket price applied on next startGame."
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "id": "sv_allTimeJackpot",
+      "is_core": true,
+      "description": "uint public allTimeJackpot; cumulative jackpot accumulator updated in pickTheWinner."
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "id": "sv_allTimePlayers",
+      "is_core": true,
+      "description": "uint public allTimePlayers; cumulative player counter updated in pickTheWinner."
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "id": "sv_paidToPartners",
+      "is_core": true,
+      "description": "uint public paidToPartners; amount already paid to partners, reset and reused in payout math."
+    },
+    {
+      "node_id": 8,
+      "type": "state_var",
+      "id": "sv_isActive",
+      "is_core": true,
+      "description": "bool public isActive; gate for buyTicket and startGame."
+    },
+    {
+      "node_id": 9,
+      "type": "state_var",
+      "id": "sv_toogleStatus",
+      "is_core": true,
+      "description": "bool public toogleStatus; pending game status switch flag."
+    },
+    {
+      "node_id": 10,
+      "type": "state_var",
+      "id": "sv_games",
+      "is_core": true,
+      "description": "uint[] public games; array of all games (never written in this contract)."
+    },
+    {
+      "node_id": 11,
+      "type": "state_var",
+      "id": "sv_jackpot",
+      "is_core": true,
+      "description": "mapping(uint => uint) jackpot; per-game pot incremented in buyTicket and drained in pickTheWinner."
+    },
+    {
+      "node_id": 12,
+      "type": "state_var",
+      "id": "sv_players",
+      "is_core": true,
+      "description": "mapping(uint => address[]) players; per-game participant list, pushed with msg.sender."
+    },
+    {
+      "node_id": 13,
+      "type": "state_var",
+      "id": "sv_ownable",
+      "is_core": true,
+      "description": "iOwnable public ownable; external access-control contract consulted by onlyOwner."
+    },
+    {
+      "node_id": 14,
+      "type": "state_var",
+      "id": "sv_stats",
+      "is_core": true,
+      "description": "iCryptolottoStatsAggregator public stats; external aggregator called in pickTheWinner."
+    },
+    {
+      "node_id": 15,
+      "type": "state_var",
+      "id": "sv_referralInstance",
+      "is_core": true,
+      "description": "iCryptolottoReferral public referralInstance; external referral system queried for partners/percent."
+    },
+    {
+      "node_id": 16,
+      "type": "state_var",
+      "id": "sv_fundsDistributor",
+      "is_core": true,
+      "description": "address public fundsDistributor; recipient of balance via low-level call with 30000 gas."
+    },
+    {
+      "node_id": 17,
+      "type": "untrusted_input",
+      "id": "ui_msg_sender",
+      "is_core": true,
+      "description": "msg.sender; caller address used as player, participant and access-control subject."
+    },
+    {
+      "node_id": 18,
+      "type": "untrusted_input",
+      "id": "ui_block_timestamp",
+      "is_core": true,
+      "description": "block.timestamp / now; miner-influenced source used in randomness and events."
+    },
+    {
+      "node_id": 19,
+      "type": "unsafe_operation",
+      "id": "uo_external_call_fundsDistributor",
+      "is_core": true,
+      "description": "address(fundsDistributor).call.gas(30000).value(distribute)(); low-level external call that forwards ETH and can reenter."
+    },
+    {
+      "node_id": 20,
+      "type": "unsafe_operation",
+      "id": "uo_transfer_winner",
+      "is_core": true,
+      "description": "players[game][winner].transfer(toPlayer); ETH push to winner address, potential reentrancy vector."
+    },
+    {
+      "node_id": 21,
+      "type": "unsafe_operation",
+      "id": "uo_transfer_single_player",
+      "is_core": true,
+      "description": "players[game][0].transfer(jackpot[game]); full refund push to the only player."
+    },
+    {
+      "node_id": 22,
+      "type": "unsafe_operation",
+      "id": "uo_transfer_partner",
+      "is_core": true,
+      "description": "partner.transfer(sum); ETH push to referral partner."
+    },
+    {
+      "node_id": 23,
+      "type": "unsafe_operation",
+      "id": "uo_transfer_salesPartner",
+      "is_core": true,
+      "description": "salesPartner.transfer(sum); ETH push to sales partner."
+    },
+    {
+      "node_id": 24,
+      "type": "unsafe_operation",
+      "id": "uo_arith_distribute_pickTheWinner",
+      "is_core": true,
+      "description": "jackpot[game] * fee / 100 and distribute -= paidToPartners; unchecked multiplication/subtraction in prize math."
+    },
+    {
+      "node_id": 25,
+      "type": "unsafe_operation",
+      "id": "uo_arith_calculateReferral",
+      "is_core": true,
+      "description": "distribute * percent / 100; unchecked referral commission multiplication."
+    },
+    {
+      "node_id": 26,
+      "type": "unsafe_operation",
+      "id": "uo_arith_jackpot_buyTicket",
+      "is_core": true,
+      "description": "jackpot[game] += msg.value; unchecked balance accumulation in buyTicket."
+    },
+    {
+      "node_id": 27,
+      "type": "unsafe_operation",
+      "id": "uo_arith_randomNumber",
+      "is_core": true,
+      "description": "keccak256(time * difficulty * number * uint(bHash)) modulo arithmetic; miner-influenceable randomness computation."
+    },
+    {
+      "node_id": 28,
+      "type": "function",
+      "id": "fn_constructor",
+      "is_core": true,
+      "description": "Cryptolotto6Hours(address,address,address,address) public; wires ownable/stats/referral/distributor and starts game."
+    },
+    {
+      "node_id": 29,
+      "type": "function",
+      "id": "fn_fallback",
+      "is_core": true,
+      "description": "function() public payable; forwards value to buyTicket(address(0))."
+    },
+    {
+      "node_id": 30,
+      "type": "function",
+      "id": "fn_getPlayedGamePlayers",
+      "is_core": true,
+      "description": "getPlayedGamePlayers() view returns (uint); players count of current game."
+    },
+    {
+      "node_id": 31,
+      "type": "function",
+      "id": "fn_getPlayersInGame",
+      "is_core": true,
+      "description": "getPlayersInGame(uint) view returns (uint); reads players[playedGame].length."
+    },
+    {
+      "node_id": 32,
+      "type": "function",
+      "id": "fn_getPlayedGameJackpot",
+      "is_core": true,
+      "description": "getPlayedGameJackpot() view returns (uint); jackpot of current game."
+    },
+    {
+      "node_id": 33,
+      "type": "function",
+      "id": "fn_getGameJackpot",
+      "is_core": true,
+      "description": "getGameJackpot(uint) view returns (uint); reads jackpot mapping."
+    },
+    {
+      "node_id": 34,
+      "type": "function",
+      "id": "fn_toogleActive",
+      "is_core": true,
+      "description": "toogleActive() public onlyOwner; toggles isActive / toogleStatus."
+    },
+    {
+      "node_id": 35,
+      "type": "function",
+      "id": "fn_start",
+      "is_core": true,
+      "description": "start() public onlyOwner; pays previous game then starts a new one."
+    },
+    {
+      "node_id": 36,
+      "type": "function",
+      "id": "fn_changeTicketPrice",
+      "is_core": true,
+      "description": "changeTicketPrice(uint) public onlyOwner; sets newPrice."
+    },
+    {
+      "node_id": 37,
+      "type": "function",
+      "id": "fn_randomNumber",
+      "is_core": true,
+      "description": "randomNumber(uint,uint,uint,uint,uint,bytes32) public pure; pseudo-random derivation helpers."
+    },
+    {
+      "node_id": 38,
+      "type": "function",
+      "id": "fn_buyTicket",
+      "is_core": true,
+      "description": "buyTicket(address) public payable; validates price/status, records player and processes referral."
+    },
+    {
+      "node_id": 39,
+      "type": "function",
+      "id": "fn_startGame",
+      "is_core": true,
+      "description": "startGame() internal; sets game number, applies price/status changes, emits Game."
+    },
+    {
+      "node_id": 40,
+      "type": "function",
+      "id": "fn_pickTheWinner",
+      "is_core": true,
+      "description": "pickTheWinner() internal; selects winner, transfers ETH, calls stats aggregator."
+    },
+    {
+      "node_id": 41,
+      "type": "function",
+      "id": "fn_processReferralSystem",
+      "is_core": true,
+      "description": "processReferralSystem(address,address) internal; registers referral and pays partners."
+    },
+    {
+      "node_id": 42,
+      "type": "function",
+      "id": "fn_transferToPartner",
+      "is_core": true,
+      "description": "transferToPartner(address) internal; computes and pushes partner commission."
+    },
+    {
+      "node_id": 43,
+      "type": "function",
+      "id": "fn_transferToSalesPartner",
+      "is_core": true,
+      "description": "transferToSalesPartner(address) internal; computes and pushes sales partner commission."
+    },
+    {
+      "node_id": 44,
+      "type": "function",
+      "id": "fn_getPartnerAmount",
+      "is_core": true,
+      "description": "getPartnerAmount(address) internal view; converts partner percent into ETH amount."
+    },
+    {
+      "node_id": 45,
+      "type": "function",
+      "id": "fn_getSalesPartnerAmount",
+      "is_core": true,
+      "description": "getSalesPartnerAmount(address) internal view; converts sales partner percent into ETH amount."
+    },
+    {
+      "node_id": 46,
+      "type": "function",
+      "id": "fn_calculateReferral",
+      "is_core": true,
+      "description": "calculateReferral(uint8) internal view; ticketPrice*fee/100*percent/100 commission math."
+    },
+    {
+      "node_id": 47,
+      "type": "function",
+      "id": "fn_onlyOwner",
+      "is_core": true,
+      "description": "modifier onlyOwner(); requires ownable.allowed(msg.sender)."
+    },
+    {
+      "node_id": 48,
+      "type": "parameter",
+      "id": "param_constructor_ownableContract",
+      "is_core": false,
+      "description": "Address supplied to the constructor, cast to iOwnable."
+    },
+    {
+      "node_id": 49,
+      "type": "parameter",
+      "id": "param_constructor_distributor",
+      "is_core": false,
+      "description": "Address supplied to the constructor, stored as fundsDistributor."
+    },
+    {
+      "node_id": 50,
+      "type": "parameter",
+      "id": "param_constructor_statsA",
+      "is_core": false,
+      "description": "Address supplied to the constructor, cast to iCryptolottoStatsAggregator."
+    },
+    {
+      "node_id": 51,
+      "type": "parameter",
+      "id": "param_constructor_referralSystem",
+      "is_core": false,
+      "description": "Address supplied to the constructor, cast to iCryptolottoReferral."
+    },
+    {
+      "node_id": 52,
+      "type": "parameter",
+      "id": "param_changeTicketPrice_price",
+      "is_core": false,
+      "description": "New price argument of changeTicketPrice written to newPrice."
+    },
+    {
+      "node_id": 53,
+      "type": "parameter",
+      "id": "param_randomNumber_min",
+      "is_core": false,
+      "description": "Lower bound argument of randomNumber."
+    },
+    {
+      "node_id": 54,
+      "type": "parameter",
+      "id": "param_randomNumber_max",
+      "is_core": false,
+      "description": "Upper bound argument of randomNumber."
+    },
+    {
+      "node_id": 55,
+      "type": "parameter",
+      "id": "param_randomNumber_time",
+      "is_core": false,
+      "description": "Timestamp argument fed into the random hash by pickTheWinner."
+    },
+    {
+      "node_id": 56,
+      "type": "parameter",
+      "id": "param_randomNumber_difficulty",
+      "is_core": false,
+      "description": "Block difficulty argument fed into the random hash."
+    },
+    {
+      "node_id": 57,
+      "type": "parameter",
+      "id": "param_randomNumber_number",
+      "is_core": false,
+      "description": "Block number argument fed into the random hash."
+    },
+    {
+      "node_id": 58,
+      "type": "parameter",
+      "id": "param_randomNumber_bHash",
+      "is_core": false,
+      "description": "Block hash argument fed into the random hash."
+    },
+    {
+      "node_id": 59,
+      "type": "parameter",
+      "id": "param_buyTicket_partner",
+      "is_core": false,
+      "description": "Partner address passed by the ticket buyer into buyTicket."
+    },
+    {
+      "node_id": 60,
+      "type": "parameter",
+      "id": "param_processReferralSystem_partner",
+      "is_core": false,
+      "description": "Partner address handled by processReferralSystem."
+    },
+    {
+      "node_id": 61,
+      "type": "parameter",
+      "id": "param_processReferralSystem_referral",
+      "is_core": false,
+      "description": "Referral (player) address handled by processReferralSystem."
+    },
+    {
+      "node_id": 62,
+      "type": "parameter",
+      "id": "param_transferToPartner_referral",
+      "is_core": false,
+      "description": "Referral address whose partner is looked up in transferToPartner."
+    },
+    {
+      "node_id": 63,
+      "type": "parameter",
+      "id": "param_transferToSalesPartner_partner",
+      "is_core": false,
+      "description": "Partner address whose sales partner is looked up in transferToSalesPartner."
+    },
+    {
+      "node_id": 64,
+      "type": "parameter",
+      "id": "param_getPartnerAmount_partner",
+      "is_core": false,
+      "description": "Partner address queried for percentage in getPartnerAmount."
+    },
+    {
+      "node_id": 65,
+      "type": "parameter",
+      "id": "param_getSalesPartnerAmount_partner",
+      "is_core": false,
+      "description": "Partner address queried for sales percentage in getSalesPartnerAmount."
+    },
+    {
+      "node_id": 66,
+      "type": "parameter",
+      "id": "param_calculateReferral_percent",
+      "is_core": false,
+      "description": "Percent value used in calculateReferral."
+    },
+    {
+      "node_id": 67,
+      "type": "local_var",
+      "id": "local_pickTheWinner_winner",
+      "is_core": false,
+      "description": "Randomly chosen winner index in pickTheWinner."
+    },
+    {
+      "node_id": 68,
+      "type": "local_var",
+      "id": "local_pickTheWinner_toPlayer",
+      "is_core": false,
+      "description": "Amount transferred to the winner in pickTheWinner."
+    },
+    {
+      "node_id": 69,
+      "type": "local_var",
+      "id": "local_pickTheWinner_distribute",
+      "is_core": false,
+      "description": "Commission amount computed from jackpot[game] * fee / 100 in pickTheWinner."
+    },
+    {
+      "node_id": 70,
+      "type": "local_var",
+      "id": "local_pickTheWinner_callResult",
+      "is_core": false,
+      "description": "bool result of the low-level fundsDistributor call, used to revert."
+    },
+    {
+      "node_id": 71,
+      "type": "local_var",
+      "id": "local_buyTicket_playerNumber",
+      "is_core": false,
+      "description": "Player index assigned in buyTicket before push."
+    },
+    {
+      "node_id": 72,
+      "type": "local_var",
+      "id": "local_processReferralSystem_partnerRef",
+      "is_core": false,
+      "description": "Partner resolved from the referral system in processReferralSystem."
+    },
+    {
+      "node_id": 73,
+      "type": "local_var",
+      "id": "local_transferToPartner_partner",
+      "is_core": false,
+      "description": "Partner address resolved by getPartnerByReferral in transferToPartner."
+    },
+    {
+      "node_id": 74,
+      "type": "local_var",
+      "id": "local_transferToPartner_sum",
+      "is_core": false,
+      "description": "Partner commission amount transferred and added to paidToPartners."
+    },
+    {
+      "node_id": 75,
+      "type": "local_var",
+      "id": "local_transferToSalesPartner_salesPartner",
+      "is_core": false,
+      "description": "Sales partner address resolved in transferToSalesPartner."
+    },
+    {
+      "node_id": 76,
+      "type": "local_var",
+      "id": "local_transferToSalesPartner_sum",
+      "is_core": false,
+      "description": "Sales partner commission amount transferred and added to paidToPartners."
+    },
+    {
+      "node_id": 77,
+      "type": "local_var",
+      "id": "local_getPartnerAmount_partnerPercent",
+      "is_core": false,
+      "description": "uint8 percent returned by the referral system in getPartnerAmount."
+    },
+    {
+      "node_id": 78,
+      "type": "local_var",
+      "id": "local_getSalesPartnerAmount_salesPartnerPercent",
+      "is_core": false,
+      "description": "uint8 percent returned by the referral system in getSalesPartnerAmount."
+    },
+    {
+      "node_id": 79,
+      "type": "local_var",
+      "id": "local_calculateReferral_distribute",
+      "is_core": false,
+      "description": "Base commission amount ticketPrice * fee / 100 in calculateReferral."
+    },
+    {
+      "node_id": 80,
+      "type": "local_var",
+      "id": "local_randomNumber_random",
+      "is_core": false,
+      "description": "Hash-derived random seed inside randomNumber."
+    },
+    {
+      "node_id": 81,
+      "type": "local_var",
+      "id": "local_randomNumber_result",
+      "is_core": false,
+      "description": "Bounded result value inside randomNumber."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor parameter ownableContract is cast and stored into ownable.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 48,
+      "to_id": 28
+    },
+    {
+      "reason": "Constructor parameter distributor is assigned to fundsDistributor.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 49,
+      "to_id": 28
+    },
+    {
+      "reason": "Constructor parameter statsA is cast and stored into stats.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 50,
+      "to_id": 28
+    },
+    {
+      "reason": "Constructor parameter referralSystem is cast and stored into referralInstance.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 51,
+      "to_id": 28
+    },
+    {
+      "reason": "Owner-supplied price argument flows into changeTicketPrice body.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 52,
+      "to_id": 36
+    },
+    {
+      "reason": "Owner-controlled price parameter writes newPrice state variable.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 52,
+      "to_id": 4
+    },
+    {
+      "reason": "min bound consumed by randomNumber computation.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 53,
+      "to_id": 37
+    },
+    {
+      "reason": "max bound consumed by randomNumber computation.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 54,
+      "to_id": 37
+    },
+    {
+      "reason": "time argument is multiplied into the keccak256 random seed.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 55,
+      "to_id": 37
+    },
+    {
+      "reason": "difficulty argument is multiplied into the keccak256 random seed.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 56,
+      "to_id": 37
+    },
+    {
+      "reason": "number argument is multiplied into the keccak256 random seed.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 57,
+      "to_id": 37
+    },
+    {
+      "reason": "bHash argument is cast to uint and mixed into the random seed.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 58,
+      "to_id": 37
+    },
+    {
+      "reason": "Partner parameter supplied by the ticket buyer enters buyTicket.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 59,
+      "to_id": 38
+    },
+    {
+      "reason": "buyTicket forwards the partner argument into processReferralSystem.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 59,
+      "to_id": 41
+    },
+    {
+      "reason": "partner argument used inside processReferralSystem.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 60,
+      "to_id": 41
+    },
+    {
+      "reason": "referral argument used inside processReferralSystem.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 61,
+      "to_id": 41
+    },
+    {
+      "reason": "Unvalidated partner address is recorded through referralInstance.addReferral.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 60,
+      "to_id": 15
+    },
+    {
+      "reason": "Referral address is passed to referralInstance.getPartnerByReferral.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 61,
+      "to_id": 15
+    },
+    {
+      "reason": "referral argument drives partner resolution in transferToPartner.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 62,
+      "to_id": 42
+    },
+    {
+      "reason": "referral argument forwarded to referralInstance.getPartnerByReferral.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 62,
+      "to_id": 15
+    },
+    {
+      "reason": "partner argument drives sales partner resolution.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 63,
+      "to_id": 43
+    },
+    {
+      "reason": "partner argument forwarded to referralInstance.getSalesPartner.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 63,
+      "to_id": 15
+    },
+    {
+      "reason": "partner argument used to query partner percent.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 64,
+      "to_id": 44
+    },
+    {
+      "reason": "partner argument forwarded to referralInstance.getPartnerPercent.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 64,
+      "to_id": 15
+    },
+    {
+      "reason": "partner argument used to query sales partner percent.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 65,
+      "to_id": 45
+    },
+    {
+      "reason": "partner argument forwarded to referralInstance.getSalesPartnerPercent.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 65,
+      "to_id": 15
+    },
+    {
+      "reason": "percent argument consumed by calculateReferral.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 66,
+      "to_id": 46
+    },
+    {
+      "reason": "External percent value multiplies into the unchecked commission computation.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 66,
+      "to_id": 25
+    },
+    {
+      "reason": "winner local is written by the random draw inside pickTheWinner.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 67,
+      "to_id": 40
+    },
+    {
+      "reason": "toPlayer local is written by the payout math inside pickTheWinner.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 68,
+      "to_id": 40
+    },
+    {
+      "reason": "distribute local is written by the commission math inside pickTheWinner.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 69,
+      "to_id": 40
+    },
+    {
+      "reason": "callResult bool is produced and checked inside pickTheWinner.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 70,
+      "to_id": 40
+    },
+    {
+      "reason": "playerNumber local captured before pushing the sender.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 71,
+      "to_id": 38
+    },
+    {
+      "reason": "partnerRef local holds the referral lookup result.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 72,
+      "to_id": 41
+    },
+    {
+      "reason": "partner local resolved from the referral system.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 73,
+      "to_id": 42
+    },
+    {
+      "reason": "sum local carries the partner commission to be transferred.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 74,
+      "to_id": 42
+    },
+    {
+      "reason": "salesPartner local resolved from the referral system.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 75,
+      "to_id": 43
+    },
+    {
+      "reason": "sum local carries the sales partner commission to be transferred.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 76,
+      "to_id": 43
+    },
+    {
+      "reason": "partnerPercent local returned by the referral system.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 77,
+      "to_id": 44
+    },
+    {
+      "reason": "salesPartnerPercent local returned by the referral system.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 78,
+      "to_id": 45
+    },
+    {
+      "reason": "distribute local computed from ticketPrice and fee.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 79,
+      "to_id": 46
+    },
+    {
+      "reason": "random local derived from miner-influenced inputs.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 80,
+      "to_id": 37
+    },
+    {
+      "reason": "result local computed with modulo and unchecked arithmetic.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 81,
+      "to_id": 37
+    },
+    {
+      "reason": "Commission is computed by multiplying the jackpot mapping value.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 69,
+      "to_id": 11
+    },
+    {
+      "reason": "distribute value is the operand of the unchecked percentage math.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 69,
+      "to_id": 24
+    },
+    {
+      "reason": "toPlayer amount is pushed to the winner through transfer.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 68,
+      "to_id": 20
+    },
+    {
+      "reason": "winner index selects the address from the players mapping.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 67,
+      "to_id": 12
+    },
+    {
+      "reason": "playerNumber indexes the pushed player entry.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 71,
+      "to_id": 12
+    },
+    {
+      "reason": "partnerRef obtained from the external referral contract.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 72,
+      "to_id": 15
+    },
+    {
+      "reason": "Partner payment increments paidToPartners.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 74,
+      "to_id": 7
+    },
+    {
+      "reason": "Sales partner payment increments paidToPartners.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 76,
+      "to_id": 7
+    },
+    {
+      "reason": "Resolved partner address receives ETH via transfer.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 73,
+      "to_id": 22
+    },
+    {
+      "reason": "Resolved sales partner address receives ETH via transfer.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 75,
+      "to_id": 23
+    },
+    {
+      "reason": "distribute operand multiplied by percent in the commission math.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 79,
+      "to_id": 25
+    },
+    {
+      "reason": "Result of the low-level fundsDistributor call is captured into a local bool.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 19,
+      "to_id": 70
+    },
+    {
+      "reason": "Constructor stores the externally supplied ownable contract address.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 28,
+      "to_id": 13
+    },
+    {
+      "reason": "Constructor stores the externally supplied stats aggregator address.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 28,
+      "to_id": 14
+    },
+    {
+      "reason": "Constructor stores the externally supplied referral system address.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 28,
+      "to_id": 15
+    },
+    {
+      "reason": "Constructor stores the externally supplied funds distributor address.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 28,
+      "to_id": 16
+    },
+    {
+      "reason": "Constructor invokes startGame to initialize the first game.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 28,
+      "to_id": 39
+    },
+    {
+      "reason": "buyTicket requires msg.value == ticketPrice before accepting funds.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 38,
+      "to_id": 3
+    },
+    {
+      "reason": "buyTicket requires the game to be active.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 38,
+      "to_id": 8
+    },
+    {
+      "reason": "Received msg.value is added to jackpot[game] without checked math.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 38,
+      "to_id": 11
+    },
+    {
+      "reason": "Caller address is pushed into the players mapping.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 38,
+      "to_id": 12
+    },
+    {
+      "reason": "Untrusted msg.sender is recorded as the ticket holder.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 38,
+      "to_id": 17
+    },
+    {
+      "reason": "startGame assigns the current block number to game.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 39,
+      "to_id": 2
+    },
+    {
+      "reason": "startGame consumes and clears newPrice.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 39,
+      "to_id": 4
+    },
+    {
+      "reason": "startGame applies pending ticket price change.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 39,
+      "to_id": 3
+    },
+    {
+      "reason": "startGame consumes and clears the toogleStatus flag.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 39,
+      "to_id": 9
+    },
+    {
+      "reason": "startGame can flip isActive based on toogleStatus.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 39,
+      "to_id": 8
+    },
+    {
+      "reason": "start triggers the payout routine when previous game had players.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 35,
+      "to_id": 40
+    },
+    {
+      "reason": "start proceeds to startGame after payouts.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 35,
+      "to_id": 39
+    },
+    {
+      "reason": "start is guarded by the onlyOwner modifier.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 35,
+      "to_id": 47
+    },
+    {
+      "reason": "changeTicketPrice is guarded by the onlyOwner modifier.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 36,
+      "to_id": 47
+    },
+    {
+      "reason": "toogleActive is guarded by the onlyOwner modifier.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 34,
+      "to_id": 47
+    },
+    {
+      "reason": "Owner-gated function flips the isActive state variable.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 34,
+      "to_id": 8
+    },
+    {
+      "reason": "Owner-gated function toggles the toogleStatus flag.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 34,
+      "to_id": 9
+    },
+    {
+      "reason": "onlyOwner delegates the access decision to the external ownable contract.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 47,
+      "to_id": 13
+    },
+    {
+      "reason": "Untrusted msg.sender is the subject of the ownable.allowed check.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 47
+    },
+    {
+      "reason": "Random draw call forwards block timestamp and difficulty inputs.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 40,
+      "to_id": 26
+    },
+    {
+      "reason": "pickTheWinner computes jackpot * fee / 100 with unchecked arithmetic.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 40,
+      "to_id": 24
+    },
+    {
+      "reason": "pickTheWinner pushes the prize to the winner via transfer.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 40,
+      "to_id": 20
+    },
+    {
+      "reason": "Single-player branch pushes the whole jackpot via transfer.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 40,
+      "to_id": 21
+    },
+    {
+      "reason": "pickTheWinner performs a low-level value call on fundsDistributor.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 40,
+      "to_id": 19
+    },
+    {
+      "reason": "stats.newWinner external call executes after ETH transfers.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 40,
+      "to_id": 14
+    },
+    {
+      "reason": "allTimeJackpot is incremented with unchecked addition.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 40,
+      "to_id": 5
+    },
+    {
+      "reason": "allTimePlayers is incremented with unchecked addition.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 40,
+      "to_id": 6
+    },
+    {
+      "reason": "pickTheWinner resets and consumes paidToPartners.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 40,
+      "to_id": 7
+    },
+    {
+      "reason": "pickTheWinner reads and pays addresses from the players mapping.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 40,
+      "to_id": 12
+    },
+    {
+      "reason": "pickTheWinner drains jackpot[game] into the payout amounts.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 40,
+      "to_id": 11
+    },
+    {
+      "reason": "pickTheWinner calls transferToPartner for the winner.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 40,
+      "to_id": 42
+    },
+    {
+      "reason": "processReferralSystem queries and writes the external referral system.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 41,
+      "to_id": 15
+    },
+    {
+      "reason": "processReferralSystem triggers partner payouts.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 41,
+      "to_id": 42
+    },
+    {
+      "reason": "processReferralSystem inspects players[game].length.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 41,
+      "to_id": 12
+    },
+    {
+      "reason": "transferToPartner queries referralInstance.getPartnerByReferral.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 42,
+      "to_id": 15
+    },
+    {
+      "reason": "transferToPartner calls getPartnerAmount for the commission.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 42,
+      "to_id": 44
+    },
+    {
+      "reason": "Partner address receives the commission by transfer.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 42,
+      "to_id": 22
+    },
+    {
+      "reason": "transferToPartner accumulates paidToPartners.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 42,
+      "to_id": 7
+    },
+    {
+      "reason": "transferToPartner cascades into sales partner payout.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 42,
+      "to_id": 43
+    },
+    {
+      "reason": "transferToSalesPartner queries referralInstance.getSalesPartner.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 43,
+      "to_id": 15
+    },
+    {
+      "reason": "transferToSalesPartner calls getSalesPartnerAmount.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 43,
+      "to_id": 45
+    },
+    {
+      "reason": "Sales partner address receives ETH by transfer.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 43,
+      "to_id": 23
+    },
+    {
+      "reason": "transferToSalesPartner accumulates paidToPartners.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 43,
+      "to_id": 7
+    },
+    {
+      "reason": "getPartnerAmount queries referralInstance.getPartnerPercent.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 44,
+      "to_id": 15
+    },
+    {
+      "reason": "getPartnerAmount delegates math to calculateReferral.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 44,
+      "to_id": 46
+    },
+    {
+      "reason": "getSalesPartnerAmount queries referralInstance.getSalesPartnerPercent.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 45,
+      "to_id": 15
+    },
+    {
+      "reason": "getSalesPartnerAmount delegates math to calculateReferral.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 45,
+      "to_id": 46
+    },
+    {
+      "reason": "calculateReferral multiplies ticketPrice into the commission base.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 46,
+      "to_id": 3
+    },
+    {
+      "reason": "calculateReferral divides the base by the fee percentage.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 46,
+      "to_id": 1
+    },
+    {
+      "reason": "calculateReferral performs unchecked multiplication by percent.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 46,
+      "to_id": 25
+    },
+    {
+      "reason": "randomNumber seed can be derived from block timestamp passed by the caller.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 37,
+      "to_id": 18
+    },
+    {
+      "reason": "Timestamp is an input to the winner-selection randomness.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 26,
+      "to_id": 18
+    },
+    {
+      "reason": "Random value depends on miner-controllable timestamp and block data.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 27,
+      "to_id": 18
+    },
+    {
+      "reason": "Fallback forwards received ETH into buyTicket.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 29,
+      "to_id": 38
+    },
+    {
+      "reason": "getPlayedGamePlayers reads the current game number.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 30,
+      "to_id": 2
+    },
+    {
+      "reason": "getPlayedGamePlayers delegates to getPlayersInGame.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 30,
+      "to_id": 31
+    },
+    {
+      "reason": "getPlayersInGame reads players[playedGame].length.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 31,
+      "to_id": 12
+    },
+    {
+      "reason": "getPlayedGameJackpot reads the current game number.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 32,
+      "to_id": 2
+    },
+    {
+      "reason": "getPlayedGameJackpot delegates to getGameJackpot.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 32,
+      "to_id": 33
+    },
+    {
+      "reason": "getGameJackpot reads the jackpot mapping.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 33,
+      "to_id": 11
+    },
+    {
+      "reason": "Low-level value call to fundsDistributor can reenter pickTheWinner before state finalization.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 19,
+      "to_id": 40
+    },
+    {
+      "reason": "FundsDistributor call can reenter buyTicket while paidToPartners/jackpot are inconsistent.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 19,
+      "to_id": 38
+    },
+    {
+      "reason": "Winner transfer executes before paidToPartners reset, allowing reentrant ticket purchase.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 20,
+      "to_id": 38
+    },
+    {
+      "reason": "Partner transfer callback can reenter buyTicket during payout.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 22,
+      "to_id": 38
+    },
+    {
+      "reason": "Sales partner transfer callback can reenter buyTicket during payout.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 23,
+      "to_id": 38
+    },
+    {
+      "reason": "stats.newWinner external call occurs before allTimeJackpot/allTimePlayers updates.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 14,
+      "to_id": 40
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Constructor parameter only feeds the ownable state assignment; fold into fn_constructor.",
+      "merge_into": "fn_constructor",
+      "normal_node": "param_constructor_ownableContract"
+    },
+    {
+      "reason": "Constructor parameter only feeds fundsDistributor assignment; fold into fn_constructor.",
+      "merge_into": "fn_constructor",
+      "normal_node": "param_constructor_distributor"
+    },
+    {
+      "reason": "Constructor parameter only feeds the stats instance assignment; fold into fn_constructor.",
+      "merge_into": "fn_constructor",
+      "normal_node": "param_constructor_statsA"
+    },
+    {
+      "reason": "Constructor parameter only feeds the referral instance assignment; fold into fn_constructor.",
+      "merge_into": "fn_constructor",
+      "normal_node": "param_constructor_referralSystem"
+    },
+    {
+      "reason": "Owner-supplied price is a direct defaulted argument of changeTicketPrice.",
+      "merge_into": "fn_changeTicketPrice",
+      "normal_node": "param_changeTicketPrice_price"
+    },
+    {
+      "reason": "Lower bound is consumed only inside randomNumber.",
+      "merge_into": "fn_randomNumber",
+      "normal_node": "param_randomNumber_min"
+    },
+    {
+      "reason": "Upper bound is consumed only inside randomNumber.",
+      "merge_into": "fn_randomNumber",
+      "normal_node": "param_randomNumber_max"
+    },
+    {
+      "reason": "Timestamp operand is consumed only inside randomNumber.",
+      "merge_into": "fn_randomNumber",
+      "normal_node": "param_randomNumber_time"
+    },
+    {
+      "reason": "Difficulty operand is consumed only inside randomNumber.",
+      "merge_into": "fn_randomNumber",
+      "normal_node": "param_randomNumber_difficulty"
+    },
+    {
+      "reason": "Block number operand is consumed only inside randomNumber.",
+      "merge_into": "fn_randomNumber",
+      "normal_node": "param_randomNumber_number"
+    },
+    {
+      "reason": "Block hash operand is consumed only inside randomNumber.",
+      "merge_into": "fn_randomNumber",
+      "normal_node": "param_randomNumber_bHash"
+    },
+    {
+      "reason": "Attacker-controllable partner argument of the payable buyTicket entry point.",
+      "merge_into": "fn_buyTicket",
+      "normal_node": "param_buyTicket_partner"
+    },
+    {
+      "reason": "Partner argument is consumed only inside processReferralSystem.",
+      "merge_into": "fn_processReferralSystem",
+      "normal_node": "param_processReferralSystem_partner"
+    },
+    {
+      "reason": "Referral argument is consumed only inside processReferralSystem.",
+      "merge_into": "fn_processReferralSystem",
+      "normal_node": "param_processReferralSystem_referral"
+    },
+    {
+      "reason": "Referral argument is consumed only inside transferToPartner.",
+      "merge_into": "fn_transferToPartner",
+      "normal_node": "param_transferToPartner_referral"
+    },
+    {
+      "reason": "Partner argument is consumed only inside transferToSalesPartner.",
+      "merge_into": "fn_transferToSalesPartner",
+      "normal_node": "param_transferToSalesPartner_partner"
+    },
+    {
+      "reason": "Partner address is consumed only inside getPartnerAmount.",
+      "merge_into": "fn_getPartnerAmount",
+      "normal_node": "param_getPartnerAmount_partner"
+    },
+    {
+      "reason": "Partner address is consumed only inside getSalesPartnerAmount.",
+      "merge_into": "fn_getSalesPartnerAmount",
+      "normal_node": "param_getSalesPartnerAmount_partner"
+    },
+    {
+      "reason": "Percent argument feeds the unchecked commission math in calculateReferral.",
+      "merge_into": "fn_calculateReferral",
+      "normal_node": "param_calculateReferral_percent"
+    },
+    {
+      "reason": "Winner index exists only inside the payout routine.",
+      "merge_into": "fn_pickTheWinner",
+      "normal_node": "local_pickTheWinner_winner"
+    },
+    {
+      "reason": "Payout amount exists only inside the payout routine.",
+      "merge_into": "fn_pickTheWinner",
+      "normal_node": "local_pickTheWinner_toPlayer"
+    },
+    {
+      "reason": "Commission local is the operand of the unchecked jackpot*fee/100 arithmetic.",
+      "merge_into": "uo_arith_distribute_pickTheWinner",
+      "normal_node": "local_pickTheWinner_distribute"
+    },
+    {
+      "reason": "Call result bool exists only to validate the low-level fundsDistributor call.",
+      "merge_into": "uo_external_call_fundsDistributor",
+      "normal_node": "local_pickTheWinner_callResult"
+    },
+    {
+      "reason": "Player index exists only inside buyTicket.",
+      "merge_into": "fn_buyTicket",
+      "normal_node": "local_buyTicket_playerNumber"
+    },
+    {
+      "reason": "Resolved partner exists only inside processReferralSystem.",
+      "merge_into": "fn_processReferralSystem",
+      "normal_node": "local_processReferralSystem_partnerRef"
+    },
+    {
+      "reason": "Resolved partner exists only inside transferToPartner.",
+      "merge_into": "fn_transferToPartner",
+      "normal_node": "local_transferToPartner_partner"
+    },
+    {
+      "reason": "Commission sum exists only inside transferToPartner.",
+      "merge_into": "fn_transferToPartner",
+      "normal_node": "local_transferToPartner_sum"
+    },
+    {
+      "reason": "Resolved sales partner exists only inside transferToSalesPartner.",
+      "merge_into": "fn_transferToSalesPartner",
+      "normal_node": "local_transferToSalesPartner_salesPartner"
+    },
+    {
+      "reason": "Sales commission sum exists only inside transferToSalesPartner.",
+      "merge_into": "fn_transferToSalesPartner",
+      "normal_node": "local_transferToSalesPartner_sum"
+    },
+    {
+      "reason": "Percent value exists only inside getPartnerAmount.",
+      "merge_into": "fn_getPartnerAmount",
+      "normal_node": "local_getPartnerAmount_partnerPercent"
+    },
+    {
+      "reason": "Percent value exists only inside getSalesPartnerAmount.",
+      "merge_into": "fn_getSalesPartnerAmount",
+      "normal_node": "local_getSalesPartnerAmount_salesPartnerPercent"
+    },
+    {
+      "reason": "Commission base exists only inside calculateReferral.",
+      "merge_into": "fn_calculateReferral",
+      "normal_node": "local_calculateReferral_distribute"
+    },
+    {
+      "reason": "Random seed exists only inside randomNumber.",
+      "merge_into": "fn_randomNumber",
+      "normal_node": "local_randomNumber_random"
+    },
+    {
+      "reason": "Bounded result exists only inside randomNumber.",
+      "merge_into": "fn_randomNumber",
+      "normal_node": "local_randomNumber_result"
+    }
+  ]
+}

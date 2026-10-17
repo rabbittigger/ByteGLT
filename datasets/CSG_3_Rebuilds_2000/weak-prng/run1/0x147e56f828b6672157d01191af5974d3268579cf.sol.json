@@ -1,0 +1,663 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "function",
+      "id": "DropPartyNFT.constructor",
+      "is_core": true,
+      "description": "Constructor of DropPartyNFT initializing ERC721 metadata, PaymentSplitter payees/shares, MAX_NFTS and REVEAL_TIMESTAMP."
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "id": "PARTY_PROVENANCE",
+      "is_core": true,
+      "description": "Public string holding the provenance hash of the collection."
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "id": "startingIndexBlock",
+      "is_core": true,
+      "description": "Block number used as entropy source for the starting token index."
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "id": "startingIndex",
+      "is_core": true,
+      "description": "Pseudo-random offset used to shuffle token reveal order."
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "id": "MAX_NFTS",
+      "is_core": true,
+      "description": "Maximum number of NFTs that can ever be minted."
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "id": "saleIsActive",
+      "is_core": true,
+      "description": "Flag controlling whether minting is currently enabled."
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "id": "REVEAL_TIMESTAMP",
+      "is_core": true,
+      "description": "Timestamp after which the starting index block can be set by anyone."
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "id": "nftPrice",
+      "is_core": true,
+      "description": "Constant price per NFT (0.08 ETH) used to validate msg.value."
+    },
+    {
+      "node_id": 8,
+      "type": "state_var",
+      "id": "maxNFTPurchase",
+      "is_core": true,
+      "description": "Constant maximum number of NFTs mintable per transaction (20)."
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "id": "reserveNFTs",
+      "is_core": true,
+      "description": "Owner-only function minting up to 30 reserved NFTs to the caller."
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "id": "setRevealTimestamp",
+      "is_core": true,
+      "description": "Owner-only setter for REVEAL_TIMESTAMP."
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "id": "setProvenanceHash",
+      "is_core": true,
+      "description": "Owner-only setter for the provenance hash."
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "id": "setBaseURI",
+      "is_core": true,
+      "description": "Owner-only setter for the ERC721 base URI."
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "id": "flipSaleState",
+      "is_core": true,
+      "description": "Owner-only toggle of the saleIsActive flag."
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "id": "mintNFT",
+      "is_core": true,
+      "description": "Payable public mint function that validates sale state, per-tx limit, supply and payment, then mints NFTs."
+    },
+    {
+      "node_id": 15,
+      "type": "function",
+      "id": "setStartingIndex",
+      "is_core": true,
+      "description": "Public function deriving startingIndex from blockhash, vulnerable to miner manipulation."
+    },
+    {
+      "node_id": 16,
+      "type": "function",
+      "id": "emergencySetStartingIndexBlock",
+      "is_core": true,
+      "description": "Owner-only fallback to set startingIndexBlock when it was never set."
+    },
+    {
+      "node_id": 17,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "is_core": true,
+      "description": "Caller-controlled address used for minting, payouts, ownership checks and callbacks."
+    },
+    {
+      "node_id": 18,
+      "type": "untrusted_input",
+      "id": "block.timestamp",
+      "is_core": true,
+      "description": "Miner-influenced timestamp used to decide when the starting index block can be set."
+    },
+    {
+      "node_id": 19,
+      "type": "unsafe_operation",
+      "id": "safeMint_external_callback",
+      "is_core": true,
+      "description": "_safeMint invokes onERC721Received on the recipient contract before mint state is fully settled for the caller, allowing callback reentrancy."
+    },
+    {
+      "node_id": 20,
+      "type": "unsafe_operation",
+      "id": "sendValue_low_level_call",
+      "is_core": true,
+      "description": "Address.sendValue performs a forwarded-gas low-level call to msg.sender, enabling reentrancy on release()."
+    },
+    {
+      "node_id": 21,
+      "type": "unsafe_operation",
+      "id": "blockhash_randomness",
+      "is_core": true,
+      "description": "startingIndex is computed from blockhash of a known block, a predictable entropy source controllable by miners."
+    },
+    {
+      "node_id": 22,
+      "type": "function",
+      "id": "release",
+      "is_core": true,
+      "description": "PaymentSplitter pull-payment function transferring owed Ether to the caller."
+    },
+    {
+      "node_id": 23,
+      "type": "state_var",
+      "id": "_totalShares",
+      "is_core": true,
+      "description": "Total shares held by all payees in PaymentSplitter."
+    },
+    {
+      "node_id": 24,
+      "type": "state_var",
+      "id": "_totalReleased",
+      "is_core": true,
+      "description": "Total amount of Ether already released in PaymentSplitter."
+    },
+    {
+      "node_id": 25,
+      "type": "state_var",
+      "id": "_released",
+      "is_core": true,
+      "description": "Mapping of account to amount already released in PaymentSplitter."
+    },
+    {
+      "node_id": 26,
+      "type": "parameter",
+      "id": "param_numberOfTokens",
+      "is_core": false,
+      "description": "Caller-supplied number of NFTs to mint in mintNFT."
+    },
+    {
+      "node_id": 27,
+      "type": "parameter",
+      "id": "param_revealTimeStamp",
+      "is_core": false,
+      "description": "New reveal timestamp passed to setRevealTimestamp."
+    },
+    {
+      "node_id": 28,
+      "type": "parameter",
+      "id": "param_provenanceHash",
+      "is_core": false,
+      "description": "Provenance hash passed to setProvenanceHash."
+    },
+    {
+      "node_id": 29,
+      "type": "parameter",
+      "id": "param_baseURI",
+      "is_core": false,
+      "description": "Base URI string passed to setBaseURI."
+    },
+    {
+      "node_id": 30,
+      "type": "parameter",
+      "id": "param_maxNftSupply",
+      "is_core": false,
+      "description": "Maximum NFT supply supplied to the constructor."
+    },
+    {
+      "node_id": 31,
+      "type": "parameter",
+      "id": "param_saleStart",
+      "is_core": false,
+      "description": "Sale start timestamp supplied to the constructor."
+    },
+    {
+      "node_id": 32,
+      "type": "local_var",
+      "id": "local_supply",
+      "is_core": false,
+      "description": "Cached totalSupply() in reserveNFTs."
+    },
+    {
+      "node_id": 33,
+      "type": "local_var",
+      "id": "local_i_reserve",
+      "is_core": false,
+      "description": "Loop counter in reserveNFTs."
+    },
+    {
+      "node_id": 34,
+      "type": "local_var",
+      "id": "local_mintIndex",
+      "is_core": false,
+      "description": "Token id computed from totalSupply() inside mintNFT loop."
+    },
+    {
+      "node_id": 35,
+      "type": "local_var",
+      "id": "local_i_mint",
+      "is_core": false,
+      "description": "Loop counter in mintNFT."
+    },
+    {
+      "node_id": 36,
+      "type": "local_var",
+      "id": "local_payment",
+      "is_core": false,
+      "description": "Amount owed to the caller computed in release."
+    },
+    {
+      "node_id": 37,
+      "type": "local_var",
+      "id": "local_totalReceived",
+      "is_core": false,
+      "description": "Contract balance plus already released total in release."
+    },
+    {
+      "node_id": 38,
+      "type": "function",
+      "id": "totalSupply",
+      "is_core": true,
+      "description": "ERC721Enumerable total supply getter used for supply checks and mint indices."
+    },
+    {
+      "node_id": 39,
+      "type": "state_var",
+      "id": "_shares",
+      "is_core": true,
+      "description": "Mapping of account to assigned shares in PaymentSplitter."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "numberOfTokens feeds nftPrice.mul(numberOfTokens) and totalSupply().add(numberOfTokens) arithmetic checks.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 26,
+      "to_id": 14
+    },
+    {
+      "reason": "revealTimeStamp is written into REVEAL_TIMESTAMP.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 27,
+      "to_id": 10
+    },
+    {
+      "reason": "provenanceHash is written into PARTY_PROVENANCE.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 28,
+      "to_id": 11
+    },
+    {
+      "reason": "baseURI is forwarded to _setBaseURI.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 12
+    },
+    {
+      "reason": "maxNftSupply initializes MAX_NFTS.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 30,
+      "to_id": 0
+    },
+    {
+      "reason": "saleStart is used to compute REVEAL_TIMESTAMP.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 31,
+      "to_id": 0
+    },
+    {
+      "reason": "supply holds totalSupply() used as mint index base.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 32,
+      "to_id": 9
+    },
+    {
+      "reason": "Loop counter i drives the reserve mint loop.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 33,
+      "to_id": 9
+    },
+    {
+      "reason": "mintIndex is passed as tokenId to _safeMint.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 34,
+      "to_id": 14
+    },
+    {
+      "reason": "Loop counter i drives the mintNFT mint loop.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 35,
+      "to_id": 14
+    },
+    {
+      "reason": "payment is computed with unchecked subtraction/multiplication and forwarded to sendValue.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 36,
+      "to_id": 22
+    },
+    {
+      "reason": "totalReceived is derived from address(this).balance plus _totalReleased.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 37,
+      "to_id": 22
+    },
+    {
+      "reason": "Constructor assigns MAX_NFTS.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 4
+    },
+    {
+      "reason": "Constructor computes REVEAL_TIMESTAMP from saleStart.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 6
+    },
+    {
+      "reason": "onlyOwner function overwrites REVEAL_TIMESTAMP.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 6
+    },
+    {
+      "reason": "onlyOwner function overwrites PARTY_PROVENANCE.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 1
+    },
+    {
+      "reason": "onlyOwner function toggles saleIsActive.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 5
+    },
+    {
+      "reason": "mintNFT reads saleIsActive as a guard.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 5
+    },
+    {
+      "reason": "mintNFT writes startingIndexBlock when supply is exhausted or reveal time passed.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 2
+    },
+    {
+      "reason": "Supply cap check compares totalSupply().add(numberOfTokens) with MAX_NFTS.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 4
+    },
+    {
+      "reason": "setStartingIndex writes the derived startingIndex.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 3
+    },
+    {
+      "reason": "setStartingIndex reads startingIndexBlock as entropy.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 2
+    },
+    {
+      "reason": "Modulo and add operations against MAX_NFTS in setStartingIndex.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 4
+    },
+    {
+      "reason": "onlyOwner emergency function sets startingIndexBlock.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 2
+    },
+    {
+      "reason": "reserveNFTs reads totalSupply() to compute mint indices.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 38
+    },
+    {
+      "reason": "mintNFT repeatedly reads totalSupply() for supply checks and indices.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 38
+    },
+    {
+      "reason": "startingIndex is produced by the blockhash-based entropy computation.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 21
+    },
+    {
+      "reason": "msg.sender is the recipient of minted tokens and payer.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 14
+    },
+    {
+      "reason": "reserveNFTs is restricted by onlyOwner comparing owner() to _msgSender().",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 9
+    },
+    {
+      "reason": "onlyOwner gate on setRevealTimestamp depends on msg.sender.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 17,
+      "to_id": 10
+    },
+    {
+      "reason": "onlyOwner gate on setProvenanceHash depends on msg.sender.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 17,
+      "to_id": 11
+    },
+    {
+      "reason": "onlyOwner gate on setBaseURI depends on msg.sender.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 17,
+      "to_id": 12
+    },
+    {
+      "reason": "onlyOwner gate on flipSaleState depends on msg.sender.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 17,
+      "to_id": 13
+    },
+    {
+      "reason": "onlyOwner gate on emergencySetStartingIndexBlock depends on msg.sender.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 17,
+      "to_id": 16
+    },
+    {
+      "reason": "msg.sender is the payee whose shares/released balances are read and who receives Ether.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 22
+    },
+    {
+      "reason": "block.timestamp compared to REVEAL_TIMESTAMP decides when startingIndexBlock is fixed.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 14
+    },
+    {
+      "reason": "block.number/blockhash timing influences the pseudo-random index derivation.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 18,
+      "to_id": 15
+    },
+    {
+      "reason": "mintNFT calls _safeMint which invokes the receiver hook on an untrusted contract address.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 14,
+      "to_id": 19
+    },
+    {
+      "reason": "onERC721Received callback is executed on msg.sender-controlled recipient contract.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 19,
+      "to_id": 17
+    },
+    {
+      "reason": "release() calls Address.sendValue which performs a forwarded-gas low-level call.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 22,
+      "to_id": 20
+    },
+    {
+      "reason": "Low-level value call transfers control to the untrusted msg.sender before state is final.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 20,
+      "to_id": 17
+    },
+    {
+      "reason": "release reads _shares[msg.sender] to compute the payment.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 39
+    },
+    {
+      "reason": "release uses _totalShares as the denominator.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 23
+    },
+    {
+      "reason": "release reads and updates _released[msg.sender].",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 25
+    },
+    {
+      "reason": "release accumulates payment into _totalReleased.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 24
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Parameter numberOfTokens is only meaningful inside mintNFT's arithmetic and mint loop.",
+      "merge_into": "mintNFT",
+      "normal_node": "param_numberOfTokens"
+    },
+    {
+      "reason": "Parameter revealTimeStamp is only used to update REVEAL_TIMESTAMP in setRevealTimestamp.",
+      "merge_into": "setRevealTimestamp",
+      "normal_node": "param_revealTimeStamp"
+    },
+    {
+      "reason": "Parameter provenanceHash is only used to update PARTY_PROVENANCE in setProvenanceHash.",
+      "merge_into": "setProvenanceHash",
+      "normal_node": "param_provenanceHash"
+    },
+    {
+      "reason": "Parameter baseURI is only forwarded to _setBaseURI inside setBaseURI.",
+      "merge_into": "setBaseURI",
+      "normal_node": "param_baseURI"
+    },
+    {
+      "reason": "Parameter maxNftSupply only initializes MAX_NFTS in the constructor.",
+      "merge_into": "DropPartyNFT.constructor",
+      "normal_node": "param_maxNftSupply"
+    },
+    {
+      "reason": "Parameter saleStart only participates in REVEAL_TIMESTAMP computation in the constructor.",
+      "merge_into": "DropPartyNFT.constructor",
+      "normal_node": "param_saleStart"
+    },
+    {
+      "reason": "Local supply caches totalSupply() solely inside reserveNFTs.",
+      "merge_into": "reserveNFTs",
+      "normal_node": "local_supply"
+    },
+    {
+      "reason": "Local loop counter i exists only inside reserveNFTs.",
+      "merge_into": "reserveNFTs",
+      "normal_node": "local_i_reserve"
+    },
+    {
+      "reason": "Local mintIndex is computed and consumed only inside mintNFT.",
+      "merge_into": "mintNFT",
+      "normal_node": "local_mintIndex"
+    },
+    {
+      "reason": "Local loop counter i exists only inside mintNFT.",
+      "merge_into": "mintNFT",
+      "normal_node": "local_i_mint"
+    },
+    {
+      "reason": "Local payment is computed and sent only inside release.",
+      "merge_into": "release",
+      "normal_node": "local_payment"
+    },
+    {
+      "reason": "Local totalReceived is computed only inside release.",
+      "merge_into": "release",
+      "normal_node": "local_totalReceived"
+    }
+  ]
+}

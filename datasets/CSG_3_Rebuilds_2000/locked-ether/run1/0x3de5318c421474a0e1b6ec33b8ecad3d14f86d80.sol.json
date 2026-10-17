@@ -1,0 +1,275 @@
+{
+  "nodes": [
+    {
+      "id": "state_var.governance",
+      "is_core": true,
+      "description": "Governance address state variable in ERC20, initialized to tx.origin; used as the sole authority for minting.",
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "state_var._transferEnabled",
+      "is_core": true,
+      "description": "Boolean flag in TetrisFinance controlling whether transfers are enabled.",
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "state_var._balances",
+      "is_core": true,
+      "description": "Mapping of account balances updated by _mint and _transfer.",
+      "node_id": 2,
+      "type": "state_var"
+    },
+    {
+      "id": "state_var._totalSupply",
+      "is_core": true,
+      "description": "Total token supply increased by _mint without cap enforcement in this path.",
+      "node_id": 3,
+      "type": "state_var"
+    },
+    {
+      "id": "function.ERC20.constructor",
+      "is_core": true,
+      "description": "ERC20 constructor that sets name, symbol, decimals and assigns governance = tx.origin.",
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "function.ERC20.transferFromAndCall",
+      "is_core": true,
+      "description": "Non-standard public function that requires msg.sender == governance and then mints arbitrary tokens via _mint.",
+      "node_id": 5,
+      "type": "function"
+    },
+    {
+      "id": "function.ERC20._mint",
+      "is_core": true,
+      "description": "Internal mint function increasing _totalSupply and _balances[account].",
+      "node_id": 6,
+      "type": "function"
+    },
+    {
+      "id": "function.ERC20.transfer",
+      "is_core": true,
+      "description": "ERC20 transfer entry guarded by canTransfer modifier.",
+      "node_id": 7,
+      "type": "function"
+    },
+    {
+      "id": "function.ERC1363.transferFromAndCallData",
+      "is_core": true,
+      "description": "ERC1363 function that performs transferFrom then triggers an external receiver callback.",
+      "node_id": 8,
+      "type": "function"
+    },
+    {
+      "id": "function.ERC1363._checkAndCallTransfer",
+      "is_core": true,
+      "description": "Internal helper that invokes onTransferReceived on the recipient contract and validates the magic value.",
+      "node_id": 9,
+      "type": "function"
+    },
+    {
+      "id": "untrusted_input.tx.origin",
+      "is_core": true,
+      "description": "tx.origin used to set governance, enabling phishing-based privilege acquisition.",
+      "node_id": 10,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "untrusted_input.msg.sender",
+      "is_core": true,
+      "description": "msg.sender used in authorization checks such as governance comparison and role checks.",
+      "node_id": 11,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "unsafe_operation.mint",
+      "is_core": true,
+      "description": "Unrestricted mint call inside transferFromAndCall that creates tokens bypassing cap and role checks.",
+      "node_id": 12,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_operation.external_callback",
+      "is_core": true,
+      "description": "External call to onTransferReceived on an attacker-controlled recipient contract.",
+      "node_id": 13,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "parameter.fromAddress",
+      "is_core": false,
+      "description": "Recipient address of the minted tokens in transferFromAndCall.",
+      "node_id": 14,
+      "type": "parameter"
+    },
+    {
+      "id": "parameter.SubstractedValue",
+      "is_core": false,
+      "description": "Amount of tokens minted in transferFromAndCall.",
+      "node_id": 15,
+      "type": "parameter"
+    },
+    {
+      "id": "local_var.retval",
+      "is_core": false,
+      "description": "Return value of the external onTransferReceived callback compared with the ERC1363 magic value.",
+      "node_id": 16,
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "from_id": 10,
+      "type": "dataflow",
+      "reason": "tx.origin is assigned to the governance state variable in the constructor, making a phishing-susceptible input the authorization authority."
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "from_id": 10,
+      "type": "dataflow",
+      "reason": "ERC20 constructor reads tx.origin to derive the governance account."
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "type": "dataflow",
+      "reason": "The governance state variable is read in transferFromAndCall as the only authorization check."
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "from_id": 11,
+      "type": "controlflow",
+      "reason": "msg.sender is compared against governance to gate the privileged minting path."
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "access_control",
+      "from_id": 5,
+      "type": "controlflow",
+      "reason": "A governance-gated (or tx.origin-derived) call reaches the unrestricted mint operation."
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 12,
+      "type": "controlflow",
+      "reason": "The unsafe mint operation invokes the internal _mint function."
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 14,
+      "type": "dataflow",
+      "reason": "fromAddress parameter flows into transferFromAndCall as the mint recipient."
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 15,
+      "type": "dataflow",
+      "reason": "SubstractedValue parameter flows into transferFromAndCall as the mint amount."
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "from_id": 14,
+      "type": "dataflow",
+      "reason": "fromAddress controls the beneficiary of the mint operation."
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "from_id": 15,
+      "type": "dataflow",
+      "reason": "SubstractedValue controls the quantity minted by the unsafe operation."
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow",
+      "reason": "_mint writes the increased balance into the _balances mapping."
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow",
+      "reason": "_mint increases the _totalSupply state variable."
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "controlflow",
+      "reason": "transferFromAndCallData calls the internal _checkAndCallTransfer helper after moving tokens."
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "reentrancy",
+      "from_id": 9,
+      "type": "controlflow",
+      "reason": "_checkAndCallTransfer performs an external callback onTransferReceived on the recipient contract."
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 11,
+      "type": "dataflow",
+      "reason": "msg.sender is passed as the operator argument into the external callback."
+    },
+    {
+      "to_id": 16,
+      "vuln_type": "none",
+      "from_id": 13,
+      "type": "dataflow",
+      "reason": "The external callback returns retval which is validated against the ERC1363 magic value."
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "from_id": 11,
+      "type": "controlflow",
+      "reason": "msg.sender is evaluated by the canTransfer modifier on the transfer entry point."
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow",
+      "reason": "_transferEnabled state variable is read by the canTransfer modifier guarding transfer."
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "controlflow",
+      "reason": "transferFromAndCallData internally performs a transfer that resolves to the transfer entry point logic."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "parameter.fromAddress",
+      "merge_into": "function.ERC20.transferFromAndCall",
+      "reason": "The fromAddress parameter has no independent meaning and is only used as the mint recipient inside transferFromAndCall."
+    },
+    {
+      "normal_node": "parameter.SubstractedValue",
+      "merge_into": "unsafe_operation.mint",
+      "reason": "The SubstractedValue parameter is only consumed as the amount passed to the mint operation."
+    },
+    {
+      "normal_node": "local_var.retval",
+      "merge_into": "function.ERC1363._checkAndCallTransfer",
+      "reason": "retval is a temporary result of the external callback used only to validate the magic value inside _checkAndCallTransfer."
+    }
+  ]
+}

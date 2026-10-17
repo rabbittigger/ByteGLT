@@ -1,0 +1,985 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Public cap on the total number of tokens that can ever be minted (10000).",
+      "is_core": true,
+      "node_id": 0,
+      "id": "MAX_TOKENS"
+    },
+    {
+      "type": "state_var",
+      "description": "Constant maximum number of tokens mintable per transaction (10).",
+      "is_core": true,
+      "node_id": 1,
+      "id": "MINT_PER_TX_LIMIT"
+    },
+    {
+      "type": "state_var",
+      "description": "Counter of all tokens minted so far; also used as entropy in the random seed.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "tokensMinted"
+    },
+    {
+      "type": "state_var",
+      "description": "Current sale phase (1 = ETH sale, 2-4 = gold token burn sale).",
+      "is_core": true,
+      "node_id": 3,
+      "id": "phase"
+    },
+    {
+      "type": "state_var",
+      "description": "Number of pirate tokens minted; drives steal probability in selectRecipient.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "pirateMinted"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping from phase to token price used by mintPrice().",
+      "is_core": true,
+      "node_id": 5,
+      "id": "phasePrice"
+    },
+    {
+      "type": "state_var",
+      "description": "External ITreasureIsland contract used for staking and pirate owner selection.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "treasureIsland"
+    },
+    {
+      "type": "state_var",
+      "description": "External IGGold token contract used for balance checks and burning payments.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "gold"
+    },
+    {
+      "type": "state_var",
+      "description": "Array of token IDs still available to be minted in the current phase.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "_availableTokens"
+    },
+    {
+      "type": "state_var",
+      "description": "Rotating index (0..6) into _randomSource used as entropy.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "_randomIndex"
+    },
+    {
+      "type": "state_var",
+      "description": "Monotonic counter of random-index updates used as entropy.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "_randomCalls"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping of entropy source addresses whose balances are hashed into the pseudo-random number.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "_randomSource"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping marking token IDs as pirate-type tokens.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "_isPirate"
+    },
+    {
+      "type": "state_var",
+      "description": "Pause flag gating mint via whenNotPaused.",
+      "is_core": true,
+      "node_id": 13,
+      "id": "_paused"
+    },
+    {
+      "type": "state_var",
+      "description": "Ownable owner address controlling all onlyOwner functions.",
+      "is_core": true,
+      "node_id": 14,
+      "id": "_owner"
+    },
+    {
+      "type": "state_var",
+      "description": "ERC721 mapping of holder address to owned token count.",
+      "is_core": true,
+      "node_id": 15,
+      "id": "_balances"
+    },
+    {
+      "type": "state_var",
+      "description": "ERC721 mapping of token ID to owner address.",
+      "is_core": true,
+      "node_id": 16,
+      "id": "_owners"
+    },
+    {
+      "type": "function",
+      "description": "Deploys contract, safe mints token 0 to msg.sender, sets phase prices and random sources.",
+      "is_core": true,
+      "node_id": 17,
+      "id": "constructor"
+    },
+    {
+      "type": "function",
+      "description": "Payable/unpayable mint entry point handling payment, stealing, staking and token creation.",
+      "is_core": true,
+      "node_id": 18,
+      "id": "mint"
+    },
+    {
+      "type": "function",
+      "description": "Chooses the recipient of a token, potentially a thief obtained from TreasureIsland.",
+      "is_core": true,
+      "node_id": 19,
+      "id": "selectRecipient"
+    },
+    {
+      "type": "function",
+      "description": "Pseudo-randomly picks and removes an available token ID from _availableTokens.",
+      "is_core": true,
+      "node_id": 20,
+      "id": "getTokenToBeMinted"
+    },
+    {
+      "type": "function",
+      "description": "Weak on-chain pseudo-random generator seeded with balances, block data and msg.sender.",
+      "is_core": true,
+      "node_id": 21,
+      "id": "getSomeRandomNumber"
+    },
+    {
+      "type": "function",
+      "description": "Advances _randomIndex with wraparound and increments _randomCalls.",
+      "is_core": true,
+      "node_id": 22,
+      "id": "updateRandomIndex"
+    },
+    {
+      "type": "function",
+      "description": "Returns _amount multiplied by the current phase price.",
+      "is_core": true,
+      "node_id": 23,
+      "id": "mintPrice"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only bulk gift mint bypassing per-tx limit.",
+      "is_core": true,
+      "node_id": 24,
+      "id": "giveAway"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only phase switch that optionally repopulates available tokens.",
+      "is_core": true,
+      "node_id": 25,
+      "id": "switchToSalePhase"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only withdrawal of the entire contract balance to an arbitrary address.",
+      "is_core": true,
+      "node_id": 26,
+      "id": "withdraw"
+    },
+    {
+      "type": "function",
+      "description": "Overridden ERC721 transferFrom that skips approval when caller is treasureIsland.",
+      "is_core": true,
+      "node_id": 27,
+      "id": "transferFrom"
+    },
+    {
+      "type": "function",
+      "description": "Internal safe mint that performs the receiver hook check.",
+      "is_core": true,
+      "node_id": 28,
+      "id": "_safeMint"
+    },
+    {
+      "type": "function",
+      "description": "Calls onERC721Received on contract recipients and bubbles up reverts.",
+      "is_core": true,
+      "node_id": 29,
+      "id": "_checkOnERC721Received"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only function that consumes randomness to advance the random index.",
+      "is_core": true,
+      "node_id": 30,
+      "id": "shuffleSeeds"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only pause/unpause of minting.",
+      "is_core": true,
+      "node_id": 31,
+      "id": "setPaused"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only update of the TreasureIsland contract address.",
+      "is_core": true,
+      "node_id": 32,
+      "id": "setTreasureIsland"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only update of the gold token contract address.",
+      "is_core": true,
+      "node_id": 33,
+      "id": "setGold"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only update of a phase price.",
+      "is_core": true,
+      "node_id": 34,
+      "id": "changePhasePrice"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only toggle of the pirate flag for a token ID.",
+      "is_core": true,
+      "node_id": 35,
+      "id": "setPirateId"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only public wrapper that pushes a token ID range into _availableTokens.",
+      "is_core": true,
+      "node_id": 36,
+      "id": "addAvailableTokens"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only update of the metadata base URI.",
+      "is_core": true,
+      "node_id": 37,
+      "id": "setBaseURI"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only update of an entropy source address.",
+      "is_core": true,
+      "node_id": 38,
+      "id": "changeRandomSource"
+    },
+    {
+      "type": "function",
+      "description": "Returns tokensMinted as the total supply.",
+      "is_core": true,
+      "node_id": 39,
+      "id": "totalSupply"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only bulk marking of token IDs as pirates.",
+      "is_core": true,
+      "node_id": 40,
+      "id": "setPirateIds"
+    },
+    {
+      "type": "function",
+      "description": "Internal ERC721 transfer updating balances, owner mapping and approvals.",
+      "is_core": true,
+      "node_id": 41,
+      "id": "_transfer"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used for payments, recipient selection and entropy.",
+      "is_core": true,
+      "node_id": 42,
+      "id": "msg.sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Origin address compared against msg.sender in mint to restrict callers to EOAs.",
+      "is_core": true,
+      "node_id": 43,
+      "id": "tx.origin"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External call burning gold tokens from msg.sender during mint.",
+      "is_core": true,
+      "node_id": 44,
+      "id": "gold.burn"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External call forwarding minted token IDs to the staking contract.",
+      "is_core": true,
+      "node_id": 45,
+      "id": "treasureIsland.addTokensToStake"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External call fetching a pirate owner who becomes the NFT thief.",
+      "is_core": true,
+      "node_id": 46,
+      "id": "treasureIsland.randomPirateOwner"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External static call reading the caller's gold token balance for payment validation.",
+      "is_core": true,
+      "node_id": 47,
+      "id": "gold.balanceOf"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Native value transfer of the whole contract balance to an owner-specified address.",
+      "is_core": true,
+      "node_id": 48,
+      "id": "payable(to).transfer"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Untrusted recipient callback invoked during safe mint/transfer.",
+      "is_core": true,
+      "node_id": 49,
+      "id": "IERC721Receiver.onERC721Received"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "In-place increment of the minted counter, cap enforcement depends on it.",
+      "is_core": true,
+      "node_id": 50,
+      "id": "tokensMinted += _amount"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Truncating cast of the pseudo-random number to uint16 used as an array index.",
+      "is_core": true,
+      "node_id": 51,
+      "id": "uint16(random % _limit)"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Decrement of a holder balance during transfer/burn; underflow would corrupt accounting.",
+      "is_core": true,
+      "node_id": 52,
+      "id": "_balances[from] -= 1"
+    },
+    {
+      "type": "parameter",
+      "description": "Number of tokens the caller wants to mint.",
+      "is_core": false,
+      "node_id": 53,
+      "id": "mint._amount"
+    },
+    {
+      "type": "parameter",
+      "description": "Flag controlling whether minted tokens are staked into TreasureIsland.",
+      "is_core": false,
+      "node_id": 54,
+      "id": "mint._stake"
+    },
+    {
+      "type": "local_var",
+      "description": "Recipient returned by selectRecipient, may be a thief.",
+      "is_core": false,
+      "node_id": 55,
+      "id": "mint.recipient"
+    },
+    {
+      "type": "local_var",
+      "description": "Token ID obtained from getTokenToBeMinted for the current iteration.",
+      "is_core": false,
+      "node_id": 56,
+      "id": "mint.tokenId"
+    },
+    {
+      "type": "local_var",
+      "description": "Amount of gold token required to be burned in non-ETH phases.",
+      "is_core": false,
+      "node_id": 57,
+      "id": "mint.totalPennyCost"
+    },
+    {
+      "type": "local_var",
+      "description": "Array of token IDs collected for staking.",
+      "is_core": false,
+      "node_id": 58,
+      "id": "mint.tokenIds"
+    },
+    {
+      "type": "parameter",
+      "description": "Seed value mixed into the pseudo-random hash.",
+      "is_core": false,
+      "node_id": 59,
+      "id": "getSomeRandomNumber._seed"
+    },
+    {
+      "type": "parameter",
+      "description": "Upper bound used with modulo to bound the random result.",
+      "is_core": false,
+      "node_id": 60,
+      "id": "getSomeRandomNumber._limit"
+    },
+    {
+      "type": "local_var",
+      "description": "Keccak256-derived pseudo-random number before truncation.",
+      "is_core": false,
+      "node_id": 61,
+      "id": "getSomeRandomNumber.random"
+    },
+    {
+      "type": "local_var",
+      "description": "Sum of balances of the seven entropy source addresses.",
+      "is_core": false,
+      "node_id": 62,
+      "id": "getSomeRandomNumber.extra"
+    },
+    {
+      "type": "parameter",
+      "description": "Start of the token ID range added to availability.",
+      "is_core": false,
+      "node_id": 63,
+      "id": "internalAddTokens._from"
+    },
+    {
+      "type": "parameter",
+      "description": "End of the token ID range added to availability.",
+      "is_core": false,
+      "node_id": 64,
+      "id": "internalAddTokens._to"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "access_control",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "msg.sender determines payment source, recipient and mint eligibility inside mint.",
+      "from_id": 42
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "mint requires tx.origin == msg.sender to restrict participation to EOAs, an origin-based authorization check.",
+      "from_id": 43
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 44,
+      "type": "controlflow",
+      "reason": "mint performs the external gold.burn call before tokensMinted and balance accounting are updated.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 44,
+      "type": "dataflow",
+      "reason": "msg.sender is passed as the account to gold.burn.",
+      "from_id": 42
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 18,
+      "type": "callback",
+      "reason": "The external gold token call can reenter mint while tokensMinted is still stale.",
+      "from_id": 44
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 47,
+      "type": "controlflow",
+      "reason": "mint queries gold.balanceOf(msg.sender) to verify the payment amount.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 45,
+      "type": "controlflow",
+      "reason": "mint calls treasureIsland.addTokensToStake after minting loop, allowing reentry from an external contract.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 18,
+      "type": "callback",
+      "reason": "External TreasureIsland staking call can reenter mint before it returns.",
+      "from_id": 45
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "controlflow",
+      "reason": "mint calls selectRecipient for every token in the mint loop.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "selectRecipient returns msg.sender in phase 1 and in the non-steal branch.",
+      "from_id": 42
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 46,
+      "type": "controlflow",
+      "reason": "selectRecipient calls the external treasureIsland.randomPirateOwner() to pick a thief.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "The current phase gates whether stealing can occur in selectRecipient.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "controlflow",
+      "reason": "mint obtains each token ID via getTokenToBeMinted.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "controlflow",
+      "reason": "getTokenToBeMinted uses getSomeRandomNumber to choose an index in _availableTokens.",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "The random seed aggregates the balances of the _randomSource addresses.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 50,
+      "type": "controlflow",
+      "reason": "mint increments tokensMinted by the user-supplied _amount after payment.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "tokensMinted += _amount is the state update whose overflow/underflow would break the MAX_TOKENS cap.",
+      "from_id": 50
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "mint reads and writes tokensMinted for cap checks and supply tracking.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "mint reads _availableTokens.length to ensure tokens remain in the phase.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "mint increments pirateMinted when a pirate token is minted.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 28,
+      "type": "controlflow",
+      "reason": "mint creates tokens through _safeMint for the recipient or the staking contract.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 49,
+      "type": "callback",
+      "reason": "Safe minting to a contract recipient triggers the untrusted onERC721Received callback.",
+      "from_id": 28
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "controlflow",
+      "reason": "_safeMint performs the receiver validation through _checkOnERC721Received.",
+      "from_id": 28
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 49,
+      "type": "callback",
+      "reason": "_checkOnERC721Received invokes IERC721Receiver.onERC721Received on the recipient contract.",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 41,
+      "type": "controlflow",
+      "reason": "transferFrom delegates the actual ownership update to _transfer.",
+      "from_id": 27
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "transferFrom checks _isApprovedOrOwner(_msgSender(), tokenId) unless the caller is treasureIsland.",
+      "from_id": 42
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "The treasureIsland address is trusted implicitly and bypasses the ERC721 approval requirement.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 48,
+      "type": "controlflow",
+      "reason": "withdraw sends the entire contract balance to the owner-supplied destination.",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 26,
+      "type": "dataflow",
+      "reason": "withdraw is gated by onlyOwner which compares _msgSender() to _owner.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "switchToSalePhase writes the new phase value.",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "switchToSalePhase populates _availableTokens for phase 1.",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "updateRandomIndex increments _randomIndex and wraps it back to zero.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "updateRandomIndex monotonically increments the _randomCalls counter.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "controlflow",
+      "reason": "shuffleSeeds consumes a pseudo-random number from getSomeRandomNumber.",
+      "from_id": 30
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "controlflow",
+      "reason": "shuffleSeeds repeatedly calls updateRandomIndex in a loop.",
+      "from_id": 30
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 51,
+      "type": "dataflow",
+      "reason": "The random index is truncated to uint16 before indexing _availableTokens.",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 51,
+      "type": "dataflow",
+      "reason": "getSomeRandomNumber returns uint16(random % _limit), a lossy narrowing cast.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 42,
+      "type": "dataflow",
+      "reason": "msg.sender is hashed into the pseudo-random seed, letting callers influence randomness.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "tokensMinted is mixed into the pseudo-random seed.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "The current _randomIndex contributes to the random seed.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "The _randomCalls counter contributes to the random seed.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "mintPrice multiplies the amount by phasePrice[phase].",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "mintPrice reads the current phase to select the price.",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "controlflow",
+      "reason": "mint computes the required payment through mintPrice(_amount).",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "controlflow",
+      "reason": "giveAway obtains each token ID via getTokenToBeMinted.",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 28,
+      "type": "controlflow",
+      "reason": "giveAway mints tokens to the designated address using _safeMint.",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "giveAway checks tokensMinted + _amount against the cap.",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "MAX_TOKENS bounds the amount mintable through mint.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "MINT_PER_TX_LIMIT bounds the per-transaction mint amount.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "_balances[from] -= 1 during transfer/burn is an unchecked-arithmetic concern for holder accounting.",
+      "from_id": 52
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "_transfer adjusts the sender and receiver balance entries.",
+      "from_id": 41
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "_transfer rewrites the _owners entry for the transferred token.",
+      "from_id": 41
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 28,
+      "type": "controlflow",
+      "reason": "The constructor safe mints token 0 to the deployer.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 42,
+      "type": "dataflow",
+      "reason": "The constructor mints the first token to msg.sender.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "controlflow",
+      "reason": "The constructor triggers switchToSalePhase(1, true).",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "The constructor seeds default phase prices.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "The constructor registers the entropy source addresses.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "setTreasureIsland rewrites the external TreasureIsland reference.",
+      "from_id": 32
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "setGold rewrites the external gold token reference.",
+      "from_id": 33
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "changePhasePrice writes directly into the phasePrice mapping.",
+      "from_id": 34
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "setPirateId toggles the _isPirate mapping entry.",
+      "from_id": 35
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "setPirateIds bulk writes the _isPirate mapping.",
+      "from_id": 40
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "addAvailableTokens pushes token ID ranges into _availableTokens.",
+      "from_id": 36
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "changeRandomSource rewrites an entropy source address.",
+      "from_id": 38
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "setPaused toggles the _paused flag that gates mint.",
+      "from_id": 31
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "The whenNotPaused modifier on mint reads _paused.",
+      "from_id": 13
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "mint",
+      "reason": "Amount parameter only exists as part of the mint call's cap and price logic.",
+      "normal_node": "mint._amount"
+    },
+    {
+      "merge_into": "mint",
+      "reason": "Boolean parameter that branches mint into the staking path.",
+      "normal_node": "mint._stake"
+    },
+    {
+      "merge_into": "selectRecipient",
+      "reason": "Local recipient is produced by selectRecipient and consumed inside mint.",
+      "normal_node": "mint.recipient"
+    },
+    {
+      "merge_into": "getTokenToBeMinted",
+      "reason": "Local token ID is the return value of getTokenToBeMinted.",
+      "normal_node": "mint.tokenId"
+    },
+    {
+      "merge_into": "gold.burn",
+      "reason": "Accumulated gold cost is exactly the amount passed to the external burn call.",
+      "normal_node": "mint.totalPennyCost"
+    },
+    {
+      "merge_into": "treasureIsland.addTokensToStake",
+      "reason": "Collected token ID array is forwarded to the staking external call.",
+      "normal_node": "mint.tokenIds"
+    },
+    {
+      "merge_into": "getSomeRandomNumber",
+      "reason": "Seed parameter is only used inside the pseudo-random hash computation.",
+      "normal_node": "getSomeRandomNumber._seed"
+    },
+    {
+      "merge_into": "uint16(random % _limit)",
+      "reason": "Limit parameter defines the modulo bound of the truncating cast.",
+      "normal_node": "getSomeRandomNumber._limit"
+    },
+    {
+      "merge_into": "getSomeRandomNumber",
+      "reason": "Intermediate hash result local to the random generator.",
+      "normal_node": "getSomeRandomNumber.random"
+    },
+    {
+      "merge_into": "getSomeRandomNumber",
+      "reason": "Summed entropy balances are a temporary accumulator inside the generator.",
+      "normal_node": "getSomeRandomNumber.extra"
+    },
+    {
+      "merge_into": "switchToSalePhase",
+      "reason": "Range start only flows into the availability population triggered by the phase switch.",
+      "normal_node": "internalAddTokens._from"
+    },
+    {
+      "merge_into": "switchToSalePhase",
+      "reason": "Range end only flows into the availability population triggered by the phase switch.",
+      "normal_node": "internalAddTokens._to"
+    }
+  ]
+}

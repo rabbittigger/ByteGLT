@@ -1,0 +1,313 @@
+{
+  "nodes": [
+    {
+      "id": "question",
+      "description": "Public string state variable holding the current quiz question.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "questionSender",
+      "description": "Address state variable storing the account that started the game; used as an access-control guard in StopGame and NewQuestion.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "responseHash",
+      "description": "bytes32 state variable holding keccak256 hash of the expected answer; controls whether Play pays out.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "state_var"
+    },
+    {
+      "id": "StartGame",
+      "description": "Public payable function that initialises question, responseHash and questionSender only when responseHash is still empty.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "Play",
+      "description": "External payable function that checks require(msg.sender == tx.origin), compares keccak256(_response) to responseHash and, if msg.value > 1 ether, sends the whole contract balance to msg.sender.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "StopGame",
+      "description": "Public payable function restricted to questionSender that transfers the entire contract balance to msg.sender.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "function"
+    },
+    {
+      "id": "NewQuestion",
+      "description": "Public payable function restricted to questionSender that replaces the question and responseHash.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "function"
+    },
+    {
+      "id": "fallback",
+      "description": "Payable fallback function that accepts plain ether transfers without any logic.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "function"
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller-supplied address; used for authorisation checks, ownership assignment and as payout recipient.",
+      "is_core": true,
+      "node_id": 8,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "tx.origin",
+      "description": "Transaction origin used in Play as an anti-contract guard (require(msg.sender == tx.origin)).",
+      "is_core": true,
+      "node_id": 9,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "play_balance_transfer",
+      "description": "msg.sender.transfer(this.balance) inside Play: external call sending the full balance before any state update (reentrancy surface).",
+      "is_core": true,
+      "node_id": 10,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "stopgame_balance_transfer",
+      "description": "msg.sender.transfer(this.balance) inside StopGame: external call sending the full balance to questionSender.",
+      "is_core": true,
+      "node_id": 11,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "param_startgame_question",
+      "description": "String parameter _question of StartGame, written into the question state variable.",
+      "is_core": false,
+      "node_id": 12,
+      "type": "parameter"
+    },
+    {
+      "id": "param_startgame_response",
+      "description": "String parameter _response of StartGame, hashed with keccak256 into responseHash.",
+      "is_core": false,
+      "node_id": 13,
+      "type": "parameter"
+    },
+    {
+      "id": "param_play_response",
+      "description": "String parameter _response of Play, hashed and compared against responseHash to authorise payout.",
+      "is_core": false,
+      "node_id": 14,
+      "type": "parameter"
+    },
+    {
+      "id": "param_newquestion_question",
+      "description": "String parameter _question of NewQuestion, written into the question state variable.",
+      "is_core": false,
+      "node_id": 15,
+      "type": "parameter"
+    },
+    {
+      "id": "param_newquestion_responsehash",
+      "description": "bytes32 parameter _responseHash of NewQuestion, written into the responseHash state variable.",
+      "is_core": false,
+      "node_id": 16,
+      "type": "parameter"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "StartGame assigns msg.sender to questionSender, so an untrusted caller becomes the privileged owner of the game.",
+      "to_id": 1,
+      "vuln_type": "access_control",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "StartGame writes questionSender, establishing the access-control identity used by StopGame and NewQuestion.",
+      "to_id": 1,
+      "vuln_type": "access_control",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "StartGame writes the _question parameter into the question state variable.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "StartGame writes keccak256(_response) into responseHash.",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Parameter _question of StartGame flows into the question state variable.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 12,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Parameter _response of StartGame is hashed and stored in responseHash.",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 13,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Play enforces require(msg.sender == tx.origin), making transaction origin a security-relevant condition.",
+      "to_id": 9,
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Play branches on msg.sender equality with tx.origin before allowing execution.",
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Play reads responseHash and compares it with keccak256(_response) to decide whether to pay out.",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Parameter _response of Play is hashed and compared against the responseHash state variable.",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 14,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Play reaches msg.sender.transfer(this.balance), forwarding the contract balance to the untrusted caller.",
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The balance transfer in Play invokes the recipient (msg.sender), which may re-enter Play or the fallback before state is settled.",
+      "to_id": 8,
+      "vuln_type": "reentrancy",
+      "from_id": 10,
+      "type": "callback"
+    },
+    {
+      "reason": "StopGame reads questionSender to enforce require(msg.sender == questionSender).",
+      "to_id": 1,
+      "vuln_type": "access_control",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "StopGame follows the same full-balance payout pattern as Play, providing a reentrancy path.",
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "from_id": 5,
+      "type": "controlflow"
+    },
+    {
+      "reason": "StopGame reaches msg.sender.transfer(this.balance) inside the authorised branch.",
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The balance transfer in StopGame invokes msg.sender, creating a callback into the contract.",
+      "to_id": 8,
+      "vuln_type": "reentrancy",
+      "from_id": 11,
+      "type": "callback"
+    },
+    {
+      "reason": "StopGame's require depends on the untrusted msg.sender matching questionSender.",
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "from_id": 8,
+      "type": "controlflow"
+    },
+    {
+      "reason": "NewQuestion reads questionSender to enforce require(msg.sender == questionSender).",
+      "to_id": 1,
+      "vuln_type": "access_control",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "NewQuestion's authorisation check depends directly on the untrusted msg.sender.",
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "from_id": 8,
+      "type": "controlflow"
+    },
+    {
+      "reason": "NewQuestion overwrites the question state variable.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "NewQuestion overwrites the responseHash state variable with a caller-supplied hash.",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Parameter _question of NewQuestion flows into the question state variable.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 15,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Parameter _responseHash of NewQuestion flows directly into responseHash.",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 16,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Parameter _question only exists as the input of StartGame and should be folded into that function node.",
+      "normal_node": "param_startgame_question",
+      "merge_into": "StartGame"
+    },
+    {
+      "reason": "Parameter _response of StartGame is hashed into responseHash and has no independent semantic identity.",
+      "normal_node": "param_startgame_response",
+      "merge_into": "StartGame"
+    },
+    {
+      "reason": "Parameter _response of Play is only used for the hash comparison that gates the payout in Play.",
+      "normal_node": "param_play_response",
+      "merge_into": "Play"
+    },
+    {
+      "reason": "Parameter _question of NewQuestion is a plain input stored by that function.",
+      "normal_node": "param_newquestion_question",
+      "merge_into": "NewQuestion"
+    },
+    {
+      "reason": "Parameter _responseHash of NewQuestion is a plain input stored into the responseHash state variable by that function.",
+      "normal_node": "param_newquestion_responsehash",
+      "merge_into": "NewQuestion"
+    }
+  ]
+}

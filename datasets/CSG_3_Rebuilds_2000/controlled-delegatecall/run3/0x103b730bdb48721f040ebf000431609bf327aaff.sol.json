@@ -1,0 +1,160 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Private address state variable holding the privileged owner account, written in the constructor and in changeOwner, read by isOwner modifier and getOwner.",
+      "id": "state_var.owner",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "msg.sender: caller-controlled address used as the authorization subject in the isOwner modifier and as the initial owner in the constructor.",
+      "id": "untrusted_input.msg_sender",
+      "type": "untrusted_input",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "constructor(): assigns owner = msg.sender and emits OwnerSet(address(0), owner); sets the deployer as privileged owner.",
+      "id": "function.constructor",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "isOwner modifier: performs require(msg.sender == owner, \"Caller is not owner\") as the access-control gate applied to changeOwner.",
+      "id": "function.isOwner_modifier",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "changeOwner(address newOwner) public isOwner: privileged ownership transfer guarded by the isOwner modifier; emits OwnerSet and overwrites the owner state variable.",
+      "id": "function.changeOwner",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "getOwner() external view: read-only function returning the current owner state variable.",
+      "id": "function.getOwner",
+      "type": "function",
+      "node_id": 5
+    },
+    {
+      "is_core": false,
+      "description": "newOwner address parameter of changeOwner; becomes the new owner state value and is emitted in OwnerSet.",
+      "id": "parameter.newOwner",
+      "type": "parameter",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "Privileged state write 'owner = newOwner' inside changeOwner that reassigns contract ownership; sensitive because it transfers full control of the contract.",
+      "id": "unsafe_operation.owner_state_write_changeOwner",
+      "type": "unsafe_operation",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "State write 'owner = msg.sender' inside the constructor that grants ownership to the deployer without any prior authorization check.",
+      "id": "unsafe_operation.owner_state_write_constructor",
+      "type": "unsafe_operation",
+      "node_id": 8
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "reason": "msg.sender is read in the constructor and stored as the privileged owner, giving the deployer unchecked control over the contract.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "The isOwner modifier consumes msg.sender in require(msg.sender == owner) to decide whether the caller is authorized.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "The owner state variable is read inside the require comparison that gates privileged execution, coupling authorization to mutable state.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "reason": "The isOwner modifier controls whether changeOwner body executes, making the modifier the effective access-control decision point.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "reason": "The caller identity msg.sender indirectly reaches changeOwner through the modifier check, authorizing the ownership transfer.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "The newOwner parameter is passed into changeOwner and used throughout its body.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "The newOwner parameter is the value assigned into the owner state variable by the sensitive ownership-transfer write.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "reason": "Execution of changeOwner leads to the privileged ownership-assignment operation guarded solely by the modifier.",
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "The constructor assignment writes the msg.sender value into the owner state variable.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "reason": "The constructor unconditionally executes the ownership-granting state write during deployment.",
+      "type": "controlflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "reason": "changeOwner mutates the owner state variable, changing who controls the contract's privileged operations.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "getOwner reads the owner state variable and returns it to the caller.",
+      "type": "dataflow",
+      "from_id": 0
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "function.changeOwner",
+      "reason": "newOwner is a non-core parameter whose only role is to feed the changeOwner function and its ownership-assignment write, so it collapses into the changeOwner function node.",
+      "normal_node": "parameter.newOwner"
+    }
+  ]
+}

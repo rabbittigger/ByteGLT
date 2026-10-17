@@ -1,0 +1,473 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "MULTISIG_OWNER",
+      "is_core": true,
+      "description": "Constant address that is the only account allowed to call start(); used by the only() modifier for privileged state initialisation."
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "id": "TEAM_WALLET",
+      "is_core": true,
+      "description": "Constant team wallet address required in the CLOSED branch of the fallback to sweep remaining tokens."
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "id": "token",
+      "is_core": true,
+      "description": "External ERC20_Transferable contract instance at a fixed address; target of balanceOf/transfer external calls."
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "id": "LOCK_RELASE_TIME",
+      "is_core": true,
+      "description": "Constant unix timestamp at which tokens unlock; compared against block.timestamp in _state and the countdown helper."
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "id": "WITHDRAWAL_END_TIME",
+      "is_core": true,
+      "description": "Constant deadline (LOCK_RELASE_TIME + 10 minutes) after which the faucet is CLOSED."
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "id": "team_accounts",
+      "is_core": true,
+      "description": "Array of participant addresses; pushed to during INIT and used as the divisor base for payouts in WITHDRAWAL."
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "id": "locked_since",
+      "is_core": true,
+      "description": "Timestamp set once by start(); zero means the faucet is still in INIT."
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "id": "amount_to_distribute",
+      "is_core": true,
+      "description": "Cached per-participant payout share computed from the token balance on first WITHDRAWAL call."
+    },
+    {
+      "node_id": 8,
+      "type": "state_var",
+      "id": "labels",
+      "is_core": true,
+      "description": "Human readable state labels indexed by the numeric state returned from _state()."
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "id": "start",
+      "is_core": true,
+      "description": "Externally callable privileged function guarded by only(MULTISIG_OWNER) and inState(INIT) that records locked_since."
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "id": "fallback",
+      "is_core": true,
+      "description": "Payable fallback that refunds msg.value, collects participant addresses, distributes tokens and sweeps leftovers; main attack surface."
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "id": "_state",
+      "is_core": true,
+      "description": "Internal view of the current state derived from locked_since and block.timestamp comparisons."
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "id": "state",
+      "is_core": true,
+      "description": "Public constant accessor returning the string label of the current state."
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "id": "indexOf",
+      "is_core": true,
+      "description": "Internal linear search over team_accounts returning the index or -1; used for membership checks."
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "id": "all_team_accounts",
+      "is_core": true,
+      "description": "External constant getter returning the full team_accounts array."
+    },
+    {
+      "node_id": 15,
+      "type": "function",
+      "id": "timeToUnlockDDHHMM",
+      "is_core": true,
+      "description": "External constant helper computing the remaining days/hours/minutes until LOCK_RELASE_TIME using block.timestamp."
+    },
+    {
+      "node_id": 16,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "is_core": true,
+      "description": "Caller supplied by the transaction; used as recipient, membership key and access-control subject throughout the fallback."
+    },
+    {
+      "node_id": 17,
+      "type": "untrusted_input",
+      "id": "block.timestamp",
+      "is_core": true,
+      "description": "The 'now' value, miner influenced, driving every state transition and the unlock countdown."
+    },
+    {
+      "node_id": 18,
+      "type": "unsafe_operation",
+      "id": "msg_sender_transfer",
+      "is_core": true,
+      "description": "External value transfer msg.sender.transfer(msg.value) executed before state logic; classic reentrancy vector."
+    },
+    {
+      "node_id": 19,
+      "type": "unsafe_operation",
+      "id": "token_transfer",
+      "is_core": true,
+      "description": "External ERC20 transfer call sending the computed share to msg.sender during WITHDRAWAL."
+    },
+    {
+      "node_id": 20,
+      "type": "unsafe_operation",
+      "id": "token_balanceOf",
+      "is_core": true,
+      "description": "External ERC20 balanceOf call used to derive the distribution amount and the residual sweep amount."
+    },
+    {
+      "node_id": 21,
+      "type": "unsafe_operation",
+      "id": "share_arithmetic",
+      "is_core": true,
+      "description": "Unsigned arithmetic amount_to_distribute / team_accounts.length performed without guards."
+    },
+    {
+      "node_id": 22,
+      "type": "parameter",
+      "id": "param_addrs",
+      "is_core": false,
+      "description": "Storage array parameter scanned by indexOf()."
+    },
+    {
+      "node_id": 23,
+      "type": "parameter",
+      "id": "param_addr",
+      "is_core": false,
+      "description": "Address parameter compared against each stored team entry inside indexOf()."
+    },
+    {
+      "node_id": 24,
+      "type": "local_var",
+      "id": "local_i",
+      "is_core": false,
+      "description": "Loop counter iterating over the team account array in indexOf()."
+    },
+    {
+      "node_id": 25,
+      "type": "local_var",
+      "id": "local_state",
+      "is_core": false,
+      "description": "Snapshot of _state() used to branch the fallback logic."
+    },
+    {
+      "node_id": 26,
+      "type": "local_var",
+      "id": "local_balance",
+      "is_core": false,
+      "description": "Cached token balance read before the CLOSED-branch sweep transfer."
+    },
+    {
+      "node_id": 27,
+      "type": "local_var",
+      "id": "local_diff",
+      "is_core": false,
+      "description": "Difference between LOCK_RELASE_TIME and now inside the countdown helper."
+    },
+    {
+      "node_id": 28,
+      "type": "local_var",
+      "id": "local_dd",
+      "is_core": false,
+      "description": "Whole days remaining until unlock."
+    },
+    {
+      "node_id": 29,
+      "type": "local_var",
+      "id": "local_hh",
+      "is_core": false,
+      "description": "Remaining hours component of the unlock countdown."
+    },
+    {
+      "node_id": 30,
+      "type": "local_var",
+      "id": "local_mm",
+      "is_core": false,
+      "description": "Remaining minutes component of the unlock countdown."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "start() is gated by the only(MULTISIG_OWNER) modifier, making MULTISIG_OWNER the sole privileged caller.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 0,
+      "to_id": 9
+    },
+    {
+      "reason": "The CLOSED branch requires msg.sender == TEAM_WALLET before sweeping the remaining token balance.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 10
+    },
+    {
+      "reason": "msg.sender is the destination of the external value transfer executed before any state mutation.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 18
+    },
+    {
+      "reason": "An attacker-controlled recipient of msg.sender.transfer can re-enter the fallback before the payout accounting completes.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 18,
+      "to_id": 10
+    },
+    {
+      "reason": "msg.sender is used as the membership key and branch selector in every fallback state.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 16,
+      "to_id": 10
+    },
+    {
+      "reason": "The ERC20 token transfer in the WITHDRAWAL branch sends tokens to the untrusted msg.sender.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 19
+    },
+    {
+      "reason": "The external token contract state variable is the callee of an untrusted token transfer call.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 19
+    },
+    {
+      "reason": "A malicious token contract could re-enter the payable fallback during token.transfer, before amount/state variables settle.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 19,
+      "to_id": 10
+    },
+    {
+      "reason": "The token instance is queried via balanceOf to determine distributable and residual amounts.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 20
+    },
+    {
+      "reason": "amount_to_distribute is the numerator of the unguarded integer division computing each payout share.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 21
+    },
+    {
+      "reason": "team_accounts.length is the divisor of the payout computation; any arithmetic misuse propagates here.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 21
+    },
+    {
+      "reason": "The value passed to token.transfer is derived from the stored amount_to_distribute variable.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 19
+    },
+    {
+      "reason": "indexOf iterates the team_accounts storage array to test membership.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 13
+    },
+    {
+      "reason": "The fallback pushes new addresses into team_accounts during the INIT state.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 10
+    },
+    {
+      "reason": "The fallback calls indexOf to validate the caller before collecting or paying out.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 13,
+      "to_id": 10
+    },
+    {
+      "reason": "The fallback calls _state to decide which branch to execute.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 11,
+      "to_id": 10
+    },
+    {
+      "reason": "block.timestamp (now) alone determines the INIT/LOCKED/WITHDRAWAL/CLOSED transitions, a miner-influenceable dependency.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 17,
+      "to_id": 11
+    },
+    {
+      "reason": "The unlock countdown and the LOCK_RELASE_TIME comparison depend on the untrusted block.timestamp.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 17,
+      "to_id": 15
+    },
+    {
+      "reason": "LOCK_RELASE_TIME is compared against now inside _state.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 11
+    },
+    {
+      "reason": "WITHDRAWAL_END_TIME is compared against now inside _state.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 11
+    },
+    {
+      "reason": "locked_since == 0 is the INIT test and the base of the state machine.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 11
+    },
+    {
+      "reason": "start() writes locked_since with the current timestamp.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 9
+    },
+    {
+      "reason": "The public state() accessor delegates to _state() for the numeric state value.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 11,
+      "to_id": 12
+    },
+    {
+      "reason": "The inState(State.INIT) modifier on start() calls _state() to validate the current state.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 11,
+      "to_id": 9
+    },
+    {
+      "reason": "The labels array is indexed by the state value returned from _state.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 12
+    },
+    {
+      "reason": "The addr parameter is compared against each stored team address inside indexOf.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 23,
+      "to_id": 13
+    },
+    {
+      "reason": "The addrs storage parameter is the array being scanned by indexOf.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 13
+    },
+    {
+      "reason": "The local state snapshot steers the fallback branch selection.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 25,
+      "to_id": 10
+    },
+    {
+      "reason": "The local balance variable holds the external balanceOf result consumed by the sweep transfer.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 26,
+      "to_id": 20
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The addrs storage parameter exists only as the array scanned by indexOf.",
+      "merge_into": "indexOf",
+      "normal_node": "param_addrs"
+    },
+    {
+      "reason": "The addr parameter exists only as the lookup key compared inside indexOf.",
+      "merge_into": "indexOf",
+      "normal_node": "param_addr"
+    },
+    {
+      "reason": "The loop counter i exists only to iterate the array inside indexOf.",
+      "merge_into": "indexOf",
+      "normal_node": "local_i"
+    },
+    {
+      "reason": "The local state snapshot exists only to branch the fallback logic.",
+      "merge_into": "fallback",
+      "normal_node": "local_state"
+    },
+    {
+      "reason": "The local balance variable holds the result of the external token balanceOf call.",
+      "merge_into": "token_balanceOf",
+      "normal_node": "local_balance"
+    },
+    {
+      "reason": "The diff local exists only inside the countdown computation of timeToUnlockDDHHMM.",
+      "merge_into": "timeToUnlockDDHHMM",
+      "normal_node": "local_diff"
+    },
+    {
+      "reason": "The dd local exists only as a return component of the countdown computation.",
+      "merge_into": "timeToUnlockDDHHMM",
+      "normal_node": "local_dd"
+    },
+    {
+      "reason": "The hh local exists only as a return component of the countdown computation.",
+      "merge_into": "timeToUnlockDDHHMM",
+      "normal_node": "local_hh"
+    },
+    {
+      "reason": "The mm local exists only as a return component of the countdown computation.",
+      "merge_into": "timeToUnlockDDHHMM",
+      "normal_node": "local_mm"
+    }
+  ]
+}

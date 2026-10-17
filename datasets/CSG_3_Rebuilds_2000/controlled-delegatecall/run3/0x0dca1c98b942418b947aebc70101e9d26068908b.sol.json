@@ -1,0 +1,281 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Ponzi public state variable holding the Ponzi contract interface reference at fixed address 0xEB82...853B",
+      "id": "ponzi_state",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "mapping(address => uint256) public lastTime tracking the last timestamp each address claimed yield",
+      "id": "lastTime_state",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "private mapping(address => uint256) _balances of ERC20 token balances",
+      "id": "_balances_state",
+      "type": "state_var",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "private uint256 _totalSupply total token supply",
+      "id": "_totalSupply_state",
+      "type": "state_var",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "PonziYield.yield() public function that mints payout based on deposit and elapsed timestamp",
+      "id": "yield_fn",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "PonziYield constructor(uint256 initialSupply) that mints the initial supply to msg.sender",
+      "id": "constructor_fn",
+      "type": "function",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "ERC20._mint(address account, uint256 amount) internal function increasing total supply and balances",
+      "id": "_mint_fn",
+      "type": "function",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "msg.sender used to index lastTime and query ponzi.players",
+      "id": "msg_sender_input",
+      "type": "untrusted_input",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "block.timestamp used for cooldown check and payout computation",
+      "id": "block_timestamp_input",
+      "type": "untrusted_input",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "description": "Unchecked multiplication deposit * (block.timestamp - regTime) producing payout",
+      "id": "payout_arithmetic_op",
+      "type": "unsafe_operation",
+      "node_id": 9
+    },
+    {
+      "is_core": true,
+      "description": "Write lastTime[msg.sender] = block.timestamp derived from block.timestamp cooldown logic",
+      "id": "lasttime_write_op",
+      "type": "unsafe_operation",
+      "node_id": 10
+    },
+    {
+      "is_core": false,
+      "description": "local uint payout computed from deposit and elapsed time",
+      "id": "payout_local",
+      "type": "local_var",
+      "node_id": 11
+    },
+    {
+      "is_core": false,
+      "description": "local uint deposit returned by ponzi.players for the caller",
+      "id": "deposit_local",
+      "type": "local_var",
+      "node_id": 12
+    },
+    {
+      "is_core": false,
+      "description": "local uint regTime returned by ponzi.players for the caller",
+      "id": "regTime_local",
+      "type": "local_var",
+      "node_id": 13
+    },
+    {
+      "is_core": false,
+      "description": "local uint id returned by ponzi.players, unused in computation",
+      "id": "id_local",
+      "type": "local_var",
+      "node_id": 14
+    },
+    {
+      "is_core": false,
+      "description": "constructor parameter uint256 initialSupply",
+      "id": "initialSupply_param",
+      "type": "parameter",
+      "node_id": 15
+    },
+    {
+      "is_core": false,
+      "description": "_mint parameter address account receiving minted tokens",
+      "id": "account_param",
+      "type": "parameter",
+      "node_id": 16
+    },
+    {
+      "is_core": false,
+      "description": "_mint parameter uint256 amount of tokens to mint",
+      "id": "amount_param",
+      "type": "parameter",
+      "node_id": 17
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 10,
+      "vuln_type": "access_control",
+      "reason": "msg.sender indexes lastTime when writing block.timestamp, allowing any caller to set their own cooldown entry",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "access_control",
+      "reason": "block.timestamp is written directly into lastTime[msg.sender], creating timestamp dependence in yield throttling",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "reason": "block.timestamp drives the 24 hour cooldown require check in yield",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "msg.sender is the actor performing yield and is passed downstream",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "reason": "block.timestamp minus regTime is a factor in the unchecked payout multiplication",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "reason": "deposit read from the external Ponzi contract feeds the unchecked payout multiplication",
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "reason": "regTime read from the external Ponzi contract feeds the unchecked payout multiplication",
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "arithmetic",
+      "reason": "result of the unchecked multiplication is assigned to the payout local variable",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "arithmetic",
+      "reason": "overflowed payout value flows into _mint as the minted amount",
+      "type": "dataflow",
+      "from_id": 11
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "yield invokes the internal _mint function",
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "yield makes an external call ponzi.players(msg.sender) to the referenced Ponzi contract",
+      "type": "callback",
+      "from_id": 4
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "_mint increases _totalSupply using SafeMath add",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "_mint increases _balances[account] using SafeMath add",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "account parameter determines the mint recipient in _mint",
+      "type": "dataflow",
+      "from_id": 16
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "amount parameter determines the minted quantity in _mint",
+      "type": "dataflow",
+      "from_id": 17
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "initialSupply constructor parameter is minted to msg.sender via _mint",
+      "type": "dataflow",
+      "from_id": 15
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "_mint_fn",
+      "reason": "payout is purely a temporary holder consumed as the amount argument of _mint",
+      "normal_node": "payout_local"
+    },
+    {
+      "merge_into": "payout_arithmetic_op",
+      "reason": "deposit is only used as an operand of the unchecked payout multiplication",
+      "normal_node": "deposit_local"
+    },
+    {
+      "merge_into": "payout_arithmetic_op",
+      "reason": "regTime is only used as an operand of the unchecked payout multiplication",
+      "normal_node": "regTime_local"
+    },
+    {
+      "merge_into": "yield_fn",
+      "reason": "id is destructured from ponzi.players but never used, so it folds into the yield routine",
+      "normal_node": "id_local"
+    },
+    {
+      "merge_into": "constructor_fn",
+      "reason": "initialSupply is the sole argument consumed by the constructor mint",
+      "normal_node": "initialSupply_param"
+    },
+    {
+      "merge_into": "_mint_fn",
+      "reason": "account is a direct argument of the _mint operation",
+      "normal_node": "account_param"
+    },
+    {
+      "merge_into": "_mint_fn",
+      "reason": "amount is a direct argument of the _mint operation",
+      "normal_node": "amount_param"
+    }
+  ]
+}

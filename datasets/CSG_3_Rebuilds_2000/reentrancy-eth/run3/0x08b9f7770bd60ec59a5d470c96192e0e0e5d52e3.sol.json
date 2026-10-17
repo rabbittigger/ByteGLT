@@ -1,0 +1,750 @@
+{
+  "nodes": [
+    {
+      "id": "sv_balance",
+      "node_id": 0,
+      "type": "state_var",
+      "description": "mapping(address=>uint256) private _balance storing token balances of every holder",
+      "is_core": true
+    },
+    {
+      "id": "sv_allowances",
+      "node_id": 1,
+      "type": "state_var",
+      "description": "mapping(address=>mapping(address=>uint256)) private _allowances storing ERC20 allowances",
+      "is_core": true
+    },
+    {
+      "id": "sv_isExcludedFromFee",
+      "node_id": 2,
+      "type": "state_var",
+      "description": "mapping(address=>bool) private _isExcludedFromFee flagging fee-exempt accounts",
+      "is_core": true
+    },
+    {
+      "id": "sv_tTotal",
+      "node_id": 3,
+      "type": "state_var",
+      "description": "uint256 private _tTotal total token supply (TOTAL_SUPPLY * 10**DECIMALS)",
+      "is_core": true
+    },
+    {
+      "id": "sv_taxFee",
+      "node_id": 4,
+      "type": "state_var",
+      "description": "uint256 private _taxFee tax percentage applied on transfers",
+      "is_core": true
+    },
+    {
+      "id": "sv_taxWallet",
+      "node_id": 5,
+      "type": "state_var",
+      "description": "address payable private _taxWallet receiving collected ETH tax, set to msg.sender in constructor",
+      "is_core": true
+    },
+    {
+      "id": "sv_maxTxAmount",
+      "node_id": 6,
+      "type": "state_var",
+      "description": "uint256 private _maxTxAmount maximum buy amount enforced on swaps from the pair",
+      "is_core": true
+    },
+    {
+      "id": "sv_uniswap",
+      "node_id": 7,
+      "type": "state_var",
+      "description": "IUniswapV2Router02 private _uniswap router instance used for swaps, liquidity and pair creation",
+      "is_core": true
+    },
+    {
+      "id": "sv_pair",
+      "node_id": 8,
+      "type": "state_var",
+      "description": "address private _pair address of the created Uniswap trading pair",
+      "is_core": true
+    },
+    {
+      "id": "sv_canTrade",
+      "node_id": 9,
+      "type": "state_var",
+      "description": "bool private _canTrade flag gating pair creation",
+      "is_core": true
+    },
+    {
+      "id": "sv_inSwap",
+      "node_id": 10,
+      "type": "state_var",
+      "description": "bool private _inSwap reentrancy guard flag set by lockTheSwap modifier",
+      "is_core": true
+    },
+    {
+      "id": "sv_swapEnabled",
+      "node_id": 11,
+      "type": "state_var",
+      "description": "bool private _swapEnabled enables automatic contract-token swaps on transfer",
+      "is_core": true
+    },
+    {
+      "id": "sv_owner",
+      "node_id": 12,
+      "type": "state_var",
+      "description": "address private _owner owner set in Ownable constructor from _msgSender()",
+      "is_core": true
+    },
+    {
+      "id": "fn_constructor",
+      "node_id": 13,
+      "type": "function",
+      "description": "TengenInu constructor: sets _taxWallet to msg.sender, _taxFee, router, initial balances, max tx amount and emits Transfer",
+      "is_core": true
+    },
+    {
+      "id": "fn_transfer",
+      "node_id": 14,
+      "type": "function",
+      "description": "public transfer(address recipient, uint256 amount) forwarding _msgSender() to _transfer",
+      "is_core": true
+    },
+    {
+      "id": "fn_transferFrom",
+      "node_id": 15,
+      "type": "function",
+      "description": "public transferFrom performing allowance subtraction and calling _transfer",
+      "is_core": true
+    },
+    {
+      "id": "fn_approve",
+      "node_id": 16,
+      "type": "function",
+      "description": "public approve(address spender, uint256 amount) calling _approve with _msgSender()",
+      "is_core": true
+    },
+    {
+      "id": "fn_approve_internal",
+      "node_id": 17,
+      "type": "function",
+      "description": "private _approve writing the _allowances mapping and emitting Approval",
+      "is_core": true
+    },
+    {
+      "id": "fn_transfer_internal",
+      "node_id": 18,
+      "type": "function",
+      "description": "private _transfer core logic: checks, external O(ROUTER_ADDRESS).amount gate, buy limit, automatic swap/send ETH and fee computation",
+      "is_core": true
+    },
+    {
+      "id": "fn_tokenTransfer",
+      "node_id": 19,
+      "type": "function",
+      "description": "private _tokenTransfer computing tax with SafeMath mul/div/sub/add and updating _balance entries",
+      "is_core": true
+    },
+    {
+      "id": "fn_swapTokensForEth",
+      "node_id": 20,
+      "type": "function",
+      "description": "private swapTokensForEth guarded by lockTheSwap; builds path, approves router and swaps tokens for ETH",
+      "is_core": true
+    },
+    {
+      "id": "fn_sendETHToFee",
+      "node_id": 21,
+      "type": "function",
+      "description": "private sendETHToFee transferring ETH balance to _taxWallet",
+      "is_core": true
+    },
+    {
+      "id": "fn_addToWhitelist",
+      "node_id": 22,
+      "type": "function",
+      "description": "addToWhitelist(address buyer) onlyTaxCollector setting _isExcludedFromFee true",
+      "is_core": true
+    },
+    {
+      "id": "fn_removeFromWhitelist",
+      "node_id": 23,
+      "type": "function",
+      "description": "removeFromWhitelist(address buyer) onlyTaxCollector setting _isExcludedFromFee false",
+      "is_core": true
+    },
+    {
+      "id": "fn_lowerTax",
+      "node_id": 24,
+      "type": "function",
+      "description": "lowerTax(uint256 newTaxRate) onlyTaxCollector updating _taxFee below INITIAL_TAX",
+      "is_core": true
+    },
+    {
+      "id": "fn_removeBuyLimit",
+      "node_id": 25,
+      "type": "function",
+      "description": "removeBuyLimit() onlyTaxCollector setting _maxTxAmount to _tTotal",
+      "is_core": true
+    },
+    {
+      "id": "fn_createUniswapPair",
+      "node_id": 26,
+      "type": "function",
+      "description": "createUniswapPair() onlyTaxCollector approving router and creating the pair via factory",
+      "is_core": true
+    },
+    {
+      "id": "fn_addLiquidity",
+      "node_id": 27,
+      "type": "function",
+      "description": "addLiquidity() onlyTaxCollector adding liquidity with contract ETH and enabling trading",
+      "is_core": true
+    },
+    {
+      "id": "fn_swapForTax",
+      "node_id": 28,
+      "type": "function",
+      "description": "swapForTax() onlyTaxCollector swapping the whole contract token balance to ETH",
+      "is_core": true
+    },
+    {
+      "id": "fn_collectTax",
+      "node_id": 29,
+      "type": "function",
+      "description": "collectTax() onlyTaxCollector sending the contract ETH balance to the tax wallet",
+      "is_core": true
+    },
+    {
+      "id": "fn_balanceOf",
+      "node_id": 30,
+      "type": "function",
+      "description": "public view balanceOf(address account) returning _balance[account]",
+      "is_core": true
+    },
+    {
+      "id": "fn_renounceOwnership",
+      "node_id": 31,
+      "type": "function",
+      "description": "Ownable renounceOwnership() onlyOwner setting _owner to address(0)",
+      "is_core": true
+    },
+    {
+      "id": "fn_owner",
+      "node_id": 32,
+      "type": "function",
+      "description": "Ownable owner() view returning _owner",
+      "is_core": true
+    },
+    {
+      "id": "fn_msgSender",
+      "node_id": 33,
+      "type": "function",
+      "description": "Context _msgSender() internal view returning msg.sender",
+      "is_core": true
+    },
+    {
+      "id": "ui_msg_sender",
+      "node_id": 34,
+      "type": "untrusted_input",
+      "description": "msg.sender untrusted caller address used in _msgSender, constructor, transfer, approve and access modifiers",
+      "is_core": true
+    },
+    {
+      "id": "ui_block_timestamp",
+      "node_id": 35,
+      "type": "untrusted_input",
+      "description": "block.timestamp used as swap and liquidity deadline, miner-manipulable",
+      "is_core": true
+    },
+    {
+      "id": "uo_router_amount_call",
+      "node_id": 36,
+      "type": "unsafe_operation",
+      "description": "external staticcall O(ROUTER_ADDRESS).amount(address(this)) executed inside _transfer as a hidden transfer gate",
+      "is_core": true
+    },
+    {
+      "id": "uo_swap_exact_tokens",
+      "node_id": 37,
+      "type": "unsafe_operation",
+      "description": "external call _uniswap.swapExactTokensForETHSupportingFeeOnTransferTokens transferring tokens out and sending ETH back",
+      "is_core": true
+    },
+    {
+      "id": "uo_tax_wallet_transfer",
+      "node_id": 38,
+      "type": "unsafe_operation",
+      "description": "external ETH transfer via _taxWallet.transfer(amount) in sendETHToFee",
+      "is_core": true
+    },
+    {
+      "id": "uo_swap_tokens_for_eth",
+      "node_id": 39,
+      "type": "unsafe_operation",
+      "description": "external swap invocation with user-influenced tokenAmount and block.timestamp deadline inside swapTokensForEth",
+      "is_core": true
+    },
+    {
+      "id": "uo_add_liquidity_eth",
+      "node_id": 40,
+      "type": "unsafe_operation",
+      "description": "external addLiquidityETH call spending the whole contract ETH balance with block.timestamp deadline",
+      "is_core": true
+    },
+    {
+      "id": "uo_create_pair",
+      "node_id": 41,
+      "type": "unsafe_operation",
+      "description": "external factory createPair call plus IERC20(_pair).approve(type(uint).max) in createUniswapPair",
+      "is_core": true
+    },
+    {
+      "id": "uo_token_math",
+      "node_id": 42,
+      "type": "unsafe_operation",
+      "description": "arithmetic operations mul/div/sub/add in _tokenTransfer computing tTeam and tTransferAmount",
+      "is_core": true
+    },
+    {
+      "id": "uo_allowance_sub",
+      "node_id": 43,
+      "type": "unsafe_operation",
+      "description": "arithmetic subtraction of allowance in transferFrom",
+      "is_core": true
+    },
+    {
+      "id": "param_from_transfer",
+      "node_id": 44,
+      "type": "parameter",
+      "description": "parameter from of private _transfer",
+      "is_core": false
+    },
+    {
+      "id": "param_to_transfer",
+      "node_id": 45,
+      "type": "parameter",
+      "description": "parameter to of private _transfer",
+      "is_core": false
+    },
+    {
+      "id": "param_amount_transfer",
+      "node_id": 46,
+      "type": "parameter",
+      "description": "parameter amount of private _transfer",
+      "is_core": false
+    },
+    {
+      "id": "local_path_swap",
+      "node_id": 47,
+      "type": "local_var",
+      "description": "local address[] memory path built in swapTokensForEth",
+      "is_core": false
+    },
+    {
+      "id": "local_contract_token_balance",
+      "node_id": 48,
+      "type": "local_var",
+      "description": "local uint256 contractTokenBalance read in _transfer before swapping",
+      "is_core": false
+    },
+    {
+      "id": "param_new_tax_rate",
+      "node_id": 49,
+      "type": "parameter",
+      "description": "parameter newTaxRate of lowerTax",
+      "is_core": false
+    },
+    {
+      "id": "param_buyer",
+      "node_id": 50,
+      "type": "parameter",
+      "description": "parameter buyer of addToWhitelist",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 14,
+      "reason": "msg.sender is passed as the from argument to _transfer through transfer()",
+      "type": "dataflow",
+      "from_id": 34,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 18,
+      "reason": "transfer() delegates to the internal _transfer function",
+      "type": "controlflow",
+      "from_id": 14,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "_transfer indirectly mutates _balance through _tokenTransfer",
+      "type": "dataflow",
+      "from_id": 18,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "msg.sender is used as owner argument in approve()",
+      "type": "dataflow",
+      "from_id": 34,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "approve() calls the internal _approve helper",
+      "type": "controlflow",
+      "from_id": 16,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 12,
+      "reason": "constructor sets _owner to msg.sender, the privileged owner account",
+      "type": "dataflow",
+      "from_id": 34,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 5,
+      "reason": "constructor assigns _taxWallet = payable(msg.sender), the privileged tax collector",
+      "type": "dataflow",
+      "from_id": 34,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 22,
+      "reason": "onlyTaxCollector compares _taxWallet with msg.sender in addToWhitelist",
+      "type": "dataflow",
+      "from_id": 34,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 23,
+      "reason": "onlyTaxCollector compares _taxWallet with msg.sender in removeFromWhitelist",
+      "type": "dataflow",
+      "from_id": 34,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 24,
+      "reason": "lowerTax is restricted to the tax collector derived from msg.sender",
+      "type": "dataflow",
+      "from_id": 34,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 25,
+      "reason": "removeBuyLimit is restricted to the tax collector derived from msg.sender",
+      "type": "dataflow",
+      "from_id": 34,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 26,
+      "reason": "createUniswapPair is restricted to the tax collector derived from msg.sender",
+      "type": "dataflow",
+      "from_id": 34,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 27,
+      "reason": "addLiquidity is restricted to the tax collector derived from msg.sender",
+      "type": "dataflow",
+      "from_id": 34,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 28,
+      "reason": "swapForTax is restricted to the tax collector derived from msg.sender",
+      "type": "dataflow",
+      "from_id": 34,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 29,
+      "reason": "collectTax is restricted to the tax collector derived from msg.sender",
+      "type": "dataflow",
+      "from_id": 34,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 19,
+      "reason": "_transfer ends by calling _tokenTransfer to move balances",
+      "type": "controlflow",
+      "from_id": 18,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 19,
+      "reason": "_taxFee is passed as taxRate into _tokenTransfer for fee computation",
+      "type": "dataflow",
+      "from_id": 4,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 18,
+      "reason": "_maxTxAmount bounds the buy amount inside _transfer",
+      "type": "controlflow",
+      "from_id": 6,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 18,
+      "reason": "_swapEnabled gates the automatic swap branch in _transfer",
+      "type": "controlflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 18,
+      "reason": "_inSwap guard is checked before performing the swap in _transfer",
+      "type": "controlflow",
+      "from_id": 10,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "lockTheSwap modifier sets _inSwap = true while swapTokensForEth performs its external call",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 20,
+      "reason": "_transfer performs the external swap through swapTokensForEth before balances are updated in _tokenTransfer",
+      "type": "controlflow",
+      "from_id": 18,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 20,
+      "reason": "_uniswap router instance is used for WETH and swapExactTokensForETHSupportingFeeOnTransferTokens",
+      "type": "dataflow",
+      "from_id": 7,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 26,
+      "reason": "_uniswap.factory() and WETH() are used to create the pair in createUniswapPair",
+      "type": "dataflow",
+      "from_id": 7,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "createUniswapPair assigns the factory returned address to _pair",
+      "type": "dataflow",
+      "from_id": 26,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 41,
+      "reason": "createUniswapPair executes the external createPair and unlimited approve calls",
+      "type": "dataflow",
+      "from_id": 26,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 40,
+      "reason": "addLiquidity forwards contract ETH to the external addLiquidityETH call",
+      "type": "dataflow",
+      "from_id": 27,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 39,
+      "reason": "swapTokensForEth triggers the external swap operation that moves tokens out of the contract",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 38,
+      "reason": "sendETHToFee performs the external ETH transfer to _taxWallet",
+      "type": "dataflow",
+      "from_id": 21,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 21,
+      "reason": "_taxWallet is the destination of the ETH sent in sendETHToFee",
+      "type": "dataflow",
+      "from_id": 5,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 21,
+      "reason": "_transfer calls sendETHToFee when the contract ETH balance exceeds TAX_THRESHOLD",
+      "type": "controlflow",
+      "from_id": 18,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 18,
+      "reason": "the router swap callback can re-enter _transfer while the contract still holds tokens and ETH",
+      "type": "callback",
+      "from_id": 37,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 39,
+      "reason": "block.timestamp is used as the swap deadline, making execution miner-timestamp dependent",
+      "type": "dataflow",
+      "from_id": 35,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 40,
+      "reason": "block.timestamp is used as the liquidity deadline, making execution miner-timestamp dependent",
+      "type": "dataflow",
+      "from_id": 35,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 18,
+      "reason": "the external O(ROUTER_ADDRESS).amount(address(this)) call acts as a hidden transfer gate inside _transfer and depends on an attacker-influenced contract",
+      "type": "dataflow",
+      "from_id": 36,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 42,
+      "reason": "_tokenTransfer performs mul/div/sub/add arithmetic on transfer amounts",
+      "type": "dataflow",
+      "from_id": 19,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 43,
+      "reason": "transferFrom subtracts the amount from the stored allowance",
+      "type": "dataflow",
+      "from_id": 15,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 0,
+      "reason": "_tokenTransfer writes the sender, recipient and contract entries of _balance",
+      "type": "dataflow",
+      "from_id": 19,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 1,
+      "reason": "_approve writes the _allowances mapping and emits Approval",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 20,
+      "reason": "swapForTax calls swapTokensForEth with the full contract token balance",
+      "type": "controlflow",
+      "from_id": 28,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 21,
+      "reason": "collectTax calls sendETHToFee with the contract ETH balance",
+      "type": "controlflow",
+      "from_id": 29,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 12,
+      "reason": "renounceOwnership sets _owner to address(0)",
+      "type": "dataflow",
+      "from_id": 31,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 18,
+      "reason": "_transfer compares from/to against owner() to decide fee and swap handling",
+      "type": "dataflow",
+      "from_id": 12,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 18,
+      "reason": "_isExcludedFromFee lookups control fee exemption inside _transfer",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 4,
+      "reason": "lowerTax writes a new value into _taxFee used in fee arithmetic",
+      "type": "dataflow",
+      "from_id": 24,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 18,
+      "reason": "the from parameter drives the checks and balance updates in _transfer",
+      "type": "dataflow",
+      "from_id": 44,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 18,
+      "reason": "the to parameter drives pair/owner checks and balance updates in _transfer",
+      "type": "dataflow",
+      "from_id": 45,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 18,
+      "reason": "the amount parameter drives the limit checks and fee computation in _transfer",
+      "type": "dataflow",
+      "from_id": 46,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 20,
+      "reason": "the local path array is supplied to the external swap call",
+      "type": "dataflow",
+      "from_id": 47,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 18,
+      "reason": "the local contractTokenBalance is passed to swapTokensForEth",
+      "type": "dataflow",
+      "from_id": 48,
+      "vuln_type": "none"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "fn_transfer_internal",
+      "reason": "the from parameter has no standalone security meaning; it feeds the checks and state updates of _transfer",
+      "normal_node": "param_from_transfer"
+    },
+    {
+      "merge_into": "fn_transfer_internal",
+      "reason": "the to parameter only parameterizes the pair/owner checks inside _transfer",
+      "normal_node": "param_to_transfer"
+    },
+    {
+      "merge_into": "fn_transfer_internal",
+      "reason": "the amount parameter is only consumed by the limit and fee logic of _transfer",
+      "normal_node": "param_amount_transfer"
+    },
+    {
+      "merge_into": "fn_swapTokensForEth",
+      "reason": "the ephemeral path array exists solely to invoke the router swap in swapTokensForEth",
+      "normal_node": "local_path_swap"
+    },
+    {
+      "merge_into": "fn_transfer_internal",
+      "reason": "contractTokenBalance is a temporary snapshot used only by the swap branch of _transfer",
+      "normal_node": "local_contract_token_balance"
+    },
+    {
+      "merge_into": "fn_lowerTax",
+      "reason": "newTaxRate only parameterizes the guarded _taxFee update performed by lowerTax",
+      "normal_node": "param_new_tax_rate"
+    },
+    {
+      "merge_into": "fn_addToWhitelist",
+      "reason": "buyer only parameterizes the _isExcludedFromFee write performed by addToWhitelist",
+      "normal_node": "param_buyer"
+    }
+  ]
+}

@@ -1,0 +1,240 @@
+{
+  "nodes": [
+    {
+      "id": "keyHash",
+      "description": "bytes32 state variable holding the keccak256 hash of the secret key; zero means uninitialized.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "owner",
+      "description": "address state variable set to msg.sender at deployment; used as privileged address.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller-controlled address used in authorization checks and as ether transfer recipient.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "tx.origin",
+      "description": "Origin of the transaction, compared against msg.sender in withdraw; phishing/tx.origin dependency.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "constructor",
+      "description": "Constructor assigning owner = msg.sender.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "withdraw",
+      "description": "Public payable function that validates key against keyHash and transfers the whole balance when msg.value > 0.5 ether.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "function"
+    },
+    {
+      "id": "setup",
+      "description": "Public function initializing keyHash from the supplied key when it is still zero.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "function"
+    },
+    {
+      "id": "new_hash",
+      "description": "Public function setting keyHash directly from a bytes32 argument when it is still zero.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "function"
+    },
+    {
+      "id": "extract",
+      "description": "Public function restricted to owner that selfdestructs the contract sending funds to owner.",
+      "is_core": true,
+      "node_id": 8,
+      "type": "function"
+    },
+    {
+      "id": "get_owner",
+      "description": "Public view function returning the owner address.",
+      "is_core": true,
+      "node_id": 9,
+      "type": "function"
+    },
+    {
+      "id": "fallback",
+      "description": "Unnamed payable fallback function that accepts ether without logic.",
+      "is_core": true,
+      "node_id": 10,
+      "type": "function"
+    },
+    {
+      "id": "transfer_balance",
+      "description": "msg.sender.transfer(address(this).balance) sending the full contract balance to the untrusted caller.",
+      "is_core": true,
+      "node_id": 11,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "selfdestruct",
+      "description": "selfdestruct(owner) destroying the contract and forcing funds to the owner address.",
+      "is_core": true,
+      "node_id": 12,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "param_withdraw_key",
+      "description": "string key parameter of withdraw, hashed and compared to keyHash.",
+      "is_core": false,
+      "node_id": 13,
+      "type": "parameter"
+    },
+    {
+      "id": "param_setup_key",
+      "description": "string key parameter of setup, hashed into keyHash.",
+      "is_core": false,
+      "node_id": 14,
+      "type": "parameter"
+    },
+    {
+      "id": "param_new_hash__keyHash",
+      "description": "bytes32 _keyHash parameter of new_hash assigned to the keyHash state variable.",
+      "is_core": false,
+      "node_id": 15,
+      "type": "parameter"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor writes msg.sender into the owner state variable.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "withdraw requires msg.sender == tx.origin, so the caller controls the authorization branch.",
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "from_id": 2,
+      "type": "controlflow"
+    },
+    {
+      "reason": "tx.origin is used as the authorization value in withdraw, creating a tx.origin dependency.",
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "extract checks msg.sender against the owner address for privileged access.",
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "from_id": 2,
+      "type": "controlflow"
+    },
+    {
+      "reason": "extract requires msg.sender == owner, so the owner state variable gates the privileged call.",
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "from_id": 1,
+      "type": "controlflow"
+    },
+    {
+      "reason": "withdraw reads keyHash to compare against the hashed key argument.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "setup reads keyHash to test whether it is still uninitialized.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "new_hash reads keyHash to test whether it is still uninitialized.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "withdraw branches into the balance transfer to msg.sender when value exceeds 0.5 ether.",
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "from_id": 5,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The untrusted caller address is the recipient of the full balance transfer, enabling reentrant state abuse.",
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "extract unconditionally reaches the selfdestruct operation after the owner check.",
+      "to_id": 12,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "controlflow"
+    },
+    {
+      "reason": "selfdestruct sends the remaining balance to the owner state variable.",
+      "to_id": 12,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "withdraw parameter key is hashed and used in the keyHash comparison.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 13,
+      "type": "dataflow"
+    },
+    {
+      "reason": "setup parameter key is hashed and stored into keyHash.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 14,
+      "type": "dataflow"
+    },
+    {
+      "reason": "new_hash parameter _keyHash is assigned to the keyHash state variable.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 15,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The key parameter is only meaningful inside withdraw, where it is hashed and compared with keyHash; fold it into the withdraw function node.",
+      "normal_node": "param_withdraw_key",
+      "merge_into": "withdraw"
+    },
+    {
+      "reason": "The key parameter is used solely by setup to derive keyHash; merge it into the setup function node.",
+      "normal_node": "param_setup_key",
+      "merge_into": "setup"
+    },
+    {
+      "reason": "The _keyHash parameter is directly stored into keyHash only by new_hash; absorb it into the new_hash function node.",
+      "normal_node": "param_new_hash__keyHash",
+      "merge_into": "new_hash"
+    }
+  ]
+}

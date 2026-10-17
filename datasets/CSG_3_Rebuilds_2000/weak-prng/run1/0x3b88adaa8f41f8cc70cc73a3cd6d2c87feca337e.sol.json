@@ -1,0 +1,259 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "maxLimit",
+      "is_core": true,
+      "description": "Public uint256 state variable holding the NFT supply cap (8888), read by claim()."
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "id": "numbers",
+      "is_core": true,
+      "description": "Private mapping(uint256 => uint256) storing the timestamp written at mint time, used as the pseudo-random seed source for NFT traits."
+    },
+    {
+      "node_id": 2,
+      "type": "function",
+      "id": "claim",
+      "is_core": true,
+      "description": "Public minting entry point guarded by nonReentrant; computes tokenId from totalSupply()+1, writes block.timestamp into numbers and calls _safeMint to msg.sender."
+    },
+    {
+      "node_id": 3,
+      "type": "function",
+      "id": "tokenURI",
+      "is_core": true,
+      "description": "Public view override that assembles the on-chain SVG/metadata, calling getBackGround, getFiveElements, getGossip, getTenDry, geTearthlyBranch and Base64.encode."
+    },
+    {
+      "node_id": 4,
+      "type": "function",
+      "id": "pluck",
+      "is_core": true,
+      "description": "Internal view helper that reads numbers[tokenId] and derives a trait string via a keccak256-based random() seed."
+    },
+    {
+      "node_id": 5,
+      "type": "function",
+      "id": "getBackGround",
+      "is_core": true,
+      "description": "Public view function reading numbers[tokenId] and computing a Color struct variant based on rand % 100."
+    },
+    {
+      "node_id": 6,
+      "type": "function",
+      "id": "_safeMint",
+      "is_core": true,
+      "description": "Inherited ERC721 internal mint that transfers the token and invokes _checkOnERC721Received, performing an external callback to the recipient contract."
+    },
+    {
+      "node_id": 7,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "is_core": true,
+      "description": "Caller-controlled address returned by _msgSender(); used as the mint recipient in claim and as the approval/ownership actor in ERC721 functions."
+    },
+    {
+      "node_id": 8,
+      "type": "untrusted_input",
+      "id": "block.timestamp",
+      "is_core": true,
+      "description": "Miner-influenced block timestamp used in claim() as the stored pseudo-randomness source for token traits."
+    },
+    {
+      "node_id": 9,
+      "type": "unsafe_operation",
+      "id": "numbers_timestamp_write",
+      "is_core": true,
+      "description": "State write numbers[tokenId] = block.timestamp inside claim(); weak/timestamp-dependent randomness plus state mutation ordering relative to minting."
+    },
+    {
+      "node_id": 10,
+      "type": "unsafe_operation",
+      "id": "safeMint_external_call",
+      "is_core": true,
+      "description": "External call performed by _safeMint -> IERC721Receiver.onERC721Received on the recipient, executed before the minting state updates are finalized for the caller."
+    },
+    {
+      "node_id": 11,
+      "type": "parameter",
+      "id": "tokenId_param_tokenURI",
+      "is_core": false,
+      "description": "uint256 tokenId parameter of tokenURI(), forwarded to the trait getters and to toString()."
+    },
+    {
+      "node_id": 12,
+      "type": "local_var",
+      "id": "tokenId_local_claim",
+      "is_core": false,
+      "description": "Local uint256 tokenId in claim(), computed as totalSupply()+1 and used for the cap check, numbers write and mint."
+    },
+    {
+      "node_id": 13,
+      "type": "local_var",
+      "id": "output_local_tokenURI",
+      "is_core": false,
+      "description": "Local string output in tokenURI() accumulating the encoded SVG and metadata before being returned."
+    },
+    {
+      "node_id": 14,
+      "type": "local_var",
+      "id": "info_local_tokenURI",
+      "is_core": false,
+      "description": "Local Color struct info returned by getBackGround(tokenId) and consumed while building the parts array in tokenURI()."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "block.timestamp flows directly into the numbers mapping write inside claim(), making token traits depend on miner-influenced time.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 9
+    },
+    {
+      "reason": "The unsafe timestamp write persists into the numbers state variable that later seeds all trait randomness.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 1
+    },
+    {
+      "reason": "claim() executes the timestamp assignment to numbers as part of its minting logic.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 2,
+      "to_id": 9
+    },
+    {
+      "reason": "msg.sender (via _msgSender()) is the caller of claim().",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 2
+    },
+    {
+      "reason": "msg.sender is passed as the 'to' argument of _safeMint, which ultimately calls the recipient contract.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 10
+    },
+    {
+      "reason": "Local tokenId is passed as the minted token id into _safeMint.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 10
+    },
+    {
+      "reason": "Local tokenId is used as the mapping key in numbers[tokenId] = block.timestamp.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 9
+    },
+    {
+      "reason": "Local tokenId is compared against maxLimit in the require statement of claim().",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 12,
+      "to_id": 0
+    },
+    {
+      "reason": "claim() reads the maxLimit state variable to enforce the 8888 supply cap.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 2,
+      "to_id": 0
+    },
+    {
+      "reason": "_safeMint performs an external call to IERC721Receiver.onERC721Received on the recipient, which can re-enter claim() (mitigated by the nonReentrant guard).",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 10,
+      "to_id": 2
+    },
+    {
+      "reason": "The tokenId parameter drives all lookups and string assembly inside tokenURI().",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 3
+    },
+    {
+      "reason": "tokenId is forwarded from the trait getters into pluck() as the lookup key.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 4
+    },
+    {
+      "reason": "tokenURI() calls getBackGround(tokenId) and consumes the returned Color struct.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 5
+    },
+    {
+      "reason": "The Color struct returned by getBackGround is stored in the info local and its fields feed the parts array in tokenURI().",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 3
+    },
+    {
+      "reason": "The output local accumulates the parts array concatenation and is the returned value of tokenURI().",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 13,
+      "to_id": 3
+    },
+    {
+      "reason": "tokenURI() indirectly reads numbers through getBackGround and the trait getters.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 1
+    },
+    {
+      "reason": "pluck() reads numbers[tokenId] to build the randomness seed for trait selection.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 1
+    },
+    {
+      "reason": "getBackGround() reads numbers[tokenId] to build the randomness seed for background selection.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 1
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "tokenId is a parameter used only to index trait data inside tokenURI() and its getters, so it can be merged into the tokenURI function node.",
+      "merge_into": "tokenURI",
+      "normal_node": "tokenId_param_tokenURI"
+    },
+    {
+      "reason": "Local tokenId in claim() is derived from totalSupply()+1 and used solely inside claim(), so it can be merged into the claim function node.",
+      "merge_into": "claim",
+      "normal_node": "tokenId_local_claim"
+    },
+    {
+      "reason": "Local output in tokenURI() only accumulates the metadata string and is returned, so it can be merged into the tokenURI function node.",
+      "merge_into": "tokenURI",
+      "normal_node": "output_local_tokenURI"
+    },
+    {
+      "reason": "Local info holds the Color struct returned by getBackGround() and is consumed only inside tokenURI(), so it can be merged into the tokenURI function node.",
+      "merge_into": "tokenURI",
+      "normal_node": "info_local_tokenURI"
+    }
+  ]
+}

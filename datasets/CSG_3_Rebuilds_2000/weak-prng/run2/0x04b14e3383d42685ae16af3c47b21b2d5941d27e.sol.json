@@ -1,0 +1,854 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Constant maximum number of NFTs (10000)",
+      "is_core": true,
+      "node_id": 0,
+      "id": "MAX_NFTS"
+    },
+    {
+      "type": "state_var",
+      "description": "Internal fixed array used as a swap-and-pop shuffle for random index generation",
+      "is_core": true,
+      "node_id": 1,
+      "id": "indices"
+    },
+    {
+      "type": "state_var",
+      "description": "Global pause flag for all minting markets",
+      "is_core": true,
+      "node_id": 2,
+      "id": "allPaused"
+    },
+    {
+      "type": "state_var",
+      "description": "Base token URI string returned by _baseURI",
+      "is_core": true,
+      "node_id": 3,
+      "id": "_baseTokenURI"
+    },
+    {
+      "type": "state_var",
+      "description": "Current round number for the round sale",
+      "is_core": true,
+      "node_id": 4,
+      "id": "round"
+    },
+    {
+      "type": "state_var",
+      "description": "Number of tokens sold in the current round, drives price prediction",
+      "is_core": true,
+      "node_id": 5,
+      "id": "roundSalePerRound"
+    },
+    {
+      "type": "state_var",
+      "description": "Block number at which the current round started",
+      "is_core": true,
+      "node_id": 6,
+      "id": "startRoundBlock"
+    },
+    {
+      "type": "state_var",
+      "description": "Number of blocks each round lasts",
+      "is_core": true,
+      "node_id": 7,
+      "id": "blockPerRound"
+    },
+    {
+      "type": "state_var",
+      "description": "Monotonic nonce mixed into the pseudo-random seed",
+      "is_core": true,
+      "node_id": 8,
+      "id": "nonce"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping of market type to Market struct (paused, price, saleCount, maxAmount)",
+      "is_core": true,
+      "node_id": 9,
+      "id": "marketList"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller-supplied address, used in randomness seed, withdrawals and ownership checks",
+      "is_core": true,
+      "node_id": 10,
+      "id": "msg.sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Miner-influenceable timestamp used in the pseudo-random seed",
+      "is_core": true,
+      "node_id": 11,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Random index computed from keccak256(nonce, msg.sender, block.difficulty, block.timestamp) modulo totalSize",
+      "is_core": true,
+      "node_id": 12,
+      "id": "weak_randomness_operation"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Low-level send of the whole contract balance to msg.sender in withdrawAll",
+      "is_core": true,
+      "node_id": 13,
+      "id": "external_send_operation"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External call to onERC721Received on the receiver triggered by _safeMint, allowing reentrancy into minting logic",
+      "is_core": true,
+      "node_id": 14,
+      "id": "erc721_receiver_callback"
+    },
+    {
+      "type": "function",
+      "description": "Constructor: mints initial tokens to _to and initializes the three markets",
+      "is_core": true,
+      "node_id": 15,
+      "id": "constructor"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner function toggling the global allPaused flag",
+      "is_core": true,
+      "node_id": 16,
+      "id": "pauseAllMarket"
+    },
+    {
+      "type": "function",
+      "description": "View returning paused, price, saleCount and maxAmount of a market",
+      "is_core": true,
+      "node_id": 17,
+      "id": "getMarketInfo"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner function overwriting all fields of a market entry",
+      "is_core": true,
+      "node_id": 18,
+      "id": "setMarketStatus"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner function unpausing the round sale and resetting round/start block",
+      "is_core": true,
+      "node_id": 19,
+      "id": "startRoundSale"
+    },
+    {
+      "type": "function",
+      "description": "View computing the next round price from current price and roundSalePerRound",
+      "is_core": true,
+      "node_id": 20,
+      "id": "getPredictRoundPrice"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner function setting the number of blocks per round",
+      "is_core": true,
+      "node_id": 21,
+      "id": "setBlockPerRound"
+    },
+    {
+      "type": "function",
+      "description": "Internal function advancing the round, updating price and start block",
+      "is_core": true,
+      "node_id": 22,
+      "id": "setNextRound"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner version of setNextRound for emergency advancement",
+      "is_core": true,
+      "node_id": 23,
+      "id": "setEmergencyNextRound"
+    },
+    {
+      "type": "function",
+      "description": "Payable pre-sale mint enforcing price, pause and market cap checks",
+      "is_core": true,
+      "node_id": 24,
+      "id": "preMint"
+    },
+    {
+      "type": "function",
+      "description": "Payable time-attack sale mint enforcing price, pause and market cap checks",
+      "is_core": true,
+      "node_id": 25,
+      "id": "timeAttackMint"
+    },
+    {
+      "type": "function",
+      "description": "Payable round-sale mint with per-round caps and block-based round rotation",
+      "is_core": true,
+      "node_id": 26,
+      "id": "roundMint"
+    },
+    {
+      "type": "function",
+      "description": "Internal batch minting: checks pause, count<=30, total supply and loops _safeMint",
+      "is_core": true,
+      "node_id": 27,
+      "id": "mulitpleMint"
+    },
+    {
+      "type": "function",
+      "description": "View returning all token IDs owned by an address",
+      "is_core": true,
+      "node_id": 28,
+      "id": "walletOfOwner"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner payable function sending the full balance to msg.sender",
+      "is_core": true,
+      "node_id": 29,
+      "id": "withdrawAll"
+    },
+    {
+      "type": "function",
+      "description": "Internal override returning _baseTokenURI",
+      "is_core": true,
+      "node_id": 30,
+      "id": "_baseURI"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner function updating the base token URI",
+      "is_core": true,
+      "node_id": 31,
+      "id": "setBaseURI"
+    },
+    {
+      "type": "function",
+      "description": "Internal pseudo-random index generator using a weak seed and swap-and-pop on indices",
+      "is_core": true,
+      "node_id": 32,
+      "id": "_generateRandomIndex"
+    },
+    {
+      "type": "parameter",
+      "description": "Constructor parameter _to, initial mint recipient",
+      "is_core": false,
+      "node_id": 33,
+      "id": "param__to_constructor"
+    },
+    {
+      "type": "parameter",
+      "description": "Constructor parameter _initialMint, number of tokens minted at deploy",
+      "is_core": false,
+      "node_id": 34,
+      "id": "param__initialMint"
+    },
+    {
+      "type": "parameter",
+      "description": "pauseAllMarket parameter _paused",
+      "is_core": false,
+      "node_id": 35,
+      "id": "param__paused"
+    },
+    {
+      "type": "parameter",
+      "description": "setMarketStatus parameter _marketType, indexes marketList",
+      "is_core": false,
+      "node_id": 36,
+      "id": "param__marketType"
+    },
+    {
+      "type": "parameter",
+      "description": "preMint parameter _to, mint recipient",
+      "is_core": false,
+      "node_id": 37,
+      "id": "param__to_preMint"
+    },
+    {
+      "type": "parameter",
+      "description": "preMint parameter _count, number of tokens to mint",
+      "is_core": false,
+      "node_id": 38,
+      "id": "param__count_preMint"
+    },
+    {
+      "type": "parameter",
+      "description": "timeAttackMint parameter _to, mint recipient",
+      "is_core": false,
+      "node_id": 39,
+      "id": "param__to_timeAttack"
+    },
+    {
+      "type": "parameter",
+      "description": "timeAttackMint parameter _count, number of tokens to mint",
+      "is_core": false,
+      "node_id": 40,
+      "id": "param__count_timeAttack"
+    },
+    {
+      "type": "parameter",
+      "description": "roundMint parameter _to, mint recipient",
+      "is_core": false,
+      "node_id": 41,
+      "id": "param__to_roundMint"
+    },
+    {
+      "type": "parameter",
+      "description": "roundMint parameter _count, number of tokens to mint",
+      "is_core": false,
+      "node_id": 42,
+      "id": "param__count_roundMint"
+    },
+    {
+      "type": "parameter",
+      "description": "mulitpleMint parameter _to, mint recipient",
+      "is_core": false,
+      "node_id": 43,
+      "id": "param__to_multipleMint"
+    },
+    {
+      "type": "parameter",
+      "description": "mulitpleMint parameter _count, number of tokens to mint",
+      "is_core": false,
+      "node_id": 44,
+      "id": "param__count_multipleMint"
+    },
+    {
+      "type": "local_var",
+      "description": "_generateRandomIndex local: MAX_NFTS - totalSupply()",
+      "is_core": false,
+      "node_id": 45,
+      "id": "local_totalSize"
+    },
+    {
+      "type": "local_var",
+      "description": "_generateRandomIndex local: derived pseudo-random array index",
+      "is_core": false,
+      "node_id": 46,
+      "id": "local_index"
+    },
+    {
+      "type": "local_var",
+      "description": "_generateRandomIndex local: resolved token id from the shuffle array",
+      "is_core": false,
+      "node_id": 47,
+      "id": "local_value"
+    },
+    {
+      "type": "parameter",
+      "description": "setBlockPerRound parameter _blockPerRound",
+      "is_core": false,
+      "node_id": 48,
+      "id": "param__blockPerRound"
+    },
+    {
+      "type": "parameter",
+      "description": "setBaseURI parameter baseURI",
+      "is_core": false,
+      "node_id": 49,
+      "id": "param_baseURI"
+    },
+    {
+      "type": "parameter",
+      "description": "walletOfOwner parameter _owner, queried address",
+      "is_core": false,
+      "node_id": 50,
+      "id": "param__owner_walletOfOwner"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "_to is used as the initial mint recipient in the constructor",
+      "from_id": 33
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "_initialMint bounds the constructor mint loop",
+      "from_id": 34
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "_paused is written into allPaused",
+      "from_id": 35
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "_marketType indexes marketList when overwriting market fields",
+      "from_id": 36
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "_to is forwarded to mulitpleMint in preMint",
+      "from_id": 37
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "_count drives the price and cap checks and the mint amount",
+      "from_id": 38
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "_to is forwarded to mulitpleMint in timeAttackMint",
+      "from_id": 39
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "_count drives the price and cap checks and the mint amount",
+      "from_id": 40
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "dataflow",
+      "reason": "_to is forwarded to mulitpleMint in roundMint",
+      "from_id": 41
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "dataflow",
+      "reason": "_count drives round caps and the mint amount",
+      "from_id": 42
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "_to is the recipient of each _safeMint call",
+      "from_id": 43
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "_count bounds the batch mint loop and the supply checks",
+      "from_id": 44
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 32,
+      "type": "dataflow",
+      "reason": "totalSize is the modulus for the pseudo-random index",
+      "from_id": 45
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 32,
+      "type": "dataflow",
+      "reason": "index selects the slot in the indices shuffle array",
+      "from_id": 46
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 32,
+      "type": "dataflow",
+      "reason": "value is the returned token id derived from the shuffle array",
+      "from_id": 47
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "_blockPerRound is written into blockPerRound",
+      "from_id": 48
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 31,
+      "type": "dataflow",
+      "reason": "baseURI is written into _baseTokenURI",
+      "from_id": 49
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 28,
+      "type": "dataflow",
+      "reason": "_owner is enumerated via balanceOf and tokenOfOwnerByIndex",
+      "from_id": 50
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 32,
+      "type": "dataflow",
+      "reason": "block.timestamp is mixed into the pseudo-random seed, making index generation miner/timestamp dependent",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 32,
+      "type": "dataflow",
+      "reason": "msg.sender is mixed into the pseudo-random seed",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "msg.sender is the recipient of the full balance in withdrawAll",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "defines the weak randomness unsafe operation",
+      "from_id": 32
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "reads and writes the indices shuffle array",
+      "from_id": 32
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "increments the nonce used in the random seed",
+      "from_id": 32
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "writes the global allPaused flag",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "reads marketList entries to return market info",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "writes paused, price, saleCount and maxAmount of a market",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "unpauses the round sale market in marketList",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "resets round to 1",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "records startRoundBlock = block.number",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "reads the round sale price from marketList",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "writes blockPerRound",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "calls getPredictRoundPrice to compute the next price",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "updates the round sale price in marketList",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "increments round",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "resets roundSalePerRound to 0",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "advances startRoundBlock by blockPerRound",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "calls getPredictRoundPrice to compute the next price",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "updates the round sale price in marketList",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "increments round",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "resets roundSalePerRound to 0",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "advances startRoundBlock by blockPerRound",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "reads pause/price/cap and increments pre-sale saleCount",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "calls mulitpleMint to mint the purchased tokens",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "reads pause/price/cap and increments time-attack saleCount",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "calls mulitpleMint to mint the purchased tokens",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "reads round market pause/price/cap and increments saleCount",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "calls mulitpleMint to mint the purchased tokens",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 22,
+      "type": "controlflow",
+      "reason": "block.number comparison decides whether setNextRound is invoked, gating price/round transitions",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 32,
+      "type": "dataflow",
+      "reason": "calls _generateRandomIndex for each minted token",
+      "from_id": 27
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "loops _safeMint which performs an external onERC721Received callback to the receiver",
+      "from_id": 27
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 32,
+      "type": "dataflow",
+      "reason": "constructor calls _generateRandomIndex for each initial mint",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "constructor uses _safeMint, invoking the external receiver callback",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "initializes the three marketList Market structs",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "performs a low-level send of the full balance to msg.sender",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "returns _baseTokenURI",
+      "from_id": 30
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "writes _baseTokenURI",
+      "from_id": 31
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "constructor",
+      "reason": "Constructor parameter _to is only meaningful within the constructor and should be folded into it",
+      "normal_node": "param__to_constructor"
+    },
+    {
+      "merge_into": "constructor",
+      "reason": "Constructor parameter _initialMint is only meaningful within the constructor and should be folded into it",
+      "normal_node": "param__initialMint"
+    },
+    {
+      "merge_into": "pauseAllMarket",
+      "reason": "pauseAllMarket parameter _paused should be folded into pauseAllMarket",
+      "normal_node": "param__paused"
+    },
+    {
+      "merge_into": "setMarketStatus",
+      "reason": "setMarketStatus parameter _marketType should be folded into setMarketStatus",
+      "normal_node": "param__marketType"
+    },
+    {
+      "merge_into": "preMint",
+      "reason": "preMint parameter _to should be folded into preMint",
+      "normal_node": "param__to_preMint"
+    },
+    {
+      "merge_into": "preMint",
+      "reason": "preMint parameter _count should be folded into preMint",
+      "normal_node": "param__count_preMint"
+    },
+    {
+      "merge_into": "timeAttackMint",
+      "reason": "timeAttackMint parameter _to should be folded into timeAttackMint",
+      "normal_node": "param__to_timeAttack"
+    },
+    {
+      "merge_into": "timeAttackMint",
+      "reason": "timeAttackMint parameter _count should be folded into timeAttackMint",
+      "normal_node": "param__count_timeAttack"
+    },
+    {
+      "merge_into": "roundMint",
+      "reason": "roundMint parameter _to should be folded into roundMint",
+      "normal_node": "param__to_roundMint"
+    },
+    {
+      "merge_into": "roundMint",
+      "reason": "roundMint parameter _count should be folded into roundMint",
+      "normal_node": "param__count_roundMint"
+    },
+    {
+      "merge_into": "mulitpleMint",
+      "reason": "mulitpleMint parameter _to should be folded into mulitpleMint",
+      "normal_node": "param__to_multipleMint"
+    },
+    {
+      "merge_into": "mulitpleMint",
+      "reason": "mulitpleMint parameter _count should be folded into mulitpleMint",
+      "normal_node": "param__count_multipleMint"
+    },
+    {
+      "merge_into": "_generateRandomIndex",
+      "reason": "local totalSize is an internal computation of _generateRandomIndex",
+      "normal_node": "local_totalSize"
+    },
+    {
+      "merge_into": "_generateRandomIndex",
+      "reason": "local index is an internal computation of _generateRandomIndex",
+      "normal_node": "local_index"
+    },
+    {
+      "merge_into": "_generateRandomIndex",
+      "reason": "local value is the return computation of _generateRandomIndex",
+      "normal_node": "local_value"
+    },
+    {
+      "merge_into": "setBlockPerRound",
+      "reason": "setBlockPerRound parameter _blockPerRound should be folded into setBlockPerRound",
+      "normal_node": "param__blockPerRound"
+    },
+    {
+      "merge_into": "setBaseURI",
+      "reason": "setBaseURI parameter baseURI should be folded into setBaseURI",
+      "normal_node": "param_baseURI"
+    },
+    {
+      "merge_into": "walletOfOwner",
+      "reason": "walletOfOwner parameter _owner should be folded into walletOfOwner",
+      "normal_node": "param__owner_walletOfOwner"
+    }
+  ]
+}

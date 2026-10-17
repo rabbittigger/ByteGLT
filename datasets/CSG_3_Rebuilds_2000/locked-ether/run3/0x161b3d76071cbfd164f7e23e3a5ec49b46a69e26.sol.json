@@ -1,0 +1,547 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "sdcContractAddr",
+      "description": "Hard-coded address of the SDC ERC20 token contract (0xe85e...95c5).",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "sdcMainAcc",
+      "description": "Hard-coded privileged admin address allowed to lock funds (0x34e0...3245).",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "sdcCon",
+      "description": "TokenERC20 interface instance pointing at sdcContractAddr; used for outbound token transfers.",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "accountInputSdcs",
+      "description": "mapping(address=>accountInputSdc[]) public: per-user list of locked-token deposits with locktime and creation time.",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "accountOutputSdcs",
+      "description": "mapping(address=>accountOutputSdc[]) public: per-user list of withdrawal records.",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "accoutInputOutputSdcLogs",
+      "description": "mapping(address=>accoutInputOutputSdcLog[]) public: append-only audit log of lock/unlock operations.",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "unlockSdc",
+      "description": "mapping(address=>uint) public: running balance of unlocked (claimable) SDC per user.",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "inSdcForAdmin",
+      "description": "Admin-only function that registers a locked SDC deposit for a user after checking msg.sender == sdcMainAcc.",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "outSdcForUser",
+      "description": "User withdrawal: matures expired deposits into unlockSdc, then transfers tokens to msg.sender and decrements unlockSdc.",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "nowInSeconds",
+      "description": "Constant helper returning block.timestamp (now).",
+      "node_id": 9
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "getAccountInputSdcslength",
+      "description": "Constant view returning the caller's number of input (locked) records.",
+      "node_id": 10
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "getAccountOutputSdcslength",
+      "description": "Constant view returning the caller's number of output (withdrawal) records.",
+      "node_id": 11
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "getLockSdc",
+      "description": "Constant view summing still-locked SDC amounts (now < locktime) for the caller.",
+      "node_id": 12
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "getUnlockSdc",
+      "description": "Constant view summing available SDC (unlockSdc plus matured deposits) for the caller.",
+      "node_id": 13
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "insetMoney",
+      "description": "Public function that matures the caller's expired deposits into unlockSdc, mutating storage with no access restriction.",
+      "node_id": 14
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fallback",
+      "description": "Payable fallback function; accepts plain Ether transfers with an empty body.",
+      "node_id": 15
+    },
+    {
+      "is_core": true,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "description": "Caller-supplied address used for authorization checks, mapping indexing and as transfer recipient.",
+      "node_id": 16
+    },
+    {
+      "is_core": true,
+      "type": "untrusted_input",
+      "id": "block.timestamp",
+      "description": "Block timestamp exposed via the 'now' keyword; used for locktime comparisons and record timestamps.",
+      "node_id": 17
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "external_token_transfer",
+      "description": "sdcCon.transfer(msg.sender,_sdc): external call to an attacker-influenced token contract performed before state is settled.",
+      "node_id": 18
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "unlockSdc_add_out",
+      "description": "unlockSdc[msg.sender] = unlockSdc[msg.sender] + accountInputSdcs[msg.sender][i].sdc in outSdcForUser (unchecked overflow).",
+      "node_id": 19
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "unlockSdc_sub_out",
+      "description": "unlockSdc[msg.sender] = unlockSdc[msg.sender] - _sdc executed after the external transfer in outSdcForUser.",
+      "node_id": 20
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "unlockSdc_add_inset",
+      "description": "unlockSdc[msg.sender] += accountInputSdcs[msg.sender][i].sdc in insetMoney (unchecked overflow, no auth).",
+      "node_id": 21
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param__address",
+      "description": "_address: beneficiary of the admin lock in inSdcForAdmin.",
+      "node_id": 22
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param__sdc_in",
+      "description": "_sdc: locked token amount in inSdcForAdmin.",
+      "node_id": 23
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param__locktime",
+      "description": "_locktime: unlock timestamp in inSdcForAdmin.",
+      "node_id": 24
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param__sdc_out",
+      "description": "_sdc: withdrawal amount in outSdcForUser.",
+      "node_id": 25
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_i",
+      "description": "Loop index 'i' iterating over accountInputSdcs[msg.sender] in outSdcForUser, getLockSdc, getUnlockSdc and insetMoney.",
+      "node_id": 26
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_tmpLockSdc",
+      "description": "tmpLockSdc accumulator in getLockSdc.",
+      "node_id": 27
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_tmpUnlockSdc",
+      "description": "tmpUnlockSdc accumulator in getUnlockSdc.",
+      "node_id": 28
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 2,
+      "reason": "sdcCon is constructed from the hard-coded sdcContractAddr token address."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 2,
+      "to_id": 18,
+      "reason": "The external token transfer is invoked on the sdcCon interface instance."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 1,
+      "to_id": 7,
+      "reason": "inSdcForAdmin requires msg.sender == sdcMainAcc, gating the whole lock path on the hard-coded admin account."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 16,
+      "to_id": 7,
+      "reason": "User-controlled msg.sender is the subject of the require(msg.sender == sdcMainAcc) authorization check."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 22,
+      "to_id": 3,
+      "reason": "_address parameter is stored in the new accountInputSdc record for accountInputSdcs[_address]."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 23,
+      "to_id": 3,
+      "reason": "_sdc parameter amount is written into accountInputSdcs[_address]."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 24,
+      "to_id": 3,
+      "reason": "_locktime parameter is written into accountInputSdcs[_address] and controls future maturity."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 17,
+      "to_id": 3,
+      "reason": "block.timestamp (now) is recorded as createttime in the input record, creating time dependence."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 5,
+      "reason": "The same deposit is mirrored into the accoutInputOutputSdcLogs audit trail."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 16,
+      "to_id": 8,
+      "reason": "outSdcForUser drives all loops and mapping lookups from the caller-supplied msg.sender."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 17,
+      "to_id": 8,
+      "reason": "In outSdcForUser maturity is decided by now >= accountInputSdcs[msg.sender][i].locktime, a timestamp dependency miners can influence."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 3,
+      "to_id": 19,
+      "reason": "accountInputSdcs[msg.sender][i].sdc is summed into the unlock balance."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 6,
+      "to_id": 19,
+      "reason": "Current unlockSdc[msg.sender] is read as the left operand of the addition."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 19,
+      "to_id": 6,
+      "reason": "Result of the unchecked addition is written back into unlockSdc[msg.sender]."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 25,
+      "to_id": 8,
+      "reason": "_sdc parameter controls the withdrawal amount in outSdcForUser."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 6,
+      "to_id": 18,
+      "reason": "require(unlockSdc[msg.sender] >= _sdc) makes the unlock balance gate the external transfer."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 16,
+      "to_id": 18,
+      "reason": "msg.sender is passed as the transfer recipient of the external token call."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 25,
+      "to_id": 18,
+      "reason": "_sdc is passed as the value argument of the external token transfer."
+    },
+    {
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 18,
+      "to_id": 8,
+      "reason": "The external call into the token contract can re-enter outSdcForUser (or insetMoney) before unlockSdc and the logs are updated."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 6,
+      "to_id": 20,
+      "reason": "unlockSdc[msg.sender] is read as the operand of the post-transfer subtraction."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 25,
+      "to_id": 20,
+      "reason": "_sdc is subtracted from unlockSdc, so a stale balance after reentrancy can underflow/overstate withdrawals."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 20,
+      "to_id": 6,
+      "reason": "Subtraction result is written back to unlockSdc[msg.sender] only after the external call returns."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 16,
+      "to_id": 4,
+      "reason": "Withdrawal record accountOutputSdcs[msg.sender].push uses caller identity."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 17,
+      "to_id": 9,
+      "reason": "nowInSeconds returns block.timestamp directly, exposing the clock to external consumers."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 16,
+      "to_id": 10,
+      "reason": "getAccountInputSdcslength returns the array length for the caller-supplied msg.sender."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 16,
+      "to_id": 11,
+      "reason": "getAccountOutputSdcslength returns the array length for the caller-supplied msg.sender."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 16,
+      "to_id": 12,
+      "reason": "getLockSdc iterates the caller's accountInputSdcs entries."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 17,
+      "to_id": 12,
+      "reason": "getLockSdc classification depends on now < accountInputSdcs[msg.sender][i].locktime."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 12,
+      "reason": "Locked amounts for the caller are read from accountInputSdcs."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 27,
+      "reason": "Each unexpired deposit amount is accumulated into the tmpLockSdc local."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 27,
+      "to_id": 12,
+      "reason": "tmpLockSdc is returned as the result of getLockSdc."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 16,
+      "to_id": 13,
+      "reason": "getUnlockSdc reads unlockSdc[msg.sender] for the caller-supplied address."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 17,
+      "to_id": 13,
+      "reason": "getUnlockSdc sums entries where now >= accountInputSdcs[msg.sender][i].locktime, a timestamp dependency."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 6,
+      "to_id": 13,
+      "reason": "unlockSdc[msg.sender] seeds the tmpUnlockSdc accumulator."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 6,
+      "to_id": 28,
+      "reason": "Initial unlock balance is loaded into the tmpUnlockSdc local."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 28,
+      "to_id": 13,
+      "reason": "tmpUnlockSdc is returned as the result of getUnlockSdc."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 16,
+      "to_id": 14,
+      "reason": "insetMoney is callable by any address and operates entirely on msg.sender's mapping entries."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 17,
+      "to_id": 14,
+      "reason": "insetMoney matures deposits based on now >= accountInputSdcs[msg.sender][i].locktime."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 3,
+      "to_id": 21,
+      "reason": "Expired accountInputSdcs amounts are summed into the caller's unlock balance."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 6,
+      "to_id": 21,
+      "reason": "Existing unlockSdc[msg.sender] is read as the addition operand in insetMoney."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 21,
+      "to_id": 6,
+      "reason": "Unchecked addition result is written back to unlockSdc[msg.sender], and the record is then zeroed with locktime 999999999999."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 26,
+      "to_id": 3,
+      "reason": "Loop index i indexes accountInputSdcs[msg.sender] and is also reused to write back a zeroed record."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 16,
+      "to_id": 15,
+      "reason": "The payable fallback can receive Ether from any caller; no state is updated and no funds are routed."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param__address",
+      "merge_into": "inSdcForAdmin",
+      "reason": "_address is only a formal parameter of inSdcForAdmin and should be folded into that function node."
+    },
+    {
+      "normal_node": "param__sdc_in",
+      "merge_into": "inSdcForAdmin",
+      "reason": "_sdc (in lock amount) is only a formal parameter of inSdcForAdmin and should be folded into that function node."
+    },
+    {
+      "normal_node": "param__locktime",
+      "merge_into": "inSdcForAdmin",
+      "reason": "_locktime is only a formal parameter of inSdcForAdmin and should be folded into that function node."
+    },
+    {
+      "normal_node": "param__sdc_out",
+      "merge_into": "outSdcForUser",
+      "reason": "_sdc (withdrawal amount) is only a formal parameter of outSdcForUser and should be folded into that function node."
+    },
+    {
+      "normal_node": "local_i",
+      "merge_into": "outSdcForUser",
+      "reason": "Loop index i is a transient local used inside outSdcForUser (and peer view functions) and should be folded into the enclosing function node."
+    },
+    {
+      "normal_node": "local_tmpLockSdc",
+      "merge_into": "getLockSdc",
+      "reason": "tmpLockSdc is a local accumulator whose only purpose is to produce the return value of getLockSdc."
+    },
+    {
+      "normal_node": "local_tmpUnlockSdc",
+      "merge_into": "getUnlockSdc",
+      "reason": "tmpUnlockSdc is a local accumulator whose only purpose is to produce the return value of getUnlockSdc."
+    }
+  ]
+}

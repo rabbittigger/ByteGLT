@@ -1,0 +1,226 @@
+{
+  "nodes": [
+    {
+      "id": "state_var._balances",
+      "description": "ERC20 private mapping (address => uint256) tracking token balances; mutated by _transfer and _mint.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "state_var._allowances",
+      "description": "ERC20 private nested mapping (address => mapping(address => uint256)) storing spending allowances.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "state_var._totalSupply",
+      "description": "ERC20 private uint256 total token supply; increased by _mint.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "state_var"
+    },
+    {
+      "id": "function.transferMany",
+      "description": "External function in MintToken that loops over recipients/values arrays and performs _transfer for each entry from the caller.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "function.constructor",
+      "description": "MintToken constructor that mints 250,000,000 * 10**18 tokens to the deployer via _mint(_msgSender(), ...).",
+      "is_core": true,
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "function._transfer",
+      "description": "Internal ERC20 transfer routine that validates addresses and rewrites _balances[sender] and _balances[recipient].",
+      "is_core": true,
+      "node_id": 5,
+      "type": "function"
+    },
+    {
+      "id": "function._mint",
+      "description": "Internal ERC20 minting routine that increases _totalSupply and credits _balances[account].",
+      "is_core": true,
+      "node_id": 6,
+      "type": "function"
+    },
+    {
+      "id": "function._approve",
+      "description": "Internal ERC20 approval routine that writes _allowances[owner][spender].",
+      "is_core": true,
+      "node_id": 7,
+      "type": "function"
+    },
+    {
+      "id": "untrusted_input.msg.sender.transferMany",
+      "description": "msg.sender inside transferMany: caller-controlled address used as the source of every _transfer in the loop.",
+      "is_core": true,
+      "node_id": 8,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "untrusted_input.msg.sender.constructor",
+      "description": "msg.sender inside the MintToken constructor: deployer address receiving the initial 250M token mint.",
+      "is_core": true,
+      "node_id": 9,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "unsafe_operation.transferMany.loop._transfer",
+      "description": "Unbounded for-loop in transferMany invoking the state-mutating _transfer for every element of caller-supplied arrays without a reentrancy guard or length cap.",
+      "is_core": true,
+      "node_id": 10,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "parameter.recipients",
+      "description": "calldata address[] recipients supplied by the caller of transferMany.",
+      "is_core": false,
+      "node_id": 11,
+      "type": "parameter"
+    },
+    {
+      "id": "parameter.values",
+      "description": "calldata uint256[] values supplied by the caller of transferMany, used as the transferred amounts.",
+      "is_core": false,
+      "node_id": 12,
+      "type": "parameter"
+    },
+    {
+      "id": "local_var.i",
+      "description": "uint256 loop index of the for-loop inside transferMany.",
+      "is_core": false,
+      "node_id": 13,
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender identifies the caller whose identity governs execution of transferMany.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The recipients calldata array defines the transfer targets consumed by transferMany.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 11,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The values calldata array defines the transfer amounts consumed by transferMany.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 12,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Loop index i controls iteration count of transferMany's for-loop against recipients.length.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 13,
+      "type": "controlflow"
+    },
+    {
+      "reason": "transferMany enters the unsafe unbounded loop that performs repeated _transfer calls.",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "msg.sender is passed as the sender argument of every loop-invoked _transfer, so a single caller drives repeated state-changing transfers without a reentrancy guard.",
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "recipients[i] flows into the unsafe loop as the recipient argument of _transfer.",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 11,
+      "type": "dataflow"
+    },
+    {
+      "reason": "values[i] flows into the unsafe loop as the amount argument of _transfer.",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 12,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Each loop iteration of the unsafe operation invokes the internal _transfer routine.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 10,
+      "type": "controlflow"
+    },
+    {
+      "reason": "_transfer subtracts from _balances[sender] and adds to _balances[recipient], mutating stored balances.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender is the beneficiary address passed to _mint by the MintToken constructor.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The constructor calls _mint to create the initial token supply.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "_mint increases _totalSupply via SafeMath add, so the total supply depends on the minted amount.",
+      "to_id": 2,
+      "vuln_type": "arithmetic",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_mint credits _balances[account] through SafeMath add for the minted amount.",
+      "to_id": 0,
+      "vuln_type": "arithmetic",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_approve writes the caller-controlled amount into _allowances[owner][spender].",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The recipients calldata array is only meaningful inside transferMany and should be folded into that core function node.",
+      "normal_node": "parameter.recipients",
+      "merge_into": "function.transferMany"
+    },
+    {
+      "reason": "The values calldata array is only consumed inside transferMany and should be folded into that core function node.",
+      "normal_node": "parameter.values",
+      "merge_into": "function.transferMany"
+    },
+    {
+      "reason": "The loop index i exists solely to drive the unbounded _transfer loop and should be merged into that unsafe operation node.",
+      "normal_node": "local_var.i",
+      "merge_into": "unsafe_operation.transferMany.loop._transfer"
+    }
+  ]
+}

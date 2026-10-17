@@ -1,0 +1,160 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Public mapping (address => uint) tracking the ether balance held for each hodler; written in the fallback and zeroed in party().",
+      "id": "hodlers",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Constant uint partyTime = 1844690399 (15th June 2028) used as the withdrawal time gate.",
+      "id": "partyTime",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Anonymous payable fallback function; credits hodlers[msg.sender] with msg.value and emits Hodl.",
+      "id": "fallback_payable",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "Withdrawal function; checks block.timestamp > partyTime and a non-zero balance, zeroes the balance, then transfers the ether to msg.sender.",
+      "id": "party",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "Attacker-controlled caller address used as mapping key, require operand and transfer recipient.",
+      "id": "msg_sender",
+      "type": "untrusted_input",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "Miner-influenced block timestamp compared against partyTime to gate withdrawal.",
+      "id": "block_timestamp",
+      "type": "untrusted_input",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "Unchecked arithmetic: hodlers[msg.sender] += msg.value in the payable fallback (no SafeMath, overflow possible).",
+      "id": "unsafe_add_hodlers",
+      "type": "unsafe_operation",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "External call: msg.sender.transfer(value) sends the hodled balance to an untrusted address, enabling callback re-entry.",
+      "id": "unsafe_transfer",
+      "type": "unsafe_operation",
+      "node_id": 7
+    },
+    {
+      "is_core": false,
+      "description": "Local uint in party() holding the cached hodlers[msg.sender] balance before it is zeroed and transferred.",
+      "id": "value",
+      "type": "local_var",
+      "node_id": 8
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 6,
+      "vuln_type": "arithmetic",
+      "reason": "The payable fallback adds msg.value to hodlers[msg.sender] using unchecked arithmetic.",
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "arithmetic",
+      "reason": "msg.sender is the attacker-controlled index of the unchecked balance increment.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "arithmetic",
+      "reason": "The unchecked addition directly mutates the hodlers state variable, so overflow corrupts stored balances.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "block.timestamp > partyTime gates execution of party(), making withdrawal dependent on miner-controlled time.",
+      "type": "controlflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "The partyTime constant is read inside the require condition of party().",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "msg.sender is used as the hodlers key and require operand inside party().",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "hodlers[msg.sender] is read from storage into the local variable value.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "msg.sender supplies the mapping key for the storage read that initializes value.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "reentrancy",
+      "reason": "The cached local balance value is passed as the amount of the external transfer.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "reentrancy",
+      "reason": "msg.sender is the untrusted recipient of the external ether transfer.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "reentrancy",
+      "reason": "party() executes the external transfer to msg.sender as its final state-changing action.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "reentrancy",
+      "reason": "If msg.sender is a contract, the transfer can re-enter the payable fallback and re-credit the balance.",
+      "type": "callback",
+      "from_id": 7
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "unsafe_transfer",
+      "reason": "The local variable value is only the amount consumed by the external transfer unsafe_operation, so it should be folded into that sink node.",
+      "normal_node": "value"
+    }
+  ]
+}

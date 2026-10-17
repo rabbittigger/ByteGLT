@@ -1,0 +1,161 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Address of the contract creator stored at deployment; used as the authorization principal and as the selfdestruct beneficiary.",
+      "id": "creator",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Unsigned counter of the number of value-bearing deposits recorded by the contract.",
+      "id": "deposits",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Constructor that initializes creator from msg.sender and resets deposits to zero.",
+      "id": "PiggyBank",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "Payable fallback function that forwards any plain value transfer to deposit().",
+      "id": "fallback",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "Payable entry point that increments the deposits counter when msg.value is greater than zero and returns the current count.",
+      "id": "deposit",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "Constant getter returning the value of the deposits state variable.",
+      "id": "getNumberOfDeposits",
+      "type": "function",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "Privileged function that destroys the contract and sends remaining balance to creator; guarded by an equality check between msg.sender and creator.",
+      "id": "kill",
+      "type": "function",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "msg.sender read inside the constructor and written into the creator state variable.",
+      "id": "msg.sender_constructor",
+      "type": "untrusted_input",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "msg.sender read inside kill() as the caller identity checked against creator before selfdestruct.",
+      "id": "msg.sender_kill",
+      "type": "untrusted_input",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "description": "selfdestruct(creator) invocation that permanently destroys the contract and transfers its balance to the creator address.",
+      "id": "selfdestruct_call",
+      "type": "unsafe_operation",
+      "node_id": 9
+    },
+    {
+      "is_core": true,
+      "description": "Arithmetic operation deposits = deposits + 1 executed inside deposit(); subject to overflow if the counter wraps around.",
+      "id": "deposits_addition",
+      "type": "unsafe_operation",
+      "node_id": 10
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "The constructor writes the untrusted msg.sender value directly into the creator state variable.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "An incoming plain value transfer hits the payable fallback, which immediately calls deposit().",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "arithmetic",
+      "reason": "deposit() executes the deposits + 1 arithmetic operation, the overflow-prone statement in the function.",
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "arithmetic",
+      "reason": "The result of deposits + 1 is written back into the deposits state variable.",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "arithmetic",
+      "reason": "deposit() mutates the deposits state variable, incrementing the stored counter.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "getNumberOfDeposits() reads the deposits state variable and returns it.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "deposit() returns the result of an internal call to getNumberOfDeposits().",
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "access_control",
+      "reason": "Reaching selfdestruct is gated by the msg.sender == creator identity check, making caller identity the access-control input for the destructive operation.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "The creator state variable is passed as the beneficiary argument of selfdestruct, receiving the contract balance.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "kill() conditionally executes the selfdestruct operation on the contract.",
+      "type": "controlflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "kill() reads the creator state variable to authorize the caller before destruction.",
+      "type": "dataflow",
+      "from_id": 0
+    }
+  ],
+  "normalization_plan": []
+}

@@ -1,0 +1,998 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "is_core": true,
+      "description": "Caller-controlled address used for authorization (onlyOwner/onlyCause/neverOwner/neverCause) and as beneficiary of transfers."
+    },
+    {
+      "node_id": 1,
+      "type": "untrusted_input",
+      "id": "block.timestamp",
+      "is_core": true,
+      "description": "now, used in participationPhase/recapPhase/destructionPhase and cancel to gate phases."
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "id": "deployment",
+      "is_core": true,
+      "description": "Deployment struct holding cause, wallets, splits, secrets, entry value, times and entropy."
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "id": "participants",
+      "is_core": true,
+      "description": "Mapping address => Participant (message, entries)."
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "id": "funds",
+      "is_core": true,
+      "description": "Dynamic array of Fund structs storing participant and cumulative entry counts."
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "id": "_state",
+      "is_core": true,
+      "description": "Private State struct holding secrets, messages, withdrawal flags, cancellation, entries and reveal block data."
+    },
+    {
+      "node_id": 6,
+      "type": "function",
+      "id": "Fundraiser",
+      "is_core": true,
+      "description": "Constructor validating parameters and storing deployment with msg.sender as owner."
+    },
+    {
+      "node_id": 7,
+      "type": "function",
+      "id": "state",
+      "is_core": true,
+      "description": "View returning the post-deployment state summary."
+    },
+    {
+      "node_id": 8,
+      "type": "function",
+      "id": "balance",
+      "is_core": true,
+      "description": "View computing caller split balance or refund based on selected participant / cancelled flags."
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "id": "begin",
+      "is_core": true,
+      "description": "Cause seeds cause secret; participationPhase + onlyCause."
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "id": "participate",
+      "is_core": true,
+      "description": "Payable participation, registers participant and calls _raise; participationPhase + neverCause + neverOwner."
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "id": "_raise",
+      "is_core": true,
+      "description": "Private entry calculation/accumulation, fund push and partial-entry refund transfer."
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "id": "fallback",
+      "is_core": true,
+      "description": "Payable fallback for additional entries, calls _raise."
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "id": "reveal",
+      "is_core": true,
+      "description": "Cause reveals message; recapPhase + onlyCause, validates via _decode."
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "id": "_decode",
+      "is_core": true,
+      "description": "Private validation secret == keccak256(message, msg.sender)."
+    },
+    {
+      "node_id": 15,
+      "type": "function",
+      "id": "end",
+      "is_core": true,
+      "description": "Owner ends fundraiser, computes randomness, selects participant; recapPhase + onlyOwner."
+    },
+    {
+      "node_id": 16,
+      "type": "function",
+      "id": "_findParticipant",
+      "is_core": true,
+      "description": "Private binary search over funds for the participant owning a given entry."
+    },
+    {
+      "node_id": 17,
+      "type": "function",
+      "id": "cancel",
+      "is_core": true,
+      "description": "Cancels fundraiser; owner/cause anytime, community after expireTime."
+    },
+    {
+      "node_id": 18,
+      "type": "function",
+      "id": "withdraw",
+      "is_core": true,
+      "description": "Withdraws caller balance to wallet/refund address via transfer."
+    },
+    {
+      "node_id": 19,
+      "type": "function",
+      "id": "destroy",
+      "is_core": true,
+      "description": "Owner selfdestructs contract; destructionPhase + onlyOwner."
+    },
+    {
+      "node_id": 20,
+      "type": "function",
+      "id": "recover",
+      "is_core": true,
+      "description": "Owner-backed ERC20 token recovery via erc20.transfer."
+    },
+    {
+      "node_id": 21,
+      "type": "unsafe_operation",
+      "id": "transfer_refund_raise",
+      "is_core": true,
+      "description": "msg.sender.transfer(_refund) external low-level ETH transfer inside _raise."
+    },
+    {
+      "node_id": 22,
+      "type": "unsafe_operation",
+      "id": "transfer_balance_withdraw",
+      "is_core": true,
+      "description": "_wallet.transfer(_balance) external ETH transfer inside withdraw."
+    },
+    {
+      "node_id": 23,
+      "type": "unsafe_operation",
+      "id": "selfdestruct_destroy",
+      "is_core": true,
+      "description": "selfdestruct(msg.sender) destroys contract and forwards funds."
+    },
+    {
+      "node_id": 24,
+      "type": "unsafe_operation",
+      "id": "erc20_transfer_recover",
+      "is_core": true,
+      "description": "_erc20.transfer(deployment._owner, _balance) external token transfer in recover."
+    },
+    {
+      "node_id": 25,
+      "type": "unsafe_operation",
+      "id": "entries_increment_raise",
+      "is_core": true,
+      "description": "Arithmetic _participant._entries += _entries and _state._entries += _entries."
+    },
+    {
+      "node_id": 26,
+      "type": "unsafe_operation",
+      "id": "random_modulo_end",
+      "is_core": true,
+      "description": "Arithmetic uint256(_randomNumber) % _state._entries inside end loop."
+    },
+    {
+      "node_id": 27,
+      "type": "unsafe_operation",
+      "id": "balance_split_math",
+      "is_core": true,
+      "description": "Arithmetic _state._entries * deployment._valuePerEntry * _split / 1000 in balance."
+    },
+    {
+      "node_id": 28,
+      "type": "unsafe_operation",
+      "id": "cumulative_entries_math",
+      "is_core": true,
+      "description": "Arithmetic _previousFundEntries + _entries when building Fund in _raise."
+    },
+    {
+      "node_id": 29,
+      "type": "parameter",
+      "id": "param_secret_begin",
+      "is_core": false,
+      "description": "bytes32 _secret parameter of begin()."
+    },
+    {
+      "node_id": 30,
+      "type": "parameter",
+      "id": "param_message_participate",
+      "is_core": false,
+      "description": "bytes32 _message parameter of participate()."
+    },
+    {
+      "node_id": 31,
+      "type": "parameter",
+      "id": "param_participant_raise",
+      "is_core": false,
+      "description": "Participant storage _participant parameter of _raise()."
+    },
+    {
+      "node_id": 32,
+      "type": "parameter",
+      "id": "param_message_reveal",
+      "is_core": false,
+      "description": "bytes32 _message parameter of reveal()."
+    },
+    {
+      "node_id": 33,
+      "type": "parameter",
+      "id": "param_secret_decode",
+      "is_core": false,
+      "description": "bytes32 _secret parameter of _decode()."
+    },
+    {
+      "node_id": 34,
+      "type": "parameter",
+      "id": "param_message_decode",
+      "is_core": false,
+      "description": "bytes32 _message parameter of _decode()."
+    },
+    {
+      "node_id": 35,
+      "type": "parameter",
+      "id": "param_message_end",
+      "is_core": false,
+      "description": "bytes32 _message parameter of end()."
+    },
+    {
+      "node_id": 36,
+      "type": "parameter",
+      "id": "param_entry_findParticipant",
+      "is_core": false,
+      "description": "uint256 _entry parameter of _findParticipant()."
+    },
+    {
+      "node_id": 37,
+      "type": "parameter",
+      "id": "param_token_recover",
+      "is_core": false,
+      "description": "address _token parameter of recover()."
+    },
+    {
+      "node_id": 38,
+      "type": "parameter",
+      "id": "param_ctor_config",
+      "is_core": false,
+      "description": "Constructor configuration parameters (_cause, wallets, splits, secrets, times, entropy)."
+    },
+    {
+      "node_id": 39,
+      "type": "local_var",
+      "id": "local_entries_participate",
+      "is_core": false,
+      "description": "_entries returned by _raise() in participate()."
+    },
+    {
+      "node_id": 40,
+      "type": "local_var",
+      "id": "local_refund_participate",
+      "is_core": false,
+      "description": "_refund returned by _raise() in participate()."
+    },
+    {
+      "node_id": 41,
+      "type": "local_var",
+      "id": "local_participant_participate",
+      "is_core": false,
+      "description": "Participant storage _participant in participate()."
+    },
+    {
+      "node_id": 42,
+      "type": "local_var",
+      "id": "local_entries_raise",
+      "is_core": false,
+      "description": "uint256 _entries computed/returned in _raise()."
+    },
+    {
+      "node_id": 43,
+      "type": "local_var",
+      "id": "local_refund_raise",
+      "is_core": false,
+      "description": "uint256 _refund computed/returned in _raise()."
+    },
+    {
+      "node_id": 44,
+      "type": "local_var",
+      "id": "local_split_balance",
+      "is_core": false,
+      "description": "uint256 _split in balance()."
+    },
+    {
+      "node_id": 45,
+      "type": "local_var",
+      "id": "local_balance_withdraw",
+      "is_core": false,
+      "description": "uint256 _balance in withdraw()."
+    },
+    {
+      "node_id": 46,
+      "type": "local_var",
+      "id": "local_wallet_withdraw",
+      "is_core": false,
+      "description": "address _wallet in withdraw()."
+    },
+    {
+      "node_id": 47,
+      "type": "local_var",
+      "id": "local_random_end",
+      "is_core": false,
+      "description": "bytes32 _randomNumber in end()."
+    },
+    {
+      "node_id": 48,
+      "type": "local_var",
+      "id": "local_participant_end",
+      "is_core": false,
+      "description": "address _participant in end()."
+    },
+    {
+      "node_id": 49,
+      "type": "local_var",
+      "id": "local_partmsg_end",
+      "is_core": false,
+      "description": "bytes32 _participantMessage in end()."
+    },
+    {
+      "node_id": 50,
+      "type": "local_var",
+      "id": "local_prevfund_raise",
+      "is_core": false,
+      "description": "uint256 _previousFundEntries in _raise()."
+    },
+    {
+      "node_id": 51,
+      "type": "local_var",
+      "id": "local_fund_raise",
+      "is_core": false,
+      "description": "Fund memory _fund in _raise()."
+    },
+    {
+      "node_id": 52,
+      "type": "local_var",
+      "id": "local_entry_end",
+      "is_core": false,
+      "description": "uint256 _entry in end() loop."
+    },
+    {
+      "node_id": 53,
+      "type": "local_var",
+      "id": "local_left_find",
+      "is_core": false,
+      "description": "uint256 _leftFundIndex in _findParticipant()."
+    },
+    {
+      "node_id": 54,
+      "type": "local_var",
+      "id": "local_right_find",
+      "is_core": false,
+      "description": "uint256 _rightFundIndex in _findParticipant()."
+    },
+    {
+      "node_id": 55,
+      "type": "local_var",
+      "id": "local_mid_find",
+      "is_core": false,
+      "description": "uint256 _midFundIndex in _findParticipant()."
+    },
+    {
+      "node_id": 56,
+      "type": "local_var",
+      "id": "local_next_find",
+      "is_core": false,
+      "description": "uint256 _nextFundIndex in _findParticipant()."
+    },
+    {
+      "node_id": 57,
+      "type": "local_var",
+      "id": "local_midfund_find",
+      "is_core": false,
+      "description": "Fund memory _midFund in _findParticipant()."
+    },
+    {
+      "node_id": 58,
+      "type": "local_var",
+      "id": "local_nextfund_find",
+      "is_core": false,
+      "description": "Fund memory _nextFund in _findParticipant()."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "onlyCause modifier compares msg.sender to deployment._cause before seeding secret.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 9
+    },
+    {
+      "reason": "neverCause/neverOwner modifiers gate participation by msg.sender.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 10
+    },
+    {
+      "reason": "fallback is gated by neverCause/neverOwner against msg.sender.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 12
+    },
+    {
+      "reason": "onlyCause modifier checks msg.sender for reveal().",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 13
+    },
+    {
+      "reason": "onlyOwner modifier checks msg.sender for end().",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 15
+    },
+    {
+      "reason": "cancel() restricts owner/cause by msg.sender for early cancellation.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 17
+    },
+    {
+      "reason": "withdraw() branches on msg.sender to decide role and recipient.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 18
+    },
+    {
+      "reason": "onlyOwner gates destroy() by msg.sender.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 19
+    },
+    {
+      "reason": "onlyOwner gates recover() by msg.sender.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 20
+    },
+    {
+      "reason": "balance() selects split branch from msg.sender comparison.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 8
+    },
+    {
+      "reason": "_decode hashes keccak256(_message, msg.sender), binding validation to caller.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 14
+    },
+    {
+      "reason": "constructor stores msg.sender as deployment._owner.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 6
+    },
+    {
+      "reason": "Refund is sent to msg.sender inside _raise, enabling the caller to reenter during the transfer.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 0,
+      "to_id": 21
+    },
+    {
+      "reason": "withdraw() transfers to msg.sender/_wallet, allowing reentrant callback.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 0,
+      "to_id": 22
+    },
+    {
+      "reason": "selfdestruct beneficiary is msg.sender, restricted by onlyOwner.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 23
+    },
+    {
+      "reason": "Constructor requires _endTime > now and derives _deployTime from now.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 6
+    },
+    {
+      "reason": "participationPhase modifier uses now < deployment._endTime to gate begin().",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 9
+    },
+    {
+      "reason": "participationPhase modifier uses now to gate participate().",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 10
+    },
+    {
+      "reason": "participationPhase modifier uses now to gate the fallback function.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 12
+    },
+    {
+      "reason": "recapPhase modifier uses now window to gate reveal().",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 13
+    },
+    {
+      "reason": "recapPhase modifier uses now window to gate end().",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 15
+    },
+    {
+      "reason": "cancel() community path requires now within expireTime/destructTime window.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 17
+    },
+    {
+      "reason": "destructionPhase modifier requires now >= deployment._destructTime.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 19
+    },
+    {
+      "reason": "Constructor writes the Deployment struct including times and splits.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 6
+    },
+    {
+      "reason": "balance() reads splits, valuePerEntry and owner fields from deployment.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 8
+    },
+    {
+      "reason": "end() reads ownerSecret, entropy and participant split from deployment.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 15
+    },
+    {
+      "reason": "withdraw() reads causeWallet/ownerWallet from deployment.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 18
+    },
+    {
+      "reason": "state() reads participants[_participant]._message.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 7
+    },
+    {
+      "reason": "participate() reads and writes the caller's Participant record.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 10
+    },
+    {
+      "reason": "fallback reads participants[msg.sender] to verify prior participation.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 12
+    },
+    {
+      "reason": "end() reads participants[_participant]._message inside entropy loop.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 15
+    },
+    {
+      "reason": "withdraw() zeroes participants[msg.sender]._entries on cancellation refund.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 18
+    },
+    {
+      "reason": "_raise pushes a new cumulative Fund onto funds.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 11
+    },
+    {
+      "reason": "_findParticipant binary searches the funds array.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 16
+    },
+    {
+      "reason": "state() reads all fields from _state.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 7
+    },
+    {
+      "reason": "balance() reads _state._participant/_entries/cancelled/withdrawn flags.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 8
+    },
+    {
+      "reason": "begin() writes _state._causeSecret.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 9
+    },
+    {
+      "reason": "participate() checks _state._cancelled/_causeSecret and increments _state._participants.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 10
+    },
+    {
+      "reason": "_raise increments _state._entries.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 11
+    },
+    {
+      "reason": "fallback checks _state._cancelled/_causeSecret.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 12
+    },
+    {
+      "reason": "reveal() writes _state._causeMessage and _state._revealBlockNumber.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 13
+    },
+    {
+      "reason": "end() reads/writes _state reveal and owner message fields.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 15
+    },
+    {
+      "reason": "cancel() checks and sets _state._cancelled.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 17
+    },
+    {
+      "reason": "withdraw() reads _state flags and sets withdrawn flags.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 18
+    },
+    {
+      "reason": "participate() invokes _raise() to compute entries and refund.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 10,
+      "to_id": 11
+    },
+    {
+      "reason": "fallback invokes _raise() for additional entries.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 12,
+      "to_id": 11
+    },
+    {
+      "reason": "reveal() calls _decode() to validate the cause message.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 13,
+      "to_id": 14
+    },
+    {
+      "reason": "end() calls _decode() to validate the owner message.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 15,
+      "to_id": 14
+    },
+    {
+      "reason": "end() calls _findParticipant() for each entropy iteration.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 15,
+      "to_id": 16
+    },
+    {
+      "reason": "withdraw() first calls balance() to compute withdrawable amount.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 18,
+      "to_id": 8
+    },
+    {
+      "reason": "_raise performs msg.sender.transfer(_refund) after mutating entries.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 11,
+      "to_id": 21
+    },
+    {
+      "reason": "_raise performs unchecked entry accumulation additions.",
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "from_id": 11,
+      "to_id": 25
+    },
+    {
+      "reason": "_raise adds _previousFundEntries + _entries without overflow guard.",
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "from_id": 11,
+      "to_id": 28
+    },
+    {
+      "reason": "end() computes _entry via modulo of entropy-derived random with _state._entries.",
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "from_id": 15,
+      "to_id": 26
+    },
+    {
+      "reason": "balance() multiplies entries, valuePerEntry and split then divides by 1000.",
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "from_id": 8,
+      "to_id": 27
+    },
+    {
+      "reason": "withdraw() sends ETH via _wallet.transfer(_balance) to the resolved recipient.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 18,
+      "to_id": 22
+    },
+    {
+      "reason": "destroy() executes selfdestruct(msg.sender).",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 19,
+      "to_id": 23
+    },
+    {
+      "reason": "recover() invokes erc20.transfer to owner after balanceOf.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 20,
+      "to_id": 24
+    },
+    {
+      "reason": "Refund callback to msg.sender can reenter participate() mid-execution.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 21,
+      "to_id": 10
+    },
+    {
+      "reason": "Refund callback to msg.sender can reenter the payable fallback.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 21,
+      "to_id": 12
+    },
+    {
+      "reason": "ETH transfer in withdraw() can reenter withdraw() before completion.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 22,
+      "to_id": 18
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "_secret is written to _state._causeSecret in begin(); it is a function-local input absorbed by begin().",
+      "merge_into": "begin",
+      "normal_node": "param_secret_begin"
+    },
+    {
+      "reason": "_message is stored to the participant record in participate(); merges into participate().",
+      "merge_into": "participate",
+      "normal_node": "param_message_participate"
+    },
+    {
+      "reason": "The storage _participant argument is mutated inside _raise(); merges into _raise().",
+      "merge_into": "_raise",
+      "normal_node": "param_participant_raise"
+    },
+    {
+      "reason": "_message is validated and stored in reveal(); merges into reveal().",
+      "merge_into": "reveal",
+      "normal_node": "param_message_reveal"
+    },
+    {
+      "reason": "_secret is only used in the keccak comparison inside _decode(); merges into _decode().",
+      "merge_into": "_decode",
+      "normal_node": "param_secret_decode"
+    },
+    {
+      "reason": "_message is only hashed inside _decode(); merges into _decode().",
+      "merge_into": "_decode",
+      "normal_node": "param_message_decode"
+    },
+    {
+      "reason": "_message seeds the randomness in end(); merges into end().",
+      "merge_into": "end",
+      "normal_node": "param_message_end"
+    },
+    {
+      "reason": "_entry drives the binary search in _findParticipant(); merges into _findParticipant().",
+      "merge_into": "_findParticipant",
+      "normal_node": "param_entry_findParticipant"
+    },
+    {
+      "reason": "_token is cast to ERC20 and drained in recover(); merges into recover().",
+      "merge_into": "recover",
+      "normal_node": "param_token_recover"
+    },
+    {
+      "reason": "Constructor configuration inputs are validated and written into deployment by the constructor.",
+      "merge_into": "Fundraiser",
+      "normal_node": "param_ctor_config"
+    },
+    {
+      "reason": "_entries returned into participate() is only consumed there for the Participation event.",
+      "merge_into": "participate",
+      "normal_node": "local_entries_participate"
+    },
+    {
+      "reason": "_refund returned into participate() is only consumed there for the Participation event.",
+      "merge_into": "participate",
+      "normal_node": "local_refund_participate"
+    },
+    {
+      "reason": "The Participant storage pointer is local to participate(); merges into participate().",
+      "merge_into": "participate",
+      "normal_node": "local_participant_participate"
+    },
+    {
+      "reason": "_entries is computed and returned exclusively inside _raise(); merges into _raise().",
+      "merge_into": "_raise",
+      "normal_node": "local_entries_raise"
+    },
+    {
+      "reason": "_refund is computed and returned exclusively inside _raise(); merges into _raise().",
+      "merge_into": "_raise",
+      "normal_node": "local_refund_raise"
+    },
+    {
+      "reason": "_split is derived from deployment splits and used only in balance(); merges into balance().",
+      "merge_into": "balance",
+      "normal_node": "local_split_balance"
+    },
+    {
+      "reason": "_balance is the amount computed and transferred in withdraw(); merges into withdraw().",
+      "merge_into": "withdraw",
+      "normal_node": "local_balance_withdraw"
+    },
+    {
+      "reason": "_wallet is the transfer recipient resolved only in withdraw(); merges into withdraw().",
+      "merge_into": "withdraw",
+      "normal_node": "local_wallet_withdraw"
+    },
+    {
+      "reason": "_randomNumber is iteratively rehashed only within end(); merges into end().",
+      "merge_into": "end",
+      "normal_node": "local_random_end"
+    },
+    {
+      "reason": "_participant is selected within end() and stored to _state._participant.",
+      "merge_into": "end",
+      "normal_node": "local_participant_end"
+    },
+    {
+      "reason": "_participantMessage is derived within end() from the selected participant.",
+      "merge_into": "end",
+      "normal_node": "local_partmsg_end"
+    },
+    {
+      "reason": "_previousFundEntries feeds the unchecked cumulative addition in _raise(); merges into the arithmetic operation.",
+      "merge_into": "cumulative_entries_math",
+      "normal_node": "local_prevfund_raise"
+    },
+    {
+      "reason": "The Fund memory struct is constructed and pushed only inside _raise(); merges into _raise().",
+      "merge_into": "_raise",
+      "normal_node": "local_fund_raise"
+    },
+    {
+      "reason": "_entry is the modulo result used to index participants in end(); merges into the arithmetic operation.",
+      "merge_into": "random_modulo_end",
+      "normal_node": "local_entry_end"
+    },
+    {
+      "reason": "_leftFundIndex is the binary-search bound local to _findParticipant(); merges into _findParticipant().",
+      "merge_into": "_findParticipant",
+      "normal_node": "local_left_find"
+    },
+    {
+      "reason": "_rightFundIndex is the binary-search bound local to _findParticipant(); merges into _findParticipant().",
+      "merge_into": "_findParticipant",
+      "normal_node": "local_right_find"
+    },
+    {
+      "reason": "_midFundIndex is a binary-search index local to _findParticipant(); merges into _findParticipant().",
+      "merge_into": "_findParticipant",
+      "normal_node": "local_mid_find"
+    },
+    {
+      "reason": "_nextFundIndex is a binary-search index local to _findParticipant(); merges into _findParticipant().",
+      "merge_into": "_findParticipant",
+      "normal_node": "local_next_find"
+    },
+    {
+      "reason": "_midFund is a temporary Fund copy read during the search in _findParticipant(); merges into _findParticipant().",
+      "merge_into": "_findParticipant",
+      "normal_node": "local_midfund_find"
+    },
+    {
+      "reason": "_nextFund is a temporary Fund copy read during the search in _findParticipant(); merges into _findParticipant().",
+      "merge_into": "_findParticipant",
+      "normal_node": "local_nextfund_find"
+    }
+  ]
+}

@@ -1,0 +1,125 @@
+{
+  "nodes": [
+    {
+      "description": "Public address state variable `owner`, initialized to msg.sender at deployment; used as the authorization anchor in the restricted modifier.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "state_var.owner"
+    },
+    {
+      "description": "Public uint state variable storing the last completed migration index.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "state_var.last_completed_migration"
+    },
+    {
+      "description": "Caller-supplied address used both as the deployment-time owner and as the caller identity checked by the restricted modifier.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 2,
+      "id": "untrusted_input.msg.sender"
+    },
+    {
+      "description": "Modifier that requires msg.sender == owner before executing the modified function body (the `_` placeholder).",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "function.restricted"
+    },
+    {
+      "description": "External public function guarded by the restricted modifier; writes the completed migration counter.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 4,
+      "id": "function.setCompleted"
+    },
+    {
+      "description": "Input parameter `completed` of setCompleted, supplying the new value for the migration counter.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 5,
+      "id": "param.setCompleted.completed"
+    },
+    {
+      "description": "State-modifying assignment `last_completed_migration = completed`; sensitive write that is guarded by the restricted modifier.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 6,
+      "id": "unsafe_operation.setCompleted.state_write"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "owner is assigned msg.sender during contract construction, anchoring authorization to the deployer.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "msg.sender is compared against owner inside the require statement of the restricted modifier, forming the access-control gate.",
+      "from_id": 2,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "The restricted modifier must pass its require before setCompleted's body executes.",
+      "from_id": 3,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 4
+    },
+    {
+      "reason": "The restricted modifier controls whether the state write in setCompleted is reached.",
+      "from_id": 3,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 6
+    },
+    {
+      "reason": "Execution of setCompleted performs the guarded assignment to last_completed_migration.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 6
+    },
+    {
+      "reason": "setCompleted writes the completed value into the last_completed_migration state variable.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "Parameter completed is passed into setCompleted as its only argument.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "Parameter completed supplies the value used by the state-write operation.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "Parameter completed flows into the last_completed_migration storage slot.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The parameter `completed` is only meaningful as the input of setCompleted; it can be collapsed into the function node during normalization.",
+      "normal_node": "param.setCompleted.completed",
+      "merge_into": "function.setCompleted"
+    }
+  ]
+}

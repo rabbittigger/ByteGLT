@@ -1,0 +1,222 @@
+{
+  "nodes": [
+    {
+      "id": "GUARD_VALUE",
+      "type": "state_var",
+      "node_id": 0,
+      "is_core": true,
+      "description": "Private constant bytes32 guard value, keccak256(\"guard.bytes32\"), stored in contract storage at construction time."
+    },
+    {
+      "id": "gatedLogBatcherLib",
+      "type": "state_var",
+      "node_id": 1,
+      "is_core": true,
+      "description": "Address of external library/contract whose code is executed via delegatecall inside batchLogs."
+    },
+    {
+      "id": "guard",
+      "type": "state_var",
+      "node_id": 2,
+      "is_core": true,
+      "description": "bytes32 guard flag initialised to GUARD_VALUE in the constructor and compared against GUARD_VALUE in batchLogs."
+    },
+    {
+      "id": "unlockSchedules",
+      "type": "state_var",
+      "node_id": 3,
+      "is_core": true,
+      "description": "Public mapping(address => UnlockSchedule[]) holding unlock schedules; readable externally."
+    },
+    {
+      "id": "constructor",
+      "type": "function",
+      "node_id": 4,
+      "is_core": true,
+      "description": "Constructor that stores the external gatedLogBatcherLib address and sets guard to GUARD_VALUE."
+    },
+    {
+      "id": "batchLogs",
+      "type": "function",
+      "node_id": 5,
+      "is_core": true,
+      "description": "Public unrestricted function that requires guard != GUARD_VALUE then delegatecalls the external library with attacker-supplied logs calldata."
+    },
+    {
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "node_id": 6,
+      "is_core": true,
+      "description": "Caller of the public batchLogs function; no access control restricts who may invoke it."
+    },
+    {
+      "id": "delegatecall",
+      "type": "unsafe_operation",
+      "node_id": 7,
+      "is_core": true,
+      "description": "Low-level delegatecall to gatedLogBatcherLib with ABI-encoded multiSend(bytes) data, executing untrusted external code in this contract's storage context."
+    },
+    {
+      "id": "_gatedLogBatcherLib",
+      "type": "parameter",
+      "node_id": 8,
+      "is_core": false,
+      "description": "Constructor parameter supplying the address stored in gatedLogBatcherLib."
+    },
+    {
+      "id": "logs",
+      "type": "parameter",
+      "node_id": 9,
+      "is_core": false,
+      "description": "Arbitrary bytes payload supplied by the caller and forwarded as calldata to the delegatecall target."
+    },
+    {
+      "id": "contentHash",
+      "type": "parameter",
+      "node_id": 10,
+      "is_core": false,
+      "description": "Hash emitted in the BatchLogs event after the delegatecall returns."
+    },
+    {
+      "id": "success",
+      "type": "local_var",
+      "node_id": 11,
+      "is_core": false,
+      "description": "Local bool returned by the low-level delegatecall (unused, no revert on failure)."
+    },
+    {
+      "id": "data",
+      "type": "local_var",
+      "node_id": 12,
+      "is_core": false,
+      "description": "Local bytes returned by the low-level delegatecall (unused)."
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "Constructor writes the supplied library address into the gatedLogBatcherLib state variable."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "Constructor initialises the guard state variable to GUARD_VALUE."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "Constructor reads the constant GUARD_VALUE to assign guard."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 6,
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "reason": "batchLogs is public and callable by any msg.sender; no owner/permission check guards entry."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "batchLogs reads the guard state variable in its require(guard != GUARD_VALUE) check."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "batchLogs compares guard against the constant GUARD_VALUE."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 5,
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "batchLogs unconditionally executes the delegatecall unsafe operation after the guard check."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "Target address of the delegatecall is the gatedLogBatcherLib state variable."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "Caller-controlled logs bytes are ABI-encoded and passed as calldata to the delegatecall."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "contentHash parameter flows into the BatchLogs event emitted by batchLogs."
+    },
+    {
+      "type": "callback",
+      "from_id": 7,
+      "to_id": 5,
+      "vuln_type": "reentrancy",
+      "reason": "delegatecall executes external code in this contract's context, allowing the callee to re-enter batchLogs before the BatchLogs event completes."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "Success flag of the delegatecall is captured in the local success variable."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "Return data of the delegatecall is captured in the local data variable."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "unlockSchedules shares contract storage with the delegatecall, so delegated code can arbitrarily overwrite it."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "_gatedLogBatcherLib",
+      "merge_into": "constructor",
+      "reason": "Constructor parameter is only used to set the gatedLogBatcherLib state variable, so it can be folded into the constructor node."
+    },
+    {
+      "normal_node": "logs",
+      "merge_into": "delegatecall",
+      "reason": "Caller-supplied logs bytes are consumed directly as calldata by the delegatecall unsafe operation and carry no independent identity."
+    },
+    {
+      "normal_node": "contentHash",
+      "merge_into": "batchLogs",
+      "reason": "Emitting contentHash is an internal effect of batchLogs and the parameter has no standalone semantic role."
+    },
+    {
+      "normal_node": "success",
+      "merge_into": "batchLogs",
+      "reason": "Local success flag only reflects the delegatecall outcome and is never used in any branch, so it can be merged into its enclosing function."
+    },
+    {
+      "normal_node": "data",
+      "merge_into": "batchLogs",
+      "reason": "Local return-data buffer is unused and only an artifact of the low-level delegatecall inside batchLogs."
+    }
+  ]
+}

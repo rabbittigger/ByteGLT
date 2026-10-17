@@ -1,0 +1,125 @@
+{
+  "nodes": [
+    {
+      "description": "Public state variable holding the contract owner address, initialized from msg.sender at deployment.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "owner"
+    },
+    {
+      "description": "Public state variable recording the last completed migration index.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "last_completed_migration"
+    },
+    {
+      "description": "Public function restricted by the restricted modifier that writes the completed parameter into last_completed_migration.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 2,
+      "id": "setCompleted"
+    },
+    {
+      "description": "Modifier that requires msg.sender to equal owner before executing the guarded body; the access-control gate of the contract.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "restricted"
+    },
+    {
+      "description": "msg.sender: used both to initialize owner and to pass the restricted modifier's ownership check.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 4,
+      "id": "msg_sender"
+    },
+    {
+      "description": "State-modifying write last_completed_migration = completed, whose safety depends entirely on the restricted modifier's owner check.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 5,
+      "id": "state_write_last_completed_migration"
+    },
+    {
+      "description": "Parameter of setCompleted controlling the value written into last_completed_migration.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 6,
+      "id": "completed"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is assigned directly to the owner state variable at construction, so the owner identity derives from an untrusted caller-provided value.",
+      "from_id": 4,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "msg.sender flows into the restricted modifier's ownership require check, which is the sole authorization gate.",
+      "from_id": 4,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "owner state variable is read in the restricted modifier's require comparison msg.sender == owner, so a wrong or zeroed owner permanently weakens authorization.",
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "The restricted modifier gates execution of setCompleted; if the ownership comparison is bypassable the function body becomes callable by anyone.",
+      "from_id": 3,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 2
+    },
+    {
+      "reason": "The completed parameter is supplied by the caller to setCompleted without any validation.",
+      "from_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "The completed parameter is the value written by the state-modifying operation.",
+      "from_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "Execution of setCompleted reaches and performs the state write operation.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 5
+    },
+    {
+      "reason": "The restricted modifier's require must pass before the state write executes, making the write's authorization dependent on msg.sender == owner.",
+      "from_id": 3,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 5
+    },
+    {
+      "reason": "The write operation mutates the last_completed_migration state variable.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The completed parameter exists only as the input argument of setCompleted and directly feeds its guarded state write; it should be collapsed into the setCompleted function node (and its unsafe_operation sink) rather than modeled as an independent graph node.",
+      "normal_node": "completed",
+      "merge_into": "setCompleted"
+    }
+  ]
+}

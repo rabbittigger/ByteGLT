@@ -1,0 +1,761 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "monadPrice",
+      "is_core": true,
+      "description": "Public uint256 state variable holding the current mint price of a Monad, incremented by monadPriceIncrease on every mint."
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "id": "fullBank",
+      "is_core": true,
+      "description": "Public uint256 recording the contract balance snapshot taken when the Redeem stage starts; used as the redemption payout base."
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "id": "redeemStageStart",
+      "is_core": true,
+      "description": "Public uint256 timestamp when the Redeem stage began; gates the Arsenal stage after 30 days."
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "id": "lastMintTime",
+      "is_core": true,
+      "description": "Public uint256 timestamp of the last mint, used together with block.timestamp to force the stage transition to Redeem."
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "id": "mintIntervalTime",
+      "is_core": true,
+      "description": "Public uint256 time window that decays each mint (30 days initially) and controls the Emission deadline."
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "id": "redeemPercentCntr",
+      "is_core": true,
+      "description": "Public uint256 counter representing the redemption percent assigned to newly generated Monads; decays 992/1000 per mint."
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "id": "stage",
+      "is_core": true,
+      "description": "Internal Stage enum (Emission, Redeem, Arsenal) that gates almost every state-changing entry point."
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "id": "idToMonad",
+      "is_core": true,
+      "description": "Mapping from tokenId to MonadMetadata (rdmPercent and four trait values); written on generation and on redeem start."
+    },
+    {
+      "node_id": 8,
+      "type": "state_var",
+      "id": "monadPriceIncrease",
+      "is_core": true,
+      "description": "Constant price step (2e13 wei) used in mint pricing and in the incremental monadPrice update."
+    },
+    {
+      "node_id": 9,
+      "type": "state_var",
+      "id": "maxMonadPurchase",
+      "is_core": true,
+      "description": "Constant cap of 10 Monads per mint transaction, validated in mintNMonads and getNMonadsPrice."
+    },
+    {
+      "node_id": 10,
+      "type": "state_var",
+      "id": "mintDelta",
+      "is_core": true,
+      "description": "Private quote adjustment delta (66 * monadPriceIncrease) added to the price returned by getNMonadsPrice."
+    },
+    {
+      "node_id": 11,
+      "type": "state_var",
+      "id": "_owner",
+      "is_core": true,
+      "description": "Private Ownable owner address; recipient of stage payouts and gate for onlyOwner functions."
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "id": "constructor",
+      "is_core": true,
+      "description": "Monad constructor: sets base URI, stage, lastMintTime, mintIntervalTime, monadPrice, redeemPercentCntr and fullBank."
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "id": "mintNMonads",
+      "is_core": true,
+      "description": "External payable mint entry point with unchecked price arithmetic, timestamp-driven stage flip, and looping _safeMint of tokens to msg.sender."
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "id": "getNMonadsPrice",
+      "is_core": true,
+      "description": "Public view price quote computing unchecked arithmetic over monadPrice, monadPriceIncrease and mintDelta."
+    },
+    {
+      "node_id": 15,
+      "type": "function",
+      "id": "startRedeemStage",
+      "is_core": true,
+      "description": "External payable stage transition that snapshots the balance and transfers 20% to the owner, then writes last-token metadata."
+    },
+    {
+      "node_id": 16,
+      "type": "function",
+      "id": "redeemMonad",
+      "is_core": true,
+      "description": "External payable redemption: computes payout from fullBank, performs an external safeTransferFrom, then transfers Ether to msg.sender."
+    },
+    {
+      "node_id": 17,
+      "type": "function",
+      "id": "startArsenalStage",
+      "is_core": true,
+      "description": "External payable stage transition that checks a 30 day delay and drains the entire contract balance to the owner."
+    },
+    {
+      "node_id": 18,
+      "type": "function",
+      "id": "setBaseURI",
+      "is_core": true,
+      "description": "onlyOwner function writing the metadata base URI state variable."
+    },
+    {
+      "node_id": 19,
+      "type": "function",
+      "id": "generateMonadMetadata",
+      "is_core": true,
+      "description": "Internal metadata generator: derives a pseudo-random seed and writes four traits plus redeemPercentCntr into idToMonad."
+    },
+    {
+      "node_id": 20,
+      "type": "function",
+      "id": "getValueFromRandom",
+      "is_core": true,
+      "description": "Internal pure function mapping a random value modulo 1e6 to a trait bucket 0..6."
+    },
+    {
+      "node_id": 21,
+      "type": "function",
+      "id": "pseudoRNG",
+      "is_core": true,
+      "description": "Internal view pseudo random number generator hashing block.timestamp, msg.sender, block.difficulty and tokenId."
+    },
+    {
+      "node_id": 22,
+      "type": "function",
+      "id": "baseURI",
+      "is_core": true,
+      "description": "Overridden view returning the current metadata base URI set by setBaseURI."
+    },
+    {
+      "node_id": 23,
+      "type": "function",
+      "id": "safeTransferFrom",
+      "is_core": true,
+      "description": "Inherited external entry point used by redeemMonad; performing it makes an external callback into the receiver contract."
+    },
+    {
+      "node_id": 24,
+      "type": "function",
+      "id": "_safeMint",
+      "is_core": true,
+      "description": "Inherited internal mint that afterwards calls _checkOnERC721Received, invoking an external callback on contract recipients."
+    },
+    {
+      "node_id": 25,
+      "type": "function",
+      "id": "transferOwnership",
+      "is_core": true,
+      "description": "Inherited onlyOwner function that reassigns _owner, the privileged payout/token-URI address."
+    },
+    {
+      "node_id": 26,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "is_core": true,
+      "description": "Caller-controlled address used as mint recipient, ownership check subject, redemption payee and RNG seed."
+    },
+    {
+      "node_id": 27,
+      "type": "untrusted_input",
+      "id": "block.timestamp",
+      "is_core": true,
+      "description": "Validator-manipulable timestamp used for stage transitions, mint deadline and pseudo random seed."
+    },
+    {
+      "node_id": 28,
+      "type": "unsafe_operation",
+      "id": "mintNMonads_price_arithmetic",
+      "is_core": true,
+      "description": "Unchecked multiplication/division price computation (2*monadPrice + monadPriceIncrease*(numberOfMonads-1))/2*numberOfMonads in mintNMonads."
+    },
+    {
+      "node_id": 29,
+      "type": "unsafe_operation",
+      "id": "startRedeemStage_transfer",
+      "is_core": true,
+      "description": "payable(owner()).transfer(address(this).balance * 2 / 10) — privileged Ether payout with unchecked balance arithmetic."
+    },
+    {
+      "node_id": 30,
+      "type": "unsafe_operation",
+      "id": "redeemMonad_transfer",
+      "is_core": true,
+      "description": "payable(msg.sender).transfer(redeemMPrice) executed after an external token callback, a checks-effects-interactions violation."
+    },
+    {
+      "node_id": 31,
+      "type": "unsafe_operation",
+      "id": "pseudoRNG_weakness",
+      "is_core": true,
+      "description": "Predictable randomness derived only from on-chain data (block.timestamp, block.difficulty, msg.sender, tokenId)."
+    },
+    {
+      "node_id": 32,
+      "type": "unsafe_operation",
+      "id": "onERC721Received_callback",
+      "is_core": true,
+      "description": "External callback invoked by _checkOnERC721Received / functionCall into an attacker-controlled receiver contract."
+    },
+    {
+      "node_id": 33,
+      "type": "unsafe_operation",
+      "id": "startArsenalStage_transfer",
+      "is_core": true,
+      "description": "payable(owner()).transfer(address(this).balance) drains the entire contract balance to the owner."
+    },
+    {
+      "node_id": 34,
+      "type": "parameter",
+      "id": "param_numberOfMonads_mintNMonads",
+      "is_core": false,
+      "description": "Caller-supplied uint256 count of Monads to mint; bounds the loop and feeds the unchecked price formula."
+    },
+    {
+      "node_id": 35,
+      "type": "parameter",
+      "id": "param_tokenId_redeemMonad",
+      "is_core": false,
+      "description": "Caller-supplied tokenId to redeem; used for existence, ownership and metadata lookup."
+    },
+    {
+      "node_id": 36,
+      "type": "parameter",
+      "id": "param_randVal_getValueFromRandom",
+      "is_core": false,
+      "description": "uint256 random value reduced modulo 1000000 to select a trait bucket."
+    },
+    {
+      "node_id": 37,
+      "type": "parameter",
+      "id": "param__baseURI_setBaseURI",
+      "is_core": false,
+      "description": "Owner-supplied metadata base URI string stored into _currentBaseURI."
+    },
+    {
+      "node_id": 38,
+      "type": "parameter",
+      "id": "param_numberOfMonads_getNMonadsPrice",
+      "is_core": false,
+      "description": "uint32 count used to compute the quoted mint price, validated to be within 1..maxMonadPurchase."
+    },
+    {
+      "node_id": 39,
+      "type": "parameter",
+      "id": "param_tokenId_generateMonadMetadata",
+      "is_core": false,
+      "description": "Token id for which metadata is generated and stored in idToMonad."
+    },
+    {
+      "node_id": 40,
+      "type": "parameter",
+      "id": "param_tokenId_pseudoRNG",
+      "is_core": false,
+      "description": "Token id mixed into the keccak256 pseudo random seed."
+    },
+    {
+      "node_id": 41,
+      "type": "local_var",
+      "id": "local_FullMPrice",
+      "is_core": false,
+      "description": "Locally computed total price in mintNMonads, compared against msg.value."
+    },
+    {
+      "node_id": 42,
+      "type": "local_var",
+      "id": "local_redeemMPrice",
+      "is_core": false,
+      "description": "Payout amount computed from fullBank and monad.rdmPercent before the token transfer and Ether payout."
+    },
+    {
+      "node_id": 43,
+      "type": "local_var",
+      "id": "local_random",
+      "is_core": false,
+      "description": "Seed returned by pseudoRNG and split into four trait inputs."
+    },
+    {
+      "node_id": 44,
+      "type": "local_var",
+      "id": "local_monad_redeemMonad",
+      "is_core": false,
+      "description": "Memory copy of MonadMetadata loaded during redeemMonad; its rdmPercent drives the payout."
+    },
+    {
+      "node_id": 45,
+      "type": "local_var",
+      "id": "local_monad_startRedeemStage",
+      "is_core": false,
+      "description": "Memory copy of the last Monad's metadata whose rdmPercent is forced to 1e13 and written back."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "block.timestamp is read and stored in lastMintTime, making the Emission deadline validator-manipulable.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 27,
+      "to_id": 3
+    },
+    {
+      "reason": "Constructor initializes lastMintTime with block.timestamp.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 12,
+      "to_id": 3
+    },
+    {
+      "reason": "numberOfMonads flows into the unchecked price formula in mintNMonads.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 34,
+      "to_id": 28
+    },
+    {
+      "reason": "monadPrice is read by the unchecked FullMPrice computation.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 28
+    },
+    {
+      "reason": "The unchecked computation result is assigned to FullMPrice and compared with msg.value.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 28,
+      "to_id": 41
+    },
+    {
+      "reason": "mintNMonads executes the unchecked price arithmetic.",
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "from_id": 13,
+      "to_id": 28
+    },
+    {
+      "reason": "block.timestamp minus lastMintTime decides whether mintNMonads flips stage to Redeem.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 27,
+      "to_id": 13
+    },
+    {
+      "reason": "mintNMonads writes stage = Stage.Redeem.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 6
+    },
+    {
+      "reason": "mintNMonads mints tokens to msg.sender.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 26
+    },
+    {
+      "reason": "mintNMonads calls _safeMint, which triggers the ERC721 receiver callback.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 13,
+      "to_id": 24
+    },
+    {
+      "reason": "mintNMonads calls generateMonadMetadata to seed new token traits.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 13,
+      "to_id": 19
+    },
+    {
+      "reason": "numberOfMonads bounds the mint loop.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 34,
+      "to_id": 13
+    },
+    {
+      "reason": "redeemPercentCntr is decayed by unchecked multiply/divide on each mint.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 13
+    },
+    {
+      "reason": "monadPrice is incremented by monadPriceIncrease on each mint.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 13
+    },
+    {
+      "reason": "mintIntervalTime decays by unchecked multiply/divide on each mint.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 13
+    },
+    {
+      "reason": "startRedeemStage writes stage = Stage.Redeem.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 6
+    },
+    {
+      "reason": "block.timestamp decides whether startRedeemStage can advance to Redeem.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 27,
+      "to_id": 15
+    },
+    {
+      "reason": "startRedeemStage records redeemStageStart = block.timestamp.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 2
+    },
+    {
+      "reason": "startRedeemStage snapshots the contract balance into fullBank.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 1
+    },
+    {
+      "reason": "startRedeemStage executes a privileged transfer to the owner.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 15,
+      "to_id": 29
+    },
+    {
+      "reason": "owner() is the recipient of the 20 percent balance transfer.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 29
+    },
+    {
+      "reason": "startRedeemStage reads and rewrites the last token metadata in idToMonad.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 7
+    },
+    {
+      "reason": "tokenId parameter selects the Monad to redeem.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 35,
+      "to_id": 16
+    },
+    {
+      "reason": "msg.sender is validated as the owner of the redeemed token and receives the payout.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 26,
+      "to_id": 16
+    },
+    {
+      "reason": "fullBank is multiplied into the unchecked redeem payout computation.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 42
+    },
+    {
+      "reason": "MonadMetadata for tokenId is loaded from idToMonad into memory.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 44
+    },
+    {
+      "reason": "monad.rdmPercent scales the payout in the unchecked redeem arithmetic.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 44,
+      "to_id": 42
+    },
+    {
+      "reason": "redeemMonad performs an external safeTransferFrom before paying Ether to msg.sender.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 16,
+      "to_id": 23
+    },
+    {
+      "reason": "safeTransferFrom makes an external call into onERC721Received on the receiving contract, enabling reentrancy.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 23,
+      "to_id": 32
+    },
+    {
+      "reason": "redeemMonad sends Ether to the caller after the external token callback.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 16,
+      "to_id": 30
+    },
+    {
+      "reason": "msg.sender is the payee of the redemption transfer, allowing a contract caller to re-enter.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 26,
+      "to_id": 30
+    },
+    {
+      "reason": "The stage state variable must equal Redeem for redeemMonad to proceed.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 16
+    },
+    {
+      "reason": "block.timestamp minus redeemStageStart gates the Arsenal transition.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 27,
+      "to_id": 17
+    },
+    {
+      "reason": "startArsenalStage writes stage = Stage.Arsenal.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 6
+    },
+    {
+      "reason": "startArsenalStage executes a full-balance transfer to the owner.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 17,
+      "to_id": 33
+    },
+    {
+      "reason": "owner() receives the entire contract balance.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 33
+    },
+    {
+      "reason": "redeemStageStart is compared against block.timestamp to permit the Arsenal drain.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 17
+    },
+    {
+      "reason": "The base URI parameter is written into _currentBaseURI by setBaseURI.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 37,
+      "to_id": 18
+    },
+    {
+      "reason": "The onlyOwner modifier compares owner() with _msgSender() to restrict setBaseURI.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 18
+    },
+    {
+      "reason": "pseudoRNG derives all entropy from block.timestamp, block.difficulty, msg.sender and tokenId, producing predictable traits.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 21,
+      "to_id": 31
+    },
+    {
+      "reason": "block.timestamp is an input to the keccak256 random seed.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 27,
+      "to_id": 21
+    },
+    {
+      "reason": "msg.sender is mixed into the pseudo random seed.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 26,
+      "to_id": 21
+    },
+    {
+      "reason": "tokenId parameter is mixed into the pseudo random seed.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 40,
+      "to_id": 21
+    },
+    {
+      "reason": "tokenId parameter selects the metadata slot to write.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 39,
+      "to_id": 19
+    },
+    {
+      "reason": "generateMonadMetadata calls pseudoRNG to obtain the seed.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 19,
+      "to_id": 21
+    },
+    {
+      "reason": "The random seed is split and passed to getValueFromRandom four times.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 43,
+      "to_id": 19
+    },
+    {
+      "reason": "generateMonadMetadata writes the constructed MonadMetadata into idToMonad.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 19,
+      "to_id": 7
+    },
+    {
+      "reason": "generateMonadMetadata calls getValueFromRandom for each trait.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 19,
+      "to_id": 20
+    },
+    {
+      "reason": "redeemPercentCntr is stored as rdmPercent of the new Monad.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 19
+    },
+    {
+      "reason": "randVal parameter is reduced modulo 1000000 to pick a trait bucket.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 36,
+      "to_id": 20
+    },
+    {
+      "reason": "numberOfMonads parameter drives the quoted price computation.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 38,
+      "to_id": 14
+    },
+    {
+      "reason": "mintDelta is added inside the unchecked quoted price arithmetic.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 14
+    },
+    {
+      "reason": "monadPrice is multiplied in getNMonadsPrice without overflow protection.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 14
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "numberOfMonads is a mintNMonads parameter that only carries the mint count into the function body.",
+      "merge_into": "mintNMonads",
+      "normal_node": "param_numberOfMonads_mintNMonads"
+    },
+    {
+      "reason": "tokenId is a redeemMonad parameter that only selects the token being redeemed.",
+      "merge_into": "redeemMonad",
+      "normal_node": "param_tokenId_redeemMonad"
+    },
+    {
+      "reason": "randVal is a getValueFromRandom parameter consumed entirely by the trait bucketing logic.",
+      "merge_into": "getValueFromRandom",
+      "normal_node": "param_randVal_getValueFromRandom"
+    },
+    {
+      "reason": "_baseURI is a setBaseURI parameter stored directly into the contract state.",
+      "merge_into": "setBaseURI",
+      "normal_node": "param__baseURI_setBaseURI"
+    },
+    {
+      "reason": "numberOfMonads is a getNMonadsPrice parameter used only for the returned quote.",
+      "merge_into": "getNMonadsPrice",
+      "normal_node": "param_numberOfMonads_getNMonadsPrice"
+    },
+    {
+      "reason": "tokenId is a generateMonadMetadata parameter identifying the metadata slot.",
+      "merge_into": "generateMonadMetadata",
+      "normal_node": "param_tokenId_generateMonadMetadata"
+    },
+    {
+      "reason": "tokenId is a pseudoRNG parameter hashed into the random seed.",
+      "merge_into": "pseudoRNG",
+      "normal_node": "param_tokenId_pseudoRNG"
+    },
+    {
+      "reason": "FullMPrice is a temporary holding the result of the mintNMonads price arithmetic.",
+      "merge_into": "mintNMonads_price_arithmetic",
+      "normal_node": "local_FullMPrice"
+    },
+    {
+      "reason": "redeemMPrice is the computed payout that is transferred to msg.sender.",
+      "merge_into": "redeemMonad_transfer",
+      "normal_node": "local_redeemMPrice"
+    },
+    {
+      "reason": "random is an intermediate seed value local to generateMonadMetadata.",
+      "merge_into": "generateMonadMetadata",
+      "normal_node": "local_random"
+    },
+    {
+      "reason": "monad is a memory copy of metadata read inside redeemMonad.",
+      "merge_into": "redeemMonad",
+      "normal_node": "local_monad_redeemMonad"
+    },
+    {
+      "reason": "monad is a memory copy of metadata rewritten inside startRedeemStage.",
+      "merge_into": "startRedeemStage",
+      "normal_node": "local_monad_startRedeemStage"
+    }
+  ]
+}

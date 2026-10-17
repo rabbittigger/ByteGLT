@@ -1,0 +1,423 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Public address state variable that receives the raised funds via send().",
+      "id": "beneficiary",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Public uint state variable holding the funding goal in wei.",
+      "id": "fundingGoal",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "description": "Public uint state variable accumulating contributed wei; reset to 0 after payout.",
+      "id": "amountRaised",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "description": "Public uint state variable holding the crowdsale end time derived from now.",
+      "id": "deadline",
+      "is_core": true
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "description": "Public uint state variable with the ether cost of each reward token.",
+      "id": "price",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "description": "Token contract instance used to distribute reward tokens.",
+      "id": "tokenReward",
+      "is_core": true
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "description": "Public mapping tracking each backer's contributed balance.",
+      "id": "balanceOf",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "description": "Bool flag indicating whether the funding goal was reached.",
+      "id": "fundingGoalReached",
+      "is_core": true
+    },
+    {
+      "node_id": 8,
+      "type": "state_var",
+      "description": "Bool flag used in the fallback require to stop contributions.",
+      "id": "crowdsaleClosed",
+      "is_core": true
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "description": "Constructor that initializes beneficiary, goal, deadline, price and token contract.",
+      "id": "Crowdsale",
+      "is_core": true
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "description": "Payable fallback function that accepts ether, credits balances, transfers tokens and sends funds to the beneficiary.",
+      "id": "fallback_payable",
+      "is_core": true
+    },
+    {
+      "node_id": 11,
+      "type": "untrusted_input",
+      "description": "Caller identity taken from msg.sender, used for balance accounting and token transfer.",
+      "id": "msg_sender",
+      "is_core": true
+    },
+    {
+      "node_id": 12,
+      "type": "untrusted_input",
+      "description": "Block timestamp read via now when computing the crowdsale deadline.",
+      "id": "block_timestamp_now",
+      "is_core": true
+    },
+    {
+      "node_id": 13,
+      "type": "unsafe_operation",
+      "description": "balanceOf[msg.sender] += amount; unchecked addition that can overflow.",
+      "id": "op_balanceOf_add",
+      "is_core": true
+    },
+    {
+      "node_id": 14,
+      "type": "unsafe_operation",
+      "description": "amountRaised += amount; unchecked addition that can overflow.",
+      "id": "op_amountRaised_add",
+      "is_core": true
+    },
+    {
+      "node_id": 15,
+      "type": "unsafe_operation",
+      "description": "amount / price; unchecked division that reverts or misprices if price is zero.",
+      "id": "op_amount_div_price",
+      "is_core": true
+    },
+    {
+      "node_id": 16,
+      "type": "unsafe_operation",
+      "description": "External call tokenReward.transfer(msg.sender, amount / price) with unchecked return value.",
+      "id": "op_token_transfer",
+      "is_core": true
+    },
+    {
+      "node_id": 17,
+      "type": "unsafe_operation",
+      "description": "External call beneficiary.send(amountRaised) executed before amountRaised is zeroed.",
+      "id": "op_beneficiary_send",
+      "is_core": true
+    },
+    {
+      "node_id": 18,
+      "type": "parameter",
+      "description": "Constructor parameter assigned to beneficiary.",
+      "id": "param_ifSuccessfulSendTo",
+      "is_core": false
+    },
+    {
+      "node_id": 19,
+      "type": "parameter",
+      "description": "Constructor parameter multiplied by 1 ether and assigned to fundingGoal.",
+      "id": "param_fundingGoalInEthers",
+      "is_core": false
+    },
+    {
+      "node_id": 20,
+      "type": "parameter",
+      "description": "Constructor parameter used to compute the deadline from now.",
+      "id": "param_durationInMinutes",
+      "is_core": false
+    },
+    {
+      "node_id": 21,
+      "type": "parameter",
+      "description": "Constructor parameter assigned to price after multiplying by 1 ether.",
+      "id": "param_etherCostOfEachToken",
+      "is_core": false
+    },
+    {
+      "node_id": 22,
+      "type": "parameter",
+      "description": "Constructor parameter cast to the token interface for tokenReward.",
+      "id": "param_addressOfTokenUsedAsReward",
+      "is_core": false
+    },
+    {
+      "node_id": 23,
+      "type": "local_var",
+      "description": "Local variable amount = msg.value inside the fallback function.",
+      "id": "local_amount",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender indexes the balanceOf mapping that is incremented without overflow protection.",
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 11,
+      "to_id": 13
+    },
+    {
+      "reason": "Local amount is added to balanceOf[msg.sender] and can overflow.",
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 23,
+      "to_id": 13
+    },
+    {
+      "reason": "Local amount is added to the amountRaised state variable and can overflow.",
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 23,
+      "to_id": 14
+    },
+    {
+      "reason": "The unchecked addition result is written back into the amountRaised state variable.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 14,
+      "to_id": 2
+    },
+    {
+      "reason": "The unchecked addition writes into the balanceOf mapping.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 13,
+      "to_id": 6
+    },
+    {
+      "reason": "amountRaised is sent to the beneficiary through an external call before state is reset.",
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 2,
+      "to_id": 17
+    },
+    {
+      "reason": "beneficiary.send can re-enter the fallback before amountRaised is set to 0, allowing repeated payouts.",
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 17,
+      "to_id": 2
+    },
+    {
+      "reason": "beneficiary state variable is the destination of the external send call.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 17
+    },
+    {
+      "reason": "tokenReward contract instance is the target of the external transfer call.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 5,
+      "to_id": 16
+    },
+    {
+      "reason": "msg.sender is the receiver of the reward token transfer.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 11,
+      "to_id": 16
+    },
+    {
+      "reason": "Result of amount / price is passed as the token amount to transfer.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 15,
+      "to_id": 16
+    },
+    {
+      "reason": "Local amount is the numerator of the unchecked division by price.",
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 23,
+      "to_id": 15
+    },
+    {
+      "reason": "price is the divisor; a zero price causes a division failure and mispricing.",
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 4,
+      "to_id": 15
+    },
+    {
+      "reason": "The deadline is computed from now (block.timestamp), making the crowdsale time dependent on miner-controlled time.",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 12,
+      "to_id": 3
+    },
+    {
+      "reason": "Constructor assigns the beneficiary state variable.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 9,
+      "to_id": 0
+    },
+    {
+      "reason": "Constructor assigns the fundingGoal state variable.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 9,
+      "to_id": 1
+    },
+    {
+      "reason": "Constructor assigns the deadline state variable.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 9,
+      "to_id": 3
+    },
+    {
+      "reason": "Constructor assigns the price state variable.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 9,
+      "to_id": 4
+    },
+    {
+      "reason": "Constructor assigns the tokenReward state variable.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 9,
+      "to_id": 5
+    },
+    {
+      "reason": "Constructor parameter ifSuccessfulSendTo flows into beneficiary.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 18,
+      "to_id": 0
+    },
+    {
+      "reason": "Constructor parameter fundingGoalInEthers flows into fundingGoal after multiplication.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 19,
+      "to_id": 1
+    },
+    {
+      "reason": "Constructor parameter durationInMinutes flows into the deadline computation.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 20,
+      "to_id": 3
+    },
+    {
+      "reason": "Constructor parameter etherCostOfEachToken flows into price after multiplication.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 21,
+      "to_id": 4
+    },
+    {
+      "reason": "Constructor parameter addressOfTokenUsedAsReward is cast into tokenReward.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 22,
+      "to_id": 5
+    },
+    {
+      "reason": "Fallback function executes the balanceOf update.",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 10,
+      "to_id": 13
+    },
+    {
+      "reason": "Fallback function executes the amountRaised update.",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 10,
+      "to_id": 14
+    },
+    {
+      "reason": "Fallback function triggers the reward token transfer.",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 10,
+      "to_id": 16
+    },
+    {
+      "reason": "Fallback function performs the external send to the beneficiary, exposing the reentrancy path.",
+      "type": "controlflow",
+      "vuln_type": "reentrancy",
+      "from_id": 10,
+      "to_id": 17
+    },
+    {
+      "reason": "crowdsaleClosed state variable gates the require check in the fallback.",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 8,
+      "to_id": 10
+    },
+    {
+      "reason": "An external msg.sender invokes the payable fallback function.",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 11,
+      "to_id": 10
+    },
+    {
+      "reason": "Contribution acceptance in the fallback is not restricted by the timestamp-derived deadline.",
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 12,
+      "to_id": 10
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param_ifSuccessfulSendTo",
+      "reason": "Constructor parameter ifSuccessfulSendTo is only used to initialize the beneficiary state variable inside the Crowdsale constructor.",
+      "merge_into": "Crowdsale"
+    },
+    {
+      "normal_node": "param_fundingGoalInEthers",
+      "reason": "Constructor parameter fundingGoalInEthers is only used to compute and store fundingGoal inside the Crowdsale constructor.",
+      "merge_into": "Crowdsale"
+    },
+    {
+      "normal_node": "param_durationInMinutes",
+      "reason": "Constructor parameter durationInMinutes is only used to compute the deadline inside the Crowdsale constructor.",
+      "merge_into": "Crowdsale"
+    },
+    {
+      "normal_node": "param_etherCostOfEachToken",
+      "reason": "Constructor parameter etherCostOfEachToken is only used to compute and store price inside the Crowdsale constructor.",
+      "merge_into": "Crowdsale"
+    },
+    {
+      "normal_node": "param_addressOfTokenUsedAsReward",
+      "reason": "Constructor parameter addressOfTokenUsedAsReward is only used to instantiate tokenReward inside the Crowdsale constructor.",
+      "merge_into": "Crowdsale"
+    },
+    {
+      "normal_node": "local_amount",
+      "reason": "Local variable amount is declared and consumed entirely within the payable fallback function that credits it to balanceOf and amountRaised.",
+      "merge_into": "fallback_payable"
+    }
+  ]
+}

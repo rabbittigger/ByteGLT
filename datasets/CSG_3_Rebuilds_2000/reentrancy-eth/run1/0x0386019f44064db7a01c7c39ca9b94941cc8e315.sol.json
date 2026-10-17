@@ -1,0 +1,1595 @@
+{
+  "nodes": [
+    {
+      "id": "msg.sender",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "Caller address returned by _msgSender(); used for ownership checks, fee-admin checks and transfer initiations.",
+      "node_id": 0
+    },
+    {
+      "id": "block.timestamp",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "Miner-controllable timestamp used for the wallet-limit window and as the Uniswap swap/liquidity deadline.",
+      "node_id": 1
+    },
+    {
+      "id": "_owner",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Ownable owner address; guards onlyOwner functions and the transfer-routing branch.",
+      "node_id": 2
+    },
+    {
+      "id": "_previousOwner",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Legacy storage slot for the previous owner, never used in Kenshin logic.",
+      "node_id": 3
+    },
+    {
+      "id": "_rOwned",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Reflection-scaled balance mapping; the primary accounting store mutated by transfers and team fees.",
+      "node_id": 4
+    },
+    {
+      "id": "_tOwned",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Token-denominated balance mapping declared but unused.",
+      "node_id": 5
+    },
+    {
+      "id": "_allowances",
+      "is_core": true,
+      "type": "state_var",
+      "description": "ERC20 allowance mapping consumed by transferFrom and written by _approve.",
+      "node_id": 6
+    },
+    {
+      "id": "_isExcludedFromFee",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Whitelist toggling fee exemption; drives takeFee selection in _transfer.",
+      "node_id": 7
+    },
+    {
+      "id": "_bots",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Blacklist mapping blocking addresses from transferring.",
+      "node_id": 8
+    },
+    {
+      "id": "_tTotal",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Constant total token supply (1e12 * 10**9) and the denominator of the reflection rate.",
+      "node_id": 9
+    },
+    {
+      "id": "_rTotal",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Total reflections supply; reduced on every fee reflection.",
+      "node_id": 10
+    },
+    {
+      "id": "_tFeeTotal",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Cumulative reflected token fees.",
+      "node_id": 11
+    },
+    {
+      "id": "_taxFee",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Reflection tax percentage applied on transfers.",
+      "node_id": 12
+    },
+    {
+      "id": "_teamFee",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Team fee percentage routed to the contract for swapping.",
+      "node_id": 13
+    },
+    {
+      "id": "_previousTaxFee",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Cached tax fee restored after a fee-free transfer.",
+      "node_id": 14
+    },
+    {
+      "id": "_previousteamFee",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Cached team fee restored after a fee-free transfer.",
+      "node_id": 15
+    },
+    {
+      "id": "_FeeAddress",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Privileged payable address that receives ETH and controls fee parameters.",
+      "node_id": 16
+    },
+    {
+      "id": "uniswapV2Router",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Stored Uniswap V2 router interface used for swaps and liquidity.",
+      "node_id": 17
+    },
+    {
+      "id": "uniswapV2Pair",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Stored token/ETH pair address used to detect buy-side transfers.",
+      "node_id": 18
+    },
+    {
+      "id": "tradingOpen",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Flag gating trading and the automatic swap-and-send logic.",
+      "node_id": 19
+    },
+    {
+      "id": "_noTaxMode",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Global switch that disables fee taking; declared but never written.",
+      "node_id": 20
+    },
+    {
+      "id": "inSwap",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Reentrancy guard flag managed by the lockTheSwap modifier.",
+      "node_id": 21
+    },
+    {
+      "id": "walletLimitDuration",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Timestamp until which the 2% max-wallet buy limit applies.",
+      "node_id": 22
+    },
+    {
+      "id": "external_call_FeeAddress_transfer",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "Native ETH value transfer to _FeeAddress inside sendETHToFee; forwards all gas and can invoke a receiver fallback.",
+      "node_id": 23
+    },
+    {
+      "id": "external_call_swapExactTokensForETHSupportingFeeOnTransferTokens",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "External router swap call performed mid-transfer; re-enters the token's transfer logic through the pair.",
+      "node_id": 24
+    },
+    {
+      "id": "external_call_addLiquidityETH",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "External value-bearing router call that transfers tokens and ETH into the pair during openTrading.",
+      "node_id": 25
+    },
+    {
+      "id": "external_call_createPair",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "External factory call returning an attacker-influenceable pair address that is trusted unvalidated.",
+      "node_id": 26
+    },
+    {
+      "id": "_transfer",
+      "is_core": true,
+      "type": "function",
+      "description": "Core transfer router: enforces bot checks, trading gate, wallet limit, timestamp window and triggers swap/send ETH.",
+      "node_id": 27
+    },
+    {
+      "id": "_transferStandard",
+      "is_core": true,
+      "type": "function",
+      "description": "Applies reflection accounting, team fee and fee reflection for a transfer.",
+      "node_id": 28
+    },
+    {
+      "id": "_tokenTransfer",
+      "is_core": true,
+      "type": "function",
+      "description": "Wraps a transfer with optional fee removal/restoration.",
+      "node_id": 29
+    },
+    {
+      "id": "swapTokensForEth",
+      "is_core": true,
+      "type": "function",
+      "description": "Approves the router and swaps contract tokens for ETH under lockTheSwap.",
+      "node_id": 30
+    },
+    {
+      "id": "sendETHToFee",
+      "is_core": true,
+      "type": "function",
+      "description": "Forwards the contract's ETH balance to _FeeAddress.",
+      "node_id": 31
+    },
+    {
+      "id": "_takeTeam",
+      "is_core": true,
+      "type": "function",
+      "description": "Mints reflection-scaled team fee tokens to the contract address.",
+      "node_id": 32
+    },
+    {
+      "id": "_reflectFee",
+      "is_core": true,
+      "type": "function",
+      "description": "Reduces _rTotal and increases _tFeeTotal by the reflected fee.",
+      "node_id": 33
+    },
+    {
+      "id": "_getValues",
+      "is_core": true,
+      "type": "function",
+      "description": "Aggregates token and reflection amounts for a transfer.",
+      "node_id": 34
+    },
+    {
+      "id": "_getTValues",
+      "is_core": true,
+      "type": "function",
+      "description": "Splits a token amount into transfer amount, tax fee and team fee.",
+      "node_id": 35
+    },
+    {
+      "id": "_getRate",
+      "is_core": true,
+      "type": "function",
+      "description": "Computes the reflection-to-token exchange rate.",
+      "node_id": 36
+    },
+    {
+      "id": "_getCurrentSupply",
+      "is_core": true,
+      "type": "function",
+      "description": "Returns the current reflection and token supplies.",
+      "node_id": 37
+    },
+    {
+      "id": "_getRValues",
+      "is_core": true,
+      "type": "function",
+      "description": "Converts token amounts into reflection amounts using the current rate.",
+      "node_id": 38
+    },
+    {
+      "id": "_approve",
+      "is_core": true,
+      "type": "function",
+      "description": "Writes the allowance mapping and emits Approval.",
+      "node_id": 39
+    },
+    {
+      "id": "tokenFromReflection",
+      "is_core": true,
+      "type": "function",
+      "description": "Converts a reflection balance back into a token amount.",
+      "node_id": 40
+    },
+    {
+      "id": "removeAllFee",
+      "is_core": true,
+      "type": "function",
+      "description": "Caches and zeroes both fee rates for exempt transfers.",
+      "node_id": 41
+    },
+    {
+      "id": "restoreAllFee",
+      "is_core": true,
+      "type": "function",
+      "description": "Restores cached fee rates after an exempt transfer.",
+      "node_id": 42
+    },
+    {
+      "id": "balanceOf",
+      "is_core": true,
+      "type": "function",
+      "description": "Public token balance view based on reflection conversion.",
+      "node_id": 43
+    },
+    {
+      "id": "transfer",
+      "is_core": true,
+      "type": "function",
+      "description": "ERC20 transfer entry point using msg.sender as the source.",
+      "node_id": 44
+    },
+    {
+      "id": "transferFrom",
+      "is_core": true,
+      "type": "function",
+      "description": "ERC20 delegated transfer entry point that also decrements allowance.",
+      "node_id": 45
+    },
+    {
+      "id": "approve",
+      "is_core": true,
+      "type": "function",
+      "description": "ERC20 approval entry point delegating to _approve.",
+      "node_id": 46
+    },
+    {
+      "id": "openTrading",
+      "is_core": true,
+      "type": "function",
+      "description": "Owner-only bootstrap: sets router/pair, adds liquidity and starts the timestamp wallet-limit window.",
+      "node_id": 47
+    },
+    {
+      "id": "excludeFromFee",
+      "is_core": true,
+      "type": "function",
+      "description": "Fee-address-only function whitelisting an address for fee exemption.",
+      "node_id": 48
+    },
+    {
+      "id": "includeToFee",
+      "is_core": true,
+      "type": "function",
+      "description": "Fee-address-only function removing an address from the fee exemption list.",
+      "node_id": 49
+    },
+    {
+      "id": "setTeamFee",
+      "is_core": true,
+      "type": "function",
+      "description": "Fee-address-only setter for the team fee (max 10).",
+      "node_id": 50
+    },
+    {
+      "id": "setTaxFee",
+      "is_core": true,
+      "type": "function",
+      "description": "Fee-address-only setter for the tax fee (max 1).",
+      "node_id": 51
+    },
+    {
+      "id": "setBots",
+      "is_core": true,
+      "type": "function",
+      "description": "Owner-only blacklist batch setter.",
+      "node_id": 52
+    },
+    {
+      "id": "delBot",
+      "is_core": true,
+      "type": "function",
+      "description": "Owner-only blacklist removal.",
+      "node_id": 53
+    },
+    {
+      "id": "manualswap",
+      "is_core": true,
+      "type": "function",
+      "description": "Fee-address-only manual token-to-ETH swap.",
+      "node_id": 54
+    },
+    {
+      "id": "manualsend",
+      "is_core": true,
+      "type": "function",
+      "description": "Fee-address-only manual ETH forwarding to the fee address.",
+      "node_id": 55
+    },
+    {
+      "id": "owner",
+      "is_core": true,
+      "type": "function",
+      "description": "Returns the stored owner address.",
+      "node_id": 56
+    },
+    {
+      "id": "renounceOwnership",
+      "is_core": true,
+      "type": "function",
+      "description": "Owner-only function that zeroes the owner address.",
+      "node_id": 57
+    },
+    {
+      "id": "_msgSender",
+      "is_core": true,
+      "type": "function",
+      "description": "Context helper returning msg.sender.",
+      "node_id": 58
+    },
+    {
+      "id": "receive",
+      "is_core": true,
+      "type": "function",
+      "description": "Empty payable receive hook accepting ETH payouts.",
+      "node_id": 59
+    },
+    {
+      "id": "constructor",
+      "is_core": true,
+      "type": "function",
+      "description": "Deployment constructor minting the reflection supply and seeding fee exemptions.",
+      "node_id": 60
+    },
+    {
+      "id": "isBot",
+      "is_core": true,
+      "type": "function",
+      "description": "Public view exposing the bot blacklist.",
+      "node_id": 61
+    },
+    {
+      "id": "thisBalance",
+      "is_core": true,
+      "type": "function",
+      "description": "View of the contract's own token balance.",
+      "node_id": 62
+    },
+    {
+      "id": "amountInPool",
+      "is_core": true,
+      "type": "function",
+      "description": "View of the pair's token balance.",
+      "node_id": 63
+    },
+    {
+      "id": "param_from_transfer",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Source address parameter of _transfer.",
+      "node_id": 64
+    },
+    {
+      "id": "param_to_transfer",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Destination address parameter of _transfer.",
+      "node_id": 65
+    },
+    {
+      "id": "param_amount_transfer",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Token amount parameter of _transfer.",
+      "node_id": 66
+    },
+    {
+      "id": "param_tokenAmount_swap",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Token amount to swap in swapTokensForEth.",
+      "node_id": 67
+    },
+    {
+      "id": "param_amount_sendETHToFee",
+      "is_core": false,
+      "type": "parameter",
+      "description": "ETH amount forwarded by sendETHToFee.",
+      "node_id": 68
+    },
+    {
+      "id": "param_sender_tokenTransfer",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Sender parameter of _tokenTransfer.",
+      "node_id": 69
+    },
+    {
+      "id": "param_recipient_tokenTransfer",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Recipient parameter of _tokenTransfer.",
+      "node_id": 70
+    },
+    {
+      "id": "param_amount_tokenTransfer",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Amount parameter of _tokenTransfer.",
+      "node_id": 71
+    },
+    {
+      "id": "param_takeFee_tokenTransfer",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Flag deciding whether fees apply in _tokenTransfer.",
+      "node_id": 72
+    },
+    {
+      "id": "param_tAmount_transferStandard",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Token amount parameter of _transferStandard.",
+      "node_id": 73
+    },
+    {
+      "id": "param_tAmount_getValues",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Token amount parameter of _getValues.",
+      "node_id": 74
+    },
+    {
+      "id": "param_account_balanceOf",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Account parameter of balanceOf.",
+      "node_id": 75
+    },
+    {
+      "id": "param_spender_approve",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Spender parameter of approve.",
+      "node_id": 76
+    },
+    {
+      "id": "param_sender_transferFrom",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Sender parameter of transferFrom.",
+      "node_id": 77
+    },
+    {
+      "id": "param_recipient_transferFrom",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Recipient parameter of transferFrom.",
+      "node_id": 78
+    },
+    {
+      "id": "param_amount_transferFrom",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Amount parameter of transferFrom.",
+      "node_id": 79
+    },
+    {
+      "id": "param_FeeAddress_constructor",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Deployment-time fee recipient address.",
+      "node_id": 80
+    },
+    {
+      "id": "param_ad_excludeFromFee",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Address whitelisted by excludeFromFee.",
+      "node_id": 81
+    },
+    {
+      "id": "param_ad_includeToFee",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Address un-whitelisted by includeToFee.",
+      "node_id": 82
+    },
+    {
+      "id": "param_team_setTeamFee",
+      "is_core": false,
+      "type": "parameter",
+      "description": "New team fee percentage.",
+      "node_id": 83
+    },
+    {
+      "id": "param_tax_setTaxFee",
+      "is_core": false,
+      "type": "parameter",
+      "description": "New tax fee percentage.",
+      "node_id": 84
+    },
+    {
+      "id": "param_bots_setBots",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Array of addresses to blacklist.",
+      "node_id": 85
+    },
+    {
+      "id": "param_notbot_delBot",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Address removed from the blacklist.",
+      "node_id": 86
+    },
+    {
+      "id": "local_contractTokenBalance",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Cached contract token balance in _transfer used to decide the swap.",
+      "node_id": 87
+    },
+    {
+      "id": "local_contractETHBalance",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Cached contract ETH balance in _transfer used to decide the ETH payout.",
+      "node_id": 88
+    },
+    {
+      "id": "local_path",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Swap path [token, WETH] built in swapTokensForEth.",
+      "node_id": 89
+    },
+    {
+      "id": "local_uniswapV2Router",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Hardcoded router instance created in openTrading.",
+      "node_id": 90
+    },
+    {
+      "id": "local_contractBalance",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Contract token balance read in manualswap.",
+      "node_id": 91
+    },
+    {
+      "id": "local_currentRate",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Reflection rate cached in _getRate.",
+      "node_id": 92
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "to_id": 47,
+      "type": "controlflow",
+      "reason": "openTrading is guarded only by the onlyOwner modifier which compares _msgSender() to _owner."
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "to_id": 48,
+      "type": "controlflow",
+      "reason": "excludeFromFee requires _msgSender() == _FeeAddress."
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "to_id": 49,
+      "type": "controlflow",
+      "reason": "includeToFee requires _msgSender() == _FeeAddress."
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "to_id": 50,
+      "type": "controlflow",
+      "reason": "setTeamFee requires _msgSender() == _FeeAddress."
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "to_id": 51,
+      "type": "controlflow",
+      "reason": "setTaxFee requires _msgSender() == _FeeAddress."
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "to_id": 52,
+      "type": "controlflow",
+      "reason": "setBots is restricted by onlyOwner."
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "to_id": 53,
+      "type": "controlflow",
+      "reason": "delBot is restricted by onlyOwner."
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "to_id": 54,
+      "type": "controlflow",
+      "reason": "manualswap requires _msgSender() == _FeeAddress."
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "to_id": 55,
+      "type": "controlflow",
+      "reason": "manualsend requires _msgSender() == _FeeAddress."
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "to_id": 57,
+      "type": "controlflow",
+      "reason": "renounceOwnership is restricted by onlyOwner."
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "none",
+      "to_id": 44,
+      "type": "dataflow",
+      "reason": "transfer uses _msgSender() as the from address."
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "none",
+      "to_id": 45,
+      "type": "dataflow",
+      "reason": "transferFrom uses _msgSender() as the spender for allowance decrement."
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "none",
+      "to_id": 46,
+      "type": "dataflow",
+      "reason": "approve passes _msgSender() as the owner."
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "none",
+      "to_id": 58,
+      "type": "dataflow",
+      "reason": "_msgSender returns msg.sender."
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "none",
+      "to_id": 60,
+      "type": "dataflow",
+      "reason": "Constructor assigns the full reflection supply to _msgSender()."
+    },
+    {
+      "from_id": 1,
+      "vuln_type": "access_control",
+      "to_id": 27,
+      "type": "controlflow",
+      "reason": "block.timestamp decides whether the max-wallet buy limit is enforced in _transfer."
+    },
+    {
+      "from_id": 1,
+      "vuln_type": "access_control",
+      "to_id": 47,
+      "type": "controlflow",
+      "reason": "openTrading sets walletLimitDuration from block.timestamp and passes it to addLiquidityETH."
+    },
+    {
+      "from_id": 1,
+      "vuln_type": "access_control",
+      "to_id": 30,
+      "type": "controlflow",
+      "reason": "swapTokensForEth forwards block.timestamp as the swap deadline."
+    },
+    {
+      "from_id": 44,
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "transfer delegates to _transfer."
+    },
+    {
+      "from_id": 45,
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "transferFrom delegates the value movement to _transfer."
+    },
+    {
+      "from_id": 45,
+      "vuln_type": "none",
+      "to_id": 39,
+      "type": "dataflow",
+      "reason": "transferFrom reduces the allowance through _approve."
+    },
+    {
+      "from_id": 46,
+      "vuln_type": "none",
+      "to_id": 39,
+      "type": "dataflow",
+      "reason": "approve delegates to _approve."
+    },
+    {
+      "from_id": 27,
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "_transfer forwards the computed takeFee flag to _tokenTransfer."
+    },
+    {
+      "from_id": 29,
+      "vuln_type": "none",
+      "to_id": 28,
+      "type": "dataflow",
+      "reason": "_tokenTransfer performs the standard transfer."
+    },
+    {
+      "from_id": 29,
+      "vuln_type": "none",
+      "to_id": 41,
+      "type": "controlflow",
+      "reason": "_tokenTransfer zeroes fees when takeFee is false."
+    },
+    {
+      "from_id": 29,
+      "vuln_type": "none",
+      "to_id": 42,
+      "type": "controlflow",
+      "reason": "_tokenTransfer restores fees after a fee-free transfer."
+    },
+    {
+      "from_id": 28,
+      "vuln_type": "none",
+      "to_id": 34,
+      "type": "dataflow",
+      "reason": "_transferStandard obtains amounts from _getValues."
+    },
+    {
+      "from_id": 34,
+      "vuln_type": "none",
+      "to_id": 35,
+      "type": "dataflow",
+      "reason": "_getValues derives token-denominated values via _getTValues."
+    },
+    {
+      "from_id": 34,
+      "vuln_type": "none",
+      "to_id": 36,
+      "type": "dataflow",
+      "reason": "_getValues reads the current rate."
+    },
+    {
+      "from_id": 34,
+      "vuln_type": "none",
+      "to_id": 38,
+      "type": "dataflow",
+      "reason": "_getValues derives reflection values via _getRValues."
+    },
+    {
+      "from_id": 36,
+      "vuln_type": "none",
+      "to_id": 37,
+      "type": "dataflow",
+      "reason": "_getRate uses the supply pair returned by _getCurrentSupply."
+    },
+    {
+      "from_id": 28,
+      "vuln_type": "none",
+      "to_id": 32,
+      "type": "dataflow",
+      "reason": "_transferStandard mints the team fee to the contract."
+    },
+    {
+      "from_id": 28,
+      "vuln_type": "none",
+      "to_id": 33,
+      "type": "dataflow",
+      "reason": "_transferStandard reflects the tax fee."
+    },
+    {
+      "from_id": 32,
+      "vuln_type": "none",
+      "to_id": 36,
+      "type": "dataflow",
+      "reason": "_takeTeam converts the token fee using the current rate."
+    },
+    {
+      "from_id": 43,
+      "vuln_type": "none",
+      "to_id": 40,
+      "type": "dataflow",
+      "reason": "balanceOf converts the reflection balance to tokens."
+    },
+    {
+      "from_id": 40,
+      "vuln_type": "none",
+      "to_id": 36,
+      "type": "dataflow",
+      "reason": "tokenFromReflection divides by the current rate."
+    },
+    {
+      "from_id": 27,
+      "vuln_type": "none",
+      "to_id": 43,
+      "type": "dataflow",
+      "reason": "_transfer reads balances for the wallet limit and contract balance checks."
+    },
+    {
+      "from_id": 27,
+      "vuln_type": "reentrancy",
+      "to_id": 30,
+      "type": "controlflow",
+      "reason": "_transfer performs an external swap in the middle of the transfer flow before accounting completes."
+    },
+    {
+      "from_id": 27,
+      "vuln_type": "reentrancy",
+      "to_id": 31,
+      "type": "controlflow",
+      "reason": "_transfer sends ETH to the fee address while the transfer state is only partially finalised."
+    },
+    {
+      "from_id": 30,
+      "vuln_type": "reentrancy",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "swapTokensForEth invokes the external router swap with the contract's tokens."
+    },
+    {
+      "from_id": 31,
+      "vuln_type": "reentrancy",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "sendETHToFee forwards ETH via a low-level value transfer that can execute recipient code."
+    },
+    {
+      "from_id": 54,
+      "vuln_type": "reentrancy",
+      "to_id": 30,
+      "type": "dataflow",
+      "reason": "manualswap triggers the same external swap path outside of a transfer."
+    },
+    {
+      "from_id": 55,
+      "vuln_type": "reentrancy",
+      "to_id": 31,
+      "type": "dataflow",
+      "reason": "manualsend triggers the external ETH transfer path."
+    },
+    {
+      "from_id": 24,
+      "vuln_type": "reentrancy",
+      "to_id": 27,
+      "type": "callback",
+      "reason": "The router swap moves this token, re-entering _transfer through the token's own transfer logic during inSwap handling."
+    },
+    {
+      "from_id": 25,
+      "vuln_type": "reentrancy",
+      "to_id": 27,
+      "type": "callback",
+      "reason": "addLiquidityETH transfers tokens to the pair, re-entering the token's _transfer during openTrading."
+    },
+    {
+      "from_id": 23,
+      "vuln_type": "reentrancy",
+      "to_id": 59,
+      "type": "callback",
+      "reason": "The ETH transfer to _FeeAddress can invoke a contract fallback and re-enter the token."
+    },
+    {
+      "from_id": 47,
+      "vuln_type": "none",
+      "to_id": 39,
+      "type": "dataflow",
+      "reason": "openTrading approves the router for the full supply."
+    },
+    {
+      "from_id": 47,
+      "vuln_type": "none",
+      "to_id": 43,
+      "type": "dataflow",
+      "reason": "openTrading reads the contract balance for liquidity provisioning."
+    },
+    {
+      "from_id": 47,
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "openTrading calls addLiquidityETH with the contract's ETH and tokens."
+    },
+    {
+      "from_id": 47,
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "dataflow",
+      "reason": "openTrading calls the factory to create the pair and stores the unvalidated result."
+    },
+    {
+      "from_id": 47,
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "openTrading stores the router instance."
+    },
+    {
+      "from_id": 47,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "openTrading stores the created pair address."
+    },
+    {
+      "from_id": 47,
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "openTrading enables trading."
+    },
+    {
+      "from_id": 47,
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "openTrading sets the wallet-limit window from block.timestamp."
+    },
+    {
+      "from_id": 27,
+      "vuln_type": "arithmetic",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "The wallet limit compares amount + balance against 2% of supply and the timestamp window."
+    },
+    {
+      "from_id": 33,
+      "vuln_type": "arithmetic",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "_reflectFee subtracts the reflected fee from _rTotal."
+    },
+    {
+      "from_id": 33,
+      "vuln_type": "arithmetic",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "_reflectFee accumulates the token fee into _tFeeTotal."
+    },
+    {
+      "from_id": 38,
+      "vuln_type": "arithmetic",
+      "to_id": 28,
+      "type": "dataflow",
+      "reason": "Reflection amount arithmetic (mul then sub) determines the credited balance."
+    },
+    {
+      "from_id": 27,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "_transfer reads the bot blacklist for sender and recipient."
+    },
+    {
+      "from_id": 27,
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "_transfer gates behaviour on the tradingOpen flag."
+    },
+    {
+      "from_id": 27,
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "_transfer reads the fee-exemption map."
+    },
+    {
+      "from_id": 27,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "_transfer compares from/to against the stored pair address."
+    },
+    {
+      "from_id": 48,
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "excludeFromFee writes true into the exemption map."
+    },
+    {
+      "from_id": 49,
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "includeToFee writes false into the exemption map."
+    },
+    {
+      "from_id": 50,
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "setTeamFee updates _teamFee."
+    },
+    {
+      "from_id": 51,
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "setTaxFee updates _taxFee."
+    },
+    {
+      "from_id": 52,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "setBots blacklists the supplied addresses."
+    },
+    {
+      "from_id": 53,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "delBot clears a blacklist entry."
+    },
+    {
+      "from_id": 41,
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "removeAllFee caches and zeroes _taxFee."
+    },
+    {
+      "from_id": 41,
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "removeAllFee caches and zeroes _teamFee."
+    },
+    {
+      "from_id": 41,
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "removeAllFee stores the previous tax fee."
+    },
+    {
+      "from_id": 41,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "removeAllFee stores the previous team fee."
+    },
+    {
+      "from_id": 42,
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "restoreAllFee reads back the cached tax fee."
+    },
+    {
+      "from_id": 42,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "restoreAllFee reads back the cached team fee."
+    },
+    {
+      "from_id": 32,
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "_takeTeam credits reflection tokens to the contract."
+    },
+    {
+      "from_id": 28,
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "_transferStandard debits the sender and credits the recipient reflection balances."
+    },
+    {
+      "from_id": 39,
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "_approve writes the allowance mapping."
+    },
+    {
+      "from_id": 31,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "sendETHToFee targets the stored _FeeAddress."
+    },
+    {
+      "from_id": 56,
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "owner returns _owner."
+    },
+    {
+      "from_id": 57,
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "renounceOwnership zeroes _owner."
+    },
+    {
+      "from_id": 60,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "Constructor stores the fee address."
+    },
+    {
+      "from_id": 60,
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "Constructor assigns the total reflections to the deployer."
+    },
+    {
+      "from_id": 60,
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "Constructor seeds fee exemptions for owner, contract and fee address."
+    },
+    {
+      "from_id": 60,
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "Constructor sets the initial owner."
+    },
+    {
+      "from_id": 64,
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "from parameter feeds _transfer."
+    },
+    {
+      "from_id": 65,
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "to parameter feeds _transfer."
+    },
+    {
+      "from_id": 66,
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "amount parameter feeds _transfer."
+    },
+    {
+      "from_id": 67,
+      "vuln_type": "none",
+      "to_id": 30,
+      "type": "dataflow",
+      "reason": "tokenAmount parameter feeds the swap."
+    },
+    {
+      "from_id": 68,
+      "vuln_type": "none",
+      "to_id": 31,
+      "type": "dataflow",
+      "reason": "amount parameter feeds the ETH payout."
+    },
+    {
+      "from_id": 69,
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "sender parameter feeds _tokenTransfer."
+    },
+    {
+      "from_id": 70,
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "recipient parameter feeds _tokenTransfer."
+    },
+    {
+      "from_id": 71,
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "amount parameter feeds _tokenTransfer."
+    },
+    {
+      "from_id": 72,
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "takeFee parameter controls fee removal in _tokenTransfer."
+    },
+    {
+      "from_id": 73,
+      "vuln_type": "none",
+      "to_id": 28,
+      "type": "dataflow",
+      "reason": "tAmount parameter feeds _transferStandard."
+    },
+    {
+      "from_id": 74,
+      "vuln_type": "none",
+      "to_id": 34,
+      "type": "dataflow",
+      "reason": "tAmount parameter feeds _getValues."
+    },
+    {
+      "from_id": 75,
+      "vuln_type": "none",
+      "to_id": 43,
+      "type": "dataflow",
+      "reason": "account parameter feeds balanceOf."
+    },
+    {
+      "from_id": 76,
+      "vuln_type": "none",
+      "to_id": 46,
+      "type": "dataflow",
+      "reason": "spender parameter feeds approve."
+    },
+    {
+      "from_id": 77,
+      "vuln_type": "none",
+      "to_id": 45,
+      "type": "dataflow",
+      "reason": "sender parameter feeds transferFrom."
+    },
+    {
+      "from_id": 78,
+      "vuln_type": "none",
+      "to_id": 45,
+      "type": "dataflow",
+      "reason": "recipient parameter feeds transferFrom."
+    },
+    {
+      "from_id": 79,
+      "vuln_type": "none",
+      "to_id": 45,
+      "type": "dataflow",
+      "reason": "amount parameter feeds transferFrom."
+    },
+    {
+      "from_id": 80,
+      "vuln_type": "none",
+      "to_id": 60,
+      "type": "dataflow",
+      "reason": "FeeAddress parameter feeds the constructor."
+    },
+    {
+      "from_id": 81,
+      "vuln_type": "none",
+      "to_id": 48,
+      "type": "dataflow",
+      "reason": "ad parameter feeds excludeFromFee."
+    },
+    {
+      "from_id": 82,
+      "vuln_type": "none",
+      "to_id": 49,
+      "type": "dataflow",
+      "reason": "ad parameter feeds includeToFee."
+    },
+    {
+      "from_id": 83,
+      "vuln_type": "none",
+      "to_id": 50,
+      "type": "dataflow",
+      "reason": "team parameter feeds setTeamFee."
+    },
+    {
+      "from_id": 84,
+      "vuln_type": "none",
+      "to_id": 51,
+      "type": "dataflow",
+      "reason": "tax parameter feeds setTaxFee."
+    },
+    {
+      "from_id": 85,
+      "vuln_type": "none",
+      "to_id": 52,
+      "type": "dataflow",
+      "reason": "bots_ parameter feeds setBots."
+    },
+    {
+      "from_id": 86,
+      "vuln_type": "none",
+      "to_id": 53,
+      "type": "dataflow",
+      "reason": "notbot parameter feeds delBot."
+    },
+    {
+      "from_id": 87,
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "contractTokenBalance local decides the swap branch in _transfer."
+    },
+    {
+      "from_id": 88,
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "contractETHBalance local decides the ETH payout branch in _transfer."
+    },
+    {
+      "from_id": 89,
+      "vuln_type": "none",
+      "to_id": 30,
+      "type": "dataflow",
+      "reason": "path local is passed to the router swap."
+    },
+    {
+      "from_id": 90,
+      "vuln_type": "none",
+      "to_id": 47,
+      "type": "dataflow",
+      "reason": "_uniswapV2Router local is stored into state during openTrading."
+    },
+    {
+      "from_id": 91,
+      "vuln_type": "none",
+      "to_id": 54,
+      "type": "dataflow",
+      "reason": "contractBalance local is passed to swapTokensForEth from manualswap."
+    },
+    {
+      "from_id": 92,
+      "vuln_type": "none",
+      "to_id": 36,
+      "type": "dataflow",
+      "reason": "currentRate local is returned by _getRate."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "_transfer",
+      "normal_node": "param_from_transfer",
+      "reason": "Source address parameter only exists to drive the internal _transfer entry point."
+    },
+    {
+      "merge_into": "_transfer",
+      "normal_node": "param_to_transfer",
+      "reason": "Destination address parameter only exists to drive the internal _transfer entry point."
+    },
+    {
+      "merge_into": "_transfer",
+      "normal_node": "param_amount_transfer",
+      "reason": "Amount parameter only exists to drive the internal _transfer entry point."
+    },
+    {
+      "merge_into": "swapTokensForEth",
+      "normal_node": "param_tokenAmount_swap",
+      "reason": "Token amount parameter is consumed solely by the swap routine."
+    },
+    {
+      "merge_into": "sendETHToFee",
+      "normal_node": "param_amount_sendETHToFee",
+      "reason": "ETH amount parameter is consumed solely by the fee payout routine."
+    },
+    {
+      "merge_into": "_tokenTransfer",
+      "normal_node": "param_sender_tokenTransfer",
+      "reason": "Sender parameter is only forwarded inside the fee-wrapping transfer helper."
+    },
+    {
+      "merge_into": "_tokenTransfer",
+      "normal_node": "param_recipient_tokenTransfer",
+      "reason": "Recipient parameter is only forwarded inside the fee-wrapping transfer helper."
+    },
+    {
+      "merge_into": "_tokenTransfer",
+      "normal_node": "param_amount_tokenTransfer",
+      "reason": "Amount parameter is only forwarded inside the fee-wrapping transfer helper."
+    },
+    {
+      "merge_into": "_tokenTransfer",
+      "normal_node": "param_takeFee_tokenTransfer",
+      "reason": "takeFee flag exclusively selects fee removal inside the same helper."
+    },
+    {
+      "merge_into": "_transferStandard",
+      "normal_node": "param_tAmount_transferStandard",
+      "reason": "Token amount parameter is the sole input of the standard transfer routine."
+    },
+    {
+      "merge_into": "_getValues",
+      "normal_node": "param_tAmount_getValues",
+      "reason": "Token amount parameter is the sole input of the value breakdown routine."
+    },
+    {
+      "merge_into": "balanceOf",
+      "normal_node": "param_account_balanceOf",
+      "reason": "Account parameter is used only by the balance view function."
+    },
+    {
+      "merge_into": "approve",
+      "normal_node": "param_spender_approve",
+      "reason": "Spender parameter is used only by the public approval entry point."
+    },
+    {
+      "merge_into": "transferFrom",
+      "normal_node": "param_sender_transferFrom",
+      "reason": "Sender parameter is used only by the delegated transfer entry point."
+    },
+    {
+      "merge_into": "transferFrom",
+      "normal_node": "param_recipient_transferFrom",
+      "reason": "Recipient parameter is used only by the delegated transfer entry point."
+    },
+    {
+      "merge_into": "transferFrom",
+      "normal_node": "param_amount_transferFrom",
+      "reason": "Amount parameter is used only by the delegated transfer entry point."
+    },
+    {
+      "merge_into": "constructor",
+      "normal_node": "param_FeeAddress_constructor",
+      "reason": "Fee address parameter is stored by the constructor only."
+    },
+    {
+      "merge_into": "excludeFromFee",
+      "normal_node": "param_ad_excludeFromFee",
+      "reason": "Address parameter is used solely to set the fee exemption in that function."
+    },
+    {
+      "merge_into": "includeToFee",
+      "normal_node": "param_ad_includeToFee",
+      "reason": "Address parameter is used solely to clear the fee exemption in that function."
+    },
+    {
+      "merge_into": "setTeamFee",
+      "normal_node": "param_team_setTeamFee",
+      "reason": "Team fee parameter is the only input of the fee setter."
+    },
+    {
+      "merge_into": "setTaxFee",
+      "normal_node": "param_tax_setTaxFee",
+      "reason": "Tax fee parameter is the only input of the fee setter."
+    },
+    {
+      "merge_into": "setBots",
+      "normal_node": "param_bots_setBots",
+      "reason": "Address array parameter is the only input of the blacklist setter."
+    },
+    {
+      "merge_into": "delBot",
+      "normal_node": "param_notbot_delBot",
+      "reason": "Address parameter is the only input of the blacklist removal function."
+    },
+    {
+      "merge_into": "swapTokensForEth",
+      "normal_node": "local_contractTokenBalance",
+      "reason": "Cached contract token balance selects and sizes the external swap call."
+    },
+    {
+      "merge_into": "sendETHToFee",
+      "normal_node": "local_contractETHBalance",
+      "reason": "Cached ETH balance selects and sizes the external fee payout."
+    },
+    {
+      "merge_into": "swapTokensForEth",
+      "normal_node": "local_path",
+      "reason": "Swap path local exists only to feed the router swap call."
+    },
+    {
+      "merge_into": "openTrading",
+      "normal_node": "local_uniswapV2Router",
+      "reason": "Local router instance exists only to be stored during trading bootstrap."
+    },
+    {
+      "merge_into": "manualswap",
+      "normal_node": "local_contractBalance",
+      "reason": "Contract balance local exists only to feed the manual swap call."
+    },
+    {
+      "merge_into": "_getRate",
+      "normal_node": "local_currentRate",
+      "reason": "Rate local exists only as the return value of the rate helper used by reflection math."
+    }
+  ]
+}

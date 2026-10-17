@@ -1,0 +1,254 @@
+{
+  "nodes": [
+    {
+      "description": "Stored bytes32 hash used as the secret-key gate for withdraw; initially zero and set once by setup or new_hash.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "state_var.keyHash"
+    },
+    {
+      "description": "Address of the contract deployer; controls extract() and receives the selfdestruct balance.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "state_var.owner"
+    },
+    {
+      "description": "Constructor that assigns msg.sender to owner at deployment time.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 2,
+      "id": "function.constructor"
+    },
+    {
+      "description": "Payable function that checks msg.sender == tx.origin and the keccak256 key against keyHash, then transfers the whole balance to msg.sender when msg.value > 0.5 ether.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "function.withdraw"
+    },
+    {
+      "description": "Public function that sets keyHash from keccak256(key) only while keyHash is still zero.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 4,
+      "id": "function.setup"
+    },
+    {
+      "description": "Public function that sets keyHash to a caller-supplied bytes32 only while keyHash is still zero.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 5,
+      "id": "function.new_hash"
+    },
+    {
+      "description": "Owner-only function that calls selfdestruct(owner), destroying the contract and sending the balance to owner.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 6,
+      "id": "function.extract"
+    },
+    {
+      "description": "View function returning the current owner address.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 7,
+      "id": "function.get_owner"
+    },
+    {
+      "description": "Payable fallback function that accepts ether, funding the balance that withdraw can drain.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 8,
+      "id": "function.fallback"
+    },
+    {
+      "description": "Caller-controlled address used for ownership assignment, the tx.origin check and the destination of the balance transfer.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 9,
+      "id": "untrusted_input.msg.sender"
+    },
+    {
+      "description": "Transaction origin used as an authorization condition, enabling phishing-style bypass of the withdraw gate.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 10,
+      "id": "untrusted_input.tx.origin"
+    },
+    {
+      "description": "msg.sender.transfer(address(this).balance) forwards the entire contract balance to an unauthenticated external address before any state change.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 11,
+      "id": "unsafe_operation.msg_sender_transfer_balance"
+    },
+    {
+      "description": "selfdestruct(owner) permanently destroys the contract and forwards its balance to owner.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 12,
+      "id": "unsafe_operation.selfdestruct_owner"
+    },
+    {
+      "description": "Caller-supplied string key whose keccak256 hash must match keyHash to pass the withdraw gate.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 13,
+      "id": "parameter.withdraw.key"
+    },
+    {
+      "description": "Caller-supplied string key hashed and stored into keyHash by setup.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 14,
+      "id": "parameter.setup.key"
+    },
+    {
+      "description": "Caller-supplied bytes32 value stored directly into keyHash by new_hash.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 15,
+      "id": "parameter.new_hash._keyHash"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is written into the owner state variable during construction, establishing the privileged account.",
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "The require(msg.sender == tx.origin) check gates withdraw using an attacker-influenceable caller identity.",
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 3
+    },
+    {
+      "reason": "tx.origin is read as the authorization condition in withdraw, allowing phishing contracts to pass the check on behalf of a victim.",
+      "from_id": 10,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "keyHash is compared against keccak256(abi.encodePacked(key)) to decide whether the withdrawal proceeds.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "The key parameter is hashed and compared with keyHash to control the withdraw branch.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "A caller-supplied key alone determines whether the full contract balance is transferred out.",
+      "from_id": 13,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "withdraw executes the balance transfer directly with no state update or reentrancy guard.",
+      "from_id": 3,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "The external transfer to msg.sender can call back into the payable withdraw/fallback before balances settle.",
+      "from_id": 11,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 3
+    },
+    {
+      "reason": "Ether accepted by the payable fallback accumulates as the contract balance that the transfer operation drains.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "extract requires msg.sender == owner before executing the destructive selfdestruct.",
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 12
+    },
+    {
+      "reason": "The owner state variable is the beneficiary of selfdestruct and the account authorized to trigger it.",
+      "from_id": 1,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "The setup key parameter is hashed and written into keyHash, defining the withdrawal secret.",
+      "from_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "setup stores keccak256(key) into the keyHash state variable when it is still zero.",
+      "from_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "The _keyHash parameter is written into keyHash by new_hash, letting the deployer choose the secret directly.",
+      "from_id": 15,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "new_hash assigns the caller-supplied bytes32 to the keyHash state variable.",
+      "from_id": 15,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "new_hash can only initialize keyHash while it is zero, so whoever calls it first fixes the withdrawal secret.",
+      "from_id": 5,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 0
+    },
+    {
+      "reason": "get_owner returns the owner state variable to any caller.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 7
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The withdraw key parameter is only used inside withdraw's hash comparison that authorizes the balance drain, so it collapses into the withdraw function node.",
+      "normal_node": "parameter.withdraw.key",
+      "merge_into": "function.withdraw"
+    },
+    {
+      "reason": "The setup key parameter exists solely to compute keyHash inside setup, so it is absorbed into the setup function node.",
+      "normal_node": "parameter.setup.key",
+      "merge_into": "function.setup"
+    },
+    {
+      "reason": "The new_hash _keyHash parameter exists solely to assign keyHash inside new_hash, so it is absorbed into the new_hash function node.",
+      "normal_node": "parameter.new_hash._keyHash",
+      "merge_into": "function.new_hash"
+    }
+  ]
+}

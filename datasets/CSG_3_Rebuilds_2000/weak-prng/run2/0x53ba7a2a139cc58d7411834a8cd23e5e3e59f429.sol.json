@@ -1,0 +1,358 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Contract owner address state variable, set to msg.sender in constructor and used as beneficiary of the 5 finney registration fee.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "owner"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping of address to uint pending withdrawal balances; accumulates rewards and registration fees.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "withdrawals"
+    },
+    {
+      "type": "state_var",
+      "description": "Signed integer tracking the current tournament round, incremented in userRegister.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "round"
+    },
+    {
+      "type": "state_var",
+      "description": "Counter of players registered in the current round, capped at 4.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "registered"
+    },
+    {
+      "type": "state_var",
+      "description": "mapping(int => address[7]) holding the seven participants of each round.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "participants"
+    },
+    {
+      "type": "function",
+      "description": "Constructor initializing owner to msg.sender, round to 1 and registered to 0.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "constructor"
+    },
+    {
+      "type": "function",
+      "description": "View function returning the pending withdrawal balance of a given player.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "publicGetBalance"
+    },
+    {
+      "type": "function",
+      "description": "View function returning the participant arrays of the previous and current round.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "publicGetState"
+    },
+    {
+      "type": "function",
+      "description": "Withdraw function that zeroes the caller balance then transfers it, using a low-level address transfer.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "userWithdraw"
+    },
+    {
+      "type": "function",
+      "description": "Payable registration function charging 105 finney, updating participants and round state and triggering calcWinner.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "userRegister"
+    },
+    {
+      "type": "function",
+      "description": "Private function selecting a pseudo-random winner between two participants using blockhash and awarding a reward.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "calcWinner"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "External caller identity, attacker-controlled, used for ownership, registration and withdrawal.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "msg.sender"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "msg.sender.transfer(amount) external value call performed in userWithdraw, an unchecked low-level send to an untrusted address.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "unsafe_transfer"
+    },
+    {
+      "type": "parameter",
+      "description": "Address parameter of publicGetBalance used to index the withdrawals mapping.",
+      "is_core": false,
+      "node_id": 13,
+      "id": "player"
+    },
+    {
+      "type": "parameter",
+      "description": "Index of the first participant passed to calcWinner.",
+      "is_core": false,
+      "node_id": 14,
+      "id": "first"
+    },
+    {
+      "type": "parameter",
+      "description": "Index of the second participant passed to calcWinner.",
+      "is_core": false,
+      "node_id": 15,
+      "id": "second"
+    },
+    {
+      "type": "parameter",
+      "description": "Index of the participant slot where the winner is stored in calcWinner.",
+      "is_core": false,
+      "node_id": 16,
+      "id": "winner"
+    },
+    {
+      "type": "parameter",
+      "description": "Reward amount in wei credited to the winning participant's withdrawal balance.",
+      "is_core": false,
+      "node_id": 17,
+      "id": "reward"
+    },
+    {
+      "type": "local_var",
+      "description": "Local variable in userWithdraw caching withdrawals[msg.sender] before the transfer.",
+      "is_core": false,
+      "node_id": 18,
+      "id": "amount"
+    },
+    {
+      "type": "local_var",
+      "description": "Local pseudo-random value derived from blockhash and participant addresses in calcWinner.",
+      "is_core": false,
+      "node_id": 19,
+      "id": "random"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "owner state variable is assigned from the untrusted msg.sender during construction.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "msg.sender indexes the withdrawals mapping in userWithdraw and userRegister credit logic.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "userWithdraw reaches the external transfer sink, allowing control flow to an untrusted address.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "The transferred amount is derived from the withdrawals balance, making state and value flow converge at the external call.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "Local amount variable, read from withdrawals[msg.sender], flows directly into the transfer.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "The recipient of the transfer is the untrusted msg.sender.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "controlflow",
+      "reason": "userRegister conditionally invokes calcWinner when registered equals 1 or 3.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "userRegister credits 5 finney to withdrawals[owner] on each registration.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "userRegister writes the caller address into participants[round][registered].",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "userRegister increments or resets the registered counter.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "userRegister increments the round variable when registered reaches 4.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "calcWinner reads and writes participants[round][first/second/winner].",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "calcWinner adds the reward to withdrawals[participants[round][winner]].",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "calcWinner indexes participants using the current round variable.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "publicGetBalance reads withdrawals[player].",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "publicGetState reads participants for the previous and current round.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "publicGetState uses round and round-1 as mapping keys.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "player parameter is used as the lookup key in publicGetBalance.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "first parameter indexes participants inside calcWinner.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "second parameter indexes participants inside calcWinner.",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "winner parameter indexes the participants slot written by calcWinner.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "reward parameter is added to the winner's withdrawals balance.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "participant addresses are cast to uint and combined into the local random value.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "msg.sender is stored as a participant during userRegister.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "calcWinner reads the round state variable to index participants.",
+      "from_id": 2
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "publicGetBalance",
+      "reason": "The player parameter is only a lookup key for the withdrawals/session query and carries no independent security semantics.",
+      "normal_node": "player"
+    },
+    {
+      "merge_into": "calcWinner",
+      "reason": "The first index parameter is purely an argument of calcWinner and should be folded into that function node.",
+      "normal_node": "first"
+    },
+    {
+      "merge_into": "calcWinner",
+      "reason": "The second index parameter is purely an argument of calcWinner and should be folded into that function node.",
+      "normal_node": "second"
+    },
+    {
+      "merge_into": "calcWinner",
+      "reason": "The winner index parameter only selects a storage slot written by calcWinner and is a local detail of that function.",
+      "normal_node": "winner"
+    },
+    {
+      "merge_into": "calcWinner",
+      "reason": "The reward parameter only determines the amount added to withdrawals inside calcWinner.",
+      "normal_node": "reward"
+    },
+    {
+      "merge_into": "unsafe_transfer",
+      "reason": "The local amount variable is the direct value argument of msg.sender.transfer and should be merged into the unsafe operation node.",
+      "normal_node": "amount"
+    },
+    {
+      "merge_into": "calcWinner",
+      "reason": "The random local is computed and consumed entirely inside calcWinner to decide the payout branch.",
+      "normal_node": "random"
+    }
+  ]
+}

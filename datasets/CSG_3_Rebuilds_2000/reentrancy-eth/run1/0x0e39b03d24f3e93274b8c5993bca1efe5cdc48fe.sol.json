@@ -1,0 +1,194 @@
+{
+  "nodes": [
+    {
+      "description": "Immutable address of the logic implementation contract",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "logic"
+    },
+    {
+      "description": "Constructor that initializes logic and delegates initialization calldata",
+      "is_core": true,
+      "type": "function",
+      "node_id": 1,
+      "id": "constructor"
+    },
+    {
+      "description": "Payable fallback that delegates all calls to the logic implementation",
+      "is_core": true,
+      "type": "function",
+      "node_id": 2,
+      "id": "fallback"
+    },
+    {
+      "description": "Unsafe delegatecall in constructor to _logic with _initializationCalldata",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 3,
+      "id": "delegatecall_constructor"
+    },
+    {
+      "description": "Unsafe assembly delegatecall in fallback to logic implementation",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 4,
+      "id": "delegatecall_fallback"
+    },
+    {
+      "description": "Constructor parameter for the logic contract address",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 5,
+      "id": "_logic"
+    },
+    {
+      "description": "Constructor parameter for initialization calldata passed to delegatecall",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 6,
+      "id": "_initializationCalldata"
+    },
+    {
+      "description": "Local variable storing success flag returned by constructor delegatecall",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 7,
+      "id": "_ok"
+    },
+    {
+      "description": "Local variable storing return data from constructor delegatecall",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 8,
+      "id": "returnData"
+    },
+    {
+      "description": "Local variable caching the logic address in fallback",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 9,
+      "id": "_impl"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Parameter _logic assigned to immutable state variable logic in constructor",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "Initialization calldata passed to delegatecall in constructor",
+      "from_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "_logic is the target address of the constructor delegatecall",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "Constructor function executes delegatecall to _logic",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 3
+    },
+    {
+      "reason": "Delegatecall returns success flag stored in _ok",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "Delegatecall returns data stored in returnData",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "require(_ok) checks delegatecall success and reverts constructor on failure",
+      "from_id": 7,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 1
+    },
+    {
+      "reason": "returnData used in revert string when delegatecall fails",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "Fallback reads immutable logic into local _impl",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 9
+    },
+    {
+      "reason": "Fallback declares local variable _impl",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 9
+    },
+    {
+      "reason": "_impl is target address of assembly delegatecall in fallback",
+      "from_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "Fallback executes delegatecall to external logic; external code can reenter",
+      "from_id": 2,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 4
+    },
+    {
+      "reason": "Delegatecall can callback into fallback, enabling reentrancy",
+      "from_id": 4,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 2
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Parameter _logic is used as delegatecall target; merge into unsafe delegatecall in constructor",
+      "normal_node": "_logic",
+      "merge_into": "delegatecall_constructor"
+    },
+    {
+      "reason": "Parameter _initializationCalldata feeds delegatecall in constructor",
+      "normal_node": "_initializationCalldata",
+      "merge_into": "delegatecall_constructor"
+    },
+    {
+      "reason": "Local var _ok stores delegatecall success flag in constructor",
+      "normal_node": "_ok",
+      "merge_into": "delegatecall_constructor"
+    },
+    {
+      "reason": "Local var returnData stores delegatecall return data in constructor",
+      "normal_node": "returnData",
+      "merge_into": "delegatecall_constructor"
+    },
+    {
+      "reason": "Local var _impl is delegatecall target in fallback",
+      "normal_node": "_impl",
+      "merge_into": "delegatecall_fallback"
+    }
+  ]
+}

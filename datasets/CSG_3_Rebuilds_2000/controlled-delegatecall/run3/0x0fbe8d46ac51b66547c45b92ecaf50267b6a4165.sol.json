@@ -1,0 +1,118 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Immutable state variable holding the StarBoundInterface instance bound to address 0x801EA8C463a776E85344C565e355137b5c3324CD; the external token contract whose burn() is invoked.",
+      "id": "StarBound",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Public address state variable that stores the privileged controller (owner) of the contract; initialized to msg.sender in the constructor and used by the onlyThrottleController modifier.",
+      "id": "throttleController",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Constructor that assigns the deploying caller (msg.sender) as throttleController, establishing the initial access-control owner.",
+      "id": "constructor",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "Modifier implementing the access-control check require(msg.sender == throttleController); gates the engageIonThrusters function.",
+      "id": "onlyThrottleController",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "Public pure view function returning a static string describing the contract's burn-only behavior; contains no state interaction.",
+      "id": "IonThrustersResult",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "Public function guarded by onlyThrottleController that takes an amount and forwards the call StarBound.burn(amount) to the external StarBound token, reducing total supply.",
+      "id": "engageIonThrusters",
+      "type": "function",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "Caller-controlled origin of the transaction; used to set throttleController in the constructor and to satisfy the access-control require in the onlyThrottleController modifier.",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "node_id": 6
+    },
+    {
+      "is_core": false,
+      "description": "User-supplied uint parameter of engageIonThrusters that is passed directly into the external StarBound.burn call without validation.",
+      "id": "engageIonThrusters.amount",
+      "type": "parameter",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "External call StarBound.burn(amount) made to a hard-coded token contract; an unchecked external interaction executed from engageIonThrusters after the access-control gate.",
+      "id": "StarBound.burn",
+      "type": "unsafe_operation",
+      "node_id": 8
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 1,
+      "vuln_type": "access_control",
+      "reason": "msg.sender is written into the privileged throttleController state variable in the constructor, transferring ownership and access-control authority to the caller.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "msg.sender is read by the onlyThrottleController modifier's require statement, making the authorization decision dependent on caller-controlled input.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "reason": "msg.sender reaching the modifier's require condition determines whether execution proceeds into engageIonThrusters, gating the privileged function on caller identity.",
+      "type": "controlflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "reason": "The onlyThrottleController modifier is applied to engageIonThrusters; the modifier's require must pass before the function body executes.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "The unvalidated amount parameter flows directly into the external StarBound.burn call as its argument.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "reentrancy",
+      "reason": "engageIonThrusters performs an external call to StarBound.burn(amount) on an external contract before completing, exposing execution to potential reentrant behavior from the callee.",
+      "type": "controlflow",
+      "from_id": 5
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "StarBound.burn",
+      "reason": "The non-core parameter amount has no independent semantics; it exists only as the direct argument consumed by the core unsafe_operation StarBound.burn, so it should be merged into that external call node.",
+      "normal_node": "engageIonThrusters.amount"
+    }
+  ]
+}

@@ -1,0 +1,97 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "description": "Payable fallback function of contract Double that pays out on even block.timestamp parity.",
+      "id": "function_fallback",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "description": "block.timestamp used in the condition block.timestamp % 2 == 0 to decide whether the payout executes.",
+      "id": "untrusted_block_timestamp",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "description": "msg.sender used as the recipient of the outgoing transfer, controlled by the caller.",
+      "id": "untrusted_msg_sender",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "description": "msg.sender.transfer(msg.value * 2): external ETH value transfer to an attacker-controlled address.",
+      "id": "unsafe_transfer",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 4,
+      "description": "msg.value * 2 unchecked arithmetic on a user-supplied value in Solidity 0.4.17 without SafeMath.",
+      "id": "unsafe_mul",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "description": "Local variable holding the computed payout amount msg.value * 2 that is forwarded to msg.sender.",
+      "id": "local_amount",
+      "type": "local_var",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The block.timestamp parity check gates execution of the payout transfer, making the contract's behaviour dependent on block timestamp.",
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "controlflow",
+      "from_id": 1
+    },
+    {
+      "reason": "The fallback function body executes the transfer when the timestamp condition holds.",
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "controlflow",
+      "from_id": 0
+    },
+    {
+      "reason": "The unchecked multiplication msg.value * 2 produces the payout amount that is passed into the transfer call.",
+      "vuln_type": "arithmetic",
+      "to_id": 3,
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "reason": "msg.sender is used directly as the recipient of the transfer, so the caller controls the destination.",
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "reason": "transfer sends ETH to msg.sender, which may execute attacker fallback code and re-enter the contract.",
+      "vuln_type": "reentrancy",
+      "to_id": 2,
+      "type": "callback",
+      "from_id": 3
+    },
+    {
+      "reason": "The local payout amount derived from the multiplication flows into the transfer as the value sent.",
+      "vuln_type": "arithmetic",
+      "to_id": 3,
+      "type": "dataflow",
+      "from_id": 5
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The local payout amount is only the direct result of the unchecked msg.value * 2 multiplication and can be folded into that arithmetic operation.",
+      "merge_into": "unsafe_mul",
+      "normal_node": "local_amount"
+    }
+  ]
+}

@@ -1,0 +1,653 @@
+{
+  "nodes": [
+    {
+      "id": "OtokenFactory.addressBook",
+      "type": "state_var",
+      "node_id": 0,
+      "is_core": true,
+      "description": "AddressBook contract address that records the Whitelist module and Otoken implementation addresses; set in constructor and read for every external module lookup."
+    },
+    {
+      "id": "OtokenFactory.otokens",
+      "type": "state_var",
+      "node_id": 1,
+      "is_core": true,
+      "description": "Public dynamic array holding every oToken address created by the factory; pushed to on each successful creation."
+    },
+    {
+      "id": "OtokenFactory.idToAddress",
+      "type": "state_var",
+      "node_id": 2,
+      "is_core": true,
+      "description": "Private mapping from the keccak256 option parameter hash to the deployed oToken address; used for duplicate detection and lookups."
+    },
+    {
+      "id": "OtokenFactory.MAX_EXPIRY",
+      "type": "state_var",
+      "node_id": 3,
+      "is_core": true,
+      "description": "Private constant upper bound on expiry (2345/12/31 = 11865398400) used to bound the BokkyPooBahsDateTimeLibrary."
+    },
+    {
+      "id": "OtokenSpawner.SALT",
+      "type": "state_var",
+      "node_id": 4,
+      "is_core": true,
+      "description": "Private constant bytes32(0) salt used for every CREATE2 deployment in OtokenSpawner."
+    },
+    {
+      "id": "OtokenFactory.constructor",
+      "type": "function",
+      "node_id": 5,
+      "is_core": true,
+      "description": "Constructor that stores the AddressBook address passed as _addressBook into the addressBook state variable."
+    },
+    {
+      "id": "OtokenFactory.createOtoken",
+      "type": "function",
+      "node_id": 6,
+      "is_core": true,
+      "description": "External entry point that validates expiry/product parameters, hashes the option id, spawns an eip-1167 minimal proxy via CREATE2 and whitelists the new oToken."
+    },
+    {
+      "id": "OtokenFactory.createWhitelistedOtoken",
+      "type": "function",
+      "node_id": 7,
+      "is_core": true,
+      "description": "External entry point that mirrors createOtoken but additionally requires msg.sender to be a whitelisted owner and initializes the oToken as whitelisted."
+    },
+    {
+      "id": "OtokenFactory.getOtokensLength",
+      "type": "function",
+      "node_id": 8,
+      "is_core": true,
+      "description": "View function returning the length of the otokens array."
+    },
+    {
+      "id": "OtokenFactory.getOtoken",
+      "type": "function",
+      "node_id": 9,
+      "is_core": true,
+      "description": "View function returning the deployed address of a non-whitelisted oToken for a given parameter set."
+    },
+    {
+      "id": "OtokenFactory.getWhitelistedOtoken",
+      "type": "function",
+      "node_id": 10,
+      "is_core": true,
+      "description": "View function returning the deployed address of a whitelisted oToken for a given parameter set."
+    },
+    {
+      "id": "OtokenFactory.getTargetOtokenAddress",
+      "type": "function",
+      "node_id": 11,
+      "is_core": true,
+      "description": "View function computing the deterministic CREATE2 address an oToken with the given parameters would be deployed at."
+    },
+    {
+      "id": "OtokenFactory._getOptionId",
+      "type": "function",
+      "node_id": 12,
+      "is_core": true,
+      "description": "Internal pure function hashing all option parameters with keccak256/abi.encodePacked to produce the unique option id."
+    },
+    {
+      "id": "OtokenSpawner._spawn",
+      "type": "function",
+      "node_id": 13,
+      "is_core": true,
+      "description": "Internal function that builds the Spawn creation code and deploys an eip-1167 minimal proxy via Create2.deploy."
+    },
+    {
+      "id": "OtokenSpawner._computeAddress",
+      "type": "function",
+      "node_id": 14,
+      "is_core": true,
+      "description": "Internal view function that hashes the Spawn init code and returns the CREATE2 target address via Create2.computeAddress."
+    },
+    {
+      "id": "Create2.deploy",
+      "type": "function",
+      "node_id": 15,
+      "is_core": true,
+      "description": "Library function that performs the low-level CREATE2 deployment, requiring sufficient balance and non-zero bytecode."
+    },
+    {
+      "id": "Spawn.constructor",
+      "type": "function",
+      "node_id": 16,
+      "is_core": true,
+      "description": "Spawn constructor that delegatecalls the logic contract with the supplied initialization calldata and returns eip-1167 runtime code."
+    },
+    {
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "node_id": 17,
+      "is_core": true,
+      "description": "Caller-controlled address used as the option creator in the OtokenCreated event and for the whitelisted-owner check."
+    },
+    {
+      "id": "block.timestamp",
+      "type": "untrusted_input",
+      "node_id": 18,
+      "is_core": true,
+      "description": "The now keyword used for expiry validation (expiry > now), making option creation timestamp dependent."
+    },
+    {
+      "id": "unsafe.assembly.create2",
+      "type": "unsafe_operation",
+      "node_id": 19,
+      "is_core": true,
+      "description": "Inline assembly CREATE2 opcode that deploys arbitrary bytecode at a deterministic address using a fixed salt."
+    },
+    {
+      "id": "unsafe.delegatecall",
+      "type": "unsafe_operation",
+      "node_id": 20,
+      "is_core": true,
+      "description": "delegatecall inside Spawn.constructor that executes the logic contract initialization code in the proxy's context during deployment."
+    },
+    {
+      "id": "unsafe.externalcall.addressbook",
+      "type": "unsafe_operation",
+      "node_id": 21,
+      "is_core": true,
+      "description": "External calls to AddressBookInterface(addressBook).getWhitelist() and getOtokenImpl() returning module addresses that are trusted blindly."
+    },
+    {
+      "id": "unsafe.externalcall.whitelistOtoken",
+      "type": "unsafe_operation",
+      "node_id": 22,
+      "is_core": true,
+      "description": "External call WhitelistInterface(whitelist).whitelistOtoken(newOtoken) executed after state updates, an reentrancy-capable external interaction."
+    },
+    {
+      "id": "unsafe.arithmetic.expirymod",
+      "type": "unsafe_operation",
+      "node_id": 23,
+      "is_core": true,
+      "description": "SafeMath subtraction and modulo on _expiry (_expiry.sub(28800).mod(86400)) enforcing 08:00 UTC expiry alignment."
+    },
+    {
+      "id": "unsafe.externalcall.whitelistchecks",
+      "type": "unsafe_operation",
+      "node_id": 24,
+      "is_core": true,
+      "description": "External calls to isWhitelistedProduct, isWhitelistedOwner and constructor checks on the Whitelist module used as access-control gates."
+    },
+    {
+      "id": "param.createOtoken._underlyingAsset",
+      "type": "parameter",
+      "node_id": 25,
+      "is_core": false,
+      "description": "Underlying asset address parameter of createOtoken, hashed into the option id and passed to init."
+    },
+    {
+      "id": "param.createOtoken._strikeAsset",
+      "type": "parameter",
+      "node_id": 26,
+      "is_core": false,
+      "description": "Strike asset address parameter of createOtoken, hashed into the option id and passed to init."
+    },
+    {
+      "id": "param.createOtoken._collateralAsset",
+      "type": "parameter",
+      "node_id": 27,
+      "is_core": false,
+      "description": "Collateral asset address parameter of createOtoken, hashed into the option id and passed to init."
+    },
+    {
+      "id": "param.createOtoken._strikePrice",
+      "type": "parameter",
+      "node_id": 28,
+      "is_core": false,
+      "description": "Strike price parameter of createOtoken (18 decimals), hashed into the option id and validated against zero for puts."
+    },
+    {
+      "id": "param.createOtoken._expiry",
+      "type": "parameter",
+      "node_id": 29,
+      "is_core": false,
+      "description": "Expiry timestamp parameter of createOtoken, validated against now, MAX_EXPIRY and the 08:00 UTC rule."
+    },
+    {
+      "id": "param.createOtoken._isPut",
+      "type": "parameter",
+      "node_id": 30,
+      "is_core": false,
+      "description": "Boolean parameter of createOtoken selecting put vs call, used in id hashing and the zero-strike check."
+    },
+    {
+      "id": "local.createOtoken.id",
+      "type": "local_var",
+      "node_id": 31,
+      "is_core": false,
+      "description": "Local bytes32 option id computed by _getOptionId inside createOtoken and used as the idToAddress mapping key."
+    },
+    {
+      "id": "local.createOtoken.whitelist",
+      "type": "local_var",
+      "node_id": 32,
+      "is_core": false,
+      "description": "Local address of the whitelist module fetched from the AddressBook inside createOtoken."
+    },
+    {
+      "id": "local.createOtoken.initializationCalldata",
+      "type": "local_var",
+      "node_id": 33,
+      "is_core": false,
+      "description": "Local bytes payload built with abi.encodeWithSelector for the oToken init function inside createOtoken."
+    },
+    {
+      "id": "local.createOtoken.newOtoken",
+      "type": "local_var",
+      "node_id": 34,
+      "is_core": false,
+      "description": "Local address of the newly spawned oToken returned by _spawn inside createOtoken, then stored and emitted."
+    },
+    {
+      "id": "param.createWhitelistedOtoken._underlyingAsset",
+      "type": "parameter",
+      "node_id": 35,
+      "is_core": false,
+      "description": "Underlying asset address parameter of createWhitelistedOtoken, hashed into the option id and passed to init."
+    },
+    {
+      "id": "param.createWhitelistedOtoken._expiry",
+      "type": "parameter",
+      "node_id": 36,
+      "is_core": false,
+      "description": "Expiry timestamp parameter of createWhitelistedOtoken, validated against now, MAX_EXPIRY and the 08:00 UTC rule."
+    },
+    {
+      "id": "local.createWhitelistedOtoken.id",
+      "type": "local_var",
+      "node_id": 37,
+      "is_core": false,
+      "description": "Local bytes32 option id computed by _getOptionId inside createWhitelistedOtoken with the whitelisted flag set to true."
+    },
+    {
+      "id": "local.createWhitelistedOtoken.newOtoken",
+      "type": "local_var",
+      "node_id": 38,
+      "is_core": false,
+      "description": "Local address of the newly spawned whitelisted oToken returned by _spawn inside createWhitelistedOtoken."
+    },
+    {
+      "id": "local.getTargetOtokenAddress.otokenImpl",
+      "type": "local_var",
+      "node_id": 39,
+      "is_core": false,
+      "description": "Local address of the oToken implementation logic contract retrieved from the AddressBook in getTargetOtokenAddress."
+    },
+    {
+      "id": "local._spawn.initCode",
+      "type": "local_var",
+      "node_id": 40,
+      "is_core": false,
+      "description": "Local bytes init code combining the Spawn creation code with the ABI-encoded logic contract and initialization calldata."
+    },
+    {
+      "id": "param._spawn.initializationCalldata",
+      "type": "parameter",
+      "node_id": 41,
+      "is_core": false,
+      "description": "Bytes parameter carrying the initialization calldata delegatecalled by the spawned Spawn contract."
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "reason": "msg.sender is emitted as the option creator in createOtoken and controls who triggers option creation."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "reason": "block.timestamp (now) gates createOtoken via require(_expiry > now), making creation timestamp dependent."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "reason": "msg.sender is passed to isWhitelistedOwner as the authorization check in createWhitelistedOtoken."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "reason": "block.timestamp (now) gates createWhitelistedOtoken through the same expiry validation."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 6,
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "createOtoken calls _getOptionId to derive the unique option id."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 7,
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "createWhitelistedOtoken calls _getOptionId with the whitelisted flag set to true."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 6,
+      "to_id": 13,
+      "vuln_type": "none",
+      "reason": "createOtoken calls _spawn to deploy the eip-1167 minimal proxy for the new oToken."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 7,
+      "to_id": 13,
+      "vuln_type": "none",
+      "reason": "createWhitelistedOtoken calls _spawn to deploy the whitelisted oToken proxy."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 13,
+      "to_id": 15,
+      "vuln_type": "none",
+      "reason": "_spawn delegates the actual deployment to Create2.deploy with amount 0 and the fixed SALT."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 15,
+      "to_id": 19,
+      "vuln_type": "none",
+      "reason": "Create2.deploy executes the inline assembly create2 opcode to deploy the bytecode."
+    },
+    {
+      "type": "callback",
+      "from_id": 13,
+      "to_id": 16,
+      "vuln_type": "reentrancy",
+      "reason": "The spawned Spawn contract's constructor executes during creation and runs the init callback into the logic contract."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 16,
+      "to_id": 20,
+      "vuln_type": "reentrancy",
+      "reason": "Spawn.constructor performs a delegatecall into the logic contract with the factory-supplied initialization calldata, giving it control during deployment."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 6,
+      "to_id": 21,
+      "vuln_type": "none",
+      "reason": "createOtoken queries the AddressBook for the whitelist module address and the oToken implementation address."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 6,
+      "to_id": 24,
+      "vuln_type": "none",
+      "reason": "createOtoken relies on Whitelist.isWhitelistedProduct as the product access-control gate."
+    },
+    {
+      "type": "callback",
+      "from_id": 6,
+      "to_id": 22,
+      "vuln_type": "reentrancy",
+      "reason": "createOtoken performs an external call to whitelistOtoken after updating idToAddress and otokens, enabling reentrancy into the factory."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 23,
+      "vuln_type": "arithmetic",
+      "reason": "createOtoken uses SafeMath sub and mod on _expiry to enforce 08:00 UTC expiry alignment."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 23,
+      "vuln_type": "arithmetic",
+      "reason": "createWhitelistedOtoken uses the same SafeMath sub and mod arithmetic on _expiry."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "createOtoken reads the addressBook state variable to resolve the whitelist and oToken implementation."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "createOtoken writes the deployed address into the idToAddress mapping."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "createOtoken pushes the newly created oToken into the otokens array."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "createWhitelistedOtoken writes the deployed address into the idToAddress mapping."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "createWhitelistedOtoken pushes the newly created oToken into the otokens array."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 23,
+      "vuln_type": "arithmetic",
+      "reason": "The _expiry parameter of createOtoken flows into the sub/mod arithmetic validation."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 36,
+      "to_id": 23,
+      "vuln_type": "arithmetic",
+      "reason": "The _expiry parameter of createWhitelistedOtoken flows into the sub/mod arithmetic validation."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 25,
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "_underlyingAsset parameter is consumed by createOtoken for id hashing, whitelist checks and init calldata."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "_expiry parameter is consumed by createOtoken for validation, id hashing and init calldata."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 35,
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "_underlyingAsset parameter is consumed by createWhitelistedOtoken for id hashing, whitelist checks and init calldata."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 36,
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "_expiry parameter is consumed by createWhitelistedOtoken for validation, id hashing and init calldata."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 11,
+      "to_id": 14,
+      "vuln_type": "none",
+      "reason": "getTargetOtokenAddress calls _computeAddress to derive the deterministic CREATE2 target address."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 9,
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "getOtoken calls _getOptionId to derive the lookup key for the non-whitelisted variant."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 10,
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "getWhitelistedOtoken calls _getOptionId to derive the lookup key for the whitelisted variant."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 31,
+      "vuln_type": "none",
+      "reason": "The bytes32 returned by _getOptionId is captured in the local id variable of createOtoken."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 31,
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "The local id variable is used as the idToAddress mapping key in createOtoken."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 34,
+      "vuln_type": "none",
+      "reason": "The address returned by _spawn is captured in the local newOtoken variable."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 32,
+      "to_id": 22,
+      "vuln_type": "none",
+      "reason": "The local whitelist module address is the target of the whitelistOtoken external call."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 39,
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "The locally fetched otokenImpl address is used to build the init selector and compute the target address."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 40,
+      "to_id": 13,
+      "vuln_type": "none",
+      "reason": "The locally built initCode is the bytecode passed to Create2.deploy inside _spawn."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 41,
+      "to_id": 13,
+      "vuln_type": "none",
+      "reason": "The initializationCalldata parameter is ABI-encoded into the init code used by _spawn."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param.createOtoken._underlyingAsset",
+      "merge_into": "OtokenFactory.createOtoken",
+      "reason": "_underlyingAsset is a createOtoken parameter whose only purpose is to feed the createOtoken core function."
+    },
+    {
+      "normal_node": "param.createOtoken._strikeAsset",
+      "merge_into": "OtokenFactory.createOtoken",
+      "reason": "_strikeAsset is a createOtoken parameter that flows directly into the createOtoken core function."
+    },
+    {
+      "normal_node": "param.createOtoken._collateralAsset",
+      "merge_into": "OtokenFactory.createOtoken",
+      "reason": "_collateralAsset is a createOtoken parameter that flows directly into the createOtoken core function."
+    },
+    {
+      "normal_node": "param.createOtoken._strikePrice",
+      "merge_into": "OtokenFactory.createOtoken",
+      "reason": "_strikePrice is a createOtoken parameter consumed only by the createOtoken core function."
+    },
+    {
+      "normal_node": "param.createOtoken._expiry",
+      "merge_into": "OtokenFactory.createOtoken",
+      "reason": "_expiry is a createOtoken parameter used for validation, hashing and init calldata inside createOtoken."
+    },
+    {
+      "normal_node": "param.createOtoken._isPut",
+      "merge_into": "OtokenFactory.createOtoken",
+      "reason": "_isPut is a createOtoken parameter consumed only by the createOtoken core function."
+    },
+    {
+      "normal_node": "local.createOtoken.id",
+      "merge_into": "OtokenFactory.createOtoken",
+      "reason": "The local id alias is fully determined inside createOtoken and should be folded into it."
+    },
+    {
+      "normal_node": "local.createOtoken.whitelist",
+      "merge_into": "OtokenFactory.createOtoken",
+      "reason": "The local whitelist address is derived and consumed entirely within createOtoken."
+    },
+    {
+      "normal_node": "local.createOtoken.initializationCalldata",
+      "merge_into": "OtokenFactory.createOtoken",
+      "reason": "The local initializationCalldata buffer is built and used only inside createOtoken."
+    },
+    {
+      "normal_node": "local.createOtoken.newOtoken",
+      "merge_into": "OtokenFactory.createOtoken",
+      "reason": "The local newOtoken return alias is produced and returned only inside createOtoken."
+    },
+    {
+      "normal_node": "param.createWhitelistedOtoken._underlyingAsset",
+      "merge_into": "OtokenFactory.createWhitelistedOtoken",
+      "reason": "_underlyingAsset is a createWhitelistedOtoken parameter that flows only into that core function."
+    },
+    {
+      "normal_node": "param.createWhitelistedOtoken._expiry",
+      "merge_into": "OtokenFactory.createWhitelistedOtoken",
+      "reason": "_expiry is a createWhitelistedOtoken parameter used for validation, hashing and init calldata in that core function."
+    },
+    {
+      "normal_node": "local.createWhitelistedOtoken.id",
+      "merge_into": "OtokenFactory.createWhitelistedOtoken",
+      "reason": "The local id alias is computed and consumed entirely inside createWhitelistedOtoken."
+    },
+    {
+      "normal_node": "local.createWhitelistedOtoken.newOtoken",
+      "merge_into": "OtokenFactory.createWhitelistedOtoken",
+      "reason": "The local newOtoken return alias is produced and returned only inside createWhitelistedOtoken."
+    },
+    {
+      "normal_node": "local.getTargetOtokenAddress.otokenImpl",
+      "merge_into": "OtokenFactory.getTargetOtokenAddress",
+      "reason": "The local otokenImpl address is fetched and used only inside getTargetOtokenAddress."
+    },
+    {
+      "normal_node": "local._spawn.initCode",
+      "merge_into": "OtokenSpawner._spawn",
+      "reason": "The local initCode buffer is built and passed directly to Create2.deploy inside _spawn."
+    },
+    {
+      "normal_node": "param._spawn.initializationCalldata",
+      "merge_into": "OtokenSpawner._spawn",
+      "reason": "The initializationCalldata parameter of _spawn exists solely to build the init code inside _spawn."
+    }
+  ]
+}

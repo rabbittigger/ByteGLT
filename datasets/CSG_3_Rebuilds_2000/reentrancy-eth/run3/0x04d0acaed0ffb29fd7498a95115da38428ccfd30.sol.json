@@ -1,0 +1,342 @@
+{
+  "nodes": [
+    {
+      "id": "state_tokenCounter",
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Public counter holding the next token id to be minted.",
+      "is_core": true
+    },
+    {
+      "id": "state_owner",
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Address privileged to set base URI and transfer ownership.",
+      "is_core": true
+    },
+    {
+      "id": "state_usedNonce",
+      "node_id": 2,
+      "type": "state_var",
+      "description": "Mapping of nonces already consumed by minting signatures.",
+      "is_core": true
+    },
+    {
+      "id": "fn_constructor",
+      "node_id": 3,
+      "type": "function",
+      "description": "Constructor initializing tokenCounter and owner from msg.sender.",
+      "is_core": true
+    },
+    {
+      "id": "fn_transferOwnership",
+      "node_id": 4,
+      "type": "function",
+      "description": "Owner-gated transfer of contract ownership to a new address.",
+      "is_core": true
+    },
+    {
+      "id": "fn_verifySign",
+      "node_id": 5,
+      "type": "function",
+      "description": "Internal signature check using ecrecover against the stored owner.",
+      "is_core": true
+    },
+    {
+      "id": "fn_createCollectible",
+      "node_id": 6,
+      "type": "function",
+      "description": "External mint entry point that verifies a signature, mints and sets URI.",
+      "is_core": true
+    },
+    {
+      "id": "fn_setBaseURI",
+      "node_id": 7,
+      "type": "function",
+      "description": "Owner-gated update of the base token URI.",
+      "is_core": true
+    },
+    {
+      "id": "fn_burn",
+      "node_id": 8,
+      "type": "function",
+      "description": "External burn of an existing token after ownership check.",
+      "is_core": true
+    },
+    {
+      "id": "untrusted_msg_sender_ctor",
+      "node_id": 9,
+      "type": "untrusted_input",
+      "description": "msg.sender captured in the constructor as the initial owner.",
+      "is_core": true
+    },
+    {
+      "id": "untrusted_msg_sender_onlyOwner",
+      "node_id": 10,
+      "type": "untrusted_input",
+      "description": "msg.sender compared in the onlyOwner access-control modifier.",
+      "is_core": true
+    },
+    {
+      "id": "untrusted_msg_sender_mint",
+      "node_id": 11,
+      "type": "untrusted_input",
+      "description": "msg.sender used as the mint recipient and signature caller in createCollectible.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_ecrecover",
+      "node_id": 12,
+      "type": "unsafe_operation",
+      "description": "ecrecover call on a user supplied Sign struct to authorize minting.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_external_callback",
+      "node_id": 13,
+      "type": "unsafe_operation",
+      "description": "External onERC721Received call performed by _safeMint before minting state is finalized.",
+      "is_core": true
+    },
+    {
+      "id": "param_tokenURI",
+      "node_id": 14,
+      "type": "parameter",
+      "description": "Token metadata URI supplied by the caller of createCollectible.",
+      "is_core": false
+    },
+    {
+      "id": "param_fee",
+      "node_id": 15,
+      "type": "parameter",
+      "description": "Royalty fee supplied by the caller of createCollectible.",
+      "is_core": false
+    },
+    {
+      "id": "param_sign",
+      "node_id": 16,
+      "type": "parameter",
+      "description": "Sign struct (v, r, s, nonce) supplied by the caller of createCollectible.",
+      "is_core": false
+    },
+    {
+      "id": "param_newOwner",
+      "node_id": 17,
+      "type": "parameter",
+      "description": "New owner address supplied to transferOwnership.",
+      "is_core": false
+    },
+    {
+      "id": "param_tokenId_burn",
+      "node_id": 18,
+      "type": "parameter",
+      "description": "Token id supplied to burn.",
+      "is_core": false
+    },
+    {
+      "id": "param_baseURI",
+      "node_id": 19,
+      "type": "parameter",
+      "description": "New base URI string supplied to setBaseURI.",
+      "is_core": false
+    },
+    {
+      "id": "local_newItemId",
+      "node_id": 20,
+      "type": "local_var",
+      "description": "Local copy of tokenCounter used as the minted token id.",
+      "is_core": false
+    },
+    {
+      "id": "local_hash",
+      "node_id": 21,
+      "type": "local_var",
+      "description": "Local keccak256 digest of contract, caller, tokenURI and nonce.",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 1,
+      "reason": "msg.sender from the constructor is stored directly into the owner state variable, making the deploying account privileged.",
+      "type": "dataflow",
+      "from_id": 9,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 4,
+      "reason": "The onlyOwner modifier compares msg.sender with owner before transferOwnership executes.",
+      "type": "controlflow",
+      "from_id": 10,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 7,
+      "reason": "The onlyOwner modifier gates setBaseURI on the msg.sender check.",
+      "type": "controlflow",
+      "from_id": 10,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 1,
+      "reason": "transferOwnership overwrites the owner state variable, changing who passes the privileged checks.",
+      "type": "dataflow",
+      "from_id": 4,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 6,
+      "reason": "createCollectible trusts msg.sender both as the signature subject and as the mint recipient.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 6,
+      "reason": "tokenURI parameter flows into createCollectible where it is hashed and stored via _setTokenURI.",
+      "type": "dataflow",
+      "from_id": 14,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 6,
+      "reason": "fee parameter flows into createCollectible and is written to the royalty mapping during minting.",
+      "type": "dataflow",
+      "from_id": 15,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 6,
+      "reason": "sign parameter flows into createCollectible where its nonce is consumed and its signature verified.",
+      "type": "dataflow",
+      "from_id": 16,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 5,
+      "reason": "The Sign struct members v, r, s and nonce flow from the caller into verifySign.",
+      "type": "dataflow",
+      "from_id": 16,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 5,
+      "reason": "createCollectible invokes verifySign, so minting is only permitted when the recovered signer equals owner.",
+      "type": "controlflow",
+      "from_id": 6,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 2,
+      "reason": "createCollectible sets the usedNonce entry to true before minting, consuming the quoted nonce.",
+      "type": "dataflow",
+      "from_id": 6,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 20,
+      "reason": "createCollectible reads tokenCounter into the newItemId local variable used for minting.",
+      "type": "dataflow",
+      "from_id": 6,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "createCollectible increments tokenCounter after minting, so the counter write follows the external call.",
+      "type": "dataflow",
+      "from_id": 6,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 13,
+      "reason": "createCollectible reaches _safeMint which performs an external onERC721Received call before tokenCounter is incremented and the URI is set.",
+      "type": "callback",
+      "from_id": 6,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 6,
+      "reason": "The external onERC721Received callback executes under the caller's control and can re-enter createCollectible before state finalization.",
+      "type": "callback",
+      "from_id": 13,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 12,
+      "reason": "The locally computed hash is fed into ecrecover, whose result authorizes the mint when it equals owner.",
+      "type": "dataflow",
+      "from_id": 21,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 5,
+      "reason": "verifySign compares the ecrecover result with the stored owner address to enforce the signature gate.",
+      "type": "dataflow",
+      "from_id": 12,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 4,
+      "reason": "newOwner parameter from transferOwnership is validated and written into the owner state variable.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 8,
+      "reason": "tokenId parameter flows into burn, which checks existence and ownership before destroying the token.",
+      "type": "dataflow",
+      "from_id": 18,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "baseURI parameter flows into setBaseURI and is stored through _setBaseURI by the privileged owner.",
+      "type": "dataflow",
+      "from_id": 19,
+      "vuln_type": "access_control"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "fn_createCollectible",
+      "reason": "parameter tokenURI is only used inside createCollectible and should be folded into that core function node.",
+      "normal_node": "param_tokenURI"
+    },
+    {
+      "merge_into": "fn_createCollectible",
+      "reason": "parameter fee is only used inside createCollectible and should be folded into that core function node.",
+      "normal_node": "param_fee"
+    },
+    {
+      "merge_into": "fn_createCollectible",
+      "reason": "parameter sign is consumed by createCollectible and forwarded to verifySign, so it merges into the minting function node.",
+      "normal_node": "param_sign"
+    },
+    {
+      "merge_into": "fn_transferOwnership",
+      "reason": "parameter newOwner is only used by transferOwnership and should be folded into that core function node.",
+      "normal_node": "param_newOwner"
+    },
+    {
+      "merge_into": "fn_burn",
+      "reason": "parameter tokenId is only used by burn and should be folded into that core function node.",
+      "normal_node": "param_tokenId_burn"
+    },
+    {
+      "merge_into": "fn_setBaseURI",
+      "reason": "parameter _baseURI is only used by setBaseURI and should be folded into that core function node.",
+      "normal_node": "param_baseURI"
+    },
+    {
+      "merge_into": "fn_createCollectible",
+      "reason": "local newItemId is a temporary alias of tokenCounter inside createCollectible and should be folded into that core function node.",
+      "normal_node": "local_newItemId"
+    },
+    {
+      "merge_into": "unsafe_ecrecover",
+      "reason": "local hash is the digest supplied to the ecrecover unsafe operation in verifySign and should be folded into that unsafe operation node.",
+      "normal_node": "local_hash"
+    }
+  ]
+}

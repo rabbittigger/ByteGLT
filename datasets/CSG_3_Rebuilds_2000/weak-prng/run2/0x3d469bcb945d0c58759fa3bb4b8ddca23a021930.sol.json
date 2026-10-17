@@ -1,0 +1,706 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Constant uint set to 1 hours used as the default oracle period",
+      "is_core": true,
+      "node_id": 0,
+      "id": "HOURLY"
+    },
+    {
+      "type": "state_var",
+      "description": "Oracle accumulation interval, writable by owner via changeInterval",
+      "is_core": true,
+      "node_id": 1,
+      "id": "PERIOD"
+    },
+    {
+      "type": "state_var",
+      "description": "IUniswapV2Pair instance the oracle reads cumulative prices and reserves from",
+      "is_core": true,
+      "node_id": 2,
+      "id": "pair"
+    },
+    {
+      "type": "state_var",
+      "description": "Address of the pair token0 used to select the price average in consult",
+      "is_core": true,
+      "node_id": 3,
+      "id": "token0"
+    },
+    {
+      "type": "state_var",
+      "description": "Address of the pair token1 used to select the price average in consult",
+      "is_core": true,
+      "node_id": 4,
+      "id": "token1"
+    },
+    {
+      "type": "state_var",
+      "description": "Authorized owner address, also the token consulted in getLatestPrice",
+      "is_core": true,
+      "node_id": 5,
+      "id": "owner"
+    },
+    {
+      "type": "state_var",
+      "description": "Last stored cumulative price of token0, updated in update()",
+      "is_core": true,
+      "node_id": 6,
+      "id": "price0CumulativeLast"
+    },
+    {
+      "type": "state_var",
+      "description": "Last stored cumulative price of token1, updated in update()",
+      "is_core": true,
+      "node_id": 7,
+      "id": "price1CumulativeLast"
+    },
+    {
+      "type": "state_var",
+      "description": "Timestamp of the last oracle update, used for elapsed-time computation",
+      "is_core": true,
+      "node_id": 8,
+      "id": "blockTimestampLast"
+    },
+    {
+      "type": "state_var",
+      "description": "Stored uq112x112 time-weighted average price for token0",
+      "is_core": true,
+      "node_id": 9,
+      "id": "price0Average"
+    },
+    {
+      "type": "state_var",
+      "description": "Stored uq112x112 time-weighted average price for token1",
+      "is_core": true,
+      "node_id": 10,
+      "id": "price1Average"
+    },
+    {
+      "type": "state_var",
+      "description": "Decimals configuration for the oracle output, set in the constructor",
+      "is_core": true,
+      "node_id": 11,
+      "id": "output_decimals"
+    },
+    {
+      "type": "function",
+      "description": "Constructor wiring the Uniswap pair, tokens, owner, decimals and initial cumulative prices",
+      "is_core": true,
+      "node_id": 12,
+      "id": "constructor"
+    },
+    {
+      "type": "function",
+      "description": "External function allowing the owner to modify the PERIOD value",
+      "is_core": true,
+      "node_id": 13,
+      "id": "changeInterval"
+    },
+    {
+      "type": "function",
+      "description": "External function recomputing cumulative prices and time-weighted averages from the pair",
+      "is_core": true,
+      "node_id": 14,
+      "id": "update"
+    },
+    {
+      "type": "function",
+      "description": "View function converting an amountIn of token0/token1 into the counterpart amount",
+      "is_core": true,
+      "node_id": 15,
+      "id": "consult"
+    },
+    {
+      "type": "function",
+      "description": "View function returning the scaled price of the owner token via consult",
+      "is_core": true,
+      "node_id": 16,
+      "id": "getLatestPrice"
+    },
+    {
+      "type": "function",
+      "description": "Empty external function accepting a change_ argument",
+      "is_core": true,
+      "node_id": 17,
+      "id": "priceChangeMax"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller address used for the onlyOwner authorization check in changeInterval",
+      "is_core": true,
+      "node_id": 18,
+      "id": "msg.sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Miner-controllable timestamp feeding the oracle elapsed-time computation",
+      "is_core": true,
+      "node_id": 19,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Unchecked-subtraction and division math in update (timeElapsed, cumulative deltas) where overflow is intentionally desired",
+      "is_core": true,
+      "node_id": 20,
+      "id": "update_arithmetic"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Owner authorization check gating modification of the oracle PERIOD",
+      "is_core": true,
+      "node_id": 21,
+      "id": "changeInterval_auth"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "FixedPoint.mul on the stored average price inside consult which reverts on multiplication overflow",
+      "is_core": true,
+      "node_id": 22,
+      "id": "consult_mul_overflow"
+    },
+    {
+      "type": "parameter",
+      "description": "New oracle interval supplied to changeInterval",
+      "is_core": false,
+      "node_id": 23,
+      "id": "param_period_"
+    },
+    {
+      "type": "parameter",
+      "description": "Token address argument selecting which average price to consult",
+      "is_core": false,
+      "node_id": 24,
+      "id": "param_token"
+    },
+    {
+      "type": "parameter",
+      "description": "Amount of input token to convert in consult",
+      "is_core": false,
+      "node_id": 25,
+      "id": "param_amountIn"
+    },
+    {
+      "type": "parameter",
+      "description": "Unused parameter accepted by priceChangeMax",
+      "is_core": false,
+      "node_id": 26,
+      "id": "param_change_"
+    },
+    {
+      "type": "local_var",
+      "description": "Elapsed seconds computed in update as blockTimestamp - blockTimestampLast",
+      "is_core": false,
+      "node_id": 27,
+      "id": "local_timeElapsed"
+    },
+    {
+      "type": "local_var",
+      "description": "Fresh cumulative token0 price returned by the oracle library in update",
+      "is_core": false,
+      "node_id": 28,
+      "id": "local_price0Cumulative"
+    },
+    {
+      "type": "local_var",
+      "description": "Fresh cumulative token1 price returned by the oracle library in update",
+      "is_core": false,
+      "node_id": 29,
+      "id": "local_price1Cumulative"
+    },
+    {
+      "type": "local_var",
+      "description": "Truncated uint32 block timestamp used in update",
+      "is_core": false,
+      "node_id": 30,
+      "id": "local_blockTimestamp"
+    },
+    {
+      "type": "local_var",
+      "description": "Intermediate price result in getLatestPrice",
+      "is_core": false,
+      "node_id": 31,
+      "id": "local_oneToken_"
+    },
+    {
+      "type": "parameter",
+      "description": "Owner/token address passed to the constructor",
+      "is_core": false,
+      "node_id": 32,
+      "id": "param_oneTokenContract"
+    },
+    {
+      "type": "parameter",
+      "description": "Uniswap factory address passed to the constructor",
+      "is_core": false,
+      "node_id": 33,
+      "id": "param_factory"
+    },
+    {
+      "type": "parameter",
+      "description": "First token address used to look up the pair in the constructor",
+      "is_core": false,
+      "node_id": 34,
+      "id": "param_tokenA"
+    },
+    {
+      "type": "parameter",
+      "description": "Second token address used to look up the pair in the constructor",
+      "is_core": false,
+      "node_id": 35,
+      "id": "param_tokenB"
+    },
+    {
+      "type": "parameter",
+      "description": "Output decimals value stored during construction",
+      "is_core": false,
+      "node_id": 36,
+      "id": "param_output_decimals_"
+    },
+    {
+      "type": "local_var",
+      "description": "Converted amount returned by consult",
+      "is_core": false,
+      "node_id": 37,
+      "id": "local_amount"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "oneTokenContract parameter is consumed by the constructor to set the owner",
+      "from_id": 32
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "factory parameter is used by the constructor to fetch the Uniswap pair",
+      "from_id": 33
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "tokenA parameter is passed to getPair in the constructor",
+      "from_id": 34
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "tokenB parameter is passed to getPair in the constructor",
+      "from_id": 35
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "output_decimals_ parameter feeds the constructor storage write",
+      "from_id": 36
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "output_decimals_ is written into the output_decimals state variable",
+      "from_id": 36
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "constructor stores the resolved Uniswap pair",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "constructor stores token0 read from the pair",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "constructor stores token1 read from the pair",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "constructor sets the owner address",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "constructor initializes price0CumulativeLast",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "constructor initializes price1CumulativeLast",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "constructor initializes blockTimestampLast from pair reserves",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "constructor initializes PERIOD to HOURLY",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "constructor uses the HOURLY constant when setting PERIOD",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "period_ parameter is consumed by changeInterval",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "period_ is written into the PERIOD state variable",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 18,
+      "type": "controlflow",
+      "reason": "changeInterval branches on msg.sender to enforce ownership",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "msg.sender drives the authorization check protecting the oracle period",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "authorization check executes inside changeInterval and gates the PERIOD write",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "owner state variable is compared with msg.sender in the permission check",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "update consumes block.timestamp through UniswapV2OracleLibrary.currentCumulativePrices",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "block.timestamp determines the elapsed time and thus the pricing arithmetic, a timestamp-dependency risk",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 20,
+      "type": "controlflow",
+      "reason": "update performs unchecked subtraction and division on cumulative prices",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "update computes the timeElapsed local from the truncation of block.timestamp",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "timeElapsed is the divisor of the cumulative price delta, allowing division by zero when zero elapsed",
+      "from_id": 27
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 2,
+      "type": "callback",
+      "reason": "update performs external calls on the pair contract before mutating price0Average/price1Average state",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 28,
+      "type": "dataflow",
+      "reason": "update receives the fresh token0 cumulative price",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "update receives the fresh token1 cumulative price",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 30,
+      "type": "dataflow",
+      "reason": "update receives the uint32 block timestamp returned by the oracle library",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "update writes the recomputed price0Average",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "update writes the recomputed price1Average",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "update refreshes price0CumulativeLast",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "update refreshes price1CumulativeLast",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "update refreshes blockTimestampLast",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "update reads the previous price0CumulativeLast to compute the delta",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "update reads the previous price1CumulativeLast to compute the delta",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "update reads blockTimestampLast to compute timeElapsed",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "update compares timeElapsed against the PERIOD threshold",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "token parameter selects the branch in consult",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "amountIn parameter is multiplied by the stored average price",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "local amount holds the converted value returned by consult",
+      "from_id": 37
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "consult reads price0Average for token0 conversions",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "consult reads price1Average for token1 conversions",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "consult compares the token argument against token0",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "consult compares the token argument against token1 in the require statement",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 22,
+      "type": "controlflow",
+      "reason": "consult performs FixedPoint.mul accumulation that can overflow",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "controlflow",
+      "reason": "getLatestPrice internally calls consult to obtain the price",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "getLatestPrice queries consult with the owner token address",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 31,
+      "type": "dataflow",
+      "reason": "getLatestPrice stores the scaled consult result in oneToken_",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "change_ parameter is accepted by the empty priceChangeMax function",
+      "from_id": 26
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "changeInterval",
+      "reason": "period_ is only used to write PERIOD inside changeInterval and has no independent security meaning",
+      "normal_node": "param_period_"
+    },
+    {
+      "merge_into": "consult",
+      "reason": "token is a pure selector input consumed only by the consult branch logic",
+      "normal_node": "param_token"
+    },
+    {
+      "merge_into": "consult",
+      "reason": "amountIn is only forwarded into the consult multiplication",
+      "normal_node": "param_amountIn"
+    },
+    {
+      "merge_into": "priceChangeMax",
+      "reason": "change_ is an unused parameter of the empty priceChangeMax function",
+      "normal_node": "param_change_"
+    },
+    {
+      "merge_into": "constructor",
+      "reason": "oneTokenContract is only assigned to the owner state variable during construction",
+      "normal_node": "param_oneTokenContract"
+    },
+    {
+      "merge_into": "constructor",
+      "reason": "factory is only used to resolve the pair inside the constructor",
+      "normal_node": "param_factory"
+    },
+    {
+      "merge_into": "constructor",
+      "reason": "tokenA is only used for the getPair lookup in the constructor",
+      "normal_node": "param_tokenA"
+    },
+    {
+      "merge_into": "constructor",
+      "reason": "tokenB is only used for the getPair lookup in the constructor",
+      "normal_node": "param_tokenB"
+    },
+    {
+      "merge_into": "constructor",
+      "reason": "output_decimals_ is only stored into output_decimals during construction",
+      "normal_node": "param_output_decimals_"
+    },
+    {
+      "merge_into": "update_arithmetic",
+      "reason": "timeElapsed exists solely as the divisor operand of the unchecked update arithmetic",
+      "normal_node": "local_timeElapsed"
+    },
+    {
+      "merge_into": "update",
+      "reason": "local_price0Cumulative is a transient value used to refresh price0CumulativeLast and price0Average",
+      "normal_node": "local_price0Cumulative"
+    },
+    {
+      "merge_into": "update",
+      "reason": "local_price1Cumulative is a transient value used to refresh price1CumulativeLast and price1Average",
+      "normal_node": "local_price1Cumulative"
+    },
+    {
+      "merge_into": "update",
+      "reason": "blockTimestamp is a transient uint32 value only used to refresh blockTimestampLast",
+      "normal_node": "local_blockTimestamp"
+    },
+    {
+      "merge_into": "getLatestPrice",
+      "reason": "oneToken_ is an intermediate holder returned immediately from getLatestPrice",
+      "normal_node": "local_oneToken_"
+    },
+    {
+      "merge_into": "consult",
+      "reason": "amount is a transient result written back as the return value of consult",
+      "normal_node": "local_amount"
+    }
+  ]
+}

@@ -1,0 +1,109 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "ReservoirLike.init",
+      "description": "External interface function init(uint numTokens, address target) declared in ReservoirLike; has no access control and can be invoked on any contract implementing the interface.",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "ReservoirLike.drip",
+      "description": "External interface function drip() declared in ReservoirLike; callable by anyone and mutates reservoir state in the implementing contract.",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "Proxy.fallback",
+      "description": "Unauthenticated payable fallback function of Proxy. It copies calldata into memory and unconditionally delegatecalls a hardcoded implementation address 0x9a2E280aAeB4dE82AAD34Df9c114f67A1699744c, propagating revert/return of the delegatecall.",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "description": "Attacker-controlled external caller. Nothing in Proxy restricts who may invoke the fallback, and the caller's identity/context is preserved into the delegatecall.",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "delegatecall",
+      "description": "Assembly delegatecall to a hardcoded target with fully attacker-controlled calldata. Executes arbitrary external code in the storage/context of Proxy, enabling arbitrary state manipulation and re-entrant callbacks.",
+      "node_id": 4
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "numTokens",
+      "description": "Unsigned integer parameter of ReservoirLike.init controlling the number of tokens to initialise.",
+      "node_id": 5
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "target",
+      "description": "Address parameter of ReservoirLike.init used as the initialisation target; unvalidated attacker-supplied address.",
+      "node_id": 6
+    }
+  ],
+  "edges": [
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 3,
+      "to_id": 2,
+      "reason": "Any external account (msg.sender) can invoke the payable fallback of Proxy; there is no owner check, whitelist or access modifier, so an arbitrary untrusted caller controls entry into the proxy."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 3,
+      "to_id": 4,
+      "reason": "The untrusted caller's identity and msg.data are preserved through delegatecall, letting an arbitrary msg.sender drive the unsafe delegatecall and execute privileged code in the proxy's storage context."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 2,
+      "to_id": 4,
+      "reason": "The fallback unconditionally executes delegatecall with the raw attacker-supplied calldata against the hardcoded implementation, achieving unrestricted arbitrary code execution."
+    },
+    {
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 4,
+      "to_id": 2,
+      "reason": "External code reached through delegatecall executes inside the proxy and can call back into Proxy (or its implementation) before the current frame finishes, enabling re-entrant manipulation of the same storage."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 5,
+      "to_id": 0,
+      "reason": "The numTokens parameter is consumed as an argument of ReservoirLike.init."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 6,
+      "to_id": 0,
+      "reason": "The target parameter is consumed as an argument of ReservoirLike.init and is not validated before use."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "numTokens",
+      "merge_into": "ReservoirLike.init",
+      "reason": "numTokens is a non-core parameter that exists only as an input of the core init function; it carries no independent state and should be absorbed into ReservoirLike.init."
+    },
+    {
+      "normal_node": "target",
+      "merge_into": "ReservoirLike.init",
+      "reason": "target is a non-core parameter used solely as the initialisation address of ReservoirLike.init; it should be folded into the core init function node."
+    }
+  ]
+}

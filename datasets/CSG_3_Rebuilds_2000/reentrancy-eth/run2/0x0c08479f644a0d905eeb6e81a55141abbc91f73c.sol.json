@@ -1,0 +1,291 @@
+{
+  "nodes": [
+    {
+      "id": "timeOut",
+      "description": "Public timestamp after which the last bidder can claim the pot; extended by incoming bids.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "kBalance",
+      "description": "Accumulated pot balance held by the contract, excluding the current bid's fee.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "feeRate",
+      "description": "Fee divisor initialized to 10, meaning a 10% developer fee on every bid.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "state_var"
+    },
+    {
+      "id": "TechnicalRise",
+      "description": "Hardcoded developer address that receives the fee portion of every bid.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "state_var"
+    },
+    {
+      "id": "lastBidder",
+      "description": "Address of the most recent eligible bidder, eligible to receive the pot.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "state_var"
+    },
+    {
+      "id": "EthAnte",
+      "description": "Payable constructor: initializes lastBidder, kBalance, timeOut and feeRate.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "function"
+    },
+    {
+      "id": "fallback",
+      "description": "Payable fallback: takes bids, pays the fee, extends the timer and pays the previous winner.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "function"
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller-controlled address used as bidder, as lastBidder and as payout recipient.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "block.timestamp",
+      "description": "now is used for timeout comparisons and for computing timer extensions.",
+      "is_core": true,
+      "node_id": 8,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "TechnicalRise.transfer(_fee)",
+      "description": "External ETH transfer sending the computed fee to the hardcoded developer address.",
+      "is_core": true,
+      "node_id": 9,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "lastBidder.transfer(kBalance - _val)",
+      "description": "External ETH transfer paying the previous winner before kBalance and lastBidder are updated.",
+      "is_core": true,
+      "node_id": 10,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "msg.value / feeRate",
+      "description": "Integer division computing the fee from msg.value and feeRate.",
+      "is_core": true,
+      "node_id": 11,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "timeOut += (10 minutes) * (9 finney) / _val",
+      "description": "Integer arithmetic dividing by _val to derive the timer extension; unsafe for tiny or zero net bids.",
+      "is_core": true,
+      "node_id": 12,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "_fee",
+      "description": "Local holding the fee amount deducted from msg.value.",
+      "is_core": false,
+      "node_id": 13,
+      "type": "local_var"
+    },
+    {
+      "id": "_val",
+      "description": "Local holding the net bid amount after the fee is deducted.",
+      "is_core": false,
+      "node_id": 14,
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor reads msg.sender to establish the initial bidder.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender is written into lastBidder in both the constructor and the fallback.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Constructor initializes the lastBidder state variable.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Constructor sets timeOut to now + 10 minutes.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Constructor sets kBalance from msg.value.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "controlflow"
+    },
+    {
+      "reason": "timeOut is derived from and later compared against block.timestamp, creating timestamp dependency.",
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Fallback executes the fee division at the start of a bid.",
+      "to_id": 11,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "controlflow"
+    },
+    {
+      "reason": "feeRate is the divisor of msg.value in the fee computation.",
+      "to_id": 11,
+      "vuln_type": "arithmetic",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Fallback performs an external ETH transfer of the fee.",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "controlflow"
+    },
+    {
+      "reason": "TechnicalRise is the fixed recipient of the fee transfer.",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Fallback performs an external payout to lastBidder while state is still stale.",
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "from_id": 6,
+      "type": "controlflow"
+    },
+    {
+      "reason": "lastBidder determines the payout recipient and is only updated after the transfer.",
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "kBalance is read to compute the payout before being reset, enabling re-entrant draining.",
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Attacker-controlled msg.sender can become lastBidder and re-enter during the payout transfer.",
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Timer extension arithmetic depends on block.timestamp values.",
+      "to_id": 12,
+      "vuln_type": "access_control",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "timeOut is read and incremented by the timer extension arithmetic.",
+      "to_id": 12,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Fallback divides by _val when extending the timer, unsafe for very small bids.",
+      "to_id": 12,
+      "vuln_type": "arithmetic",
+      "from_id": 6,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Fallback mutates timeOut on small bids, timeout payouts and timer extensions.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Fallback mutates kBalance as bids accumulate and payouts occur.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Fallback reassigns lastBidder to the new msg.sender.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "controlflow"
+    },
+    {
+      "reason": "_val is the divisor of the timer extension, so a near-zero net bid causes a huge value or division by zero.",
+      "to_id": 12,
+      "vuln_type": "arithmetic",
+      "from_id": 14,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The division result is stored in the local _fee.",
+      "to_id": 13,
+      "vuln_type": "none",
+      "from_id": 11,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_fee is the amount passed to the TechnicalRise transfer.",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 13,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_val is used to compute the payout kBalance - _val before state is updated.",
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "from_id": 14,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "_fee is a transient local that only holds the result of the fee division and should be folded into the arithmetic operation producing it.",
+      "normal_node": "_fee",
+      "merge_into": "msg.value / feeRate"
+    },
+    {
+      "reason": "_val is the transient net-bid local that is directly consumed as the divisor of the timer extension arithmetic.",
+      "normal_node": "_val",
+      "merge_into": "timeOut += (10 minutes) * (9 finney) / _val"
+    }
+  ]
+}

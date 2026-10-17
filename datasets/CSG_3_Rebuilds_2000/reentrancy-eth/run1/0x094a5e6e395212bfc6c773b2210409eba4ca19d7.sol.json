@@ -1,0 +1,342 @@
+{
+  "nodes": [
+    {
+      "id": "state_Acc",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Mapping address => Holder named Acc holding each user's unlockTime and balance.",
+      "node_id": 0
+    },
+    {
+      "id": "state_LogFile",
+      "is_core": true,
+      "type": "state_var",
+      "description": "External Log contract reference set once in the constructor.",
+      "node_id": 1
+    },
+    {
+      "id": "state_MinSum",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Public minimum balance threshold, initialized to 1 ether.",
+      "node_id": 2
+    },
+    {
+      "id": "state_holder_balance",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Holder.balance field inside Acc, the withdrawable deposit tracked per address.",
+      "node_id": 3
+    },
+    {
+      "id": "state_holder_unlockTime",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Holder.unlockTime field inside Acc, the time gate for withdrawals.",
+      "node_id": 4
+    },
+    {
+      "id": "state_History",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Log contract Message[] array that stores the message history.",
+      "node_id": 5
+    },
+    {
+      "id": "state_LastMsg",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Log contract scratch Message struct reused before each push.",
+      "node_id": 6
+    },
+    {
+      "id": "func_Put",
+      "is_core": true,
+      "type": "function",
+      "description": "Payable Put(uint _unlockTime) that credits msg.value and sets the caller's unlock time.",
+      "node_id": 7
+    },
+    {
+      "id": "func_Collect",
+      "is_core": true,
+      "type": "function",
+      "description": "Payable Collect(uint _am) that validates the balance/unlock gate then sends ether to msg.sender.",
+      "node_id": 8
+    },
+    {
+      "id": "func_fallback",
+      "is_core": true,
+      "type": "function",
+      "description": "Anonymous payable fallback that forwards to Put(0).",
+      "node_id": 9
+    },
+    {
+      "id": "func_ultra_bank",
+      "is_core": true,
+      "type": "function",
+      "description": "Constructor taking the Log contract address and storing it in LogFile.",
+      "node_id": 10
+    },
+    {
+      "id": "func_AddMessage",
+      "is_core": true,
+      "type": "function",
+      "description": "Log.AddMessage(address,uint,string) that records sender, value, now and data into History.",
+      "node_id": 11
+    },
+    {
+      "id": "untrusted_msg_sender",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "msg.sender, the externally controlled caller used as the Acc mapping key and call target.",
+      "node_id": 12
+    },
+    {
+      "id": "untrusted_block_timestamp",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "now / block.timestamp, miner-influenced time used for unlock gates and log timestamps.",
+      "node_id": 13
+    },
+    {
+      "id": "unsafe_external_call",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "msg.sender.call.value(_am)() low-level ether transfer performed before acc.balance is decremented.",
+      "node_id": 14
+    },
+    {
+      "id": "param__unlockTime",
+      "is_core": false,
+      "type": "parameter",
+      "description": "_unlockTime argument of Put, caller-supplied unlock timestamp.",
+      "node_id": 15
+    },
+    {
+      "id": "param__am",
+      "is_core": false,
+      "type": "parameter",
+      "description": "_am argument of Collect, caller-supplied withdraw amount also used as call value.",
+      "node_id": 16
+    },
+    {
+      "id": "param_log",
+      "is_core": false,
+      "type": "parameter",
+      "description": "log address argument of the constructor used to initialize LogFile.",
+      "node_id": 17
+    },
+    {
+      "id": "param__adr",
+      "is_core": false,
+      "type": "parameter",
+      "description": "_adr argument of AddMessage written into LastMsg.Sender.",
+      "node_id": 18
+    },
+    {
+      "id": "param__val",
+      "is_core": false,
+      "type": "parameter",
+      "description": "_val argument of AddMessage written into LastMsg.Val.",
+      "node_id": 19
+    },
+    {
+      "id": "param__data",
+      "is_core": false,
+      "type": "parameter",
+      "description": "_data argument of AddMessage written into LastMsg.Data.",
+      "node_id": 20
+    },
+    {
+      "id": "local_acc_put",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Storage reference acc = Acc[msg.sender] inside Put.",
+      "node_id": 21
+    },
+    {
+      "id": "local_acc_collect",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Storage reference acc = Acc[msg.sender] inside Collect.",
+      "node_id": 22
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "msg.sender indexes the Acc mapping to load the caller's Holder record."
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "_unlockTime is written into Acc[msg.sender].unlockTime."
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "Put compares now against _unlockTime, so the stored unlock time depends on miner-controlled block.timestamp."
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "reentrancy",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "_am is used directly as the value of the external call to msg.sender."
+    },
+    {
+      "from_id": 8,
+      "vuln_type": "reentrancy",
+      "to_id": 14,
+      "type": "callback",
+      "reason": "Collect invokes an external call to msg.sender, which can re-enter Collect or Put."
+    },
+    {
+      "from_id": 14,
+      "vuln_type": "reentrancy",
+      "to_id": 3,
+      "type": "controlflow",
+      "reason": "acc.balance is only decremented after the external call returns, so the balance can be drained by re-entrancy."
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "msg.sender selects Acc[msg.sender] inside Collect."
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "access_control",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "The withdrawal gate now > acc.unlockTime in Collect depends on block.timestamp."
+    },
+    {
+      "from_id": 2,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "MinSum is read as the minimum balance threshold in Collect."
+    },
+    {
+      "from_id": 7,
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "Put calls Log.AddMessage on the externally supplied Log contract after crediting the deposit."
+    },
+    {
+      "from_id": 8,
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "Collect calls Log.AddMessage after decrementing the balance."
+    },
+    {
+      "from_id": 9,
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "controlflow",
+      "reason": "The fallback function forwards value to Put(0)."
+    },
+    {
+      "from_id": 10,
+      "vuln_type": "access_control",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "The constructor stores a caller-supplied log address into LogFile without validation."
+    },
+    {
+      "from_id": 18,
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "_adr is stored into LastMsg.Sender."
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "access_control",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "AddMessage writes now into LastMsg.Time, making log timestamps miner-dependent."
+    },
+    {
+      "from_id": 19,
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "_val is stored into LastMsg.Val."
+    },
+    {
+      "from_id": 20,
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "_data is stored into LastMsg.Data."
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "controlflow",
+      "reason": "AddMessage appends LastMsg to the History array."
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "_am is compared against acc.balance inside Collect's guard."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "func_Put",
+      "normal_node": "param__unlockTime",
+      "reason": "_unlockTime is only ever consumed by Put, so it can be inlined into the Put node."
+    },
+    {
+      "merge_into": "func_Collect",
+      "normal_node": "param__am",
+      "reason": "_am exists solely to parameterize Collect's guard and withdrawal amount."
+    },
+    {
+      "merge_into": "func_ultra_bank",
+      "normal_node": "param_log",
+      "reason": "log is only used by the constructor to set LogFile."
+    },
+    {
+      "merge_into": "func_AddMessage",
+      "normal_node": "param__adr",
+      "reason": "_adr is only written into LastMsg.Sender inside AddMessage."
+    },
+    {
+      "merge_into": "func_AddMessage",
+      "normal_node": "param__val",
+      "reason": "_val is only written into LastMsg.Val inside AddMessage."
+    },
+    {
+      "merge_into": "func_AddMessage",
+      "normal_node": "param__data",
+      "reason": "_data is only written into LastMsg.Data inside AddMessage."
+    },
+    {
+      "merge_into": "func_Put",
+      "normal_node": "local_acc_put",
+      "reason": "acc is a storage pointer scoped to Put and carries no independent semantics."
+    },
+    {
+      "merge_into": "func_Collect",
+      "normal_node": "local_acc_collect",
+      "reason": "acc is a storage pointer scoped to Collect and carries no independent semantics."
+    }
+  ]
+}

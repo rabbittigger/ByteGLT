@@ -1,0 +1,356 @@
+{
+  "nodes": [
+    {
+      "id": "IMPLEMENTATION_SLOT",
+      "is_core": true,
+      "description": "Constant storage slot holding the implementation address used by the proxy's delegatecall target.",
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "ADMIN_SLOT",
+      "is_core": true,
+      "description": "Constant storage slot holding the proxy admin address used to authorize setImplementation.",
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "constructor",
+      "is_core": true,
+      "description": "Initializes the proxy by writing the implementation address and setting msg.sender as admin.",
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "setImplementation",
+      "is_core": true,
+      "description": "Public admin-gated function that overwrites the implementation slot; authorization relies on msg.sender compared to the admin slot.",
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "implementation",
+      "is_core": true,
+      "description": "Public view that reads and returns the current implementation address from the implementation slot.",
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "_getAddress",
+      "is_core": true,
+      "description": "Internal helper that reads a slot and casts it to an address.",
+      "node_id": 5,
+      "type": "function"
+    },
+    {
+      "id": "_getSlotValue",
+      "is_core": true,
+      "description": "Internal helper performing assembly sload on a given slot.",
+      "node_id": 6,
+      "type": "function"
+    },
+    {
+      "id": "_setSlotValue",
+      "is_core": true,
+      "description": "Internal helper performing assembly sstore on a given slot; writes implementation and admin slots.",
+      "node_id": 7,
+      "type": "function"
+    },
+    {
+      "id": "_delegate",
+      "is_core": true,
+      "description": "Internal function that delegatecalls the implementation with the full calldata and forwards return data.",
+      "node_id": 8,
+      "type": "function"
+    },
+    {
+      "id": "fallback",
+      "is_core": true,
+      "description": "Payable fallback that delegates all unmatched calls to the implementation address read from the implementation slot.",
+      "node_id": 9,
+      "type": "function"
+    },
+    {
+      "id": "msg.sender",
+      "is_core": true,
+      "description": "Caller-controlled address; stored as admin in the constructor and checked in setImplementation.",
+      "node_id": 10,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "delegatecall_op",
+      "is_core": true,
+      "description": "Assembly delegatecall to an upgradeable implementation address, executing arbitrary code in the proxy's storage context.",
+      "node_id": 11,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "param_impl_constructor",
+      "is_core": false,
+      "description": "Constructor parameter impl: initial implementation address written into IMPLEMENTATION_SLOT.",
+      "node_id": 12,
+      "type": "parameter"
+    },
+    {
+      "id": "param_newImpl_setImplementation",
+      "is_core": false,
+      "description": "Parameter newImpl: new implementation address written into IMPLEMENTATION_SLOT.",
+      "node_id": 13,
+      "type": "parameter"
+    },
+    {
+      "id": "param_key_getAddress",
+      "is_core": false,
+      "description": "Parameter key: storage slot key forwarded to _getSlotValue.",
+      "node_id": 14,
+      "type": "parameter"
+    },
+    {
+      "id": "param_slot_getSlotValue",
+      "is_core": false,
+      "description": "Parameter slot_ of _getSlotValue: slot read via assembly sload.",
+      "node_id": 15,
+      "type": "parameter"
+    },
+    {
+      "id": "ret_value_getSlotValue",
+      "is_core": false,
+      "description": "Return variable value_ of _getSlotValue: raw bytes32 read from storage.",
+      "node_id": 16,
+      "type": "parameter"
+    },
+    {
+      "id": "param_slot_setSlotValue",
+      "is_core": false,
+      "description": "Parameter slot_ of _setSlotValue: target slot for assembly sstore.",
+      "node_id": 17,
+      "type": "parameter"
+    },
+    {
+      "id": "param_value_setSlotValue",
+      "is_core": false,
+      "description": "Parameter value_ of _setSlotValue: value written to the target slot.",
+      "node_id": 18,
+      "type": "parameter"
+    },
+    {
+      "id": "param_implementation_delegate",
+      "is_core": false,
+      "description": "Parameter implementation__ of _delegate: address targeted by delegatecall.",
+      "node_id": 19,
+      "type": "parameter"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "from_id": 10,
+      "type": "dataflow",
+      "reason": "msg.sender is written into ADMIN_SLOT by the constructor, making the admin privilege depend on the untrusted caller (e.g. via an unprotected initialization/deployment path)."
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "from_id": 10,
+      "type": "dataflow",
+      "reason": "setImplementation's authorization is require(msg.sender == _getAddress(ADMIN_SLOT)), so the untrusted caller directly gates a privileged upgrade action."
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "controlflow",
+      "reason": "The constructor calls _setSlotValue twice to persist the implementation and admin slots."
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow",
+      "reason": "The implementation address supplied to the constructor is stored in IMPLEMENTATION_SLOT."
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow",
+      "reason": "The constructor stores msg.sender into ADMIN_SLOT."
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "controlflow",
+      "reason": "setImplementation calls _getAddress(ADMIN_SLOT) to read the current admin for the authorization check."
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "controlflow",
+      "reason": "setImplementation calls _setSlotValue to overwrite the implementation slot after the check."
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow",
+      "reason": "setImplementation writes a new value into IMPLEMENTATION_SLOT."
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "from_id": 1,
+      "type": "dataflow",
+      "reason": "The admin value stored in ADMIN_SLOT is the sole authorization source for the upgrade action; corruption of that slot yields privilege escalation."
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "controlflow",
+      "reason": "implementation() reads the implementation slot through _getSlotValue."
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "controlflow",
+      "reason": "_getAddress delegates the raw storage read to _getSlotValue before casting to address."
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "controlflow",
+      "reason": "The fallback resolves the implementation address via _getAddress(IMPLEMENTATION_SLOT)."
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "controlflow",
+      "reason": "The fallback forwards the resolved implementation address into _delegate."
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow",
+      "reason": "The address returned by _getAddress flows into _delegate as the delegatecall target, which is fully controllable if the implementation slot is writable."
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow",
+      "reason": "IMPLEMENTATION_SLOT is read by the fallback path to determine the delegatecall destination."
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "from_id": 8,
+      "type": "controlflow",
+      "reason": "_delegate performs an unchecked assembly delegatecall to an external contract with full calldata, allowing arbitrary code execution in the proxy's context; if the implementation is attacker-controlled this becomes a critical reentrancy/arbitrary-call vector."
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 12,
+      "type": "dataflow",
+      "reason": "Constructor parameter impl is packed and written into IMPLEMENTATION_SLOT."
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 13,
+      "type": "dataflow",
+      "reason": "Parameter newImpl is packed and written into IMPLEMENTATION_SLOT."
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 14,
+      "type": "dataflow",
+      "reason": "Parameter key is forwarded to _getSlotValue for the sload."
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 15,
+      "type": "dataflow",
+      "reason": "Parameter slot_ is used inside the assembly sload of _getSlotValue."
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 16,
+      "type": "dataflow",
+      "reason": "Return variable value_ receives the bytes32 loaded from storage in _getSlotValue."
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 17,
+      "type": "dataflow",
+      "reason": "Parameter slot_ is used inside the assembly sstore of _setSlotValue."
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 18,
+      "type": "dataflow",
+      "reason": "Parameter value_ is written to storage by the assembly sstore of _setSlotValue."
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "reentrancy",
+      "from_id": 19,
+      "type": "dataflow",
+      "reason": "Parameter implementation__ is the attacker-influenceable target of the delegatecall inside _delegate."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param_impl_constructor",
+      "merge_into": "constructor",
+      "reason": "The constructor parameter impl only exists to seed IMPLEMENTATION_SLOT and has no independent semantics outside the constructor's initialization flow."
+    },
+    {
+      "normal_node": "param_newImpl_setImplementation",
+      "merge_into": "setImplementation",
+      "reason": "The newImpl parameter is only used to overwrite the implementation slot inside the admin-gated setImplementation."
+    },
+    {
+      "normal_node": "param_key_getAddress",
+      "merge_into": "_getAddress",
+      "reason": "The key parameter is a pure forwarding argument to _getSlotValue and can be absorbed into the _getAddress read operation."
+    },
+    {
+      "normal_node": "param_slot_getSlotValue",
+      "merge_into": "_getSlotValue",
+      "reason": "The slot_ parameter is consumed directly by the inline assembly sload and carries no separate graph semantics."
+    },
+    {
+      "normal_node": "ret_value_getSlotValue",
+      "merge_into": "_getSlotValue",
+      "reason": "The value_ return variable is produced by the sload inside _getSlotValue and should be folded into that core function."
+    },
+    {
+      "normal_node": "param_slot_setSlotValue",
+      "merge_into": "_setSlotValue",
+      "reason": "The slot_ parameter is consumed directly by the inline assembly sstore and belongs to the _setSlotValue write operation."
+    },
+    {
+      "normal_node": "param_value_setSlotValue",
+      "merge_into": "_setSlotValue",
+      "reason": "The value_ parameter is the data written by the assembly sstore and should be merged into _setSlotValue."
+    },
+    {
+      "normal_node": "param_implementation_delegate",
+      "merge_into": "delegatecall_op",
+      "reason": "implementation__ is the direct target operand of the assembly delegatecall, so it should be merged into the unsafe_operation node."
+    }
+  ]
+}

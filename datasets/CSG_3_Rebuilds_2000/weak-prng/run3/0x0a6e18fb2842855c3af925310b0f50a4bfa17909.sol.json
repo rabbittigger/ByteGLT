@@ -1,0 +1,231 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Address of the governance account; set to msg.sender in the constructor and writable via setGovernance.",
+      "id": "CoinPokerChipsToken.governance",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Constant maximum token supply minted to governance in the constructor.",
+      "id": "CoinPokerChipsToken.MAX_CAP",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Deploys the token, assigns governance = msg.sender and mints MAX_CAP to governance.",
+      "id": "CoinPokerChipsToken.constructor",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "Governance-guarded setter that replaces the governance address.",
+      "id": "CoinPokerChipsToken.setGovernance",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "Governance-guarded function that performs an external IERC20(token).transfer to an arbitrary destination.",
+      "id": "CoinPokerChipsToken.recoverToken",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "Modifier function enforcing msg.sender == governance as the access-control gate.",
+      "id": "CoinPokerChipsToken.onlyGovernance",
+      "type": "function",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "Caller-supplied address used for governance assignment and access-control checks.",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "External call IERC20(token).transfer(destination, amount) to an attacker-influenced token contract.",
+      "id": "recoverToken.externalCall",
+      "type": "unsafe_operation",
+      "node_id": 7
+    },
+    {
+      "is_core": false,
+      "description": "New governance address passed to setGovernance.",
+      "id": "setGovernance._governance",
+      "type": "parameter",
+      "node_id": 8
+    },
+    {
+      "is_core": false,
+      "description": "Arbitrary ERC20 token address whose transfer is invoked in recoverToken.",
+      "id": "recoverToken.token",
+      "type": "parameter",
+      "node_id": 9
+    },
+    {
+      "is_core": false,
+      "description": "Recipient address for the recovered tokens.",
+      "id": "recoverToken.destination",
+      "type": "parameter",
+      "node_id": 10
+    },
+    {
+      "is_core": false,
+      "description": "Amount of tokens to transfer in recoverToken.",
+      "id": "recoverToken.amount",
+      "type": "parameter",
+      "node_id": 11
+    },
+    {
+      "is_core": true,
+      "description": "EIP-2612 permit entry point validating a signature against block.timestamp deadline and incrementing the nonce.",
+      "id": "ERC20Permit.permit",
+      "type": "function",
+      "node_id": 12
+    },
+    {
+      "is_core": true,
+      "description": "Miner-influenced timestamp compared against the permit deadline.",
+      "id": "block.timestamp",
+      "type": "untrusted_input",
+      "node_id": 13
+    },
+    {
+      "is_core": true,
+      "description": "Internal mint routine invoked by the constructor to issue MAX_CAP tokens.",
+      "id": "ERC20._mint",
+      "type": "function",
+      "node_id": 14
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "reason": "msg.sender is written into the governance state variable during construction, giving the caller privileged control.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "reason": "The constructor derives privileged role assignment directly from the untrusted msg.sender value.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "reason": "The onlyGovernance modifier compares the untrusted msg.sender against the stored governance address.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "reason": "setGovernance execution is gated by the onlyGovernance modifier.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "reason": "recoverToken execution is gated by the onlyGovernance modifier.",
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "reason": "The _governance parameter is written into the governance state variable, transferring privileged control.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "reentrancy",
+      "reason": "The caller-supplied token address determines the target of the external transfer call, enabling a malicious contract to re-enter.",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "reentrancy",
+      "reason": "The destination parameter flows into the external transfer call performed on an attacker-controlled token.",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "reentrancy",
+      "reason": "The amount parameter flows into the external transfer call, controlling the value moved during the callback.",
+      "type": "dataflow",
+      "from_id": 11
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "reentrancy",
+      "reason": "recoverToken performs the external IERC20 transfer before any state finalization, exposing a reentrancy path.",
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "The constructor reads MAX_CAP to determine the mint amount.",
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "none",
+      "reason": "The constructor invokes the internal _mint routine to create the initial supply.",
+      "type": "controlflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "access_control",
+      "reason": "permit compares the untrusted block.timestamp against the supplied deadline, creating a timestamp dependency.",
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "access_control",
+      "reason": "The block.timestamp deadline check governs whether permit execution continues.",
+      "type": "controlflow",
+      "from_id": 13
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "CoinPokerChipsToken.setGovernance",
+      "reason": "The parameter _governance is only meaningful as input to setGovernance and is merged into that core function.",
+      "normal_node": "setGovernance._governance"
+    },
+    {
+      "merge_into": "recoverToken.externalCall",
+      "reason": "The token parameter directly selects the target of the external transfer unsafe operation.",
+      "normal_node": "recoverToken.token"
+    },
+    {
+      "merge_into": "CoinPokerChipsToken.recoverToken",
+      "reason": "The destination parameter is only used within recoverToken and is merged into that core function.",
+      "normal_node": "recoverToken.destination"
+    },
+    {
+      "merge_into": "CoinPokerChipsToken.recoverToken",
+      "reason": "The amount parameter only controls the value passed to the external call inside recoverToken.",
+      "normal_node": "recoverToken.amount"
+    }
+  ]
+}

@@ -1,0 +1,987 @@
+{
+  "nodes": [
+    {
+      "id": "state_owner",
+      "is_core": true,
+      "node_id": 0,
+      "description": "BotProtected.owner internal address: privileged owner, assigned tx.origin in WrappedSienna constructor, gates delegate() and list().",
+      "type": "state_var"
+    },
+    {
+      "id": "state_protectionFromBots",
+      "is_core": true,
+      "node_id": 1,
+      "description": "BotProtected.protectionFromBots: address of the external Ferrum bot-protection contract invoked through low-level calls.",
+      "type": "state_var"
+    },
+    {
+      "id": "state_uniPair",
+      "is_core": true,
+      "node_id": 2,
+      "description": "BotProtected.uniPair public address: Uniswap pair computed in the constructor and forwarded to the bot-protection call.",
+      "type": "state_var"
+    },
+    {
+      "id": "func_checkBots",
+      "is_core": true,
+      "node_id": 3,
+      "description": "BotProtected.checkBots modifier: performs a raw call to protectionFromBots with selector 0x15274141 and requires the returned flag, on every transferFrom.",
+      "type": "function"
+    },
+    {
+      "id": "func_BotProtected_constructor",
+      "is_core": true,
+      "node_id": 4,
+      "description": "BotProtected constructor: stores the bot protection contract address. Note: owner is never initialized here.",
+      "type": "function"
+    },
+    {
+      "id": "untrusted_msg_sender",
+      "is_core": true,
+      "node_id": 5,
+      "description": "msg.sender: caller of transfer/transferFrom/approve and the value compared against owner in delegate()/list().",
+      "type": "untrusted_input"
+    },
+    {
+      "id": "untrusted_block_timestamp",
+      "is_core": true,
+      "node_id": 6,
+      "description": "block.timestamp: miner-controllable deadline passed to the Uniswap router in list().",
+      "type": "untrusted_input"
+    },
+    {
+      "id": "untrusted_tx_origin",
+      "is_core": true,
+      "node_id": 7,
+      "description": "tx.origin: used as owner and granted unlimited allowance over uniPair, enabling phishing-based privilege takeover.",
+      "type": "untrusted_input"
+    },
+    {
+      "id": "unsafe_call_checkBots",
+      "is_core": true,
+      "node_id": 8,
+      "description": "Low-level call protectionFromBots.call(...) inside checkBots: external arbitrary code execution on every transfer, return data length not validated.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_delegatecall",
+      "is_core": true,
+      "node_id": 9,
+      "description": "a.delegatecall(b) in delegate(): arbitrary delegatecall preserving storage context, guarded only by the tx.origin-derived owner check.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_addLiquidityETH",
+      "is_core": true,
+      "node_id": 10,
+      "description": "External call to routerForUniswap.addLiquidityETH forwarding msg.value with a timestamp-based deadline.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "func_WrappedSienna_constructor",
+      "is_core": true,
+      "node_id": 11,
+      "description": "WrappedSienna constructor: sets owner = tx.origin, computes uniPair, grants unlimited allowances to the router and to tx.origin.",
+      "type": "function"
+    },
+    {
+      "id": "func_transfer",
+      "is_core": true,
+      "node_id": 12,
+      "description": "transfer(_to,_value) public payable: forwards to transferFrom(msg.sender,_to,_value).",
+      "type": "function"
+    },
+    {
+      "id": "func_transferFrom",
+      "is_core": true,
+      "node_id": 13,
+      "description": "transferFrom(_from,_to,_value) public payable with checkBots: unchecked allowance/balance bookkeeping without SafeMath.",
+      "type": "function"
+    },
+    {
+      "id": "func_approve",
+      "is_core": true,
+      "node_id": 14,
+      "description": "approve(_spender,_value) public payable: sets allowance[msg.sender][_spender].",
+      "type": "function"
+    },
+    {
+      "id": "func_delegate",
+      "is_core": true,
+      "node_id": 15,
+      "description": "delegate(address a, bytes b) public payable: owner-gated arbitrary delegatecall.",
+      "type": "function"
+    },
+    {
+      "id": "func_pairFor",
+      "is_core": true,
+      "node_id": 16,
+      "description": "pairFor(tokenA,tokenB) internal pure: deterministic UniswapV2 pair address derivation.",
+      "type": "function"
+    },
+    {
+      "id": "func_list",
+      "is_core": true,
+      "node_id": 17,
+      "description": "list(_numList,_reallyGoHere,_amounts) public payable: owner-gated liquidity provisioning plus external bot-protection call and unchecked balance overwrites.",
+      "type": "function"
+    },
+    {
+      "id": "state_balanceOf",
+      "is_core": true,
+      "node_id": 18,
+      "description": "mapping(address=>uint) balanceOf: token balances mutated without overflow checks.",
+      "type": "state_var"
+    },
+    {
+      "id": "state_allowance",
+      "is_core": true,
+      "node_id": 19,
+      "description": "mapping(address=>mapping(address=>uint)) allowance: approval state including the unlimited router and tx.origin allowances.",
+      "type": "state_var"
+    },
+    {
+      "id": "state_totalSupply",
+      "is_core": true,
+      "node_id": 20,
+      "description": "totalSupply initialized to 66666000000000000000000 and used in unchecked arithmetic in list().",
+      "type": "state_var"
+    },
+    {
+      "id": "state_decimals",
+      "is_core": true,
+      "node_id": 21,
+      "description": "decimals constant = 18.",
+      "type": "state_var"
+    },
+    {
+      "id": "state_name",
+      "is_core": true,
+      "node_id": 22,
+      "description": "name = \"SiennaVEST\".",
+      "type": "state_var"
+    },
+    {
+      "id": "state_symbol",
+      "is_core": true,
+      "node_id": 23,
+      "description": "symbol = \"vestSIENNA\".",
+      "type": "state_var"
+    },
+    {
+      "id": "state_routerForUniswap",
+      "is_core": true,
+      "node_id": 24,
+      "description": "routerForUniswap: UniswapV2 router instance at 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D.",
+      "type": "state_var"
+    },
+    {
+      "id": "state_wETH",
+      "is_core": true,
+      "node_id": 25,
+      "description": "wETH address constant used for the liquidity pair derivation.",
+      "type": "state_var"
+    },
+    {
+      "id": "unsafe_arith_transferFrom",
+      "is_core": true,
+      "node_id": 26,
+      "description": "Unchecked arithmetic in transferFrom: allowance[_from][msg.sender] -= _value, balanceOf[_from] -= _value, balanceOf[_to] += _value with no SafeMath on Solidity 0.7.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_call_list",
+      "is_core": true,
+      "node_id": 27,
+      "description": "Unchecked low-level call protectionFromBots.call(0xd5eaf4c3, _reallyGoHere) inside list(); return value ignored.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_arith_list",
+      "is_core": true,
+      "node_id": 28,
+      "description": "Unchecked arithmetic in list(): totalSupply * 6 / 100 and direct balanceOf overwrites with unvalidated values.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "param_botProtection_BotProtected",
+      "is_core": false,
+      "node_id": 29,
+      "description": "_botProtection constructor argument of BotProtected.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_checkBots_from",
+      "is_core": false,
+      "node_id": 30,
+      "description": "_from argument of the checkBots modifier.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_checkBots_to",
+      "is_core": false,
+      "node_id": 31,
+      "description": "_to argument of the checkBots modifier.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_checkBots_value",
+      "is_core": false,
+      "node_id": 32,
+      "description": "_value argument of the checkBots modifier.",
+      "type": "parameter"
+    },
+    {
+      "id": "local_notABot",
+      "is_core": false,
+      "node_id": 33,
+      "description": "notABot: success flag returned by the bot-protection call in checkBots.",
+      "type": "local_var"
+    },
+    {
+      "id": "local_isNotBot",
+      "is_core": false,
+      "node_id": 34,
+      "description": "isNotBot: raw returndata of the bot-protection call in checkBots.",
+      "type": "local_var"
+    },
+    {
+      "id": "param_botProtection_WrappedSienna",
+      "is_core": false,
+      "node_id": 35,
+      "description": "_botProtection constructor argument of WrappedSienna forwarded to BotProtected.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_transfer_to",
+      "is_core": false,
+      "node_id": 36,
+      "description": "_to argument of transfer.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_transfer_value",
+      "is_core": false,
+      "node_id": 37,
+      "description": "_value argument of transfer.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_transferFrom_from",
+      "is_core": false,
+      "node_id": 38,
+      "description": "_from argument of transferFrom.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_transferFrom_to",
+      "is_core": false,
+      "node_id": 39,
+      "description": "_to argument of transferFrom.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_transferFrom_value",
+      "is_core": false,
+      "node_id": 40,
+      "description": "_value argument of transferFrom.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_approve_spender",
+      "is_core": false,
+      "node_id": 41,
+      "description": "_spender argument of approve.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_approve_value",
+      "is_core": false,
+      "node_id": 42,
+      "description": "_value argument of approve.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_delegate_a",
+      "is_core": false,
+      "node_id": 43,
+      "description": "a: delegatecall target address in delegate().",
+      "type": "parameter"
+    },
+    {
+      "id": "param_delegate_b",
+      "is_core": false,
+      "node_id": 44,
+      "description": "b: delegatecall calldata in delegate().",
+      "type": "parameter"
+    },
+    {
+      "id": "param_pairFor_tokenA",
+      "is_core": false,
+      "node_id": 45,
+      "description": "tokenA argument of pairFor.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_pairFor_tokenB",
+      "is_core": false,
+      "node_id": 46,
+      "description": "tokenB argument of pairFor.",
+      "type": "parameter"
+    },
+    {
+      "id": "local_pairFor_token0",
+      "is_core": false,
+      "node_id": 47,
+      "description": "token0: lower-sorted token address in pairFor.",
+      "type": "local_var"
+    },
+    {
+      "id": "local_pairFor_token1",
+      "is_core": false,
+      "node_id": 48,
+      "description": "token1: higher-sorted token address in pairFor.",
+      "type": "local_var"
+    },
+    {
+      "id": "local_pairFor_pair",
+      "is_core": false,
+      "node_id": 49,
+      "description": "pair: derived pair address returned by pairFor.",
+      "type": "local_var"
+    },
+    {
+      "id": "param_list_numList",
+      "is_core": false,
+      "node_id": 50,
+      "description": "_numList: liquidity amount and balance assigned to the contract in list().",
+      "type": "parameter"
+    },
+    {
+      "id": "param_list_reallyGoHere",
+      "is_core": false,
+      "node_id": 51,
+      "description": "_reallyGoHere: recipient address array in list(), also forwarded to the bot-protection contract.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_list_amounts",
+      "is_core": false,
+      "node_id": 52,
+      "description": "_amounts: balances written into balanceOf in list().",
+      "type": "parameter"
+    },
+    {
+      "id": "local_list_i",
+      "is_core": false,
+      "node_id": 53,
+      "description": "i: loop index over _reallyGoHere/_amounts in list().",
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 5,
+      "to_id": 12,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "msg.sender is forwarded as _from when transfer delegates to transferFrom."
+    },
+    {
+      "from_id": 5,
+      "to_id": 13,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "msg.sender is used as spender in allowance[_from][msg.sender] and as the transfer caller."
+    },
+    {
+      "from_id": 5,
+      "to_id": 14,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "msg.sender is the allowance owner keyed in approve."
+    },
+    {
+      "from_id": 5,
+      "to_id": 15,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "msg.sender is compared to owner to gate the delegatecall entry point."
+    },
+    {
+      "from_id": 5,
+      "to_id": 17,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "msg.sender is compared to owner to gate list() and receives minted balances."
+    },
+    {
+      "from_id": 7,
+      "to_id": 0,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "owner is assigned tx.origin, so phishing any owner action grants full privileges."
+    },
+    {
+      "from_id": 7,
+      "to_id": 11,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "constructor sets allowance[tx.origin][uniPair] = uint(-1), an unbounded approval to the origin."
+    },
+    {
+      "from_id": 0,
+      "to_id": 15,
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "reason": "require(msg.sender == owner) guards the delegate function."
+    },
+    {
+      "from_id": 0,
+      "to_id": 17,
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "reason": "require(msg.sender == owner) guards the list function."
+    },
+    {
+      "from_id": 15,
+      "to_id": 9,
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "reason": "delegate executes a delegatecall whose target is attacker-controlled once the tx.origin-derived owner check passes."
+    },
+    {
+      "from_id": 43,
+      "to_id": 9,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "Target address a flows directly into the delegatecall."
+    },
+    {
+      "from_id": 44,
+      "to_id": 9,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "Calldata b flows directly into the delegatecall."
+    },
+    {
+      "from_id": 29,
+      "to_id": 1,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "Constructor parameter is stored into protectionFromBots."
+    },
+    {
+      "from_id": 3,
+      "to_id": 8,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "checkBots executes the low-level external call to the bot-protection contract."
+    },
+    {
+      "from_id": 8,
+      "to_id": 1,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The call target is the protectionFromBots address state variable."
+    },
+    {
+      "from_id": 8,
+      "to_id": 2,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "uniPair is encoded as an argument of the bot-protection call."
+    },
+    {
+      "from_id": 30,
+      "to_id": 3,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_from flows into the checkBots modifier body."
+    },
+    {
+      "from_id": 31,
+      "to_id": 3,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_to flows into the checkBots modifier body."
+    },
+    {
+      "from_id": 32,
+      "to_id": 3,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_value flows into the checkBots modifier body."
+    },
+    {
+      "from_id": 33,
+      "to_id": 8,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "notABot holds the boolean flag returned by the raw call and gated with require."
+    },
+    {
+      "from_id": 34,
+      "to_id": 8,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "isNotBot holds the unvalidated returndata of the raw call."
+    },
+    {
+      "from_id": 13,
+      "to_id": 3,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "transferFrom is wrapped by the checkBots modifier."
+    },
+    {
+      "from_id": 12,
+      "to_id": 13,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "transfer delegates all logic to transferFrom."
+    },
+    {
+      "from_id": 36,
+      "to_id": 12,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_to parameter of transfer."
+    },
+    {
+      "from_id": 37,
+      "to_id": 12,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_value parameter of transfer."
+    },
+    {
+      "from_id": 36,
+      "to_id": 13,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_to is forwarded from transfer into transferFrom."
+    },
+    {
+      "from_id": 37,
+      "to_id": 13,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_value is forwarded from transfer into transferFrom."
+    },
+    {
+      "from_id": 38,
+      "to_id": 13,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_from keys the allowance and balance debits in transferFrom."
+    },
+    {
+      "from_id": 39,
+      "to_id": 13,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_to receives the credited balance."
+    },
+    {
+      "from_id": 40,
+      "to_id": 13,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_value is the amount moved in transferFrom."
+    },
+    {
+      "from_id": 40,
+      "to_id": 26,
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "reason": "_value is subtracted/added without overflow protection on Solidity 0.7."
+    },
+    {
+      "from_id": 13,
+      "to_id": 26,
+      "type": "controlflow",
+      "vuln_type": "arithmetic",
+      "reason": "transferFrom performs unchecked -= and += on allowances and balances."
+    },
+    {
+      "from_id": 26,
+      "to_id": 18,
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "reason": "Unchecked balance updates are written into the balanceOf mapping."
+    },
+    {
+      "from_id": 26,
+      "to_id": 19,
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "reason": "Unchecked allowance decrement is written into the allowance mapping."
+    },
+    {
+      "from_id": 13,
+      "to_id": 18,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "transferFrom mutates balanceOf for sender and recipient."
+    },
+    {
+      "from_id": 13,
+      "to_id": 19,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "transferFrom mutates allowance[_from][msg.sender]."
+    },
+    {
+      "from_id": 41,
+      "to_id": 14,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_spender parameter of approve."
+    },
+    {
+      "from_id": 42,
+      "to_id": 14,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_value parameter of approve."
+    },
+    {
+      "from_id": 14,
+      "to_id": 19,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "approve writes the allowance mapping."
+    },
+    {
+      "from_id": 11,
+      "to_id": 16,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "The constructor derives the Uniswap pair through pairFor."
+    },
+    {
+      "from_id": 45,
+      "to_id": 16,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "tokenA parameter of pairFor."
+    },
+    {
+      "from_id": 46,
+      "to_id": 16,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "tokenB parameter of pairFor."
+    },
+    {
+      "from_id": 47,
+      "to_id": 16,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "token0 local is compared and hashed in pairFor."
+    },
+    {
+      "from_id": 48,
+      "to_id": 16,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "token1 local is compared and hashed in pairFor."
+    },
+    {
+      "from_id": 49,
+      "to_id": 16,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "pair local holds the computed CREATE2-style pair address."
+    },
+    {
+      "from_id": 16,
+      "to_id": 2,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "pairFor result is stored into uniPair."
+    },
+    {
+      "from_id": 11,
+      "to_id": 2,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "Constructor assigns uniPair."
+    },
+    {
+      "from_id": 11,
+      "to_id": 19,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "Constructor writes unlimited allowances into the allowance mapping."
+    },
+    {
+      "from_id": 11,
+      "to_id": 24,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "Constructor references routerForUniswap when granting allowance."
+    },
+    {
+      "from_id": 11,
+      "to_id": 25,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "Constructor uses wETH to compute the pair."
+    },
+    {
+      "from_id": 35,
+      "to_id": 11,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "WrappedSienna constructor forwards _botProtection to BotProtected."
+    },
+    {
+      "from_id": 17,
+      "to_id": 10,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "list() invokes routerForUniswap.addLiquidityETH with msg.value."
+    },
+    {
+      "from_id": 10,
+      "to_id": 24,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The external call receiver is routerForUniswap."
+    },
+    {
+      "from_id": 10,
+      "to_id": 6,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "Swap deadline is block.timestamp + 600, a miner-influenced timestamp dependency."
+    },
+    {
+      "from_id": 17,
+      "to_id": 6,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "list() uses block.timestamp to build the liquidity deadline."
+    },
+    {
+      "from_id": 50,
+      "to_id": 17,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_numList sets balanceOf[address(this)] and the liquidity amount."
+    },
+    {
+      "from_id": 51,
+      "to_id": 17,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_reallyGoHere supplies the recipient addresses credited in list()."
+    },
+    {
+      "from_id": 52,
+      "to_id": 17,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_amounts supplies the balances written into balanceOf."
+    },
+    {
+      "from_id": 53,
+      "to_id": 17,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "Loop index i drives the balance distribution loop."
+    },
+    {
+      "from_id": 51,
+      "to_id": 27,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_reallyGoHere is encoded into the low-level call to the bot-protection contract."
+    },
+    {
+      "from_id": 17,
+      "to_id": 27,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "list() performs the unchecked low-level call to protectionFromBots."
+    },
+    {
+      "from_id": 27,
+      "to_id": 1,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The call target is protectionFromBots."
+    },
+    {
+      "from_id": 17,
+      "to_id": 28,
+      "type": "controlflow",
+      "vuln_type": "arithmetic",
+      "reason": "list() computes totalSupply * 6 / 100 and overwrites balances without checks."
+    },
+    {
+      "from_id": 28,
+      "to_id": 20,
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "reason": "Unchecked arithmetic reads totalSupply for minting."
+    },
+    {
+      "from_id": 17,
+      "to_id": 18,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "list() overwrites balanceOf entries for arbitrary addresses."
+    },
+    {
+      "from_id": 52,
+      "to_id": 18,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_amounts values are written directly into the balanceOf mapping."
+    },
+    {
+      "from_id": 53,
+      "to_id": 51,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "Loop index i indexes _reallyGoHere."
+    },
+    {
+      "from_id": 53,
+      "to_id": 52,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "Loop index i indexes _amounts."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param_botProtection_BotProtected",
+      "merge_into": "func_BotProtected_constructor",
+      "reason": "Constructor parameter is only used to initialize the protectionFromBots state variable."
+    },
+    {
+      "normal_node": "param_checkBots_from",
+      "merge_into": "func_checkBots",
+      "reason": "Modifier argument consumed by the checkBots core call site."
+    },
+    {
+      "normal_node": "param_checkBots_to",
+      "merge_into": "func_checkBots",
+      "reason": "Modifier argument consumed by the checkBots core call site."
+    },
+    {
+      "normal_node": "param_checkBots_value",
+      "merge_into": "func_checkBots",
+      "reason": "Modifier argument consumed by the checkBots core call site."
+    },
+    {
+      "normal_node": "local_notABot",
+      "merge_into": "unsafe_call_checkBots",
+      "reason": "Local only holds the boolean returned by the unsafe bot-protection call."
+    },
+    {
+      "normal_node": "local_isNotBot",
+      "merge_into": "unsafe_call_checkBots",
+      "reason": "Local only holds the unused returndata of the unsafe bot-protection call."
+    },
+    {
+      "normal_node": "param_botProtection_WrappedSienna",
+      "merge_into": "func_WrappedSienna_constructor",
+      "reason": "Constructor parameter is forwarded to BotProtected during construction."
+    },
+    {
+      "normal_node": "param_transfer_to",
+      "merge_into": "func_transfer",
+      "reason": "transfer parameter forwarded into transferFrom."
+    },
+    {
+      "normal_node": "param_transfer_value",
+      "merge_into": "func_transfer",
+      "reason": "transfer parameter forwarded into transferFrom."
+    },
+    {
+      "normal_node": "param_transferFrom_from",
+      "merge_into": "func_transferFrom",
+      "reason": "transferFrom parameter used for allowance and balance debits."
+    },
+    {
+      "normal_node": "param_transferFrom_to",
+      "merge_into": "func_transferFrom",
+      "reason": "transferFrom parameter used for the balance credit."
+    },
+    {
+      "normal_node": "param_transferFrom_value",
+      "merge_into": "func_transferFrom",
+      "reason": "transferFrom parameter driving the unchecked arithmetic."
+    },
+    {
+      "normal_node": "param_approve_spender",
+      "merge_into": "func_approve",
+      "reason": "approve parameter indexing the allowance mapping."
+    },
+    {
+      "normal_node": "param_approve_value",
+      "merge_into": "func_approve",
+      "reason": "approve parameter written into the allowance mapping."
+    },
+    {
+      "normal_node": "param_delegate_a",
+      "merge_into": "unsafe_delegatecall",
+      "reason": "delegate parameter used as the delegatecall target."
+    },
+    {
+      "normal_node": "param_delegate_b",
+      "merge_into": "unsafe_delegatecall",
+      "reason": "delegate parameter used as the delegatecall payload."
+    },
+    {
+      "normal_node": "param_pairFor_tokenA",
+      "merge_into": "func_pairFor",
+      "reason": "pairFor parameter used in the pair derivation."
+    },
+    {
+      "normal_node": "param_pairFor_tokenB",
+      "merge_into": "func_pairFor",
+      "reason": "pairFor parameter used in the pair derivation."
+    },
+    {
+      "normal_node": "local_pairFor_token0",
+      "merge_into": "func_pairFor",
+      "reason": "Temporary sorted token address inside pairFor."
+    },
+    {
+      "normal_node": "local_pairFor_token1",
+      "merge_into": "func_pairFor",
+      "reason": "Temporary sorted token address inside pairFor."
+    },
+    {
+      "normal_node": "local_pairFor_pair",
+      "merge_into": "func_pairFor",
+      "reason": "Return value of the pairFor core function."
+    },
+    {
+      "normal_node": "param_list_numList",
+      "merge_into": "func_list",
+      "reason": "list parameter used for balances and liquidity amount."
+    },
+    {
+      "normal_node": "param_list_reallyGoHere",
+      "merge_into": "func_list",
+      "reason": "list parameter used for balance writes and forwarded to the external call."
+    },
+    {
+      "normal_node": "param_list_amounts",
+      "merge_into": "func_list",
+      "reason": "list parameter written into balanceOf."
+    },
+    {
+      "normal_node": "local_list_i",
+      "merge_into": "func_list",
+      "reason": "Loop counter inside list()."
+    }
+  ]
+}

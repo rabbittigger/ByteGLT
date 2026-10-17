@@ -1,0 +1,336 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "description": "Private uint256 state variable holding the pseudo-random number generated from block.timestamp (now) via keccak256 % 10 + 1.",
+      "id": "randomNumber",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "description": "Public uint256 state variable tracking the contract balance / accumulated prize pool.",
+      "id": "prizeFund",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "description": "Public uint256 state variable holding the minimum bet allowed to start a game, default 0.1 ether.",
+      "id": "minBet",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "description": "Address state variable initialized to msg.sender at deployment; grants privileged access.",
+      "id": "owner",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 4,
+      "description": "Public GameHistory[] array storing each player address and guessed number.",
+      "id": "log",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "description": "External onlyOwner function that updates minBet to an arbitrary value supplied by the owner.",
+      "id": "changeMinBet",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 6,
+      "description": "Payable public entry point: records the player's guess in log, compares it with randomNumber, transfers the contract balance to the winner, then regenerates randomNumber and prizeFund.",
+      "id": "startGame",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "description": "Public onlyOwner function transferring an arbitrary amount _am from the contract to owner.",
+      "id": "withdaw",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 8,
+      "description": "Fallback function that accepts plain Ether transfers with no logic.",
+      "id": "fallback",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 9,
+      "description": "Modifier requiring msg.sender == owner before the decorated function body executes.",
+      "id": "onlyOwner",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 10,
+      "description": "Caller-controlled address used for owner initialization, the onlyOwner check, the recorded player address and the prize transfer recipient.",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 11,
+      "description": "Miner-influenced timestamp (now) used as the sole entropy source for the winning number.",
+      "id": "block.timestamp",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 12,
+      "description": "msg.sender.transfer(this.balance) sends the whole contract balance to the caller inside startGame.",
+      "id": "unsafe_transfer_player",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 13,
+      "description": "owner.transfer(_am) sends an owner-chosen amount out of the contract inside withdaw.",
+      "id": "unsafe_transfer_owner",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 14,
+      "description": "uint256(keccak256(now)) % 10 + 1 derives the winning number and the reset value from block.timestamp, making the randomness predictable/front-runnable.",
+      "id": "unsafe_randomness",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 15,
+      "description": "Caller-supplied new minimum bet value in changeMinBet.",
+      "id": "_newMinBet",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 16,
+      "description": "Caller-supplied guessed number in startGame, validated only as <= 10.",
+      "id": "_number",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 17,
+      "description": "Caller-supplied withdrawal amount in withdaw.",
+      "id": "_am",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 18,
+      "description": "Local GameHistory struct instance populated with player and number, then pushed to log.",
+      "id": "gameHistory",
+      "type": "local_var",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The owner state variable is initialized directly from the untrusted msg.sender at deployment, making the deployer the privileged account.",
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "reason": "The onlyOwner modifier compares the untrusted msg.sender against the stored owner address.",
+      "vuln_type": "access_control",
+      "to_id": 9,
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "reason": "changeMinBet is gated by the onlyOwner modifier, so the access check controls execution.",
+      "vuln_type": "access_control",
+      "to_id": 5,
+      "type": "controlflow",
+      "from_id": 9
+    },
+    {
+      "reason": "withdaw is gated by the onlyOwner modifier, so the access check controls execution.",
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "controlflow",
+      "from_id": 9
+    },
+    {
+      "reason": "The untrusted caller address is written into the gameHistory.player field and pushed to log.",
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "reason": "The untrusted caller is the recipient of the full contract balance transfer, which is an external call.",
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "reason": "startGame executes msg.sender.transfer(this.balance) when the guess equals randomNumber, before state is finalized.",
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "controlflow",
+      "from_id": 6
+    },
+    {
+      "reason": "withdaw performs an external transfer to the owner address.",
+      "vuln_type": "reentrancy",
+      "to_id": 13,
+      "type": "controlflow",
+      "from_id": 7
+    },
+    {
+      "reason": "block.timestamp (now) is hashed to produce the winning number, making the outcome miner-influenceable.",
+      "vuln_type": "access_control",
+      "to_id": 14,
+      "type": "dataflow",
+      "from_id": 11
+    },
+    {
+      "reason": "The timestamp is consumed inside startGame to regenerate randomNumber after every game.",
+      "vuln_type": "access_control",
+      "to_id": 6,
+      "type": "dataflow",
+      "from_id": 11
+    },
+    {
+      "reason": "The timestamp-derived randomness operation assigns the new value of the randomNumber state variable.",
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "from_id": 14
+    },
+    {
+      "reason": "startGame recomputes randomNumber from the timestamp after each round completes.",
+      "vuln_type": "access_control",
+      "to_id": 14,
+      "type": "controlflow",
+      "from_id": 6
+    },
+    {
+      "reason": "The caller-supplied guess parameter flows into startGame's validation and comparison logic.",
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "from_id": 16
+    },
+    {
+      "reason": "The guessed number is stored in the log array through gameHistory.number.",
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "from_id": 16
+    },
+    {
+      "reason": "The local GameHistory struct is built and pushed into state within startGame.",
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "from_id": 18
+    },
+    {
+      "reason": "The local struct instance is pushed into the log state array.",
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "from_id": 18
+    },
+    {
+      "reason": "startGame writes to the log state variable via log.push.",
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "reason": "startGame reads randomNumber in the comparison and overwrites it with a fresh value.",
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "reason": "startGame reads this.balance and assigns it to prizeFund.",
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "reason": "startGame reads minBet to validate msg.value.",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "reason": "The new minimum bet parameter is written into changeMinBet's assignment.",
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "from_id": 15
+    },
+    {
+      "reason": "changeMinBet overwrites the minBet state variable with the parameter value.",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "reason": "The withdrawal amount parameter flows into withdaw's logic.",
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "from_id": 17
+    },
+    {
+      "reason": "The untrusted amount parameter is forwarded to the external transfer call.",
+      "vuln_type": "reentrancy",
+      "to_id": 13,
+      "type": "dataflow",
+      "from_id": 17
+    },
+    {
+      "reason": "Any caller can invoke the payable fallback function to fund the contract.",
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "controlflow",
+      "from_id": 10
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Parameter _newMinBet has no independent semantic identity; it is fully merged into the changeMinBet function that consumes it.",
+      "merge_into": "changeMinBet",
+      "normal_node": "_newMinBet"
+    },
+    {
+      "reason": "Parameter _number only exists as input to startGame's validation, comparison and log write, so it collapses into startGame.",
+      "merge_into": "startGame",
+      "normal_node": "_number"
+    },
+    {
+      "reason": "Parameter _am only exists as the argument of withdaw's transfer and collapses into withdaw.",
+      "merge_into": "withdaw",
+      "normal_node": "_am"
+    },
+    {
+      "reason": "Local variable gameHistory is a temporary struct constructed and immediately pushed inside startGame, so it merges into startGame.",
+      "merge_into": "startGame",
+      "normal_node": "gameHistory"
+    }
+  ]
+}

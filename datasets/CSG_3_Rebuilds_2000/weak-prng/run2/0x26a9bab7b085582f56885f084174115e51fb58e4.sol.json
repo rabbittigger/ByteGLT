@@ -1,0 +1,779 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "State variable holding the POOH token contract reference; target of external buy/exit/dividend calls.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "poohContract"
+    },
+    {
+      "type": "state_var",
+      "description": "State variable storing the lottery owner address, set from msg.sender in the constructor.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "owner"
+    },
+    {
+      "type": "state_var",
+      "description": "Boolean state variable gating public participation via the isOpenToPublic modifier.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "openToPublic"
+    },
+    {
+      "type": "state_var",
+      "description": "State variable counting accumulated tickets; incremented by payable deposits.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "ticketNumber"
+    },
+    {
+      "type": "state_var",
+      "description": "State variable holding the pseudo-randomly generated winning ticket number.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "winningNumber"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Untrusted caller address used for ownership, human check, deposits and payouts.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "msg.sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Untrusted transaction origin used in the onlyHuman modifier comparison.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "tx.origin"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Miner-influenceable timestamp used as randomness seed for the winning number.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External payable call purchasing POOH tokens with the deposit; potential reentrancy entry point.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "poohContract.buy.value(msg.value)(customerAddress)"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External call selling all POOH tokens and cashing out dividends; state-changing external interaction.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "poohContract.exit()"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External payable call re-buying POOH tokens with the entire contract balance after payouts.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "poohContract.buy.value(address(this).balance)(customerAddress)"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "ETH transfer to the winner; external call occurring after external POOH interactions.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "winner.transfer(balance)"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "ETH transfer of the 10% developer fee; external call to an arbitrary address.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "dev.transfer(balance)"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Arbitrary external ERC20 transfer call on a user-supplied token address.",
+      "is_core": true,
+      "node_id": 13,
+      "id": "ERC20Interface(tokenAddress).transfer(tokenOwner, tokens)"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Arithmetic division computing the number of extra tickets from the deposit value.",
+      "is_core": true,
+      "node_id": 14,
+      "id": "SafeMath.div(msg.value, 1000000000000000)"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Arithmetic subtraction of the reserved 0.05 ETH from the balance before payout.",
+      "is_core": true,
+      "node_id": 15,
+      "id": "SafeMath.sub(address(this).balance, 50000000000000000)"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Arithmetic division computing the 10% lottery fee donated to the developer.",
+      "is_core": true,
+      "node_id": 16,
+      "id": "SafeMath.div(address(this).balance, 10)"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Arithmetic accumulation of ticket numbers based on the deposit amount.",
+      "is_core": true,
+      "node_id": 17,
+      "id": "ticketNumber += extraTickets"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Arithmetic increment of the ticket counter for a base entry.",
+      "is_core": true,
+      "node_id": 18,
+      "id": "ticketNumber++"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Weak randomness derivation from timestamp and difficulty; miner-manipulable outcome.",
+      "is_core": true,
+      "node_id": 19,
+      "id": "winningNumber = uint256(keccak256(block.timestamp, block.difficulty))%300"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "tx.origin based authorization check used for the onlyHuman modifier logic.",
+      "is_core": true,
+      "node_id": 20,
+      "id": "require(msg.sender == tx.origin)"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Ownership authorization check used by the onlyOwner modifier.",
+      "is_core": true,
+      "node_id": 21,
+      "id": "require(msg.sender == owner)"
+    },
+    {
+      "type": "function",
+      "description": "Payable public entry point that buys tokens, tracks tickets, triggers payouts and resets the lottery.",
+      "is_core": true,
+      "node_id": 22,
+      "id": "deposit"
+    },
+    {
+      "type": "function",
+      "description": "Internal function computing and transferring the prize to the round winner.",
+      "is_core": true,
+      "node_id": 23,
+      "id": "payWinner"
+    },
+    {
+      "type": "function",
+      "description": "Internal function computing and transferring the 10% fee to the owner.",
+      "is_core": true,
+      "node_id": 24,
+      "id": "payDev"
+    },
+    {
+      "type": "function",
+      "description": "Internal function resetting ticket counters and generating a new winning number.",
+      "is_core": true,
+      "node_id": 25,
+      "id": "resetLottery"
+    },
+    {
+      "type": "function",
+      "description": "Constructor initializing the POOH reference, public flag and owner.",
+      "is_core": true,
+      "node_id": 26,
+      "id": "constructor"
+    },
+    {
+      "type": "function",
+      "description": "Payable fallback function accepting plain ETH transfers into the pool.",
+      "is_core": true,
+      "node_id": 27,
+      "id": "fallback"
+    },
+    {
+      "type": "function",
+      "description": "View function returning the pool's POOH token balance via the POOH contract.",
+      "is_core": true,
+      "node_id": 28,
+      "id": "myTokens"
+    },
+    {
+      "type": "function",
+      "description": "View function returning accrued dividends from the POOH contract.",
+      "is_core": true,
+      "node_id": 29,
+      "id": "myDividends"
+    },
+    {
+      "type": "function",
+      "description": "View function returning the contract's ETH balance.",
+      "is_core": true,
+      "node_id": 30,
+      "id": "ethBalance"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only function enabling public participation and resetting the lottery.",
+      "is_core": true,
+      "node_id": 31,
+      "id": "openToThePublic"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only escape hatch transferring arbitrary ERC20 tokens out of the contract.",
+      "is_core": true,
+      "node_id": 32,
+      "id": "returnAnyERC20Token"
+    },
+    {
+      "type": "function",
+      "description": "Modifier restricting execution to the stored owner address.",
+      "is_core": true,
+      "node_id": 33,
+      "id": "onlyOwner"
+    },
+    {
+      "type": "function",
+      "description": "Modifier preventing the POOH token contract from being rescued.",
+      "is_core": true,
+      "node_id": 34,
+      "id": "notPooh"
+    },
+    {
+      "type": "function",
+      "description": "Modifier requiring the openToPublic flag to be true.",
+      "is_core": true,
+      "node_id": 35,
+      "id": "isOpenToPublic"
+    },
+    {
+      "type": "function",
+      "description": "Modifier requiring msg.sender to equal tx.origin to block contract callers.",
+      "is_core": true,
+      "node_id": 36,
+      "id": "onlyHuman"
+    },
+    {
+      "type": "function",
+      "description": "Library function performing unchecked integer division.",
+      "is_core": true,
+      "node_id": 37,
+      "id": "SafeMath.div"
+    },
+    {
+      "type": "function",
+      "description": "Library function performing subtraction guarded by an assert.",
+      "is_core": true,
+      "node_id": 38,
+      "id": "SafeMath.sub"
+    },
+    {
+      "type": "parameter",
+      "description": "Parameter of the notPooh modifier naming the contract to validate.",
+      "is_core": false,
+      "node_id": 39,
+      "id": "aContract"
+    },
+    {
+      "type": "parameter",
+      "description": "Caller-supplied ERC20 token address used for the external transfer.",
+      "is_core": false,
+      "node_id": 40,
+      "id": "tokenAddress"
+    },
+    {
+      "type": "parameter",
+      "description": "Caller-supplied recipient address of the rescued ERC20 tokens.",
+      "is_core": false,
+      "node_id": 41,
+      "id": "tokenOwner"
+    },
+    {
+      "type": "parameter",
+      "description": "Caller-supplied token amount to transfer out.",
+      "is_core": false,
+      "node_id": 42,
+      "id": "tokens"
+    },
+    {
+      "type": "parameter",
+      "description": "Address receiving the prize payout in payWinner.",
+      "is_core": false,
+      "node_id": 43,
+      "id": "winner"
+    },
+    {
+      "type": "parameter",
+      "description": "Address receiving the developer fee in payDev.",
+      "is_core": false,
+      "node_id": 44,
+      "id": "dev"
+    },
+    {
+      "type": "local_var",
+      "description": "Local copy of msg.sender used as the token buyer and potential winner.",
+      "is_core": false,
+      "node_id": 45,
+      "id": "customerAddress"
+    },
+    {
+      "type": "local_var",
+      "description": "Local value of additional tickets derived from the deposit amount.",
+      "is_core": false,
+      "node_id": 46,
+      "id": "extraTickets"
+    },
+    {
+      "type": "local_var",
+      "description": "Local prize amount computed in payWinner before transfer.",
+      "is_core": false,
+      "node_id": 47,
+      "id": "balance_winner"
+    },
+    {
+      "type": "local_var",
+      "description": "Local fee amount computed in payDev before transfer.",
+      "is_core": false,
+      "node_id": 48,
+      "id": "balance_dev"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "owner state variable is assigned from the untrusted msg.sender in the constructor.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "msg.sender is compared against owner inside the onlyOwner require.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "tx.origin is compared with msg.sender in the onlyHuman require, an origin-based authorization pattern.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "block.timestamp feeds the weak randomness computation of the winning number.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 8,
+      "type": "callback",
+      "reason": "deposit performs an external payable call into the POOH contract before later payouts.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 9,
+      "type": "callback",
+      "reason": "deposit calls the external POOH.exit() which can re-enter before transfers.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 10,
+      "type": "callback",
+      "reason": "deposit re-buys POOH with the whole balance via an external call.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "controlflow",
+      "reason": "deposit invokes the internal payWinner routine when the winning condition is met.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 24,
+      "type": "controlflow",
+      "reason": "deposit invokes the internal payDev routine to collect the lottery fee.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "controlflow",
+      "reason": "deposit calls resetLottery after a winning round completes.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "deposit passes msg.value into the extra-ticket division.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "deposit performs the ticketNumber accumulation based on the deposit value.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "deposit increments ticketNumber for base entries.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 45,
+      "type": "dataflow",
+      "reason": "local customerAddress is assigned from the untrusted msg.sender.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 46,
+      "type": "dataflow",
+      "reason": "local extraTickets receives the result of the division.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "extraTickets is added into the ticketNumber accumulator.",
+      "from_id": 46
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "ticketNumber state variable is updated with the accumulated tickets.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "ticketNumber state variable is incremented by one.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 11,
+      "type": "callback",
+      "reason": "payWinner transfers ETH to the winner, an external call to a user-controlled address.",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "payWinner computes the prize through SafeMath.sub on the contract balance.",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 47,
+      "type": "dataflow",
+      "reason": "local balance receives the subtracted prize amount.",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "the computed local balance parameterizes the winner transfer amount.",
+      "from_id": 47
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "callback",
+      "reason": "payDev transfers ETH to the developer, an external call to a privileged address.",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "payDev computes the fee through SafeMath.div on the contract balance.",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 48,
+      "type": "dataflow",
+      "reason": "local balance receives the divided fee amount.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "the computed local balance parameterizes the developer transfer amount.",
+      "from_id": 48
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "resetLottery writes the timestamp-derived pseudo-random winning number.",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "the pseudo-random result is stored into the winningNumber state variable.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "resetLottery resets the ticketNumber state variable.",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "constructor sets the owner state variable from msg.sender.",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "constructor sets the POOH contract reference.",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "constructor initializes the openToPublic flag to false.",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "openToThePublic sets the openToPublic state variable to true.",
+      "from_id": 31
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "controlflow",
+      "reason": "openToThePublic triggers a lottery reset after opening.",
+      "from_id": 31
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 13,
+      "type": "callback",
+      "reason": "returnAnyERC20Token makes an external transfer call on a caller-supplied token contract.",
+      "from_id": 32
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "tokenAddress parameter determines the external contract invoked.",
+      "from_id": 40
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "tokenOwner parameter determines the transfer recipient.",
+      "from_id": 41
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "tokens parameter determines the transferred amount.",
+      "from_id": 42
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 21,
+      "type": "controlflow",
+      "reason": "the onlyOwner modifier enforces the owner equality require.",
+      "from_id": 33
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "owner state variable is used on the right side of the authorization require.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 34,
+      "type": "dataflow",
+      "reason": "aContract parameter is validated inside the notPooh modifier.",
+      "from_id": 39
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 34,
+      "type": "dataflow",
+      "reason": "poohContract state variable is the forbidden address compared in notPooh.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 35,
+      "type": "dataflow",
+      "reason": "openToPublic state variable gates execution in the isOpenToPublic modifier.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 20,
+      "type": "controlflow",
+      "reason": "the onlyHuman modifier enforces the msg.sender == tx.origin require.",
+      "from_id": 36
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 36,
+      "type": "controlflow",
+      "reason": "deposit is guarded by the origin-based onlyHuman modifier.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 35,
+      "type": "controlflow",
+      "reason": "deposit is guarded by the isOpenToPublic modifier.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 33,
+      "type": "controlflow",
+      "reason": "returnAnyERC20Token is restricted by the onlyOwner modifier.",
+      "from_id": 32
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 34,
+      "type": "controlflow",
+      "reason": "returnAnyERC20Token removes the POOH token from the rescue scope.",
+      "from_id": 32
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 33,
+      "type": "controlflow",
+      "reason": "openToThePublic is restricted by the onlyOwner modifier.",
+      "from_id": 31
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 35,
+      "type": "controlflow",
+      "reason": "resetLottery requires the lottery to be open to the public.",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "myTokens reads the POOH contract reference.",
+      "from_id": 28
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "myDividends reads the POOH contract reference.",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "deposit uses the poohContract state variable for its external calls.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "winner parameter is the beneficiary of the payout transfer in payWinner.",
+      "from_id": 43
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "notPooh",
+      "reason": "aContract is only consumed by the notPooh modifier and should be folded into that core function node.",
+      "normal_node": "aContract"
+    },
+    {
+      "merge_into": "ERC20Interface(tokenAddress).transfer(tokenOwner, tokens)",
+      "reason": "tokenAddress only flows into the external ERC20 transfer operation and can be merged into it.",
+      "normal_node": "tokenAddress"
+    },
+    {
+      "merge_into": "ERC20Interface(tokenAddress).transfer(tokenOwner, tokens)",
+      "reason": "tokenOwner only flows into the external ERC20 transfer operation and can be merged into it.",
+      "normal_node": "tokenOwner"
+    },
+    {
+      "merge_into": "ERC20Interface(tokenAddress).transfer(tokenOwner, tokens)",
+      "reason": "tokens only flows into the external ERC20 transfer operation and can be merged into it.",
+      "normal_node": "tokens"
+    },
+    {
+      "merge_into": "payWinner",
+      "reason": "winner is a transient parameter of payWinner and should be absorbed into that function node.",
+      "normal_node": "winner"
+    },
+    {
+      "merge_into": "payDev",
+      "reason": "dev is a transient parameter of payDev and should be absorbed into that function node.",
+      "normal_node": "dev"
+    },
+    {
+      "merge_into": "deposit",
+      "reason": "customerAddress is a temporary alias of msg.sender inside deposit and should be folded into deposit.",
+      "normal_node": "customerAddress"
+    },
+    {
+      "merge_into": "SafeMath.div(msg.value, 1000000000000000)",
+      "reason": "extraTickets is only the result of the ticket division operation and can be merged into it.",
+      "normal_node": "extraTickets"
+    },
+    {
+      "merge_into": "SafeMath.sub(address(this).balance, 50000000000000000)",
+      "reason": "the local balance in payWinner is only the subtraction result and can be merged into that operation.",
+      "normal_node": "balance_winner"
+    },
+    {
+      "merge_into": "SafeMath.div(address(this).balance, 10)",
+      "reason": "the local balance in payDev is only the division result and can be merged into that operation.",
+      "normal_node": "balance_dev"
+    }
+  ]
+}

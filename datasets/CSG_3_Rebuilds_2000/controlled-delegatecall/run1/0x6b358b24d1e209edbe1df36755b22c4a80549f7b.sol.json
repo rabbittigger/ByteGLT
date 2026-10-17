@@ -1,0 +1,989 @@
+{
+  "nodes": [
+    {
+      "id": "_state.balance.supply",
+      "type": "state_var",
+      "node_id": 0,
+      "is_core": true,
+      "description": "Global DSDS supply counter used for balance accounting and share math."
+    },
+    {
+      "id": "_state.balance.bonded",
+      "type": "state_var",
+      "node_id": 1,
+      "is_core": true,
+      "description": "Total bonded DSDS tracked globally."
+    },
+    {
+      "id": "_state.balance.staged",
+      "type": "state_var",
+      "node_id": 2,
+      "is_core": true,
+      "description": "Total staged (deposited but unbonded) DSDS."
+    },
+    {
+      "id": "_state.balance.redeemable",
+      "type": "state_var",
+      "node_id": 3,
+      "is_core": true,
+      "description": "Total redeemable DSD outstanding."
+    },
+    {
+      "id": "_state.balance.debt",
+      "type": "state_var",
+      "node_id": 4,
+      "is_core": true,
+      "description": "Legacy protocol debt; reset to zero in initialize."
+    },
+    {
+      "id": "_state13.price",
+      "type": "state_var",
+      "node_id": 5,
+      "is_core": true,
+      "description": "Latest oracle price (D256) driving expansion/contraction logic."
+    },
+    {
+      "id": "_state10.globalInterestMultiplier",
+      "type": "state_var",
+      "node_id": 6,
+      "is_core": true,
+      "description": "Global CDSD interest multiplier accruing bonding rewards."
+    },
+    {
+      "id": "_state10.expansionStartEpoch",
+      "type": "state_var",
+      "node_id": 7,
+      "is_core": true,
+      "description": "Epoch marker for the current expansion cycle, used by redemption accounting."
+    },
+    {
+      "id": "_state.epoch.current",
+      "type": "state_var",
+      "node_id": 8,
+      "is_core": true,
+      "description": "Current epoch counter advanced by Bonding.step."
+    },
+    {
+      "id": "_state.provider.dollar",
+      "type": "state_var",
+      "node_id": 9,
+      "is_core": true,
+      "description": "IDollar token contract used for mint/burn/transfer operations."
+    },
+    {
+      "id": "IMPLEMENTATION_SLOT",
+      "type": "state_var",
+      "node_id": 10,
+      "is_core": true,
+      "description": "EIP-1967 implementation storage slot for the upgradeable proxy."
+    },
+    {
+      "id": "_state10.totalCDSDRedeemable",
+      "type": "state_var",
+      "node_id": 11,
+      "is_core": true,
+      "description": "Total CDSD redeemable for DSD during expansion."
+    },
+    {
+      "id": "_state10.totalCDSDDeposited",
+      "type": "state_var",
+      "node_id": 12,
+      "is_core": true,
+      "description": "Total CDSD principal deposited in the bonding market."
+    },
+    {
+      "id": "_state10.totalCDSDEarned",
+      "type": "state_var",
+      "node_id": 13,
+      "is_core": true,
+      "description": "Total CDSD interest earned and minted so far."
+    },
+    {
+      "id": "Bonding.step",
+      "type": "function",
+      "node_id": 14,
+      "is_core": true,
+      "description": "Advances the epoch by snapshotting total bonded and incrementing the epoch counter."
+    },
+    {
+      "id": "Implementation.initialize",
+      "type": "function",
+      "node_id": 15,
+      "is_core": true,
+      "description": "Initializer guarded by initializer modifier; mints committer and contributor rewards and resets debt/multiplier."
+    },
+    {
+      "id": "Implementation.advance",
+      "type": "function",
+      "node_id": 16,
+      "is_core": true,
+      "description": "External epoch advance entrypoint executing Bonding.step, Regulator.step and the gas incentive payout."
+    },
+    {
+      "id": "Bonding.deposit",
+      "type": "function",
+      "node_id": 17,
+      "is_core": true,
+      "description": "Pulls DSD from the caller and increments their staged balance."
+    },
+    {
+      "id": "Bonding.withdraw",
+      "type": "function",
+      "node_id": 18,
+      "is_core": true,
+      "description": "Transfers staged DSD back to the caller before decrementing staged state (external call ordering)."
+    },
+    {
+      "id": "Bonding.bond",
+      "type": "function",
+      "node_id": 19,
+      "is_core": true,
+      "description": "Converts staged DSD into bonded shares using total supply/bonded ratios."
+    },
+    {
+      "id": "Bonding.unbond",
+      "type": "function",
+      "node_id": 20,
+      "is_core": true,
+      "description": "Converts bonded shares back into staged DSD amounts."
+    },
+    {
+      "id": "Bonding.unbondUnderlying",
+      "type": "function",
+      "node_id": 21,
+      "is_core": true,
+      "description": "Converts an underlying DSD amount of bonded shares back into staged balances."
+    },
+    {
+      "id": "CDSDMarket.burnDSDForCDSD",
+      "type": "function",
+      "node_id": 22,
+      "is_core": true,
+      "description": "Burns caller DSD during contraction and mints CDSD plus earnable credits to msg.sender."
+    },
+    {
+      "id": "CDSDMarket.bondCDSD",
+      "type": "function",
+      "node_id": 23,
+      "is_core": true,
+      "description": "Deposits CDSD into the bonding market and updates deposited totals."
+    },
+    {
+      "id": "CDSDMarket.unbondCDSD",
+      "type": "function",
+      "node_id": 24,
+      "is_core": true,
+      "description": "Unbonds CDSD (contraction only) and transfers CDSD back to the caller."
+    },
+    {
+      "id": "CDSDMarket._unbondCDSD",
+      "type": "function",
+      "node_id": 25,
+      "is_core": true,
+      "description": "Internal unbond routine updating user earned/deposited state."
+    },
+    {
+      "id": "CDSDMarket.redeemBondedCDSDForDSD",
+      "type": "function",
+      "node_id": 26,
+      "is_core": true,
+      "description": "Redeems CDSD for DSD during expansion, burning CDSD and minting DSD to the caller."
+    },
+    {
+      "id": "CDSDMarket.updateUserEarned",
+      "type": "function",
+      "node_id": 27,
+      "is_core": true,
+      "description": "Settles accrued CDSD interest for an account and refreshes the interest multiplier entry."
+    },
+    {
+      "id": "Regulator.step",
+      "type": "function",
+      "node_id": 28,
+      "is_core": true,
+      "description": "Reads the oracle price and dispatches to expansion, contraction or neutral supply handling."
+    },
+    {
+      "id": "Regulator.expansion",
+      "type": "function",
+      "node_id": 29,
+      "is_core": true,
+      "description": "Computes bounded supply delta and calls increaseSupply to mint rewards."
+    },
+    {
+      "id": "Regulator.contraction",
+      "type": "function",
+      "node_id": 30,
+      "is_core": true,
+      "description": "Runs contraction incentives to accrue CDSD interest and reward the CPool."
+    },
+    {
+      "id": "Regulator.oracleCapture",
+      "type": "function",
+      "node_id": 31,
+      "is_core": true,
+      "description": "Fetches the oracle price with bootstrapping and validity fallbacks."
+    },
+    {
+      "id": "Comptroller.increaseSupply",
+      "type": "function",
+      "node_id": 32,
+      "is_core": true,
+      "description": "Distributes new supply to pool, treasury, CDSD redemption pot and the DAO."
+    },
+    {
+      "id": "Comptroller.contractionIncentives",
+      "type": "function",
+      "node_id": 33,
+      "is_core": true,
+      "description": "Accrues CDSD interest via the global multiplier and mints CPool/DAO rewards."
+    },
+    {
+      "id": "Comptroller.mintToAccount",
+      "type": "function",
+      "node_id": 34,
+      "is_core": true,
+      "description": "Mints DSD to an account through the dollar token and runs a balance check."
+    },
+    {
+      "id": "Comptroller.burnFromAccount",
+      "type": "function",
+      "node_id": 35,
+      "is_core": true,
+      "description": "Pulls DSD from an account and burns it, followed by a balance check."
+    },
+    {
+      "id": "Govern.vote",
+      "type": "function",
+      "node_id": 36,
+      "is_core": true,
+      "description": "Records bonded-weighted votes on a candidate and locks the voter."
+    },
+    {
+      "id": "Govern.commit",
+      "type": "function",
+      "node_id": 37,
+      "is_core": true,
+      "description": "Finalizes a proposal with quorum and approval checks, then upgrades to the candidate."
+    },
+    {
+      "id": "Govern.emergencyCommit",
+      "type": "function",
+      "node_id": 38,
+      "is_core": true,
+      "description": "Super-majority emergency commit path that upgrades the proxy implementation."
+    },
+    {
+      "id": "Upgradeable.upgradeTo",
+      "type": "function",
+      "node_id": 39,
+      "is_core": true,
+      "description": "Sets the proxy implementation then delegatecalls initialize() on the new implementation."
+    },
+    {
+      "id": "Upgradeable.setImplementation",
+      "type": "function",
+      "node_id": 40,
+      "is_core": true,
+      "description": "Validates the new implementation is a contract and writes the implementation slot via assembly."
+    },
+    {
+      "id": "Permittable.permit",
+      "type": "function",
+      "node_id": 41,
+      "is_core": true,
+      "description": "Verifies an EIP-712 signature with ecrecover and a deadline, then approves the spender."
+    },
+    {
+      "id": "Getters.epochTime",
+      "type": "function",
+      "node_id": 42,
+      "is_core": true,
+      "description": "Derives the scheduled epoch number from block timestamp and the epoch strategy."
+    },
+    {
+      "id": "Getters.blockTimestamp",
+      "type": "function",
+      "node_id": 43,
+      "is_core": true,
+      "description": "Overridable timestamp source returning block.timestamp."
+    },
+    {
+      "id": "ContractionDollar.mint",
+      "type": "function",
+      "node_id": 44,
+      "is_core": true,
+      "description": "CDSD mint restricted to the DAO address."
+    },
+    {
+      "id": "ContractionDollar.transferFrom",
+      "type": "function",
+      "node_id": 45,
+      "is_core": true,
+      "description": "CDSD transferFrom that bypasses allowance for the DAO and for infinite approvals."
+    },
+    {
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "node_id": 46,
+      "is_core": true,
+      "description": "Caller-controlled address used for accounting, minting, bonding and governance."
+    },
+    {
+      "id": "block.timestamp",
+      "type": "untrusted_input",
+      "node_id": 47,
+      "is_core": true,
+      "description": "Miner-influenceable timestamp used for epoch derivation, permit deadlines and incentive pricing."
+    },
+    {
+      "id": "delegatecall_initialize",
+      "type": "unsafe_operation",
+      "node_id": 48,
+      "is_core": true,
+      "description": "delegatecall into the candidate/implementation contract executing arbitrary initialize() code in proxy context."
+    },
+    {
+      "id": "assembly_sstore_slot",
+      "type": "unsafe_operation",
+      "node_id": 49,
+      "is_core": true,
+      "description": "Raw assembly sstore writing the proxy implementation slot."
+    },
+    {
+      "id": "ecrecover_signature",
+      "type": "unsafe_operation",
+      "node_id": 50,
+      "is_core": true,
+      "description": "ecrecover on user-supplied v, r, s signature components for permit authorization."
+    },
+    {
+      "id": "external_token_calls",
+      "type": "unsafe_operation",
+      "node_id": 51,
+      "is_core": true,
+      "description": "External calls to DSD/CDSD token contracts (transfer, transferFrom, mint, burn) enabling reentrancy."
+    },
+    {
+      "id": "mint_reward_to_sender",
+      "type": "unsafe_operation",
+      "node_id": 52,
+      "is_core": true,
+      "description": "Minting of DSD rewards (incentive/expansion) to msg.sender based on gas and oracle data."
+    },
+    {
+      "id": "param_amount_bondCDSD",
+      "type": "parameter",
+      "node_id": 53,
+      "is_core": false,
+      "description": "User-supplied CDSD amount to bond."
+    },
+    {
+      "id": "param_value_bond",
+      "type": "parameter",
+      "node_id": 54,
+      "is_core": false,
+      "description": "User-supplied staged DSD value to bond."
+    },
+    {
+      "id": "param_candidate_vote",
+      "type": "parameter",
+      "node_id": 55,
+      "is_core": false,
+      "description": "Candidate address being voted on in Govern.vote."
+    },
+    {
+      "id": "param_owner_permit",
+      "type": "parameter",
+      "node_id": 56,
+      "is_core": false,
+      "description": "Owner address recovered from the permit signature."
+    },
+    {
+      "id": "local_newSupply",
+      "type": "local_var",
+      "node_id": 57,
+      "is_core": false,
+      "description": "Computed new supply amount within increaseSupply."
+    },
+    {
+      "id": "local_newCDSDRedeemable",
+      "type": "local_var",
+      "node_id": 58,
+      "is_core": false,
+      "description": "Portion of new supply allocated to CDSD redemption."
+    },
+    {
+      "id": "local_userBonded",
+      "type": "local_var",
+      "node_id": 59,
+      "is_core": false,
+      "description": "Account bonded CDSD balance computed in updateUserEarned."
+    },
+    {
+      "id": "param_account_updateUserEarned",
+      "type": "parameter",
+      "node_id": 60,
+      "is_core": false,
+      "description": "Account whose accrued interest is settled."
+    },
+    {
+      "id": "local_incentive",
+      "type": "local_var",
+      "node_id": 61,
+      "is_core": false,
+      "description": "Gas-cost-derived DSD incentive computed in the incentivized modifier."
+    },
+    {
+      "id": "param_newImplementation",
+      "type": "parameter",
+      "node_id": 62,
+      "is_core": false,
+      "description": "New implementation address passed to upgradeTo."
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "from_id": 46,
+      "to_id": 22,
+      "vuln_type": "none",
+      "reason": "msg.sender's DSD is pulled and burned to mint CDSD."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 46,
+      "to_id": 17,
+      "vuln_type": "none",
+      "reason": "msg.sender funds and owns the staged deposit."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 46,
+      "to_id": 18,
+      "vuln_type": "none",
+      "reason": "msg.sender receives the withdrawn staged DSD."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 46,
+      "to_id": 19,
+      "vuln_type": "none",
+      "reason": "msg.sender's bonded shares are credited."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 46,
+      "to_id": 23,
+      "vuln_type": "none",
+      "reason": "msg.sender's CDSD is deposited into bondCDSD."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 46,
+      "to_id": 26,
+      "vuln_type": "none",
+      "reason": "msg.sender redeems bonded CDSD for DSD."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 46,
+      "to_id": 36,
+      "vuln_type": "none",
+      "reason": "Voting weight is derived from msg.sender's balance."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 46,
+      "to_id": 15,
+      "vuln_type": "none",
+      "reason": "Initializer mints the committer reward directly to msg.sender."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 46,
+      "to_id": 52,
+      "vuln_type": "none",
+      "reason": "Incentive rewards are minted to the caller address."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 47,
+      "to_id": 43,
+      "vuln_type": "access_control",
+      "reason": "Timestamp dependency: epoch computation is driven by block.timestamp."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 47,
+      "to_id": 42,
+      "vuln_type": "access_control",
+      "reason": "block.timestamp determines the derived epoch number used for gating."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 47,
+      "to_id": 16,
+      "vuln_type": "access_control",
+      "reason": "advance relies on timestamp-derived epoch progression gated by epochTime."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 47,
+      "to_id": 41,
+      "vuln_type": "access_control",
+      "reason": "permit validates 'now <= deadline', a timestamp dependency."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 39,
+      "to_id": 48,
+      "vuln_type": "reentrancy",
+      "reason": "upgradeTo delegatecalls into the untrusted new implementation."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 39,
+      "to_id": 40,
+      "vuln_type": "none",
+      "reason": "upgradeTo first sets the implementation via setImplementation."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 37,
+      "to_id": 39,
+      "vuln_type": "access_control",
+      "reason": "commit triggers a governance-controlled implementation upgrade."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 38,
+      "to_id": 39,
+      "vuln_type": "access_control",
+      "reason": "emergencyCommit triggers a super-majority implementation upgrade."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 40,
+      "to_id": 49,
+      "vuln_type": "none",
+      "reason": "setImplementation writes the implementation slot with raw assembly."
+    },
+    {
+      "type": "callback",
+      "from_id": 48,
+      "to_id": 15,
+      "vuln_type": "reentrancy",
+      "reason": "delegatecall re-enters initialize() on the new implementation within proxy state."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 41,
+      "to_id": 50,
+      "vuln_type": "none",
+      "reason": "permit recovers the signer from the supplied signature."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 34,
+      "to_id": 52,
+      "vuln_type": "none",
+      "reason": "mintToAccount performs the underlying DSD mint operation."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 16,
+      "to_id": 52,
+      "vuln_type": "none",
+      "reason": "advance's incentivized modifier mints the caller reward."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 51,
+      "vuln_type": "none",
+      "reason": "burnDSDForCDSD performs external DSD transferFrom/burn and CDSD mint."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 23,
+      "to_id": 51,
+      "vuln_type": "none",
+      "reason": "bondCDSD pulls CDSD via external transferFrom."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 24,
+      "to_id": 51,
+      "vuln_type": "none",
+      "reason": "unbondCDSD pushes CDSD via external transfer."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 51,
+      "vuln_type": "none",
+      "reason": "deposit performs external DSD transferFrom."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 51,
+      "vuln_type": "none",
+      "reason": "withdraw performs external DSD transfer before finalizing state."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 22,
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "burnDSDForCDSD requires price < 1 (contraction gate)."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 24,
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "unbondCDSD requires price < 1 (contraction gate)."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 26,
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "redeemBondedCDSDForDSD requires price > 1 (expansion gate)."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 32,
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "increaseSupply increments the CDSD redeemable pool."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 32,
+      "to_id": 13,
+      "vuln_type": "none",
+      "reason": "increaseSupply reads totalCDSDEarned to compute outstanding redeemable."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 33,
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "contractionIncentives updates the global interest multiplier."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 33,
+      "to_id": 5,
+      "vuln_type": "arithmetic",
+      "reason": "Interest rate scaling uses price against the max rewards threshold."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 19,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "bond increments the global bonded total."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 19,
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "bond mints shares into the global supply counter."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "withdraw decrements the global staged total."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "deposit increments the global staged total."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 27,
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "updateUserEarned refreshes deposited CDSD accounting via the multiplier."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "advance advances the current epoch via Bonding.step."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 28,
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "Regulator.step emits epoch-indexed supply events."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 34,
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "mintToAccount mints through the dollar provider."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 35,
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "burnFromAccount transfers and burns through the dollar provider."
+    },
+    {
+      "type": "callback",
+      "from_id": 51,
+      "to_id": 18,
+      "vuln_type": "reentrancy",
+      "reason": "A malicious token can re-enter withdraw before staged balance is decremented."
+    },
+    {
+      "type": "callback",
+      "from_id": 51,
+      "to_id": 1,
+      "vuln_type": "reentrancy",
+      "reason": "Reentrant token callback can observe/alter bonded accounting mid-transaction."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 29,
+      "to_id": 32,
+      "vuln_type": "none",
+      "reason": "expansion calls increaseSupply with the computed delta."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 30,
+      "to_id": 33,
+      "vuln_type": "none",
+      "reason": "contraction calls contractionIncentives."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 28,
+      "to_id": 29,
+      "vuln_type": "none",
+      "reason": "step dispatches to expansion when price > 1."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 28,
+      "to_id": 30,
+      "vuln_type": "none",
+      "reason": "step dispatches to contraction when price < 1."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 31,
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "oracleCapture reads price data used to drive the dollar provider."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 25,
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "_unbondCDSD rewrites total deposited CDSD."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 25,
+      "to_id": 27,
+      "vuln_type": "none",
+      "reason": "_unbondCDSD settles earned interest via updateUserEarned."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 15,
+      "to_id": 34,
+      "vuln_type": "none",
+      "reason": "initialize mints rewards through mintToAccount."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 26,
+      "to_id": 25,
+      "vuln_type": "none",
+      "reason": "redeemBondedCDSDForDSD unbonds the redeemed amount first."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 33,
+      "vuln_type": "none",
+      "reason": "expansionStartEpoch is cleared during contraction incentives."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 35,
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "burnRedeemable decrements the CDSD redeemable pool."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "unbondUnderlying decrements the global bonded total."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 16,
+      "to_id": 14,
+      "vuln_type": "none",
+      "reason": "advance invokes Bonding.step to snapshot and increment the epoch."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "Bonding.step snapshots total bonded for the concluded epoch."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 20,
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "unbond credits staged balances when shares are liquidated."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 53,
+      "to_id": 23,
+      "vuln_type": "none",
+      "reason": "User-supplied CDSD amount flows into bondCDSD."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 54,
+      "to_id": 19,
+      "vuln_type": "none",
+      "reason": "User-supplied DSD value flows into bond."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 55,
+      "to_id": 36,
+      "vuln_type": "none",
+      "reason": "Candidate parameter drives vote recording."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 56,
+      "to_id": 41,
+      "vuln_type": "none",
+      "reason": "Owner parameter must match the recovered permit signer."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 57,
+      "to_id": 32,
+      "vuln_type": "arithmetic",
+      "reason": "Computed new supply is used in proportional arithmetic inside increaseSupply."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 58,
+      "to_id": 32,
+      "vuln_type": "none",
+      "reason": "Computed CDSD redeemable amount is added to the redemption pool."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 59,
+      "to_id": 27,
+      "vuln_type": "none",
+      "reason": "Computed user bonded balance determines earned interest."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 60,
+      "to_id": 27,
+      "vuln_type": "none",
+      "reason": "Account parameter selects whose interest is settled."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 61,
+      "to_id": 34,
+      "vuln_type": "none",
+      "reason": "Computed incentive amount is minted through mintToAccount."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 62,
+      "to_id": 39,
+      "vuln_type": "none",
+      "reason": "New implementation address is stored and delegatecalled."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param_amount_bondCDSD",
+      "merge_into": "CDSDMarket.bondCDSD",
+      "reason": "Function parameter only meaningful within bondCDSD; fold into its enclosing core function."
+    },
+    {
+      "normal_node": "param_value_bond",
+      "merge_into": "Bonding.bond",
+      "reason": "Function parameter only meaningful within bond; fold into its enclosing core function."
+    },
+    {
+      "normal_node": "param_candidate_vote",
+      "merge_into": "Govern.vote",
+      "reason": "Function parameter only meaningful within vote; fold into its enclosing core function."
+    },
+    {
+      "normal_node": "param_owner_permit",
+      "merge_into": "Permittable.permit",
+      "reason": "Function parameter only meaningful within permit; fold into its enclosing core function."
+    },
+    {
+      "normal_node": "local_newSupply",
+      "merge_into": "Comptroller.increaseSupply",
+      "reason": "Local computation used only by the distribution arithmetic in increaseSupply."
+    },
+    {
+      "normal_node": "local_newCDSDRedeemable",
+      "merge_into": "Comptroller.increaseSupply",
+      "reason": "Local accumulator consumed by increaseSupply state updates."
+    },
+    {
+      "normal_node": "local_userBonded",
+      "merge_into": "CDSDMarket.updateUserEarned",
+      "reason": "Local computation used only for interest settlement in updateUserEarned."
+    },
+    {
+      "normal_node": "param_account_updateUserEarned",
+      "merge_into": "CDSDMarket.updateUserEarned",
+      "reason": "Parameter identifies the account settled by updateUserEarned."
+    },
+    {
+      "normal_node": "local_incentive",
+      "merge_into": "Comptroller.mintToAccount",
+      "reason": "Gas-derived incentive value is only consumed by the mintToAccount payout."
+    },
+    {
+      "normal_node": "param_newImplementation",
+      "merge_into": "Upgradeable.upgradeTo",
+      "reason": "Parameter is only meaningful within the upgradeTo delegatecall flow."
+    }
+  ]
+}

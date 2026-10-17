@@ -1,0 +1,641 @@
+{
+  "nodes": [
+    {
+      "id": "sv_maximumTokens",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Public uint256 maximumTokens: total NFT supply cap, used in remaining-supply checks.",
+      "node_id": 0
+    },
+    {
+      "id": "sv__reserveTokens",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Private uint256 _reserveTokens: tokens reserved for owner distribution, decremented in giveawayEmeeji.",
+      "node_id": 1
+    },
+    {
+      "id": "sv_tokenPrice",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Public uint256 tokenPrice: current mint price per token, used to validate msg.value.",
+      "node_id": 2
+    },
+    {
+      "id": "sv_purchaseLimit",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Public uint256 purchaseLimit: maximum tokens mintable per transaction.",
+      "node_id": 3
+    },
+    {
+      "id": "sv_numberMinted",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Public uint256 numberMinted: running count of minted tokens, seed for token ids.",
+      "node_id": 4
+    },
+    {
+      "id": "sv_percPayout",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Private mapping(address=>uint256) percPayout: percentage share per payee.",
+      "node_id": 5
+    },
+    {
+      "id": "sv_payoutAmount",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Private mapping(address=>uint256) payoutAmount: credited ETH per payee, zeroed on withdraw.",
+      "node_id": 6
+    },
+    {
+      "id": "sv_payees",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Private address[] payees: list of payout recipients iterated in approvePayouts.",
+      "node_id": 7
+    },
+    {
+      "id": "sv_reentrancyLock",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Bool reentrancyLock: naive reentrancy guard set/cleared inside orderEmeejis.",
+      "node_id": 8
+    },
+    {
+      "id": "sv_orderLock",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Bool orderLock: sales switch toggled by lockOrders/unlockOrders.",
+      "node_id": 9
+    },
+    {
+      "id": "sv__balances",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Private mapping(address=>uint256) _balances: ERC721 balance ledger.",
+      "node_id": 10
+    },
+    {
+      "id": "sv__owners",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Private mapping(uint256=>address) _owners: ERC721 token ownership ledger.",
+      "node_id": 11
+    },
+    {
+      "id": "sv__owner",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Private address _owner in Ownable: privileged owner account used by onlyOwner.",
+      "node_id": 12
+    },
+    {
+      "id": "fn_orderEmeejis",
+      "is_core": true,
+      "type": "function",
+      "description": "Public payable mint entrypoint: validates payment/limits, credits payouts, mints tokens via _safeMint and refunds change with a raw call.",
+      "node_id": 13
+    },
+    {
+      "id": "fn_giveawayEmeeji",
+      "is_core": true,
+      "type": "function",
+      "description": "External onlyOwner function minting reserved tokens to an address, decrementing _reserveTokens and incrementing numberMinted.",
+      "node_id": 14
+    },
+    {
+      "id": "fn_withdraw",
+      "is_core": true,
+      "type": "function",
+      "description": "External payout function: zeroes payoutAmount[msg.sender] then forwards ETH with a raw call.",
+      "node_id": 15
+    },
+    {
+      "id": "fn_approvePayouts",
+      "is_core": true,
+      "type": "function",
+      "description": "Internal function accumulating payoutAmount for every payee based on percPayout percentages.",
+      "node_id": 16
+    },
+    {
+      "id": "fn__safeMint",
+      "is_core": true,
+      "type": "function",
+      "description": "Internal ERC721 safe mint that calls _mint and then _checkOnERC721Received on the recipient.",
+      "node_id": 17
+    },
+    {
+      "id": "fn__mint",
+      "is_core": true,
+      "type": "function",
+      "description": "Internal ERC721 mint updating _balances and _owners.",
+      "node_id": 18
+    },
+    {
+      "id": "fn_receive",
+      "is_core": true,
+      "type": "function",
+      "description": "Receive hook that credits approvePayouts with any plain ETH transfer.",
+      "node_id": 19
+    },
+    {
+      "id": "fn_fallback",
+      "is_core": true,
+      "type": "function",
+      "description": "Fallback payable hook that credits approvePayouts with any unknown-calldata ETH transfer.",
+      "node_id": 20
+    },
+    {
+      "id": "fn__checkOnERC721Received",
+      "is_core": true,
+      "type": "function",
+      "description": "Private function invoking onERC721Received on contract recipients (external callback).",
+      "node_id": 21
+    },
+    {
+      "id": "fn_burn",
+      "is_core": true,
+      "type": "function",
+      "description": "External burn restricted to the token owner via _msgSender() == _owners[tokenId].",
+      "node_id": 22
+    },
+    {
+      "id": "ui_msg_sender",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "msg.sender: caller-controlled address used for minting, payouts, withdrawals and authorization checks.",
+      "node_id": 23
+    },
+    {
+      "id": "uo_call_change",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "Raw low-level msg.sender.call{value: cashChange} sending ETH refund inside orderEmeejis.",
+      "node_id": 24
+    },
+    {
+      "id": "uo_call_withdraw",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "Raw low-level msg.sender.call{value: payout} sending ETH inside withdraw.",
+      "node_id": 25
+    },
+    {
+      "id": "uo_onerc721_received",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "External call to IERC721Receiver(to).onERC721Received on attacker-controlled contract recipient.",
+      "node_id": 26
+    },
+    {
+      "id": "param_orderSize",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Parameter orderSize of orderEmeejis: number of tokens requested in one purchase.",
+      "node_id": 27
+    },
+    {
+      "id": "param_numberToMint",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Parameter numberToMint of giveawayEmeeji: number of reserved tokens to mint.",
+      "node_id": 28
+    },
+    {
+      "id": "param__to",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Parameter _to of giveawayEmeeji: recipient of giveaway tokens.",
+      "node_id": 29
+    },
+    {
+      "id": "param_purchaseAmount",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Parameter purchaseAmount of approvePayouts: ETH amount distributed as payout credit.",
+      "node_id": 30
+    },
+    {
+      "id": "local_cashChange",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Local cashChange in orderEmeejis: msg.value minus orderSize*tokenPrice, refunded by raw call.",
+      "node_id": 31
+    },
+    {
+      "id": "local_mintSeedValue",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Local mintSeedValue in orderEmeejis: numberMinted snapshot used to derive token ids.",
+      "node_id": 32
+    },
+    {
+      "id": "local_payout",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Local payout in withdraw: payoutAmount[msg.sender] forwarded via raw call.",
+      "node_id": 33
+    },
+    {
+      "id": "local_cashIn",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Local cashIn in orderEmeejis: msg.value captured and passed to approvePayouts.",
+      "node_id": 34
+    },
+    {
+      "id": "local_currentToken",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Local currentToken in giveawayEmeeji: numberMinted snapshot used to derive token ids.",
+      "node_id": 35
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 27,
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "orderSize parameter drives the mint loop and price validation in orderEmeejis."
+    },
+    {
+      "from_id": 23,
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "msg.sender is read for the mint recipient and for the reentrancy/order checks in orderEmeejis."
+    },
+    {
+      "from_id": 2,
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "tokenPrice is multiplied by orderSize to validate msg.value in orderEmeejis."
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "purchaseLimit bounds the requested orderSize."
+    },
+    {
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "orderLock gates whether orderEmeejis can execute at all."
+    },
+    {
+      "from_id": 8,
+      "vuln_type": "reentrancy",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "reentrancyLock is set and cleared around the mint/refund flow in orderEmeejis."
+    },
+    {
+      "from_id": 4,
+      "vuln_type": "arithmetic",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "numberMinted is read to derive mintSeedValue and the remaining supply arithmetic."
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "arithmetic",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "maximumTokens participates in the remaining-supply subtraction inside orderEmeejis."
+    },
+    {
+      "from_id": 1,
+      "vuln_type": "arithmetic",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "_reserveTokens is subtracted when checking remaining mintable supply."
+    },
+    {
+      "from_id": 34,
+      "vuln_type": "arithmetic",
+      "to_id": 31,
+      "type": "dataflow",
+      "reason": "cashChange is computed as cashIn minus orderSize*tokenPrice."
+    },
+    {
+      "from_id": 27,
+      "vuln_type": "arithmetic",
+      "to_id": 31,
+      "type": "dataflow",
+      "reason": "orderSize multiplied by tokenPrice determines the refunded cashChange."
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "controlflow",
+      "reason": "orderEmeejis invokes approvePayouts with the received ETH."
+    },
+    {
+      "from_id": 34,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "local cashIn is passed as purchaseAmount into approvePayouts."
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "approvePayouts credits payoutAmount for each payee."
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "percPayout percentage of each payee is read when computing their share."
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "payees array is iterated to distribute payout credits."
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "controlflow",
+      "reason": "orderEmeejis calls _safeMint once per ordered token."
+    },
+    {
+      "from_id": 23,
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "msg.sender is the mint recipient passed to _safeMint."
+    },
+    {
+      "from_id": 32,
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "mintSeedValue plus loop index supplies the tokenId to _safeMint."
+    },
+    {
+      "from_id": 17,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "controlflow",
+      "reason": "_safeMint delegates state mutation to _mint."
+    },
+    {
+      "from_id": 17,
+      "vuln_type": "reentrancy",
+      "to_id": 21,
+      "type": "controlflow",
+      "reason": "_safeMint triggers the ERC721 receiver callback check after minting."
+    },
+    {
+      "from_id": 21,
+      "vuln_type": "reentrancy",
+      "to_id": 26,
+      "type": "controlflow",
+      "reason": "_checkOnERC721Received performs the external onERC721Received call on the recipient."
+    },
+    {
+      "from_id": 26,
+      "vuln_type": "reentrancy",
+      "to_id": 13,
+      "type": "callback",
+      "reason": "The receiver callback can re-enter orderEmeejis while reentrancyLock is still set (guard is cleared only after the loop and refund)."
+    },
+    {
+      "from_id": 26,
+      "vuln_type": "reentrancy",
+      "to_id": 15,
+      "type": "callback",
+      "reason": "The receiver callback can re-enter withdraw during the mint flow."
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "reentrancy",
+      "to_id": 24,
+      "type": "controlflow",
+      "reason": "orderEmeejis performs a raw ETH refund via call before clearing reentrancyLock."
+    },
+    {
+      "from_id": 23,
+      "vuln_type": "reentrancy",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "msg.sender is the target of the refund low-level call."
+    },
+    {
+      "from_id": 31,
+      "vuln_type": "reentrancy",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "cashChange is the value forwarded in the refund call."
+    },
+    {
+      "from_id": 24,
+      "vuln_type": "reentrancy",
+      "to_id": 13,
+      "type": "callback",
+      "reason": "The raw refund call transfers control to msg.sender which may re-enter orderEmeejis before reentrancyLock is released."
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "reentrancy",
+      "to_id": 25,
+      "type": "controlflow",
+      "reason": "withdraw sends the payout through a raw low-level call."
+    },
+    {
+      "from_id": 33,
+      "vuln_type": "reentrancy",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "local payout is the value forwarded by the withdraw call."
+    },
+    {
+      "from_id": 23,
+      "vuln_type": "reentrancy",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "msg.sender is the target of the payout low-level call."
+    },
+    {
+      "from_id": 25,
+      "vuln_type": "reentrancy",
+      "to_id": 15,
+      "type": "callback",
+      "reason": "The payout call can re-enter withdraw; state is cleared before the call so the classic pattern is largely mitigated."
+    },
+    {
+      "from_id": 6,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "withdraw reads payoutAmount[msg.sender] and zeroes it before transferring."
+    },
+    {
+      "from_id": 23,
+      "vuln_type": "access_control",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "msg.sender selects which payoutAmount entry the caller may withdraw."
+    },
+    {
+      "from_id": 19,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "controlflow",
+      "reason": "receive() credits payouts for plain ETH transfers."
+    },
+    {
+      "from_id": 20,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "controlflow",
+      "reason": "fallback() credits payouts for unmatched calldata ETH transfers."
+    },
+    {
+      "from_id": 28,
+      "vuln_type": "arithmetic",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "numberToMint controls the mint loop bound in giveawayEmeeji."
+    },
+    {
+      "from_id": 29,
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "_to is the recipient passed to _safeMint in giveawayEmeeji."
+    },
+    {
+      "from_id": 23,
+      "vuln_type": "access_control",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "onlyOwner compares _msgSender() against owner() before allowing giveawayEmeeji."
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "access_control",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "_owner state backs the owner() check guarding giveawayEmeeji."
+    },
+    {
+      "from_id": 1,
+      "vuln_type": "arithmetic",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "_reserveTokens is decremented while distributed reserved tokens remain."
+    },
+    {
+      "from_id": 4,
+      "vuln_type": "arithmetic",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "numberMinted is incremented and used as the token id base in giveawayEmeeji."
+    },
+    {
+      "from_id": 14,
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "controlflow",
+      "reason": "giveawayEmeeji mints through _safeMint."
+    },
+    {
+      "from_id": 35,
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "currentToken plus loop index supplies the tokenId to _safeMint."
+    },
+    {
+      "from_id": 23,
+      "vuln_type": "access_control",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "burn requires _msgSender() to equal the recorded token owner."
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "access_control",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "_owners[tokenId] is read to authorize the burn caller."
+    },
+    {
+      "from_id": 10,
+      "vuln_type": "arithmetic",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "_mint increments _balances[to] by one."
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "_mint writes the new owner into _owners[tokenId]."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "fn_orderEmeejis",
+      "normal_node": "param_orderSize",
+      "reason": "orderSize is only meaningful as the mint amount argument of orderEmeejis and should collapse into that call site."
+    },
+    {
+      "merge_into": "fn_giveawayEmeeji",
+      "normal_node": "param_numberToMint",
+      "reason": "numberToMint is a local-only count argument of giveawayEmeeji with no independent identity."
+    },
+    {
+      "merge_into": "fn_giveawayEmeeji",
+      "normal_node": "param__to",
+      "reason": "_to is only the recipient argument of giveawayEmeeji and should be folded into the function node."
+    },
+    {
+      "merge_into": "fn_approvePayouts",
+      "normal_node": "param_purchaseAmount",
+      "reason": "purchaseAmount is the sole ETH input of approvePayouts and carries no separate semantic role."
+    },
+    {
+      "merge_into": "fn_orderEmeejis",
+      "normal_node": "local_cashChange",
+      "reason": "cashChange is a short-lived temporary inside orderEmeejis that only feeds the refund call."
+    },
+    {
+      "merge_into": "fn_orderEmeejis",
+      "normal_node": "local_mintSeedValue",
+      "reason": "mintSeedValue is a snapshot of numberMinted used only inside the orderEmeejis mint loop."
+    },
+    {
+      "merge_into": "fn_withdraw",
+      "normal_node": "local_payout",
+      "reason": "payout is a transient copy of payoutAmount[msg.sender] used only inside withdraw."
+    },
+    {
+      "merge_into": "fn_orderEmeejis",
+      "normal_node": "local_cashIn",
+      "reason": "cashIn is just the msg.value captured at the start of orderEmeejis."
+    },
+    {
+      "merge_into": "fn_giveawayEmeeji",
+      "normal_node": "local_currentToken",
+      "reason": "currentToken is a snapshot of numberMinted used only inside giveawayEmeeji."
+    }
+  ]
+}

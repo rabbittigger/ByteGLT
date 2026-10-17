@@ -1,0 +1,194 @@
+{
+  "nodes": [
+    {
+      "id": "state_contractLogic_slot",
+      "description": "Implementation/logic address persisted at storage slot keccak256(\"PROXIABLE\") = 0xc5f16f0fcc639fa48a6947836d9850f504798523bf8c9a3a87d5876cf622bcf7",
+      "type": "state_var",
+      "node_id": 0,
+      "is_core": true
+    },
+    {
+      "id": "func_constructor",
+      "description": "constructor(address contractLogic) public - deploy-time initializer that writes the logic address into the PROXIABLE storage slot via inline assembly sstore",
+      "type": "function",
+      "node_id": 1,
+      "is_core": true
+    },
+    {
+      "id": "func_fallback",
+      "description": "function() external payable fallback - loads the logic address and forwards all calldata through delegatecall, then returns or reverts based on success",
+      "type": "function",
+      "node_id": 2,
+      "is_core": true
+    },
+    {
+      "id": "param_contractLogic",
+      "description": "Constructor parameter contractLogic: address of the delegatecall target written to storage",
+      "type": "parameter",
+      "node_id": 3,
+      "is_core": false
+    },
+    {
+      "id": "local_contractLogic",
+      "description": "Assembly local variable contractLogic in the fallback, holding the sload result from the PROXIABLE slot",
+      "type": "local_var",
+      "node_id": 4,
+      "is_core": false
+    },
+    {
+      "id": "local_ptr",
+      "description": "Assembly local pointer ptr (mload(0x40) free memory) used as the calldata/returndata buffer for delegatecall",
+      "type": "local_var",
+      "node_id": 5,
+      "is_core": false
+    },
+    {
+      "id": "local_success",
+      "description": "Assembly local success flag returned by delegatecall, driving the switch between revert and return",
+      "type": "local_var",
+      "node_id": 6,
+      "is_core": false
+    },
+    {
+      "id": "local_retSz",
+      "description": "Assembly local retSz holding returndatasize, used to copy and forward the delegated call result",
+      "type": "local_var",
+      "node_id": 7,
+      "is_core": false
+    },
+    {
+      "id": "input_msg_sender",
+      "description": "msg.sender / arbitrary external caller of the payable fallback whose calldata is forwarded verbatim into the logic contract through delegatecall",
+      "type": "untrusted_input",
+      "node_id": 8,
+      "is_core": true
+    },
+    {
+      "id": "unsafe_sstore_logic",
+      "description": "Inline assembly sstore writing the logic address directly into the PROXIABLE slot with no validation or access control",
+      "type": "unsafe_operation",
+      "node_id": 9,
+      "is_core": true
+    },
+    {
+      "id": "unsafe_delegatecall_logic",
+      "description": "Inline assembly delegatecall(gas, contractLogic, ptr, calldatasize, 0, 0) executing untrusted calldata in the proxy's storage/context",
+      "type": "unsafe_operation",
+      "node_id": 10,
+      "is_core": true
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "reason": "The constructor parameter contractLogic is persisted into the PROXIABLE implementation storage slot",
+      "to_id": 0,
+      "from_id": 3,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The constructor argument is written straight into the logic storage slot by sstore without any zero/contract validation, determining the delegatecall target",
+      "to_id": 9,
+      "from_id": 3,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "controlflow",
+      "reason": "The constructor executes the assembly sstore that sets the implementation address",
+      "to_id": 9,
+      "from_id": 1,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The unsupervised sstore is what materializes the state_var holding the logic address",
+      "to_id": 0,
+      "from_id": 9,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "msg.sender supplies the calldata (via calldatacopy) that is delegatecall-ed into the logic contract, giving the caller control over executed code in the proxy context",
+      "to_id": 10,
+      "from_id": 8,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The fallback sloads the PROXIABLE slot into the assembly local contractLogic",
+      "to_id": 4,
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The delegatecall target address comes from the stored logic slot, so whoever can influence that slot controls the delegatecall destination",
+      "to_id": 10,
+      "from_id": 4,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The free-memory pointer ptr receives the copied calldata and is passed as the delegatecall input/output buffer",
+      "to_id": 10,
+      "from_id": 5,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The boolean result of the delegatecall is captured in the success local",
+      "to_id": 6,
+      "from_id": 10,
+      "vuln_type": "none"
+    },
+    {
+      "type": "controlflow",
+      "reason": "The success flag switches between revert and return after the delegatecall, allowing a malicious logic contract to halt or complete execution in the proxy context",
+      "to_id": 10,
+      "from_id": 6,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "controlflow",
+      "reason": "The payable fallback unconditionally performs the delegatecall for every incoming call with no reentrancy guard",
+      "to_id": 10,
+      "from_id": 2,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "callback",
+      "reason": "The delegatecall-ed logic contract executes in the proxy's context and can call back into the proxy fallback, re-entering the delegatecall path",
+      "to_id": 2,
+      "from_id": 10,
+      "vuln_type": "reentrancy"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The constructor parameter only exists to seed the implementation slot inside the constructor's sstore",
+      "normal_node": "param_contractLogic",
+      "merge_into": "func_constructor"
+    },
+    {
+      "reason": "The assembly local is merely the sload result consumed by the unsafe delegatecall target",
+      "normal_node": "local_contractLogic",
+      "merge_into": "unsafe_delegatecall_logic"
+    },
+    {
+      "reason": "The free-memory pointer only serves as the input/output buffer of the unsafe delegatecall",
+      "normal_node": "local_ptr",
+      "merge_into": "unsafe_delegatecall_logic"
+    },
+    {
+      "reason": "The success flag is the direct return value of the unsafe delegatecall and has no independent meaning",
+      "normal_node": "local_success",
+      "merge_into": "unsafe_delegatecall_logic"
+    },
+    {
+      "reason": "The returndata size local only exists to forward the unsafe delegatecall's result data",
+      "normal_node": "local_retSz",
+      "merge_into": "unsafe_delegatecall_logic"
+    }
+  ]
+}

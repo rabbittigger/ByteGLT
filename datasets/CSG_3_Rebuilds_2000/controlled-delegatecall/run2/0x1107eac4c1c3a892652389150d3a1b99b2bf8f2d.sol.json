@@ -1,0 +1,109 @@
+{
+  "nodes": [
+    {
+      "id": "NonReceivableInitializedProxy.logic",
+      "description": "Immutable address of the logic (implementation) contract that the proxy delegatecalls into.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "NonReceivableInitializedProxy.constructor",
+      "description": "Constructor that stores the logic address and performs an initializing delegatecall with caller-supplied calldata.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "function"
+    },
+    {
+      "id": "NonReceivableInitializedProxy.fallback",
+      "description": "Payable fallback that forwards all calldata via assembly delegatecall to the stored logic address.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "NonReceivableInitializedProxy.constructor.delegatecall",
+      "description": "delegatecall executed in the constructor with arbitrary _initializationCalldata against the logic contract; runs untrusted code in proxy storage context.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "NonReceivableInitializedProxy.fallback.delegatecall",
+      "description": "Raw assembly delegatecall in the fallback forwarding all gas and calldata to the logic address; external code executes in the proxy's storage context.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "NonReceivableInitializedProxy.constructor._logic",
+      "description": "Constructor parameter holding the logic contract address, assigned to the immutable state variable logic.",
+      "is_core": false,
+      "node_id": 5,
+      "type": "parameter"
+    },
+    {
+      "id": "NonReceivableInitializedProxy.constructor._initializationCalldata",
+      "description": "Constructor parameter holding calldata passed to the delegatecall that initializes the logic contract.",
+      "is_core": false,
+      "node_id": 6,
+      "type": "parameter"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The _logic constructor parameter is written into the immutable state variable logic.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The _initializationCalldata parameter is supplied directly as the calldata of the constructor delegatecall.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The constructor body executes the delegatecall to the logic contract for initialization.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The constructor assigns the logic state variable at deployment time.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The fallback body always reaches the assembly delegatecall, which forwards calldata to the logic contract.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The stored logic address is loaded and used as the delegatecall target in the fallback; the delegatecall forwards all remaining gas to externally supplied code, exposing the proxy to reentrant calls.",
+      "to_id": 4,
+      "vuln_type": "reentrancy",
+      "from_id": 0,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Constructor parameter _logic only feeds the constructor's state assignment and delegatecall, so it can be normalized into the constructor node.",
+      "normal_node": "NonReceivableInitializedProxy.constructor._logic",
+      "merge_into": "NonReceivableInitializedProxy.constructor"
+    },
+    {
+      "reason": "Constructor parameter _initializationCalldata is used solely as the calldata of the constructor delegatecall, so it can be normalized into that unsafe operation node.",
+      "normal_node": "NonReceivableInitializedProxy.constructor._initializationCalldata",
+      "merge_into": "NonReceivableInitializedProxy.constructor.delegatecall"
+    }
+  ]
+}

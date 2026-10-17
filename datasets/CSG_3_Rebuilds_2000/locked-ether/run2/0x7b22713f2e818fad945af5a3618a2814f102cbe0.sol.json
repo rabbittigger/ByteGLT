@@ -1,0 +1,461 @@
+{
+  "nodes": [
+    {
+      "id": "FREEZE_PERIOD",
+      "description": "Constant freeze period of 720 days (2 years) before any withdrawal is allowed",
+      "type": "state_var",
+      "node_id": 0,
+      "is_core": true
+    },
+    {
+      "id": "lrcTokenAddress",
+      "description": "Address of the LRC ERC20 token contract held by the icebox",
+      "type": "state_var",
+      "node_id": 1,
+      "is_core": true
+    },
+    {
+      "id": "owner",
+      "description": "Owner address allowed to start the program and receive unlocked tokens",
+      "type": "state_var",
+      "node_id": 2,
+      "is_core": true
+    },
+    {
+      "id": "lrcInitialBalance",
+      "description": "LRC balance snapshotted at program start",
+      "type": "state_var",
+      "node_id": 3,
+      "is_core": true
+    },
+    {
+      "id": "lrcWithdrawn",
+      "description": "Total amount of LRC already withdrawn from the icebox",
+      "type": "state_var",
+      "node_id": 4,
+      "is_core": true
+    },
+    {
+      "id": "lrcUnlockPerMonth",
+      "description": "Amount of LRC unlockable per month (initial balance / 24)",
+      "type": "state_var",
+      "node_id": 5,
+      "is_core": true
+    },
+    {
+      "id": "startTime",
+      "description": "Timestamp when the vesting program was started",
+      "type": "state_var",
+      "node_id": 6,
+      "is_core": true
+    },
+    {
+      "id": "withdrawId",
+      "description": "Monotonic counter used to identify each withdrawal event",
+      "type": "state_var",
+      "node_id": 7,
+      "is_core": true
+    },
+    {
+      "id": "LRCFoundationIceboxContract",
+      "description": "Constructor that validates and stores the LRC token address and owner",
+      "type": "function",
+      "node_id": 8,
+      "is_core": true
+    },
+    {
+      "id": "start",
+      "description": "Owner-only function that snapshots the balance, computes the monthly unlock and sets startTime",
+      "type": "function",
+      "node_id": 9,
+      "is_core": true
+    },
+    {
+      "id": "fallback",
+      "description": "Payable fallback that performs the actual monthly LRC withdrawal to the owner",
+      "type": "function",
+      "node_id": 10,
+      "is_core": true
+    },
+    {
+      "id": "calculateLRCUnlockAmount",
+      "description": "Internal function computing how much LRC may currently be unlocked",
+      "type": "function",
+      "node_id": 11,
+      "is_core": true
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller-controlled address compared against owner in start and fallback",
+      "type": "untrusted_input",
+      "node_id": 12,
+      "is_core": true
+    },
+    {
+      "id": "block.timestamp",
+      "description": "Block timestamp (now) used for freeze period and unlock calculations",
+      "type": "untrusted_input",
+      "node_id": 13,
+      "is_core": true
+    },
+    {
+      "id": "token.transfer(owner, lrcAmount)",
+      "description": "External ERC20 transfer call sending unlocked LRC to the owner",
+      "type": "unsafe_operation",
+      "node_id": 14,
+      "is_core": true
+    },
+    {
+      "id": "lrcWithdrawn += lrcAmount",
+      "description": "State update of the withdrawn counter before the external transfer",
+      "type": "unsafe_operation",
+      "node_id": 15,
+      "is_core": true
+    },
+    {
+      "id": "unlockable = (_now - startTime - FREEZE_PERIOD)/30 days*lrcUnlockPerMonth - lrcWithdrawn",
+      "description": "Arithmetic on timestamps and balances including unchecked subtraction",
+      "type": "unsafe_operation",
+      "node_id": 16,
+      "is_core": true
+    },
+    {
+      "id": "Token(lrcTokenAddress).balanceOf(address(this))",
+      "description": "External call reading the contract LRC balance",
+      "type": "unsafe_operation",
+      "node_id": 17,
+      "is_core": true
+    },
+    {
+      "id": "_lrcTokenAddress",
+      "description": "Constructor parameter for the LRC ERC20 token address",
+      "type": "parameter",
+      "node_id": 18,
+      "is_core": false
+    },
+    {
+      "id": "_owner",
+      "description": "Constructor parameter for the owner address",
+      "type": "parameter",
+      "node_id": 19,
+      "is_core": false
+    },
+    {
+      "id": "_now",
+      "description": "Timestamp parameter supplied to calculateLRCUnlockAmount",
+      "type": "parameter",
+      "node_id": 20,
+      "is_core": false
+    },
+    {
+      "id": "_balance",
+      "description": "Token balance parameter supplied to calculateLRCUnlockAmount",
+      "type": "parameter",
+      "node_id": 21,
+      "is_core": false
+    },
+    {
+      "id": "token",
+      "description": "Local Token instance built from lrcTokenAddress in the fallback",
+      "type": "local_var",
+      "node_id": 22,
+      "is_core": false
+    },
+    {
+      "id": "balance",
+      "description": "Local copy of the contract LRC balance read via balanceOf",
+      "type": "local_var",
+      "node_id": 23,
+      "is_core": false
+    },
+    {
+      "id": "lrcAmount",
+      "description": "Local amount of LRC to be withdrawn in the fallback",
+      "type": "local_var",
+      "node_id": 24,
+      "is_core": false
+    },
+    {
+      "id": "unlockable",
+      "description": "Local value computed inside calculateLRCUnlockAmount",
+      "type": "local_var",
+      "node_id": 25,
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "reason": "FREEZE_PERIOD is subtracted in the unlockable arithmetic inside calculateLRCUnlockAmount",
+      "to_id": 11,
+      "from_id": 0,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "type": "dataflow",
+      "reason": "lrcTokenAddress is used to build the Token instance for the transfer call",
+      "to_id": 14,
+      "from_id": 1,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "lrcTokenAddress is used as the target of the balanceOf external call",
+      "to_id": 17,
+      "from_id": 1,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "owner is the recipient address of the LRC transfer",
+      "to_id": 14,
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "lrcInitialBalance divided by 24 produces lrcUnlockPerMonth in start()",
+      "to_id": 5,
+      "from_id": 3,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "lrcWithdrawn is subtracted in the unlockable arithmetic",
+      "to_id": 11,
+      "from_id": 4,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "type": "dataflow",
+      "reason": "lrcUnlockPerMonth is multiplied in the unlockable arithmetic",
+      "to_id": 11,
+      "from_id": 5,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "type": "dataflow",
+      "reason": "startTime is subtracted in the unlockable arithmetic",
+      "to_id": 11,
+      "from_id": 6,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "type": "dataflow",
+      "reason": "start() writes startTime = now",
+      "to_id": 6,
+      "from_id": 9,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "start() writes lrcInitialBalance from balanceOf",
+      "to_id": 3,
+      "from_id": 9,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "start() writes lrcUnlockPerMonth",
+      "to_id": 5,
+      "from_id": 9,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "msg.sender is compared against owner in start()",
+      "to_id": 9,
+      "from_id": 12,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "dataflow",
+      "reason": "msg.sender is compared against owner in the fallback",
+      "to_id": 10,
+      "from_id": 12,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "dataflow",
+      "reason": "now (block.timestamp) drives the freeze period check in the fallback",
+      "to_id": 10,
+      "from_id": 13,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "dataflow",
+      "reason": "now is passed as _now into the unlock amount calculation",
+      "to_id": 11,
+      "from_id": 13,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "dataflow",
+      "reason": "calculated lrcAmount is the value transferred to the owner",
+      "to_id": 14,
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "lrcWithdrawn state variable is incremented by lrcAmount",
+      "to_id": 4,
+      "from_id": 15,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "type": "dataflow",
+      "reason": "balanceOf return value is stored in the local balance variable",
+      "to_id": 23,
+      "from_id": 17,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "local balance is passed as _balance to calculateLRCUnlockAmount",
+      "to_id": 11,
+      "from_id": 23,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "local token instance is the contract used for the transfer call",
+      "to_id": 14,
+      "from_id": 22,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "local lrcAmount is the amount passed to token.transfer",
+      "to_id": 14,
+      "from_id": 24,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "constructor receives _lrcTokenAddress",
+      "to_id": 18,
+      "from_id": 8,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "constructor receives _owner",
+      "to_id": 19,
+      "from_id": 8,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "calculateLRCUnlockAmount receives _now",
+      "to_id": 20,
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "calculateLRCUnlockAmount receives _balance",
+      "to_id": 21,
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "constructor stores _lrcTokenAddress into lrcTokenAddress",
+      "to_id": 1,
+      "from_id": 18,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "constructor stores _owner into owner",
+      "to_id": 2,
+      "from_id": 19,
+      "vuln_type": "none"
+    },
+    {
+      "type": "controlflow",
+      "reason": "fallback invokes calculateLRCUnlockAmount",
+      "to_id": 11,
+      "from_id": 10,
+      "vuln_type": "none"
+    },
+    {
+      "type": "controlflow",
+      "reason": "fallback executes the external token.transfer call",
+      "to_id": 14,
+      "from_id": 10,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "controlflow",
+      "reason": "fallback updates lrcWithdrawn before transferring",
+      "to_id": 15,
+      "from_id": 10,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "type": "controlflow",
+      "reason": "start() performs the balanceOf external call",
+      "to_id": 17,
+      "from_id": 9,
+      "vuln_type": "none"
+    },
+    {
+      "type": "controlflow",
+      "reason": "calculateLRCUnlockAmount evaluates the unchecked-subtraction unlockable expression",
+      "to_id": 16,
+      "from_id": 11,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "type": "callback",
+      "reason": "external token.transfer can re-enter the payable fallback while the withdrawal is being processed",
+      "to_id": 10,
+      "from_id": 14,
+      "vuln_type": "reentrancy"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Constructor parameter flows directly into the constructor which assigns lrcTokenAddress",
+      "normal_node": "_lrcTokenAddress",
+      "merge_into": "LRCFoundationIceboxContract"
+    },
+    {
+      "reason": "Constructor parameter flows directly into the constructor which assigns owner",
+      "normal_node": "_owner",
+      "merge_into": "LRCFoundationIceboxContract"
+    },
+    {
+      "reason": "Parameter is consumed only by the internal unlock calculation function",
+      "normal_node": "_now",
+      "merge_into": "calculateLRCUnlockAmount"
+    },
+    {
+      "reason": "Parameter is consumed only by the internal unlock calculation function",
+      "normal_node": "_balance",
+      "merge_into": "calculateLRCUnlockAmount"
+    },
+    {
+      "reason": "Local Token instance exists solely to perform the external transfer call",
+      "normal_node": "token",
+      "merge_into": "token.transfer(owner, lrcAmount)"
+    },
+    {
+      "reason": "Local balance is the direct result of the balanceOf external call",
+      "normal_node": "balance",
+      "merge_into": "Token(lrcTokenAddress).balanceOf(address(this))"
+    },
+    {
+      "reason": "Local lrcAmount is the exact value passed to the external transfer",
+      "normal_node": "lrcAmount",
+      "merge_into": "token.transfer(owner, lrcAmount)"
+    },
+    {
+      "reason": "Local unlockable is produced by that arithmetic operation",
+      "normal_node": "unlockable",
+      "merge_into": "unlockable = (_now - startTime - FREEZE_PERIOD)/30 days*lrcUnlockPerMonth - lrcWithdrawn"
+    }
+  ]
+}

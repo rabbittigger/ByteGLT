@@ -1,0 +1,93 @@
+{
+  "nodes": [
+    {
+      "description": "External function createClone(address target) that deploys a minimal proxy (EIP-1167 clone) via inline assembly and returns the created address.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 0,
+      "id": "function_createClone"
+    },
+    {
+      "description": "Input parameter target: address of the implementation contract to be cloned.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 1,
+      "id": "parameter_target"
+    },
+    {
+      "description": "Local bytes20 targetBytes holding the ABI-padded address of target for embedding in the clone bytecode.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 2,
+      "id": "local_var_targetBytes"
+    },
+    {
+      "description": "Named return variable result that receives the address of the newly deployed clone from the assembly create call.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 3,
+      "id": "local_var_result"
+    },
+    {
+      "description": "Inline assembly block that writes the clone bytecode to memory and executes create(0, clone, 0x37), deploying arbitrary proxy code and returning the address.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 4,
+      "id": "unsafe_operation_assembly_create"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The address parameter target is supplied by the caller and consumed by the createClone function body.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "target is cast with bytes20(target) and stored into the local variable targetBytes.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "Execution of createClone enters the inline assembly block that performs the deployment.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 4
+    },
+    {
+      "reason": "targetBytes is mstore'd into the clone bytecode buffer at offset 0x14 inside the assembly block.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "The address returned by the assembly create call is assigned to the named return variable result.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The parameter target is only meaningful as the caller-supplied argument of the createClone function, so it is normalized into that core function node.",
+      "normal_node": "parameter_target",
+      "merge_into": "function_createClone"
+    },
+    {
+      "reason": "The temporary targetBytes exists solely to feed the clone bytecode produced inside the unsafe assembly create operation.",
+      "normal_node": "local_var_targetBytes",
+      "merge_into": "unsafe_operation_assembly_create"
+    },
+    {
+      "reason": "The return variable result only carries the outcome of createClone back to its caller, so it is normalized into the core function node.",
+      "normal_node": "local_var_result",
+      "merge_into": "function_createClone"
+    }
+  ]
+}

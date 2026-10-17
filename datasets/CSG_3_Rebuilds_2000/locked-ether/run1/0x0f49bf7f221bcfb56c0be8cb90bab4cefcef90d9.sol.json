@@ -1,0 +1,335 @@
+{
+  "nodes": [
+    {
+      "description": "Immutable address of the ERC20 token distributed by the contract (token).",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "state_token"
+    },
+    {
+      "description": "Immutable merkle root of the tree containing claimable balances (merkleRoot).",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "state_merkleRoot"
+    },
+    {
+      "description": "Packed mapping(uint256=>uint256) bit map tracking which claim indexes have already been claimed.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 2,
+      "id": "state_claimedBitMap"
+    },
+    {
+      "description": "Public/external claim(uint256 index, address account, uint256 amount, bytes32[] merkleProof): checks claim status, verifies the proof, marks claimed and transfers tokens.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "func_claim"
+    },
+    {
+      "description": "Public view isClaimed(uint256 index): reads claimedBitMap and returns whether the given index bit is set.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 4,
+      "id": "func_isClaimed"
+    },
+    {
+      "description": "Private _setClaimed(uint256 index): sets the corresponding bit in claimedBitMap.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 5,
+      "id": "func_setClaimed"
+    },
+    {
+      "description": "MerkleProof.verify(bytes32[] proof, bytes32 root, bytes32 leaf): iteratively hashes proof elements and compares the computed hash to the root.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 6,
+      "id": "func_verify"
+    },
+    {
+      "description": "Constructor(address token_, bytes32 merkleRoot_): initializes the immutable token and merkleRoot state variables.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 7,
+      "id": "func_constructor"
+    },
+    {
+      "description": "msg.sender / external caller of the unpermissioned claim function.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 8,
+      "id": "input_msg_sender"
+    },
+    {
+      "description": "External call IERC20(token).transfer(account, amount) performing the token payout to the claimant.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 9,
+      "id": "unsafe_token_transfer"
+    },
+    {
+      "description": "Bit-manipulation state write claimedBitMap[claimedWordIndex] | (1 << claimedBitIndex) used to mark an index as claimed.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 10,
+      "id": "unsafe_bit_marking"
+    },
+    {
+      "description": "Parameter index of claim(uint256 index, ...): the leaf index in the merkle tree.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 11,
+      "id": "param_index"
+    },
+    {
+      "description": "Parameter account of claim(...): the address receiving the tokens.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 12,
+      "id": "param_account"
+    },
+    {
+      "description": "Parameter amount of claim(...): the quantity of tokens to transfer.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 13,
+      "id": "param_amount"
+    },
+    {
+      "description": "Parameter merkleProof (bytes32[] calldata) used to prove the leaf belongs to the merkle root.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 14,
+      "id": "param_merkleProof"
+    },
+    {
+      "description": "Local bytes32 node = keccak256(abi.encodePacked(index, account, amount)) computed in claim.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 15,
+      "id": "local_node_hash"
+    },
+    {
+      "description": "Local claimedWordIndex = index / 256 and claimedBitIndex = index % 256 used for the claimedBitMap bit logic.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 16,
+      "id": "local_claimed_bit_index"
+    },
+    {
+      "description": "Local computedHash in MerkleProof.verify, iteratively recomputed from the leaf and proof elements.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 17,
+      "id": "local_computed_hash"
+    },
+    {
+      "description": "Local proofElement = proof[i] taken from the supplied merkle proof inside the verify loop.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 18,
+      "id": "local_proof_element"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "index is packed with account and amount to build the leaf hash node.",
+      "from_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 15
+    },
+    {
+      "reason": "account is packed into the leaf hash node.",
+      "from_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 15
+    },
+    {
+      "reason": "amount is packed into the leaf hash node.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 15
+    },
+    {
+      "reason": "Caller-supplied merkleProof array is passed into MerkleProof.verify.",
+      "from_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "Computed leaf node is passed as the leaf argument to MerkleProof.verify.",
+      "from_id": 15,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "Stored merkleRoot is used as the root that verify compares against.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "claim invokes MerkleProof.verify inside a require guard before paying out.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 6
+    },
+    {
+      "reason": "claim calls isClaimed(index) at the start of execution.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 4
+    },
+    {
+      "reason": "claimedBitMap is read to determine whether the index was already claimed.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "index is divided and modulo 256 to derive claimedWordIndex and claimedBitIndex.",
+      "from_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 16
+    },
+    {
+      "reason": "claimedBitIndex drives the shift expression (1 << claimedBitIndex) used in the claimedBitMap write.",
+      "from_id": 16,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 10
+    },
+    {
+      "reason": "_setClaimed reads and writes the claimedBitMap mapping.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "claim calls _setClaimed(index) before transferring tokens.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 5
+    },
+    {
+      "reason": "Immutable token address is the target contract of the transfer call.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 9
+    },
+    {
+      "reason": "account parameter is the recipient of the token transfer.",
+      "from_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 9
+    },
+    {
+      "reason": "amount parameter is the value transferred to the claimant.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 9
+    },
+    {
+      "reason": "claim executes an external token transfer call before finishing its execution.",
+      "from_id": 3,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 9
+    },
+    {
+      "reason": "The external IERC20 transfer could call back into claim/isClaimed, so token state manipulation must be completed before the external call.",
+      "from_id": 9,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 3
+    },
+    {
+      "reason": "Any external caller (msg.sender) can invoke the unpermissioned claim function and influence its execution path.",
+      "from_id": 8,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "The boolean result of isClaimed guards the rest of claim via require.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "Each proofElement is hashed into the running computedHash during verification.",
+      "from_id": 18,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 17
+    },
+    {
+      "reason": "The boolean returned by MerkleProof.verify is consumed by claim's require statement.",
+      "from_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "index is a claim function parameter whose only role is to feed the claim leaf hash and bit-map lookup.",
+      "normal_node": "param_index",
+      "merge_into": "func_claim"
+    },
+    {
+      "reason": "account is a claim function parameter used as the leaf component and transfer recipient.",
+      "normal_node": "param_account",
+      "merge_into": "func_claim"
+    },
+    {
+      "reason": "amount is a claim function parameter used as the leaf component and transferred value.",
+      "normal_node": "param_amount",
+      "merge_into": "func_claim"
+    },
+    {
+      "reason": "merkleProof is a claim parameter consumed directly by MerkleProof.verify.",
+      "normal_node": "param_merkleProof",
+      "merge_into": "func_verify"
+    },
+    {
+      "reason": "The keccak256 leaf hash is computed in claim solely to be supplied to MerkleProof.verify.",
+      "normal_node": "local_node_hash",
+      "merge_into": "func_verify"
+    },
+    {
+      "reason": "claimedWordIndex/claimedBitIndex exist only to index and shift bits in the claimedBitMap write.",
+      "normal_node": "local_claimed_bit_index",
+      "merge_into": "unsafe_bit_marking"
+    },
+    {
+      "reason": "computedHash is the internal accumulator of MerkleProof.verify and has no independent meaning.",
+      "normal_node": "local_computed_hash",
+      "merge_into": "func_verify"
+    },
+    {
+      "reason": "proofElement is the per-iteration loop variable that verify hashes into computedHash.",
+      "normal_node": "local_proof_element",
+      "merge_into": "func_verify"
+    }
+  ]
+}

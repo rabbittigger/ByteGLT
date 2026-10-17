@@ -1,0 +1,631 @@
+{
+  "nodes": [
+    {
+      "id": "sv_rOwned",
+      "is_core": true,
+      "type": "state_var",
+      "description": "mapping(address=>uint256) reflection balances used for all token accounting",
+      "node_id": 0
+    },
+    {
+      "id": "sv_rTotal",
+      "is_core": true,
+      "type": "state_var",
+      "description": "total reflection supply, reduced by fees in _reflectFee",
+      "node_id": 1
+    },
+    {
+      "id": "sv_tTotal",
+      "is_core": true,
+      "type": "state_var",
+      "description": "constant total token supply 1e27",
+      "node_id": 2
+    },
+    {
+      "id": "sv_feeAddr1",
+      "is_core": true,
+      "type": "state_var",
+      "description": "tax fee percent used by _getTValues",
+      "node_id": 3
+    },
+    {
+      "id": "sv_feeAddr2",
+      "is_core": true,
+      "type": "state_var",
+      "description": "team fee percent used by _getTValues",
+      "node_id": 4
+    },
+    {
+      "id": "sv_feeAddrWallet1",
+      "is_core": true,
+      "type": "state_var",
+      "description": "privileged fee wallet address gating KillBot/ReviveAddress/manualswap/manualsend",
+      "node_id": 5
+    },
+    {
+      "id": "sv_bots",
+      "is_core": true,
+      "type": "state_var",
+      "description": "mapping(address=>bool) blacklist checked in _transfer",
+      "node_id": 6
+    },
+    {
+      "id": "sv_cooldown",
+      "is_core": true,
+      "type": "state_var",
+      "description": "mapping(address=>uint) per-address timestamp cooldown",
+      "node_id": 7
+    },
+    {
+      "id": "sv_maxTxAmount",
+      "is_core": true,
+      "type": "state_var",
+      "description": "maximum transfer amount enforced in _transfer when cooldown enabled",
+      "node_id": 8
+    },
+    {
+      "id": "sv_swapEnabled",
+      "is_core": true,
+      "type": "state_var",
+      "description": "flag enabling automatic swap-and-send during transfers",
+      "node_id": 9
+    },
+    {
+      "id": "sv_cooldownEnabled",
+      "is_core": true,
+      "type": "state_var",
+      "description": "flag enabling the per-address cooldown check",
+      "node_id": 10
+    },
+    {
+      "id": "sv_owner",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Ownable owner address checked by onlyOwner",
+      "node_id": 11
+    },
+    {
+      "id": "fn__transfer",
+      "is_core": true,
+      "type": "function",
+      "description": "internal _transfer: validates addresses/bots, sets fee rates, applies cooldown, triggers swap and ETH send, then _tokenTransfer",
+      "node_id": 12
+    },
+    {
+      "id": "fn_swapTokensForEth",
+      "is_core": true,
+      "type": "function",
+      "description": "private swapTokensForEth under lockTheSwap: approves router and swaps tokens for ETH",
+      "node_id": 13
+    },
+    {
+      "id": "fn_openTrading",
+      "is_core": true,
+      "type": "function",
+      "description": "onlyOwner openTrading: sets router, creates pair, adds liquidity, enables swap/cooldown and approves pair",
+      "node_id": 14
+    },
+    {
+      "id": "fn_KillBot",
+      "is_core": true,
+      "type": "function",
+      "description": "blacklists an address; requires msg.sender == _feeAddrWallet1",
+      "node_id": 15
+    },
+    {
+      "id": "fn_ReviveAddress",
+      "is_core": true,
+      "type": "function",
+      "description": "unblacklists an address; requires msg.sender == _feeAddrWallet1",
+      "node_id": 16
+    },
+    {
+      "id": "fn_manualswap",
+      "is_core": true,
+      "type": "function",
+      "description": "manually swaps the contract token balance; requires msg.sender == _feeAddrWallet1",
+      "node_id": 17
+    },
+    {
+      "id": "fn_manualsend",
+      "is_core": true,
+      "type": "function",
+      "description": "manually sends contract ETH balance to fee wallet; requires msg.sender == _feeAddrWallet1",
+      "node_id": 18
+    },
+    {
+      "id": "fn_sendETHToFee",
+      "is_core": true,
+      "type": "function",
+      "description": "private helper transferring ETH to _feeAddrWallet1",
+      "node_id": 19
+    },
+    {
+      "id": "fn_liftMaxTx",
+      "is_core": true,
+      "type": "function",
+      "description": "onlyOwner function raising _maxTxAmount",
+      "node_id": 20
+    },
+    {
+      "id": "fn_setCooldownEnabled",
+      "is_core": true,
+      "type": "function",
+      "description": "onlyOwner toggle for cooldownEnabled",
+      "node_id": 21
+    },
+    {
+      "id": "fn_renounceOwnership",
+      "is_core": true,
+      "type": "function",
+      "description": "onlyOwner renouncement setting _owner to address(0)",
+      "node_id": 22
+    },
+    {
+      "id": "ui_msg_sender",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "msg.sender via _msgSender(), attacker controllable caller identity",
+      "node_id": 23
+    },
+    {
+      "id": "ui_block_timestamp",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "block.timestamp used for cooldown accounting and router deadlines",
+      "node_id": 24
+    },
+    {
+      "id": "uo_router_swap",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "external call uniswapV2Router.swapExactTokensForETHSupportingFeeOnTransferTokens(tokenAmount,0,path,address(this),block.timestamp)",
+      "node_id": 25
+    },
+    {
+      "id": "uo_add_liquidity_eth",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "external payable call uniswapV2Router.addLiquidityETH{value: address(this).balance}(...)",
+      "node_id": 26
+    },
+    {
+      "id": "uo_fee_transfer",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "external native transfer _feeAddrWallet1.transfer(amount)",
+      "node_id": 27
+    },
+    {
+      "id": "uo_approve_pair",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "external call IERC20(uniswapV2Pair).approve(address(uniswapV2Router), type(uint).max)",
+      "node_id": 28
+    },
+    {
+      "id": "pv_from",
+      "is_core": false,
+      "type": "parameter",
+      "description": "_transfer parameter 'from' source address",
+      "node_id": 29
+    },
+    {
+      "id": "pv_to",
+      "is_core": false,
+      "type": "parameter",
+      "description": "_transfer parameter 'to' destination address",
+      "node_id": 30
+    },
+    {
+      "id": "pv_amount",
+      "is_core": false,
+      "type": "parameter",
+      "description": "_transfer parameter 'amount' token amount",
+      "node_id": 31
+    },
+    {
+      "id": "pv_address",
+      "is_core": false,
+      "type": "parameter",
+      "description": "KillBot parameter '_address' to blacklist",
+      "node_id": 32
+    },
+    {
+      "id": "pv_notbot",
+      "is_core": false,
+      "type": "parameter",
+      "description": "ReviveAddress parameter 'notbot' to unblacklist",
+      "node_id": 33
+    },
+    {
+      "id": "lv_contractTokenBalance",
+      "is_core": false,
+      "type": "local_var",
+      "description": "local contractTokenBalance = balanceOf(address(this)) in _transfer",
+      "node_id": 34
+    },
+    {
+      "id": "lv_contractETHBalance",
+      "is_core": false,
+      "type": "local_var",
+      "description": "local contractETHBalance = address(this).balance in _transfer",
+      "node_id": 35
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 23,
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "_msgSender() supplies the 'from' argument in transfer/transferFrom, feeding _transfer"
+    },
+    {
+      "from_id": 23,
+      "vuln_type": "access_control",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "KillBot authorizes caller by comparing _msgSender() with _feeAddrWallet1"
+    },
+    {
+      "from_id": 23,
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "ReviveAddress authorizes caller by comparing _msgSender() with _feeAddrWallet1"
+    },
+    {
+      "from_id": 23,
+      "vuln_type": "access_control",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "manualswap authorizes caller by comparing _msgSender() with _feeAddrWallet1"
+    },
+    {
+      "from_id": 23,
+      "vuln_type": "access_control",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "manualsend authorizes caller by comparing _msgSender() with _feeAddrWallet1"
+    },
+    {
+      "from_id": 23,
+      "vuln_type": "access_control",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "liftMaxTx is gated by onlyOwner which compares _msgSender() to _owner"
+    },
+    {
+      "from_id": 23,
+      "vuln_type": "access_control",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "setCooldownEnabled is gated by onlyOwner which compares _msgSender() to _owner"
+    },
+    {
+      "from_id": 23,
+      "vuln_type": "access_control",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "renounceOwnership is gated by onlyOwner which compares _msgSender() to _owner"
+    },
+    {
+      "from_id": 5,
+      "vuln_type": "access_control",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "privileged wallet address _feeAddrWallet1 is the required caller of KillBot"
+    },
+    {
+      "from_id": 5,
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "privileged wallet address _feeAddrWallet1 is the required caller of ReviveAddress"
+    },
+    {
+      "from_id": 5,
+      "vuln_type": "access_control",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "privileged wallet address _feeAddrWallet1 is the required caller of manualswap"
+    },
+    {
+      "from_id": 5,
+      "vuln_type": "access_control",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "privileged wallet address _feeAddrWallet1 is the required caller of manualsend"
+    },
+    {
+      "from_id": 5,
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "_feeAddrWallet1 is the recipient of the unsafe native transfer in sendETHToFee"
+    },
+    {
+      "from_id": 24,
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "cooldown[to] is set from block.timestamp, making transfer eligibility timestamp dependent"
+    },
+    {
+      "from_id": 7,
+      "vuln_type": "access_control",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "_transfer reads cooldown[to] < block.timestamp to gate buy transfers"
+    },
+    {
+      "from_id": 24,
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "block.timestamp is passed as the router swap deadline in swapTokensForEth"
+    },
+    {
+      "from_id": 24,
+      "vuln_type": "access_control",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "block.timestamp is passed as deadline to addLiquidityETH in openTrading"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "_transfer writes cooldown[to] = block.timestamp + 10 seconds"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "_transfer enforces require(amount <= _maxTxAmount)"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "_transfer requires !bots[from] blacklist check"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "_transfer checks swapEnabled before triggering auto swap/send"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "_transfer writes _feeAddr1 as the tax fee percent"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "_transfer writes _feeAddr2 as the team fee percent"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "_transfer calls swapTokensForEth with the contract token balance"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "controlflow",
+      "reason": "_transfer calls sendETHToFee when contract ETH balance exceeds threshold"
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "controlflow",
+      "reason": "swapTokensForEth executes the external Uniswap router swap call"
+    },
+    {
+      "from_id": 14,
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "controlflow",
+      "reason": "openTrading executes the external payable addLiquidityETH call"
+    },
+    {
+      "from_id": 14,
+      "vuln_type": "none",
+      "to_id": 28,
+      "type": "controlflow",
+      "reason": "openTrading executes the external pair approve call"
+    },
+    {
+      "from_id": 19,
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "controlflow",
+      "reason": "sendETHToFee performs the external native transfer to the fee wallet"
+    },
+    {
+      "from_id": 17,
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "manualswap calls swapTokensForEth with the full contract balance"
+    },
+    {
+      "from_id": 18,
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "controlflow",
+      "reason": "manualsend calls sendETHToFee with the contract ETH balance"
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "KillBot sets bots[_address] = true"
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "ReviveAddress sets bots[notbot] = false"
+    },
+    {
+      "from_id": 20,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "liftMaxTx overwrites _maxTxAmount"
+    },
+    {
+      "from_id": 21,
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "setCooldownEnabled overwrites cooldownEnabled"
+    },
+    {
+      "from_id": 22,
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "renounceOwnership sets _owner to address(0)"
+    },
+    {
+      "from_id": 14,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "openTrading sets swapEnabled = true"
+    },
+    {
+      "from_id": 14,
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "openTrading sets cooldownEnabled = true"
+    },
+    {
+      "from_id": 14,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "openTrading lowers _maxTxAmount after adding liquidity"
+    },
+    {
+      "from_id": 25,
+      "vuln_type": "reentrancy",
+      "to_id": 0,
+      "type": "callback",
+      "reason": "router swap triggers token transfer callbacks while _rOwned balances were just read in _transfer before _tokenTransfer updates state"
+    },
+    {
+      "from_id": 27,
+      "vuln_type": "reentrancy",
+      "to_id": 0,
+      "type": "callback",
+      "reason": "ETH transfer to _feeAddrWallet1 may invoke a contract fallback that re-enters token logic touching _rOwned"
+    },
+    {
+      "from_id": 29,
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "parameter 'from' is consumed by _transfer address/bot checks"
+    },
+    {
+      "from_id": 30,
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "parameter 'to' is consumed by _transfer cooldown and pair checks"
+    },
+    {
+      "from_id": 31,
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "parameter 'amount' is validated against _maxTxAmount and passed to _tokenTransfer"
+    },
+    {
+      "from_id": 32,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "parameter '_address' indexes the bots mapping in KillBot"
+    },
+    {
+      "from_id": 33,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "parameter 'notbot' indexes the bots mapping in ReviveAddress"
+    },
+    {
+      "from_id": 34,
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "local contractTokenBalance feeds the tokenAmount argument of swapTokensForEth"
+    },
+    {
+      "from_id": 35,
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "local contractETHBalance is passed into sendETHToFee"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "fn__transfer",
+      "normal_node": "pv_from",
+      "reason": "'from' is only the _transfer source-address parameter; normalize into the _transfer core function node"
+    },
+    {
+      "merge_into": "fn__transfer",
+      "normal_node": "pv_to",
+      "reason": "'to' is only the _transfer destination-address parameter; normalize into the _transfer core function node"
+    },
+    {
+      "merge_into": "fn__transfer",
+      "normal_node": "pv_amount",
+      "reason": "'amount' is only the _transfer amount parameter; normalize into the _transfer core function node"
+    },
+    {
+      "merge_into": "fn_KillBot",
+      "normal_node": "pv_address",
+      "reason": "'_address' is the sole KillBot parameter indexing the blacklist; normalize into KillBot"
+    },
+    {
+      "merge_into": "fn_ReviveAddress",
+      "normal_node": "pv_notbot",
+      "reason": "'notbot' is the sole ReviveAddress parameter indexing the blacklist; normalize into ReviveAddress"
+    },
+    {
+      "merge_into": "fn_swapTokensForEth",
+      "normal_node": "lv_contractTokenBalance",
+      "reason": "contractTokenBalance is computed in _transfer purely to supply swapTokensForEth's tokenAmount argument"
+    },
+    {
+      "merge_into": "fn_sendETHToFee",
+      "normal_node": "lv_contractETHBalance",
+      "reason": "contractETHBalance is computed in _transfer purely as the amount passed to sendETHToFee"
+    }
+  ]
+}

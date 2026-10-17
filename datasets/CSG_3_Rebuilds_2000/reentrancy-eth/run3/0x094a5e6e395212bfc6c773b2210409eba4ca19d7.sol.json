@@ -1,0 +1,342 @@
+{
+  "nodes": [
+    {
+      "id": "Acc",
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Mapping address => Holder storing each user's unlockTime and balance in contract ultra_bank.",
+      "is_core": true
+    },
+    {
+      "id": "LogFile",
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Reference to the Log contract used for event/message logging in ultra_bank.",
+      "is_core": true
+    },
+    {
+      "id": "MinSum",
+      "node_id": 2,
+      "type": "state_var",
+      "description": "Public minimum balance (1 ether) required before a Collect withdrawal.",
+      "is_core": true
+    },
+    {
+      "id": "Put",
+      "node_id": 3,
+      "type": "function",
+      "description": "Public payable Put function: credits msg.value to caller's Holder and sets unlockTime.",
+      "is_core": true
+    },
+    {
+      "id": "Collect",
+      "node_id": 4,
+      "type": "function",
+      "description": "Public payable Collect function: checks MinSum, requested amount and unlockTime, then sends ether via msg.sender.call.value().",
+      "is_core": true
+    },
+    {
+      "id": "fallback",
+      "node_id": 5,
+      "type": "function",
+      "description": "Anonymous payable fallback function that forwards to Put(0).",
+      "is_core": true
+    },
+    {
+      "id": "ultra_bank_constructor",
+      "node_id": 6,
+      "type": "function",
+      "description": "Constructor of ultra_bank that wires the Log contract address into LogFile.",
+      "is_core": true
+    },
+    {
+      "id": "msg_sender",
+      "node_id": 7,
+      "type": "untrusted_input",
+      "description": "msg.sender: caller-controlled address used as key into Acc and as target of the external call.",
+      "is_core": true
+    },
+    {
+      "id": "block_timestamp",
+      "node_id": 8,
+      "type": "untrusted_input",
+      "description": "block.timestamp (now): miner-influenced timestamp used for unlockTime clamping and comparisons.",
+      "is_core": true
+    },
+    {
+      "id": "external_call_collect",
+      "node_id": 9,
+      "type": "unsafe_operation",
+      "description": "msg.sender.call.value(_am)() low-level external send in Collect executed before the balance decrement (reentrancy vector).",
+      "is_core": true
+    },
+    {
+      "id": "param_unlockTime",
+      "node_id": 10,
+      "type": "parameter",
+      "description": "Parameter _unlockTime of Put, stored into acc.unlockTime.",
+      "is_core": false
+    },
+    {
+      "id": "param_am",
+      "node_id": 11,
+      "type": "parameter",
+      "description": "Parameter _am of Collect, the requested withdrawal amount.",
+      "is_core": false
+    },
+    {
+      "id": "param_log",
+      "node_id": 12,
+      "type": "parameter",
+      "description": "Constructor parameter log, the address of the Log contract.",
+      "is_core": false
+    },
+    {
+      "id": "local_acc_put",
+      "node_id": 13,
+      "type": "local_var",
+      "description": "Local reference acc = Acc[msg.sender] inside Put.",
+      "is_core": false
+    },
+    {
+      "id": "local_acc_collect",
+      "node_id": 14,
+      "type": "local_var",
+      "description": "Local reference acc = Acc[msg.sender] inside Collect.",
+      "is_core": false
+    },
+    {
+      "id": "History",
+      "node_id": 15,
+      "type": "state_var",
+      "description": "Public Message[] array in Log accumulating all logged messages.",
+      "is_core": true
+    },
+    {
+      "id": "LastMsg",
+      "node_id": 16,
+      "type": "state_var",
+      "description": "Temporary Message struct in Log populated before being pushed into History.",
+      "is_core": true
+    },
+    {
+      "id": "AddMessage",
+      "node_id": 17,
+      "type": "function",
+      "description": "Public AddMessage in Log: writes Sender, Time (now), Val and Data into LastMsg and pushes to History.",
+      "is_core": true
+    },
+    {
+      "id": "param_adr",
+      "node_id": 18,
+      "type": "parameter",
+      "description": "Parameter _adr of AddMessage, the recorded sender address.",
+      "is_core": false
+    },
+    {
+      "id": "param_val",
+      "node_id": 19,
+      "type": "parameter",
+      "description": "Parameter _val of AddMessage, the recorded value.",
+      "is_core": false
+    },
+    {
+      "id": "param_data",
+      "node_id": 20,
+      "type": "parameter",
+      "description": "Parameter _data of AddMessage, the recorded message string.",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 3,
+      "reason": "Put parameter _unlockTime flows into acc.unlockTime assignment.",
+      "type": "dataflow",
+      "from_id": 10,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 3,
+      "reason": "msg.sender is used as the mapping key Acc[msg.sender] in Put, so the caller controls which account is credited.",
+      "type": "dataflow",
+      "from_id": 7,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 3,
+      "reason": "block.timestamp (now) clamps _unlockTime in Put, making the stored unlock time miner/timestamp dependent.",
+      "type": "dataflow",
+      "from_id": 8,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 13,
+      "reason": "Acc[msg.sender] state variable is read into the local acc reference in Put.",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 4,
+      "reason": "Collect parameter _am flows into the balance check and into the external call value.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 4,
+      "reason": "msg.sender selects the caller's Acc entry and is the receiver of the external call in Collect.",
+      "type": "dataflow",
+      "from_id": 7,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 4,
+      "reason": "block.timestamp (now) is compared against acc.unlockTime in Collect, gating withdrawal.",
+      "type": "dataflow",
+      "from_id": 8,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 4,
+      "reason": "Local acc (Acc[msg.sender]) is read and updated for balance accounting in Collect.",
+      "type": "dataflow",
+      "from_id": 14,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 9,
+      "reason": "Collect reaches the low-level external call msg.sender.call.value(_am)() inside the withdrawal branch.",
+      "type": "controlflow",
+      "from_id": 4,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 0,
+      "reason": "The external call executes before acc.balance is decremented in Acc, allowing re-entrant withdrawal against stale state.",
+      "type": "dataflow",
+      "from_id": 9,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 3,
+      "reason": "Fallback function unconditionally calls Put(0).",
+      "type": "controlflow",
+      "from_id": 5,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 6,
+      "reason": "Constructor parameter log flows into the LogFile assignment.",
+      "type": "dataflow",
+      "from_id": 12,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 1,
+      "reason": "Constructor writes the LogFile state variable from the supplied Log address.",
+      "type": "dataflow",
+      "from_id": 6,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "AddMessage parameter _adr flows into LastMsg.Sender.",
+      "type": "dataflow",
+      "from_id": 18,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "AddMessage parameter _val flows into LastMsg.Val.",
+      "type": "dataflow",
+      "from_id": 19,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "AddMessage parameter _data flows into LastMsg.Data.",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "block.timestamp (now) is recorded as LastMsg.Time in AddMessage, creating timestamp dependency in log data.",
+      "type": "dataflow",
+      "from_id": 8,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 16,
+      "reason": "AddMessage writes the LastMsg state variable.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 15,
+      "reason": "LastMsg is pushed into the History state array.",
+      "type": "dataflow",
+      "from_id": 16,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "Put calls LogFile.AddMessage, transferring control to the Log contract.",
+      "type": "controlflow",
+      "from_id": 3,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "Collect calls LogFile.AddMessage after a successful withdrawal.",
+      "type": "controlflow",
+      "from_id": 4,
+      "vuln_type": "none"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "Put",
+      "reason": "_unlockTime is a Put-only parameter that immediately flows into the acc.unlockTime state write.",
+      "normal_node": "param_unlockTime"
+    },
+    {
+      "merge_into": "Put",
+      "reason": "Local acc reference in Put only aliases the Acc mapping for the same function.",
+      "normal_node": "local_acc_put"
+    },
+    {
+      "merge_into": "Collect",
+      "reason": "_am is a Collect-only parameter used exclusively in its balance check and external call.",
+      "normal_node": "param_am"
+    },
+    {
+      "merge_into": "Collect",
+      "reason": "Local acc reference in Collect only aliases Acc[msg.sender] within that function.",
+      "normal_node": "local_acc_collect"
+    },
+    {
+      "merge_into": "ultra_bank_constructor",
+      "reason": "log is a constructor-only parameter consumed by the LogFile assignment.",
+      "normal_node": "param_log"
+    },
+    {
+      "merge_into": "AddMessage",
+      "reason": "_adr is an AddMessage-only parameter written into LastMsg.Sender.",
+      "normal_node": "param_adr"
+    },
+    {
+      "merge_into": "AddMessage",
+      "reason": "_val is an AddMessage-only parameter written into LastMsg.Val.",
+      "normal_node": "param_val"
+    },
+    {
+      "merge_into": "AddMessage",
+      "reason": "_data is an AddMessage-only parameter written into LastMsg.Data.",
+      "normal_node": "param_data"
+    }
+  ]
+}

@@ -1,0 +1,1284 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "gems",
+      "is_core": true,
+      "description": "ProvablyRareGem.gems: mapping(uint => Gem) storing gem metadata, entropy, difficulty, multiplier, crafter and manager"
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "id": "nonce",
+      "is_core": true,
+      "description": "ProvablyRareGem.nonce: mapping(address => uint) per-miner salt counter used in luck hash"
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "id": "gemCount",
+      "is_core": true,
+      "description": "ProvablyRareGem.gemCount: number of created gem kinds, monotonically increasing"
+    },
+    {
+      "node_id": 3,
+      "type": "function",
+      "id": "create",
+      "is_core": true,
+      "description": "ProvablyRareGem.create: validates difficulty/gemsPerMine/multiplier/manager then creates a new gem kind"
+    },
+    {
+      "node_id": 4,
+      "type": "function",
+      "id": "mine",
+      "is_core": true,
+      "description": "ProvablyRareGem.mine: nonReentrant mining entry point; computes luck, bumps nonce, raises difficulty and mints gems"
+    },
+    {
+      "node_id": 5,
+      "type": "function",
+      "id": "updateEntropy",
+      "is_core": true,
+      "description": "ProvablyRareGem.updateEntropy: manager/crafter restricted setter of gems[kind].entropy"
+    },
+    {
+      "node_id": 6,
+      "type": "function",
+      "id": "updateGemInfo",
+      "is_core": true,
+      "description": "ProvablyRareGem.updateGemInfo: manager restricted setter of gem name and color"
+    },
+    {
+      "node_id": 7,
+      "type": "function",
+      "id": "updateMiningData",
+      "is_core": true,
+      "description": "ProvablyRareGem.updateMiningData: manager restricted setter of difficulty, multiplier and gemsPerMine"
+    },
+    {
+      "node_id": 8,
+      "type": "function",
+      "id": "renounceManager",
+      "is_core": true,
+      "description": "ProvablyRareGem.renounceManager: manager renounces management for a list of kinds"
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "id": "updateCrafter",
+      "is_core": true,
+      "description": "ProvablyRareGem.updateCrafter: manager sets the crafter address for a list of kinds"
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "id": "transferManager",
+      "is_core": true,
+      "description": "ProvablyRareGem.transferManager: sets pendingManager for a list of kinds"
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "id": "acceptManager",
+      "is_core": true,
+      "description": "ProvablyRareGem.acceptManager: pending manager accepts management for a list of kinds"
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "id": "craft_GEM",
+      "is_core": true,
+      "description": "ProvablyRareGem.craft: nonReentrant crafter-only minting of gemsPerMine (or explicit amount) to a recipient"
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "id": "luck",
+      "is_core": true,
+      "description": "ProvablyRareGem.luck: view mining randomness hash over chainid, entropy, address(this), msg.sender, kind, nonce and salt"
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "id": "_create",
+      "is_core": true,
+      "description": "ProvablyRareGem._create: internal gem kind creation, increments gemCount and writes gems mapping"
+    },
+    {
+      "node_id": 15,
+      "type": "function",
+      "id": "uri",
+      "is_core": true,
+      "description": "ProvablyRareGem.uri: builds on-chain SVG/base64 metadata from gem state"
+    },
+    {
+      "node_id": 16,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "is_core": true,
+      "description": "msg.sender: caller controlled address used for nonce, ownership/manager/crafter checks and mint recipient"
+    },
+    {
+      "node_id": 17,
+      "type": "unsafe_operation",
+      "id": "mint_acceptance_callback",
+      "is_core": true,
+      "description": "ERC1155 _doSafeTransferAcceptanceCheck: external call to IERC1155Receiver.onERC1155Received on the mint recipient"
+    },
+    {
+      "node_id": 18,
+      "type": "state_var",
+      "id": "NFT",
+      "is_core": true,
+      "description": "LOOTGemCrafter.NFT: immutable LOOT ERC721 contract used for ownership checks"
+    },
+    {
+      "node_id": 19,
+      "type": "state_var",
+      "id": "GEM",
+      "is_core": true,
+      "description": "LOOTGemCrafter.GEM: immutable ProvablyRareGem contract used for crafting gems"
+    },
+    {
+      "node_id": 20,
+      "type": "state_var",
+      "id": "FIRST_KIND",
+      "is_core": true,
+      "description": "LOOTGemCrafter.FIRST_KIND: immutable first gem kind created by this contract"
+    },
+    {
+      "node_id": 21,
+      "type": "state_var",
+      "id": "hashseed",
+      "is_core": true,
+      "description": "LOOTGemCrafter.hashseed: seed set once at start() from blockhash and used for airdrop randomness"
+    },
+    {
+      "node_id": 22,
+      "type": "state_var",
+      "id": "crafted",
+      "is_core": true,
+      "description": "LOOTGemCrafter.crafted: mapping(kind => amount) owner craft accounting capped at 10% of supply"
+    },
+    {
+      "node_id": 23,
+      "type": "state_var",
+      "id": "claimed",
+      "is_core": true,
+      "description": "LOOTGemCrafter.claimed: mapping(nftId => bool) one-time claim flag"
+    },
+    {
+      "node_id": 24,
+      "type": "function",
+      "id": "LOOTGemCrafter_constructor",
+      "is_core": true,
+      "description": "LOOTGemCrafter constructor: stores NFT/GEM, records FIRST_KIND and creates the ten initial gem kinds"
+    },
+    {
+      "node_id": 25,
+      "type": "function",
+      "id": "start",
+      "is_core": true,
+      "description": "LOOTGemCrafter.start: onlyOwner activation that derives hashseed from blockhash(block.number-1) and sets gem entropy"
+    },
+    {
+      "node_id": 26,
+      "type": "function",
+      "id": "craft_LOOT",
+      "is_core": true,
+      "description": "LOOTGemCrafter.craft: nonReentrant onlyOwner crafting with 10% of total supply cap"
+    },
+    {
+      "node_id": 27,
+      "type": "function",
+      "id": "airdrop",
+      "is_core": true,
+      "description": "LOOTGemCrafter.airdrop: view deterministic gem distribution derived from hashseed and NFT id"
+    },
+    {
+      "node_id": 28,
+      "type": "function",
+      "id": "claim",
+      "is_core": true,
+      "description": "LOOTGemCrafter.claim: nonReentrant single-NFT welcome pack claim"
+    },
+    {
+      "node_id": 29,
+      "type": "function",
+      "id": "multiClaim",
+      "is_core": true,
+      "description": "LOOTGemCrafter.multiClaim: nonReentrant batch claim over a list of NFT ids"
+    },
+    {
+      "node_id": 30,
+      "type": "function",
+      "id": "_claim",
+      "is_core": true,
+      "description": "LOOTGemCrafter._claim: internal claim logic verifying NFT ownership, setting claimed flag and minting airdrop gems"
+    },
+    {
+      "node_id": 31,
+      "type": "unsafe_operation",
+      "id": "blockhash_prev",
+      "is_core": true,
+      "description": "hashseed derivation from blockhash(block.number - 1) inside start(): miner-influenceable weak randomness source"
+    },
+    {
+      "node_id": 32,
+      "type": "unsafe_operation",
+      "id": "nft_ownerOf_call",
+      "is_core": true,
+      "description": "External call to NFT.ownerOf(id) on an untrusted ERC721 contract inside _claim"
+    },
+    {
+      "node_id": 33,
+      "type": "unsafe_operation",
+      "id": "gem_craft_loop_call",
+      "is_core": true,
+      "description": "Loop of external GEM.craft(kinds[idx], 0, msg.sender) calls inside _claim, each triggering mint callbacks"
+    },
+    {
+      "node_id": 34,
+      "type": "state_var",
+      "id": "_status",
+      "is_core": true,
+      "description": "ReentrancyGuard._status: reentrancy lock state (1 = NOT_ENTERED, 2 = ENTERED)"
+    },
+    {
+      "node_id": 35,
+      "type": "function",
+      "id": "nonReentrant",
+      "is_core": true,
+      "description": "ReentrancyGuard.nonReentrant modifier: sets and clears _status around the guarded function body"
+    },
+    {
+      "node_id": 36,
+      "type": "parameter",
+      "id": "create.kind",
+      "is_core": false,
+      "description": "create() implicit return kind value from _create"
+    },
+    {
+      "node_id": 37,
+      "type": "parameter",
+      "id": "create.difficulty",
+      "is_core": false,
+      "description": "create() difficulty parameter validated to 1..2**128"
+    },
+    {
+      "node_id": 38,
+      "type": "parameter",
+      "id": "create.gemsPerMine",
+      "is_core": false,
+      "description": "create() gemsPerMine parameter validated to 1..1e6"
+    },
+    {
+      "node_id": 39,
+      "type": "parameter",
+      "id": "create.multiplier",
+      "is_core": false,
+      "description": "create() multiplier parameter validated to 1e4..1e10"
+    },
+    {
+      "node_id": 40,
+      "type": "parameter",
+      "id": "create.crafter",
+      "is_core": false,
+      "description": "create() crafter address stored in the Gem struct"
+    },
+    {
+      "node_id": 41,
+      "type": "parameter",
+      "id": "create.manager",
+      "is_core": false,
+      "description": "create() manager address validated non-zero and stored in the Gem struct"
+    },
+    {
+      "node_id": 42,
+      "type": "parameter",
+      "id": "mine.salt",
+      "is_core": false,
+      "description": "mine() salt parameter hashed into the luck value"
+    },
+    {
+      "node_id": 43,
+      "type": "local_var",
+      "id": "mine.val",
+      "is_core": false,
+      "description": "mine() local val = luck(kind, salt) compared against max/diff"
+    },
+    {
+      "node_id": 44,
+      "type": "parameter",
+      "id": "mine.kind",
+      "is_core": false,
+      "description": "mine() kind parameter selecting the gem to mine"
+    },
+    {
+      "node_id": 45,
+      "type": "parameter",
+      "id": "craft_GEM.kind",
+      "is_core": false,
+      "description": "ProvablyRareGem.craft() kind parameter checked against gemCount"
+    },
+    {
+      "node_id": 46,
+      "type": "parameter",
+      "id": "craft_GEM.amount",
+      "is_core": false,
+      "description": "ProvablyRareGem.craft() amount parameter, 0 means gemsPerMine"
+    },
+    {
+      "node_id": 47,
+      "type": "parameter",
+      "id": "craft_GEM.to",
+      "is_core": false,
+      "description": "ProvablyRareGem.craft() recipient of the minted gems"
+    },
+    {
+      "node_id": 48,
+      "type": "local_var",
+      "id": "craft_GEM.realAmount",
+      "is_core": false,
+      "description": "craft() local realAmount = amount == 0 ? gemsPerMine : amount"
+    },
+    {
+      "node_id": 49,
+      "type": "parameter",
+      "id": "updateEntropy.kind",
+      "is_core": false,
+      "description": "updateEntropy() kind parameter checked against gemCount"
+    },
+    {
+      "node_id": 50,
+      "type": "parameter",
+      "id": "updateEntropy.entropy",
+      "is_core": false,
+      "description": "updateEntropy() entropy bytes32 written into gems[kind].entropy"
+    },
+    {
+      "node_id": 51,
+      "type": "parameter",
+      "id": "craft_LOOT.kind",
+      "is_core": false,
+      "description": "LOOTGemCrafter.craft() kind parameter forwarded to GEM.craft"
+    },
+    {
+      "node_id": 52,
+      "type": "parameter",
+      "id": "craft_LOOT.amount",
+      "is_core": false,
+      "description": "LOOTGemCrafter.craft() amount parameter, must be non-zero, added to crafted[kind]"
+    },
+    {
+      "node_id": 53,
+      "type": "parameter",
+      "id": "claim.id",
+      "is_core": false,
+      "description": "claim() NFT id claimed for the caller"
+    },
+    {
+      "node_id": 54,
+      "type": "parameter",
+      "id": "multiClaim.ids",
+      "is_core": false,
+      "description": "multiClaim() array of NFT ids iterated for claiming"
+    },
+    {
+      "node_id": 55,
+      "type": "parameter",
+      "id": "airdrop.id",
+      "is_core": false,
+      "description": "airdrop() NFT id used to derive deterministic gem kinds"
+    },
+    {
+      "node_id": 56,
+      "type": "local_var",
+      "id": "airdrop.kinds",
+      "is_core": false,
+      "description": "airdrop() local uint[4] result initialized to FIRST_KIND"
+    },
+    {
+      "node_id": 57,
+      "type": "local_var",
+      "id": "airdrop.seed",
+      "is_core": false,
+      "description": "airdrop() local seed = keccak256(hashseed, offset, id) driving chance checks"
+    },
+    {
+      "node_id": 58,
+      "type": "parameter",
+      "id": "_claim.id",
+      "is_core": false,
+      "description": "_claim() NFT id being claimed"
+    },
+    {
+      "node_id": 59,
+      "type": "parameter",
+      "id": "transferManager.kinds",
+      "is_core": false,
+      "description": "transferManager() array of gem kinds whose pendingManager is set"
+    },
+    {
+      "node_id": 60,
+      "type": "parameter",
+      "id": "transferManager.to",
+      "is_core": false,
+      "description": "transferManager() pending manager destination address"
+    },
+    {
+      "node_id": 61,
+      "type": "parameter",
+      "id": "updateCrafter.kinds",
+      "is_core": false,
+      "description": "updateCrafter() array of gem kinds whose crafter is updated"
+    },
+    {
+      "node_id": 62,
+      "type": "parameter",
+      "id": "updateCrafter.crafter",
+      "is_core": false,
+      "description": "updateCrafter() new crafter address applied to each kind"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "kind created by _create is returned to the create() caller",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 36,
+      "to_id": 3
+    },
+    {
+      "reason": "difficulty parameter is range-checked and used in create()",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 37,
+      "to_id": 3
+    },
+    {
+      "reason": "gemsPerMine parameter is range-checked and used in create()",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 38,
+      "to_id": 3
+    },
+    {
+      "reason": "multiplier parameter is range-checked and used in create()",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 39,
+      "to_id": 3
+    },
+    {
+      "reason": "crafter parameter is validated and passed to _create",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 40,
+      "to_id": 3
+    },
+    {
+      "reason": "manager parameter is validated non-zero and passed to _create",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 41,
+      "to_id": 3
+    },
+    {
+      "reason": "create() delegates gem kind creation to internal _create",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 3,
+      "to_id": 14
+    },
+    {
+      "reason": "_create writes the new Gem struct into the gems mapping",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 0
+    },
+    {
+      "reason": "_create reads gemCount to derive the new kind id",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 14
+    },
+    {
+      "reason": "_create increments gemCount",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 2
+    },
+    {
+      "reason": "salt is the user-supplied mining input to mine()",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 42,
+      "to_id": 4
+    },
+    {
+      "reason": "kind selects the gem to mine",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 44,
+      "to_id": 4
+    },
+    {
+      "reason": "mine() calls luck(kind, salt) to compute the mining outcome",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 4,
+      "to_id": 13
+    },
+    {
+      "reason": "salt is hashed inside luck()",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 42,
+      "to_id": 13
+    },
+    {
+      "reason": "kind is hashed inside luck()",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 44,
+      "to_id": 13
+    },
+    {
+      "reason": "mine() bumps nonce[msg.sender] and mints gems to msg.sender",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 4
+    },
+    {
+      "reason": "luck() hashes msg.sender and nonce[msg.sender] as mining entropy",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 13
+    },
+    {
+      "reason": "luck() result is assigned to local val in mine()",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 43
+    },
+    {
+      "reason": "mine() reads and updates gems[kind].difficulty and gemsPerMine",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 4
+    },
+    {
+      "reason": "mine() mints tokens which triggers the ERC1155 receiver acceptance callback on an untrusted recipient",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 4,
+      "to_id": 17
+    },
+    {
+      "reason": "the ERC1155 receiver callback is invoked on msg.sender, allowing re-entry into the contract",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 17,
+      "to_id": 16
+    },
+    {
+      "reason": "nonReentrant modifier guards the mine() body",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 35,
+      "to_id": 4
+    },
+    {
+      "reason": "mine() execution reads and writes the _status reentrancy lock",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 34
+    },
+    {
+      "reason": "kind selects which gem entropy is updated",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 49,
+      "to_id": 5
+    },
+    {
+      "reason": "entropy is the new bytes32 written by updateEntropy",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 50,
+      "to_id": 5
+    },
+    {
+      "reason": "updateEntropy authorizes msg.sender as gem manager or crafter",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 5
+    },
+    {
+      "reason": "updateEntropy writes gems[kind].entropy, which drives mining randomness",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 0
+    },
+    {
+      "reason": "updateGemInfo requires gems[kind].manager == msg.sender",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 6
+    },
+    {
+      "reason": "updateGemInfo mutates gems[kind].name and color",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 0
+    },
+    {
+      "reason": "updateMiningData requires gems[kind].manager == msg.sender",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 7
+    },
+    {
+      "reason": "updateMiningData mutates difficulty, multiplier and gemsPerMine of a gem",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 0
+    },
+    {
+      "reason": "renounceManager requires gems[kind].manager == msg.sender",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 8
+    },
+    {
+      "reason": "renounceManager clears manager and pendingManager of gems",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 0
+    },
+    {
+      "reason": "kinds array iterated by updateCrafter",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 61,
+      "to_id": 9
+    },
+    {
+      "reason": "crafter address written to each selected gem",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 62,
+      "to_id": 9
+    },
+    {
+      "reason": "updateCrafter requires gems[kind].manager == msg.sender",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 9
+    },
+    {
+      "reason": "updateCrafter assigns gems[kind].crafter, granting future mint authority",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 0
+    },
+    {
+      "reason": "kinds array iterated by transferManager",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 59,
+      "to_id": 10
+    },
+    {
+      "reason": "to becomes the pendingManager of each selected gem",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 60,
+      "to_id": 10
+    },
+    {
+      "reason": "transferManager requires gems[kind].manager == msg.sender",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 10
+    },
+    {
+      "reason": "transferManager sets gems[kind].pendingManager",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 0
+    },
+    {
+      "reason": "acceptManager requires gems[kind].pendingManager == msg.sender",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 11
+    },
+    {
+      "reason": "acceptManager promotes msg.sender to gems[kind].manager",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 0
+    },
+    {
+      "reason": "kind selects the gem metadata used by craft()",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 45,
+      "to_id": 12
+    },
+    {
+      "reason": "amount is the explicit craft amount (0 falls back to gemsPerMine)",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 46,
+      "to_id": 12
+    },
+    {
+      "reason": "to is the recipient of the crafted gems",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 47,
+      "to_id": 12
+    },
+    {
+      "reason": "realAmount is the value actually passed to _mint",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 48,
+      "to_id": 12
+    },
+    {
+      "reason": "craft() requires gems[kind].crafter == msg.sender",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 12
+    },
+    {
+      "reason": "craft() mints tokens and triggers the ERC1155 receiver acceptance callback",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 12,
+      "to_id": 17
+    },
+    {
+      "reason": "nonReentrant modifier guards the craft() body",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 35,
+      "to_id": 12
+    },
+    {
+      "reason": "craft() reads and writes the _status reentrancy lock",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 34
+    },
+    {
+      "reason": "luck() reads gems[kind].entropy",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 13
+    },
+    {
+      "reason": "luck() reads nonce[msg.sender] as part of the hash input",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 13
+    },
+    {
+      "reason": "luck() requires kind < gemCount",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 13
+    },
+    {
+      "reason": "uri() renders gem name and color from state",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 15
+    },
+    {
+      "reason": "uri() requires kind < gemCount",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 15
+    },
+    {
+      "reason": "constructor reads GEM.gemCount to compute FIRST_KIND",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 19,
+      "to_id": 24
+    },
+    {
+      "reason": "constructor stores the immutable NFT address",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 24
+    },
+    {
+      "reason": "constructor assigns the immutable FIRST_KIND",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 24,
+      "to_id": 20
+    },
+    {
+      "reason": "constructor creates ten gem kinds through GEM.create",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 24,
+      "to_id": 3
+    },
+    {
+      "reason": "start() derives the airdrop seed from blockhash(block.number-1), a miner-influenceable deterministic value",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 25,
+      "to_id": 31
+    },
+    {
+      "reason": "blockhash of the previous block is stored as hashseed, letting the start() caller influence randomness",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 31,
+      "to_id": 21
+    },
+    {
+      "reason": "start() writes the hashseed state variable used for all airdrop randomness",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 25,
+      "to_id": 21
+    },
+    {
+      "reason": "start() is restricted by onlyOwner against msg.sender",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 25
+    },
+    {
+      "reason": "start() loops over GEM.updateEntropy for the ten initial kinds",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 25,
+      "to_id": 5
+    },
+    {
+      "reason": "hashseed is passed as the new entropy to updateEntropy",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 5
+    },
+    {
+      "reason": "FIRST_KIND + offset selects the gem kinds whose entropy is set",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 20,
+      "to_id": 5
+    },
+    {
+      "reason": "kind selects the crafted gem in LOOTGemCrafter.craft",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 51,
+      "to_id": 26
+    },
+    {
+      "reason": "amount must be non-zero and is added to crafted[kind]",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 52,
+      "to_id": 26
+    },
+    {
+      "reason": "LOOTGemCrafter.craft is restricted by onlyOwner and nonReentrant against msg.sender",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 26
+    },
+    {
+      "reason": "crafted[kind] accounting is read and incremented against the 10% supply cap",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 26
+    },
+    {
+      "reason": "LOOTGemCrafter.craft forwards the mint request to GEM.craft",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 26,
+      "to_id": 12
+    },
+    {
+      "reason": "GEM.craft mints to msg.sender and triggers the ERC1155 receiver acceptance callback",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 26,
+      "to_id": 17
+    },
+    {
+      "reason": "nonReentrant modifier guards the LOOTGemCrafter.craft body",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 35,
+      "to_id": 26
+    },
+    {
+      "reason": "craft() reads and writes the _status reentrancy lock",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 26,
+      "to_id": 34
+    },
+    {
+      "reason": "id is the NFT identifier driving airdrop randomness",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 55,
+      "to_id": 27
+    },
+    {
+      "reason": "airdrop requires hashseed != 0 and hashes it into the seed",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 27
+    },
+    {
+      "reason": "kinds array holds the resulting gem kinds returned by airdrop",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 56,
+      "to_id": 27
+    },
+    {
+      "reason": "seed is the local randomness value used for the chance checks",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 57,
+      "to_id": 27
+    },
+    {
+      "reason": "airdrop initializes and offsets kinds using FIRST_KIND",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 20,
+      "to_id": 27
+    },
+    {
+      "reason": "claim() forwards the NFT id to _claim",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 53,
+      "to_id": 28
+    },
+    {
+      "reason": "claim() delegates to internal _claim",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 28,
+      "to_id": 30
+    },
+    {
+      "reason": "nonReentrant modifier guards claim()",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 35,
+      "to_id": 28
+    },
+    {
+      "reason": "claim() reads and writes the _status reentrancy lock",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 28,
+      "to_id": 34
+    },
+    {
+      "reason": "ids array is iterated by multiClaim",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 54,
+      "to_id": 29
+    },
+    {
+      "reason": "multiClaim() calls internal _claim for every id",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 29,
+      "to_id": 30
+    },
+    {
+      "reason": "nonReentrant modifier guards multiClaim()",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 35,
+      "to_id": 29
+    },
+    {
+      "reason": "multiClaim() reads and writes the _status reentrancy lock",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 34
+    },
+    {
+      "reason": "_claim operates on the supplied NFT id",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 58,
+      "to_id": 30
+    },
+    {
+      "reason": "_claim performs an external NFT.ownerOf call on an untrusted ERC721 before completing logic",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 30,
+      "to_id": 32
+    },
+    {
+      "reason": "the external token contract invoked by ownerOf could call back into the caller-controlled context",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 32,
+      "to_id": 16
+    },
+    {
+      "reason": "_claim sets claimed[id] = true before minting",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 30,
+      "to_id": 23
+    },
+    {
+      "reason": "_claim reads claimed[id] to enforce one-time claiming",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 23,
+      "to_id": 30
+    },
+    {
+      "reason": "_claim calls airdrop(id) to compute the gem kinds",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 30,
+      "to_id": 27
+    },
+    {
+      "reason": "_claim loops over external GEM.craft calls inside a nonReentrant-guarded entry point",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 30,
+      "to_id": 33
+    },
+    {
+      "reason": "each GEM.craft mints gems and triggers the ERC1155 receiver callback on msg.sender",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 33,
+      "to_id": 17
+    },
+    {
+      "reason": "msg.sender is the recipient of every gem minted in the claim loop",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 33
+    },
+    {
+      "reason": "_claim uses the immutable GEM contract to craft the airdrop",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 19,
+      "to_id": 30
+    },
+    {
+      "reason": "_claim uses the immutable NFT contract for the ownership check",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 30
+    },
+    {
+      "reason": "LOOTGemCrafter.craft calls GEM.craft and reads GEM.totalSupply for the cap",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 19,
+      "to_id": 26
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "the kind value is produced and returned by create() via _create",
+      "merge_into": "create",
+      "normal_node": "create.kind"
+    },
+    {
+      "reason": "difficulty is a validated input of create()",
+      "merge_into": "create",
+      "normal_node": "create.difficulty"
+    },
+    {
+      "reason": "gemsPerMine is a validated input of create()",
+      "merge_into": "create",
+      "normal_node": "create.gemsPerMine"
+    },
+    {
+      "reason": "multiplier is a validated input of create()",
+      "merge_into": "create",
+      "normal_node": "create.multiplier"
+    },
+    {
+      "reason": "crafter is forwarded to _create by create()",
+      "merge_into": "create",
+      "normal_node": "create.crafter"
+    },
+    {
+      "reason": "manager is validated and forwarded to _create by create()",
+      "merge_into": "create",
+      "normal_node": "create.manager"
+    },
+    {
+      "reason": "salt is user input consumed only by mine() and luck()",
+      "merge_into": "mine",
+      "normal_node": "mine.salt"
+    },
+    {
+      "reason": "val is a temporary local produced inside mine()",
+      "merge_into": "mine",
+      "normal_node": "mine.val"
+    },
+    {
+      "reason": "kind selects the gem mined by mine()",
+      "merge_into": "mine",
+      "normal_node": "mine.kind"
+    },
+    {
+      "reason": "kind is an argument of ProvablyRareGem.craft",
+      "merge_into": "craft_GEM",
+      "normal_node": "craft_GEM.kind"
+    },
+    {
+      "reason": "amount determines the minted quantity in craft()",
+      "merge_into": "craft_GEM",
+      "normal_node": "craft_GEM.amount"
+    },
+    {
+      "reason": "to is the mint recipient in craft()",
+      "merge_into": "craft_GEM",
+      "normal_node": "craft_GEM.to"
+    },
+    {
+      "reason": "realAmount is a temporary local computed inside craft()",
+      "merge_into": "craft_GEM",
+      "normal_node": "craft_GEM.realAmount"
+    },
+    {
+      "reason": "kind selects the gem updated by updateEntropy",
+      "merge_into": "updateEntropy",
+      "normal_node": "updateEntropy.kind"
+    },
+    {
+      "reason": "entropy is the value written by updateEntropy",
+      "merge_into": "updateEntropy",
+      "normal_node": "updateEntropy.entropy"
+    },
+    {
+      "reason": "kind is the crafted gem selector in LOOTGemCrafter.craft",
+      "merge_into": "craft_LOOT",
+      "normal_node": "craft_LOOT.kind"
+    },
+    {
+      "reason": "amount is the crafted quantity in LOOTGemCrafter.craft",
+      "merge_into": "craft_LOOT",
+      "normal_node": "craft_LOOT.amount"
+    },
+    {
+      "reason": "id is the NFT identifier passed through claim()",
+      "merge_into": "claim",
+      "normal_node": "claim.id"
+    },
+    {
+      "reason": "ids is the batch input iterated by multiClaim()",
+      "merge_into": "multiClaim",
+      "normal_node": "multiClaim.ids"
+    },
+    {
+      "reason": "id is the NFT identifier used to derive airdrop results",
+      "merge_into": "airdrop",
+      "normal_node": "airdrop.id"
+    },
+    {
+      "reason": "kinds is the returned local result of airdrop()",
+      "merge_into": "airdrop",
+      "normal_node": "airdrop.kinds"
+    },
+    {
+      "reason": "seed is a temporary local used inside airdrop()",
+      "merge_into": "airdrop",
+      "normal_node": "airdrop.seed"
+    },
+    {
+      "reason": "id is the claim target handled by _claim",
+      "merge_into": "_claim",
+      "normal_node": "_claim.id"
+    },
+    {
+      "reason": "kinds is the array iterated by transferManager()",
+      "merge_into": "transferManager",
+      "normal_node": "transferManager.kinds"
+    },
+    {
+      "reason": "to is the pending manager stored by transferManager()",
+      "merge_into": "transferManager",
+      "normal_node": "transferManager.to"
+    },
+    {
+      "reason": "kinds is the array iterated by updateCrafter()",
+      "merge_into": "updateCrafter",
+      "normal_node": "updateCrafter.kinds"
+    },
+    {
+      "reason": "crafter is the address written by updateCrafter()",
+      "merge_into": "updateCrafter",
+      "normal_node": "updateCrafter.crafter"
+    }
+  ]
+}

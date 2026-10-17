@@ -1,0 +1,306 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "description": "uint256 price per token required for whitelist mint",
+      "id": "price",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Maximum number of tokens claimable per address",
+      "id": "maxPerAddress",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "description": "Merkle root committing to whitelisted addresses",
+      "id": "whitelistRoot",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "description": "Mapping of address to number of tokens already claimed",
+      "id": "claimedByAddress",
+      "is_core": true
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "description": "Sale start timestamp, defaults to __SALE_NEVER_STARTS",
+      "id": "startTimestamp",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "type": "function",
+      "description": "Payable mint enforcing sale start, merkle whitelist, per-address cap and payment, then forwards value to nft.mintExternal and increments claims",
+      "id": "mint",
+      "is_core": true
+    },
+    {
+      "node_id": 6,
+      "type": "function",
+      "description": "Hashes receiver as leaf and verifies merkle proof against root",
+      "id": "isWhitelisted",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "type": "function",
+      "description": "Owner-only update of maxPerAddress",
+      "id": "updateMaxPerAddress",
+      "is_core": true
+    },
+    {
+      "node_id": 8,
+      "type": "function",
+      "description": "Owner-only update of whitelistRoot",
+      "id": "updateWhitelistRoot",
+      "is_core": true
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "description": "Initializes nft, price, maxPerAddress, whitelistRoot and stops the sale",
+      "id": "constructor",
+      "is_core": true
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "description": "Returns whether block.timestamp is greater than or equal to startTimestamp",
+      "id": "saleStarted",
+      "is_core": true
+    },
+    {
+      "node_id": 11,
+      "type": "untrusted_input",
+      "description": "Caller address used as whitelist receiver and accounting key in mint",
+      "id": "msg.sender",
+      "is_core": true
+    },
+    {
+      "node_id": 12,
+      "type": "untrusted_input",
+      "description": "Current block timestamp used to gate whether the sale has started",
+      "id": "block.timestamp",
+      "is_core": true
+    },
+    {
+      "node_id": 13,
+      "type": "unsafe_operation",
+      "description": "External value-transferring call to the NFT contract that mints tokens before claimedByAddress is updated",
+      "id": "nft.mintExternal",
+      "is_core": true
+    },
+    {
+      "node_id": 14,
+      "type": "unsafe_operation",
+      "description": "Multiplication computing required ETH payment for nTokens",
+      "id": "nTokens * price",
+      "is_core": true
+    },
+    {
+      "node_id": 15,
+      "type": "parameter",
+      "description": "Number of tokens requested in mint()",
+      "id": "nTokens",
+      "is_core": false
+    },
+    {
+      "node_id": 16,
+      "type": "parameter",
+      "description": "Merkle proof array passed to mint() for whitelist verification",
+      "id": "proof",
+      "is_core": false
+    },
+    {
+      "node_id": 17,
+      "type": "parameter",
+      "description": "New per-address claim cap for updateMaxPerAddress()",
+      "id": "_maxPerAddress",
+      "is_core": false
+    },
+    {
+      "node_id": 18,
+      "type": "parameter",
+      "description": "New merkle root for updateWhitelistRoot()",
+      "id": "_whitelistRoot",
+      "is_core": false
+    },
+    {
+      "node_id": 19,
+      "type": "local_var",
+      "description": "keccak256 hash of the receiver address computed in isWhitelisted()",
+      "id": "leaf",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is used as the whitelist receiver and claimedByAddress key inside mint",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 11,
+      "to_id": 5
+    },
+    {
+      "reason": "saleStarted compares block.timestamp against startTimestamp, creating a timestamp dependency",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 12,
+      "to_id": 10
+    },
+    {
+      "reason": "whenSaleStarted modifier gates mint execution on saleStarted()",
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 10,
+      "to_id": 5
+    },
+    {
+      "reason": "mint performs an external value call nft.mintExternal before updating claimedByAddress, allowing re-entrant claims",
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 5,
+      "to_id": 13
+    },
+    {
+      "reason": "The external mint call executes before claimedByAddress is incremented, so reentrancy can bypass the per-address cap",
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 13,
+      "to_id": 3
+    },
+    {
+      "reason": "mint computes nTokens * price to check msg.value sufficiency",
+      "type": "controlflow",
+      "vuln_type": "arithmetic",
+      "from_id": 5,
+      "to_id": 14
+    },
+    {
+      "reason": "nTokens parameter drives the payment check and minting amount in mint",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 15,
+      "to_id": 5
+    },
+    {
+      "reason": "proof parameter is forwarded to isWhitelisted for merkle verification",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 16,
+      "to_id": 6
+    },
+    {
+      "reason": "_maxPerAddress parameter writes into maxPerAddress state in updateMaxPerAddress",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 17,
+      "to_id": 7
+    },
+    {
+      "reason": "_whitelistRoot parameter writes into whitelistRoot state in updateWhitelistRoot",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 18,
+      "to_id": 8
+    },
+    {
+      "reason": "leaf local is derived from receiver and used inside isWhitelisted",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 19,
+      "to_id": 6
+    },
+    {
+      "reason": "mint reads whitelistRoot to verify the caller's proof",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 2,
+      "to_id": 5
+    },
+    {
+      "reason": "mint reads maxPerAddress to enforce the per-address claim cap",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 1,
+      "to_id": 5
+    },
+    {
+      "reason": "mint reads price to compute the required ETH payment",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 5
+    },
+    {
+      "reason": "mint reads and increments claimedByAddress for the caller",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 5
+    },
+    {
+      "reason": "saleStarted reads startTimestamp to decide sale status",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 4,
+      "to_id": 10
+    },
+    {
+      "reason": "mint calls isWhitelisted to authorize the caller",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 6,
+      "to_id": 5
+    },
+    {
+      "reason": "updateMaxPerAddress writes the maxPerAddress state variable",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 7,
+      "to_id": 1
+    },
+    {
+      "reason": "updateWhitelistRoot writes the whitelistRoot state variable",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 8,
+      "to_id": 2
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "nTokens",
+      "reason": "nTokens is a parameter consumed solely by the mint function",
+      "merge_into": "mint"
+    },
+    {
+      "normal_node": "proof",
+      "reason": "proof is consumed by isWhitelisted verification invoked from mint",
+      "merge_into": "isWhitelisted"
+    },
+    {
+      "normal_node": "_maxPerAddress",
+      "reason": "_maxPerAddress is a parameter used only to set maxPerAddress in updateMaxPerAddress",
+      "merge_into": "updateMaxPerAddress"
+    },
+    {
+      "normal_node": "_whitelistRoot",
+      "reason": "_whitelistRoot is a parameter used only to set whitelistRoot in updateWhitelistRoot",
+      "merge_into": "updateWhitelistRoot"
+    },
+    {
+      "normal_node": "leaf",
+      "reason": "leaf is a transient local computed and used inside isWhitelisted",
+      "merge_into": "isWhitelisted"
+    }
+  ]
+}

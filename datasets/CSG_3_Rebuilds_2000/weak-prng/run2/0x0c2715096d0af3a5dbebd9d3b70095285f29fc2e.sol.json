@@ -1,0 +1,70 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Public contract state variable 'uint entropy' that stores the accumulated entropy and is both read and rewritten inside getRandomNumber().",
+      "is_core": true,
+      "node_id": 0,
+      "id": "entropy"
+    },
+    {
+      "type": "function",
+      "description": "Public function getRandomNumber() that derives a 'random' number purely from on-chain block data and returns the mutated state variable entropy.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "getRandomNumber"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Block-level miner/validator controlled input (block context: blockhash, block.number, block.timestamp) used as the only entropy source of the contract, making the result predictable and manipulable by block producers.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Unsafe operation 'entropy ^= uint(blockhash(entropy % block.number))' which mixes miner-influenceable block data (blockhash / block.number, i.e. block context) into the state variable, producing deterministic, publicly computable pseudo-randomness, and returns the state directly.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "entropy_xor_blockhash"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "Miner/validator controlled block context (blockhash(entropy % block.number), block.number/timestamp domain) is the sole entropy feed into the entropy update, so the returned 'random' value depends on manipulable block-level input.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "State variable entropy is read as the left operand of the XOR and as the index seed of the modulo, flowing into the entropy update computation.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "The block-data-derived value is written back into the state variable entropy, permanently poisoning the contract's entropy source with cheaply predictable information.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "controlflow",
+      "reason": "Execution of getRandomNumber() always reaches the state-mutating entropy ^= uint(blockhash(...)) operation before returning.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "The updated entropy value computed by the unsafe operation is returned by getRandomNumber() as the 'random number'.",
+      "from_id": 3
+    }
+  ],
+  "normalization_plan": []
+}

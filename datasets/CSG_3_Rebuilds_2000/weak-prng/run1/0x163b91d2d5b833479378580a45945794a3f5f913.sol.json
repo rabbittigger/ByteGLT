@@ -1,0 +1,84 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "function",
+      "id": "double_fallback",
+      "is_core": true,
+      "description": "Payable fallback function of contract Double that conditionally doubles the received value and sends it back to the caller."
+    },
+    {
+      "node_id": 1,
+      "type": "untrusted_input",
+      "id": "msg_sender",
+      "is_core": true,
+      "description": "msg.sender, the caller/recipient of the doubled payout, fully attacker-controlled."
+    },
+    {
+      "node_id": 2,
+      "type": "untrusted_input",
+      "id": "block_timestamp",
+      "is_core": true,
+      "description": "block.timestamp, used in the parity check block.timestamp % 2 == 0 to gate the payout."
+    },
+    {
+      "node_id": 3,
+      "type": "unsafe_operation",
+      "id": "external_transfer_call",
+      "is_core": true,
+      "description": "msg.sender.transfer(msg.value * 2): external value transfer to an untrusted address, the classic reentrancy/payout surface."
+    },
+    {
+      "node_id": 4,
+      "type": "unsafe_operation",
+      "id": "mul_msgvalue_two",
+      "is_core": true,
+      "description": "msg.value * 2: unchecked multiplication in Solidity 0.4.17, susceptible to integer overflow of the payout amount."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "block.timestamp % 2 == 0 is a miner-influenced timestamp check that decides whether the fallback body executes the payout, giving timestamp dependency over the control flow.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 2,
+      "to_id": 0
+    },
+    {
+      "reason": "The fallback body computes msg.value * 2 to derive the payout amount, driving the unchecked arithmetic operation.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 4
+    },
+    {
+      "reason": "The result of msg.value * 2 flows directly into msg.sender.transfer as the transferred amount, so an overflow corrupts the value sent.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 3
+    },
+    {
+      "reason": "msg.sender is the destination of the external value transfer, so an attacker-controlled address receives the call and can re-enter the fallback.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 3
+    },
+    {
+      "reason": "The fallback performs an external call before completing, exposing the contract to reentrant invocation and repeated balance draining.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 0,
+      "to_id": 3
+    },
+    {
+      "reason": "msg.sender triggers the fallback and receives the transfer callback, allowing the caller to re-invoke the payable fallback during the payout.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 1,
+      "to_id": 0
+    }
+  ],
+  "normalization_plan": []
+}

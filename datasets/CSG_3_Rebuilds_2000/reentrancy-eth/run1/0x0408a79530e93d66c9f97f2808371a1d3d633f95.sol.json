@@ -1,0 +1,978 @@
+{
+  "nodes": [
+    {
+      "id": "owner",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Address of the contract owner (OwnableData.owner); controls all onlyOwner functions.",
+      "node_id": 0
+    },
+    {
+      "id": "pendingOwner",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Address nominated as the next owner in the two-step ownership transfer (OwnableData.pendingOwner).",
+      "node_id": 1
+    },
+    {
+      "id": "esw",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Immutable IERC20 reward token (ESW) distributed by the farming contract.",
+      "node_id": 2
+    },
+    {
+      "id": "eswPerSecond",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Amount of ESW vested per second; mutable by the owner via setEswPerSecond.",
+      "node_id": 3
+    },
+    {
+      "id": "poolInfo",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Array of PoolInfo structs holding staking token, total staked amount, accEswPerShare, lastRewardTime and allocPoint.",
+      "node_id": 4
+    },
+    {
+      "id": "userInfo",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Mapping pid => user => UserInfo with amount, rewardDebt and remainingEswTokenReward.",
+      "node_id": 5
+    },
+    {
+      "id": "totalAllocPoint",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Sum of allocation points of all pools; used as divisor in reward math.",
+      "node_id": 6
+    },
+    {
+      "id": "startTime",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Immutable timestamp when ESW farming starts.",
+      "node_id": 7
+    },
+    {
+      "id": "endTime",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Timestamp at which reward accrual stops; extendable by the owner via changeEndTime.",
+      "node_id": 8
+    },
+    {
+      "id": "func_transferOwnership",
+      "is_core": true,
+      "type": "function",
+      "description": "onlyOwner function that directly transfers ownership or sets pendingOwner for the two-step flow.",
+      "node_id": 9
+    },
+    {
+      "id": "func_claimOwnership",
+      "is_core": true,
+      "type": "function",
+      "description": "Public function where the pending owner claims ownership; requires msg.sender == pendingOwner.",
+      "node_id": 10
+    },
+    {
+      "id": "func_changeEndTime",
+      "is_core": true,
+      "type": "function",
+      "description": "onlyOwner function that extends endTime by addSeconds, altering future reward distribution.",
+      "node_id": 11
+    },
+    {
+      "id": "func_setEswPerSecond",
+      "is_core": true,
+      "type": "function",
+      "description": "onlyOwner function that changes the ESW emission rate, optionally mass-updating pools first.",
+      "node_id": 12
+    },
+    {
+      "id": "func_poolLength",
+      "is_core": true,
+      "type": "function",
+      "description": "View function returning the number of registered pools.",
+      "node_id": 13
+    },
+    {
+      "id": "func_add",
+      "is_core": true,
+      "type": "function",
+      "description": "onlyOwner function adding a new staking pool with an allocation point and setting lastRewardTime.",
+      "node_id": 14
+    },
+    {
+      "id": "func_set",
+      "is_core": true,
+      "type": "function",
+      "description": "onlyOwner function updating the allocation point of an existing pool.",
+      "node_id": 15
+    },
+    {
+      "id": "func_getMultiplier",
+      "is_core": true,
+      "type": "function",
+      "description": "View helper computing the time-based reward multiplier between _from and _to, bounded by startTime/endTime.",
+      "node_id": 16
+    },
+    {
+      "id": "func_pendingEsw",
+      "is_core": true,
+      "type": "function",
+      "description": "View function computing pending ESW rewards for a user in a pool.",
+      "node_id": 17
+    },
+    {
+      "id": "func_massUpdatePools",
+      "is_core": true,
+      "type": "function",
+      "description": "Public loop that calls updatePool for every pool.",
+      "node_id": 18
+    },
+    {
+      "id": "func_updatePool",
+      "is_core": true,
+      "type": "function",
+      "description": "Public function refreshing accEswPerShare and lastRewardTime of a pool based on elapsed time and emission rate.",
+      "node_id": 19
+    },
+    {
+      "id": "func_deposit",
+      "is_core": true,
+      "type": "function",
+      "description": "Public function staking tokens into a pool, harvesting pending rewards and updating user accounting.",
+      "node_id": 20
+    },
+    {
+      "id": "func_withdraw",
+      "is_core": true,
+      "type": "function",
+      "description": "Public function withdrawing staked tokens and pending rewards; external transfers occur before user state is zeroed/reduced.",
+      "node_id": 21
+    },
+    {
+      "id": "func_emergencyWithdraw",
+      "is_core": true,
+      "type": "function",
+      "description": "Public emergency withdrawal of the full staked amount, forfeiting rewards; transfers before clearing user state.",
+      "node_id": 22
+    },
+    {
+      "id": "func_safeRewardTransfer",
+      "is_core": true,
+      "type": "function",
+      "description": "Internal function transferring ESW rewards and returning the remainder owed when the contract balance is insufficient.",
+      "node_id": 23
+    },
+    {
+      "id": "msg_sender",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used as owner check, user key and transfer recipient.",
+      "node_id": 24
+    },
+    {
+      "id": "block_timestamp",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "Miner-influenceable timestamp driving reward accrual, pool lastRewardTime and endTime logic.",
+      "node_id": 25
+    },
+    {
+      "id": "unsafe_safeTransferFrom_deposit",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "External ERC20 safeTransferFrom call pulling the staking token from the depositor in deposit().",
+      "node_id": 26
+    },
+    {
+      "id": "unsafe_safeTransfer_withdraw",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "External ERC20 safeTransfer of the staking token to the user inside withdraw(), executed before user.amount is reduced.",
+      "node_id": 27
+    },
+    {
+      "id": "unsafe_safeTransfer_esw",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "External ERC20 safeTransfer of ESW rewards to the user inside safeRewardTransfer().",
+      "node_id": 28
+    },
+    {
+      "id": "unsafe_safeTransfer_emergencyWithdraw",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "External ERC20 safeTransfer of the full staked amount in emergencyWithdraw() before state reset.",
+      "node_id": 29
+    },
+    {
+      "id": "param_deposit_amount",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Amount of staking tokens the caller deposits in deposit().",
+      "node_id": 30
+    },
+    {
+      "id": "param_deposit_pid",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Pool id selected by the caller in deposit().",
+      "node_id": 31
+    },
+    {
+      "id": "param_withdraw_amount",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Amount of staking tokens the caller withdraws in withdraw().",
+      "node_id": 32
+    },
+    {
+      "id": "param_withdraw_pid",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Pool id selected by the caller in withdraw().",
+      "node_id": 33
+    },
+    {
+      "id": "param_add_allocPoint",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Allocation points assigned to a new pool in add().",
+      "node_id": 34
+    },
+    {
+      "id": "param_add_stakingToken",
+      "is_core": false,
+      "type": "parameter",
+      "description": "ERC20 token address registered as the staking token in add().",
+      "node_id": 35
+    },
+    {
+      "id": "param_changeEndTime_addSeconds",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Seconds added to endTime in changeEndTime().",
+      "node_id": 36
+    },
+    {
+      "id": "param_setEswPerSecond_value",
+      "is_core": false,
+      "type": "parameter",
+      "description": "New ESW-per-second emission rate set in setEswPerSecond().",
+      "node_id": 37
+    },
+    {
+      "id": "param_transferOwnership_newOwner",
+      "is_core": false,
+      "type": "parameter",
+      "description": "New owner or pending owner address passed to transferOwnership().",
+      "node_id": 38
+    },
+    {
+      "id": "param_getMultiplier_from",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Start of the reward interval in getMultiplier().",
+      "node_id": 39
+    },
+    {
+      "id": "param_getMultiplier_to",
+      "is_core": false,
+      "type": "parameter",
+      "description": "End of the reward interval in getMultiplier().",
+      "node_id": 40
+    },
+    {
+      "id": "param_safeRewardTransfer_to",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Recipient of the ESW reward payout in safeRewardTransfer().",
+      "node_id": 41
+    },
+    {
+      "id": "param_safeRewardTransfer_amount",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Requested ESW reward amount in safeRewardTransfer().",
+      "node_id": 42
+    },
+    {
+      "id": "local_deposit_pending",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Pending ESW amount computed for the user in deposit() before it is forwarded to safeRewardTransfer().",
+      "node_id": 43
+    },
+    {
+      "id": "local_withdraw_pending",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Pending ESW amount computed for the user in withdraw() before it is forwarded to safeRewardTransfer().",
+      "node_id": 44
+    },
+    {
+      "id": "local_emergencyWithdraw_userAmount",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Snapshot of user.amount used to pay out the full stake in emergencyWithdraw().",
+      "node_id": 45
+    },
+    {
+      "id": "local_updatePool_multiplier",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Time multiplier returned by getMultiplier and used to compute eswReward in updatePool().",
+      "node_id": 46
+    },
+    {
+      "id": "local_pendingEsw_accEswPerShare",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Locally recomputed accEswPerShare in pendingEsw() used for the pending view calculation.",
+      "node_id": 47
+    },
+    {
+      "id": "local_safeRewardTransfer_balance",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Current ESW balance of the contract read in safeRewardTransfer() to cap the payout.",
+      "node_id": 48
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 24,
+      "vuln_type": "access_control",
+      "to_id": 9,
+      "type": "controlflow",
+      "reason": "transferOwnership is guarded by onlyOwner which compares msg.sender to owner."
+    },
+    {
+      "from_id": 24,
+      "vuln_type": "access_control",
+      "to_id": 10,
+      "type": "controlflow",
+      "reason": "claimOwnership requires msg.sender to equal pendingOwner for the transfer to succeed."
+    },
+    {
+      "from_id": 24,
+      "vuln_type": "access_control",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "changeEndTime is restricted to the owner via the onlyOwner modifier."
+    },
+    {
+      "from_id": 24,
+      "vuln_type": "access_control",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "setEswPerSecond is restricted to the owner via the onlyOwner modifier."
+    },
+    {
+      "from_id": 24,
+      "vuln_type": "access_control",
+      "to_id": 14,
+      "type": "controlflow",
+      "reason": "add is restricted to the owner via the onlyOwner modifier."
+    },
+    {
+      "from_id": 24,
+      "vuln_type": "access_control",
+      "to_id": 15,
+      "type": "controlflow",
+      "reason": "set is restricted to the owner via the onlyOwner modifier."
+    },
+    {
+      "from_id": 24,
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "msg.sender is the user key used to read and write userInfo in deposit."
+    },
+    {
+      "from_id": 24,
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "msg.sender identifies the withdrawing user and the staking token recipient in withdraw."
+    },
+    {
+      "from_id": 24,
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "msg.sender identifies the user and payout recipient in emergencyWithdraw."
+    },
+    {
+      "from_id": 25,
+      "vuln_type": "access_control",
+      "to_id": 14,
+      "type": "controlflow",
+      "reason": "block.timestamp selects lastRewardTime of a new pool, creating timestamp-dependent initialization."
+    },
+    {
+      "from_id": 25,
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "controlflow",
+      "reason": "getMultiplier clamps the interval with startTime/endTime comparisons and is timestamp-dependent."
+    },
+    {
+      "from_id": 25,
+      "vuln_type": "access_control",
+      "to_id": 17,
+      "type": "controlflow",
+      "reason": "pendingEsw branches on block.timestamp versus pool.lastRewardTime to accrue rewards."
+    },
+    {
+      "from_id": 25,
+      "vuln_type": "access_control",
+      "to_id": 19,
+      "type": "controlflow",
+      "reason": "updatePool requires block.timestamp > lastRewardTime and stores block.timestamp, making accrual miner-influenceable."
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "transferOwnership reads owner for the OwnershipTransferred event and writes the new owner."
+    },
+    {
+      "from_id": 1,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "transferOwnership writes pendingOwner when the transfer is not direct."
+    },
+    {
+      "from_id": 1,
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "claimOwnership reads and clears pendingOwner when the caller is the pending owner."
+    },
+    {
+      "from_id": 2,
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "safeRewardTransfer reads the ESW token contract to query balance and pay rewards."
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "setEswPerSecond writes the eswPerSecond emission rate."
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "updatePool reads eswPerSecond to compute the pool reward."
+    },
+    {
+      "from_id": 4,
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "add pushes a new PoolInfo entry into poolInfo."
+    },
+    {
+      "from_id": 4,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "set reads and updates allocPoint of the selected pool in poolInfo."
+    },
+    {
+      "from_id": 4,
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "pendingEsw reads pool.accEswPerShare, lastRewardTime, allocPoint and total staked amount."
+    },
+    {
+      "from_id": 4,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "massUpdatePools iterates over poolInfo.length to update every pool."
+    },
+    {
+      "from_id": 4,
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "updatePool reads and writes accEswPerShare and lastRewardTime of the pool."
+    },
+    {
+      "from_id": 4,
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "deposit reads pool.accEswPerShare and updates pool.stakingTokenTotalAmount."
+    },
+    {
+      "from_id": 4,
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "withdraw reads pool reward state and decrements pool.stakingTokenTotalAmount."
+    },
+    {
+      "from_id": 4,
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "emergencyWithdraw reads and decrements pool.stakingTokenTotalAmount."
+    },
+    {
+      "from_id": 5,
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "pendingEsw reads the user's amount, rewardDebt and remainingEswTokenReward."
+    },
+    {
+      "from_id": 5,
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "deposit reads and writes the caller's UserInfo entry."
+    },
+    {
+      "from_id": 5,
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "withdraw reads and writes the caller's UserInfo entry."
+    },
+    {
+      "from_id": 5,
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "emergencyWithdraw reads and resets the caller's UserInfo entry."
+    },
+    {
+      "from_id": 6,
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "add increases totalAllocPoint by the new pool allocation."
+    },
+    {
+      "from_id": 6,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "set adjusts totalAllocPoint when the pool allocation changes."
+    },
+    {
+      "from_id": 6,
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "pendingEsw divides the reward by totalAllocPoint as a divisor."
+    },
+    {
+      "from_id": 6,
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "updatePool divides the computed reward by totalAllocPoint as a divisor."
+    },
+    {
+      "from_id": 7,
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "add compares block.timestamp with the immutable startTime to initialize lastRewardTime."
+    },
+    {
+      "from_id": 7,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "getMultiplier floors the interval start at the immutable startTime."
+    },
+    {
+      "from_id": 8,
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "changeEndTime extends the endTime state variable."
+    },
+    {
+      "from_id": 8,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "getMultiplier caps the reward interval at endTime."
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "controlflow",
+      "reason": "setEswPerSecond optionally calls massUpdatePools before changing the emission rate."
+    },
+    {
+      "from_id": 14,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "controlflow",
+      "reason": "add optionally calls massUpdatePools before registering the new pool."
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "controlflow",
+      "reason": "set optionally calls massUpdatePools before changing the allocation."
+    },
+    {
+      "from_id": 18,
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "controlflow",
+      "reason": "massUpdatePools loops and calls updatePool for each pool id."
+    },
+    {
+      "from_id": 19,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "controlflow",
+      "reason": "updatePool calls getMultiplier to compute the elapsed-time multiplier."
+    },
+    {
+      "from_id": 20,
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "controlflow",
+      "reason": "deposit calls updatePool before harvesting and crediting the stake."
+    },
+    {
+      "from_id": 21,
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "controlflow",
+      "reason": "withdraw calls updatePool before computing and paying out pending rewards."
+    },
+    {
+      "from_id": 17,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "controlflow",
+      "reason": "pendingEsw calls getMultiplier to project the reward up to the current timestamp."
+    },
+    {
+      "from_id": 20,
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "controlflow",
+      "reason": "deposit forwards the computed pending reward to safeRewardTransfer."
+    },
+    {
+      "from_id": 21,
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "controlflow",
+      "reason": "withdraw forwards the computed pending reward to safeRewardTransfer."
+    },
+    {
+      "from_id": 20,
+      "vuln_type": "reentrancy",
+      "to_id": 26,
+      "type": "controlflow",
+      "reason": "deposit performs an external ERC20 safeTransferFrom before updating user and pool accounting."
+    },
+    {
+      "from_id": 21,
+      "vuln_type": "reentrancy",
+      "to_id": 27,
+      "type": "controlflow",
+      "reason": "withdraw performs an external ERC20 safeTransfer to the user before reducing user.amount and pool total."
+    },
+    {
+      "from_id": 22,
+      "vuln_type": "reentrancy",
+      "to_id": 29,
+      "type": "controlflow",
+      "reason": "emergencyWithdraw performs an external ERC20 safeTransfer before clearing user state."
+    },
+    {
+      "from_id": 23,
+      "vuln_type": "none",
+      "to_id": 28,
+      "type": "controlflow",
+      "reason": "safeRewardTransfer performs external ESW safeTransfer calls to pay the reward or the remaining balance."
+    },
+    {
+      "from_id": 26,
+      "vuln_type": "reentrancy",
+      "to_id": 20,
+      "type": "callback",
+      "reason": "A malicious staking token can re-enter deposit during safeTransferFrom before accounting is finalized."
+    },
+    {
+      "from_id": 27,
+      "vuln_type": "reentrancy",
+      "to_id": 21,
+      "type": "callback",
+      "reason": "A malicious staking token can re-enter withdraw during safeTransfer while user.amount is still unreduced."
+    },
+    {
+      "from_id": 29,
+      "vuln_type": "reentrancy",
+      "to_id": 22,
+      "type": "callback",
+      "reason": "A malicious staking token can re-enter emergencyWithdraw before user.amount is zeroed."
+    },
+    {
+      "from_id": 28,
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "callback",
+      "reason": "The ESW token callback could re-enter safeRewardTransfer; the token is set at construction and treated as trusted."
+    },
+    {
+      "from_id": 30,
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "_amount parameter is used for the transferFrom and added to user.amount and pool total in deposit."
+    },
+    {
+      "from_id": 31,
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "_pid parameter indexes poolInfo and userInfo in deposit."
+    },
+    {
+      "from_id": 32,
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "_amount parameter bounds the staking token transfer and is subtracted from user.amount in withdraw."
+    },
+    {
+      "from_id": 33,
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "_pid parameter indexes poolInfo and userInfo in withdraw."
+    },
+    {
+      "from_id": 34,
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "_allocPoint is stored as the new pool allocation and added to totalAllocPoint in add."
+    },
+    {
+      "from_id": 35,
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "_stakingToken is stored as the pool's staking token in add."
+    },
+    {
+      "from_id": 36,
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "addSeconds is added to endTime in changeEndTime."
+    },
+    {
+      "from_id": 37,
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "_eswPerSecond is written to the eswPerSecond state variable in setEswPerSecond."
+    },
+    {
+      "from_id": 38,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "newOwner is written to owner or pendingOwner in transferOwnership."
+    },
+    {
+      "from_id": 39,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "_from is clamped against startTime and used as the interval start in getMultiplier."
+    },
+    {
+      "from_id": 40,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "_to is compared with endTime and used as the interval end in getMultiplier."
+    },
+    {
+      "from_id": 41,
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "_to is the ESW reward recipient in safeRewardTransfer."
+    },
+    {
+      "from_id": 42,
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "_amount is compared with the contract balance and paid out in safeRewardTransfer."
+    },
+    {
+      "from_id": 43,
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "The local pending reward from deposit is passed into safeRewardTransfer."
+    },
+    {
+      "from_id": 44,
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "The local pending reward from withdraw is passed into safeRewardTransfer."
+    },
+    {
+      "from_id": 45,
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "userAmount snapshot is the value transferred out in emergencyWithdraw."
+    },
+    {
+      "from_id": 19,
+      "vuln_type": "none",
+      "to_id": 46,
+      "type": "dataflow",
+      "reason": "The multiplier local is computed inside updatePool and feeds the eswReward computation."
+    },
+    {
+      "from_id": 17,
+      "vuln_type": "none",
+      "to_id": 47,
+      "type": "dataflow",
+      "reason": "The locally recomputed accEswPerShare is used to compute the pending ESW in pendingEsw."
+    },
+    {
+      "from_id": 23,
+      "vuln_type": "none",
+      "to_id": 48,
+      "type": "dataflow",
+      "reason": "eswTokenBalance is read from the ESW token inside safeRewardTransfer and caps the payout."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "func_deposit",
+      "normal_node": "param_deposit_amount",
+      "reason": "Function parameter that only carries the deposit amount into the deposit() core function; it has no independent semantic role."
+    },
+    {
+      "merge_into": "func_deposit",
+      "normal_node": "param_deposit_pid",
+      "reason": "Function parameter used only to index pools inside deposit(); it can be merged into deposit()."
+    },
+    {
+      "merge_into": "func_withdraw",
+      "normal_node": "param_withdraw_amount",
+      "reason": "Function parameter used only to size the transfer and accounting update inside withdraw()."
+    },
+    {
+      "merge_into": "func_withdraw",
+      "normal_node": "param_withdraw_pid",
+      "reason": "Function parameter used only to index pools inside withdraw()."
+    },
+    {
+      "merge_into": "func_add",
+      "normal_node": "param_add_allocPoint",
+      "reason": "Function parameter consumed only by the add() core function when creating a pool."
+    },
+    {
+      "merge_into": "func_add",
+      "normal_node": "param_add_stakingToken",
+      "reason": "Function parameter consumed only by the add() core function when creating a pool."
+    },
+    {
+      "merge_into": "func_changeEndTime",
+      "normal_node": "param_changeEndTime_addSeconds",
+      "reason": "Function parameter consumed only by the changeEndTime() core function."
+    },
+    {
+      "merge_into": "func_setEswPerSecond",
+      "normal_node": "param_setEswPerSecond_value",
+      "reason": "Function parameter consumed only by the setEswPerSecond() core function."
+    },
+    {
+      "merge_into": "func_transferOwnership",
+      "normal_node": "param_transferOwnership_newOwner",
+      "reason": "Function parameter consumed only by the transferOwnership() core function."
+    },
+    {
+      "merge_into": "func_getMultiplier",
+      "normal_node": "param_getMultiplier_from",
+      "reason": "Function parameter consumed only by the getMultiplier() core function."
+    },
+    {
+      "merge_into": "func_getMultiplier",
+      "normal_node": "param_getMultiplier_to",
+      "reason": "Function parameter consumed only by the getMultiplier() core function."
+    },
+    {
+      "merge_into": "func_safeRewardTransfer",
+      "normal_node": "param_safeRewardTransfer_to",
+      "reason": "Function parameter consumed only by the safeRewardTransfer() core function."
+    },
+    {
+      "merge_into": "func_safeRewardTransfer",
+      "normal_node": "param_safeRewardTransfer_amount",
+      "reason": "Function parameter consumed only by the safeRewardTransfer() core function."
+    },
+    {
+      "merge_into": "func_deposit",
+      "normal_node": "local_deposit_pending",
+      "reason": "Local temporary computed inside deposit() and immediately forwarded to safeRewardTransfer; no cross-function meaning."
+    },
+    {
+      "merge_into": "func_withdraw",
+      "normal_node": "local_withdraw_pending",
+      "reason": "Local temporary computed inside withdraw() and immediately forwarded to safeRewardTransfer; no cross-function meaning."
+    },
+    {
+      "merge_into": "unsafe_safeTransfer_emergencyWithdraw",
+      "normal_node": "local_emergencyWithdraw_userAmount",
+      "reason": "Local snapshot that is exactly the value passed to the unsafe external transfer in emergencyWithdraw()."
+    },
+    {
+      "merge_into": "func_updatePool",
+      "normal_node": "local_updatePool_multiplier",
+      "reason": "Local calculated inside updatePool() from getMultiplier and used only for that pool's reward computation."
+    },
+    {
+      "merge_into": "func_pendingEsw",
+      "normal_node": "local_pendingEsw_accEswPerShare",
+      "reason": "Local shadow of accEswPerShare computed inside pendingEsw() solely for the view calculation."
+    },
+    {
+      "merge_into": "unsafe_safeTransfer_esw",
+      "normal_node": "local_safeRewardTransfer_balance",
+      "reason": "Local balance read inside safeRewardTransfer() that governs the unsafe ESW transfer amount."
+    }
+  ]
+}

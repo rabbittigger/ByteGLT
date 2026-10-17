@@ -1,0 +1,196 @@
+{
+  "nodes": [
+    {
+      "id": "owner_state_var",
+      "description": "Address of the contract owner stored in Ownable.owner; controls privileged actions.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "ownable_constructor",
+      "description": "Ownable() constructor that initializes the owner state variable from the deployer account.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "function"
+    },
+    {
+      "id": "msg_sender",
+      "description": "msg.sender, the caller-supplied address used both for ownership initialisation and authorization checks.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "only_owner_modifier",
+      "description": "onlyOwner modifier that requires msg.sender to equal owner before executing the guarded function body.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "transfer_ownership",
+      "description": "transferOwnership(address newOwner) onlyOwner; reassigns the owner state variable when a non-zero address is supplied.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "param_newOwner",
+      "description": "Parameter newOwner of transferOwnership, the address that becomes the new owner.",
+      "is_core": false,
+      "node_id": 5,
+      "type": "parameter"
+    },
+    {
+      "id": "multisend_function",
+      "description": "Indorser.multisend(address _tokenAddr, address[] _to, uint256[] _value) loops over recipient/amount arrays performing external token transfers.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "function"
+    },
+    {
+      "id": "param_tokenAddr",
+      "description": "Parameter _tokenAddr, the ERC20 token contract address whose transfer function is invoked.",
+      "is_core": false,
+      "node_id": 7,
+      "type": "parameter"
+    },
+    {
+      "id": "param_to",
+      "description": "Parameter _to, dynamic array of recipient addresses for the batch transfer.",
+      "is_core": false,
+      "node_id": 8,
+      "type": "parameter"
+    },
+    {
+      "id": "param_value",
+      "description": "Parameter _value, dynamic array of token amounts corresponding to each recipient.",
+      "is_core": false,
+      "node_id": 9,
+      "type": "parameter"
+    },
+    {
+      "id": "local_i",
+      "description": "Loop counter i declared as uint8, incremented for each iteration of the multisend batch.",
+      "is_core": false,
+      "node_id": 10,
+      "type": "local_var"
+    },
+    {
+      "id": "unsafe_external_transfer",
+      "description": "External call Token(_tokenAddr).transfer(_to[i], _value[i]) executed inside the loop, returning a value that is asserted.",
+      "is_core": true,
+      "node_id": 11,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_asserts",
+      "description": "Assertion block requiring _to.length == _value.length and _to.length <= 150 before the transfer loop.",
+      "is_core": true,
+      "node_id": 12,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is written into the owner state variable during construction, establishing the privileged address.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender is compared with owner inside the onlyOwner modifier, so authorization depends on caller identity.",
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The onlyOwner modifier gates execution of transferOwnership, enforcing privileged access.",
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Parameter newOwner is assigned into the owner state variable, transferring control of the contract.",
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Parameter _tokenAddr determines the external contract address that is called during the transfer loop.",
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Recipient array _to feeds the external transfer call, letting caller-controlled addresses receive calls.",
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Amount array _value feeds the external transfer call arguments.",
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Loop counter i indexes _to and _value used as arguments to the external transfer call.",
+      "to_id": 11,
+      "vuln_type": "none",
+      "from_id": 10,
+      "type": "dataflow"
+    },
+    {
+      "reason": "multisend executes the external token transfer inside its unbounded-length loop before state finalisation.",
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "from_id": 6,
+      "type": "controlflow"
+    },
+    {
+      "reason": "multisend executes the length validation assertions before entering the transfer loop.",
+      "to_id": 12,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "controlflow"
+    },
+    {
+      "reason": "_to array length is used by the assertions checking array length equality and the 150-recipient cap.",
+      "to_id": 12,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_value array length is compared against _to length in the equality assertion.",
+      "to_id": 12,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The assertion bounding _to.length to 150 constrains the uint8 loop counter i increment, preventing counter overflow.",
+      "to_id": 10,
+      "vuln_type": "arithmetic",
+      "from_id": 12,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The external token transfer can call back into multisend before the loop completes, enabling reentrant batch execution.",
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "from_id": 11,
+      "type": "callback"
+    }
+  ],
+  "normalization_plan": []
+}

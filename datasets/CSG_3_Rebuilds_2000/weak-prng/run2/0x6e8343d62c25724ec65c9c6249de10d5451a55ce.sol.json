@@ -1,0 +1,985 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "LotteryOwnable._owner; privileged owner address controlling onlyOwner functions and emergency drawing entry",
+      "is_core": true,
+      "node_id": 0,
+      "id": "sv_owner"
+    },
+    {
+      "type": "state_var",
+      "description": "IERC20 atari token used for ticket payment and reward payout",
+      "is_core": true,
+      "node_id": 1,
+      "id": "sv_atari"
+    },
+    {
+      "type": "state_var",
+      "description": "LotteryNFT contract holding ticket ownership and claim status",
+      "is_core": true,
+      "node_id": 2,
+      "id": "sv_lotteryNFT"
+    },
+    {
+      "type": "state_var",
+      "description": "admin address authorized for onlyAdmin functions such as reset and withdrawals",
+      "is_core": true,
+      "node_id": 3,
+      "id": "sv_adminAddress"
+    },
+    {
+      "type": "state_var",
+      "description": "Upper bound for each of the four lottery numbers",
+      "is_core": true,
+      "node_id": 4,
+      "id": "sv_maxNumber"
+    },
+    {
+      "type": "state_var",
+      "description": "Minimum ticket price enforced in buy/multiBuy",
+      "is_core": true,
+      "node_id": 5,
+      "id": "sv_minPrice"
+    },
+    {
+      "type": "state_var",
+      "description": "Rollover balance carried into the next issue",
+      "is_core": true,
+      "node_id": 6,
+      "id": "sv_remainBalance"
+    },
+    {
+      "type": "state_var",
+      "description": "uint8[3] reward allocation percentages for first/second/third prize",
+      "is_core": true,
+      "node_id": 7,
+      "id": "sv_allocation"
+    },
+    {
+      "type": "state_var",
+      "description": "Current lottery issue identifier, incremented on reset",
+      "is_core": true,
+      "node_id": 8,
+      "id": "sv_issueIndex"
+    },
+    {
+      "type": "state_var",
+      "description": "Total amount staked in the current issue; used as random seed and reward base",
+      "is_core": true,
+      "node_id": 9,
+      "id": "sv_totalAmount"
+    },
+    {
+      "type": "state_var",
+      "description": "uint8[4] winning numbers for the current issue; zero means not drawn",
+      "is_core": true,
+      "node_id": 10,
+      "id": "sv_winningNumbers"
+    },
+    {
+      "type": "state_var",
+      "description": "Flag guarding entry into the drawing phase; blocks purchases",
+      "is_core": true,
+      "node_id": 11,
+      "id": "sv_drawingPhase"
+    },
+    {
+      "type": "state_var",
+      "description": "Timestamp of last buy/reset, used for random seed and phase scheduling",
+      "is_core": true,
+      "node_id": 12,
+      "id": "sv_lastTimestamp"
+    },
+    {
+      "type": "state_var",
+      "description": "Timestamp when drawing becomes permitted",
+      "is_core": true,
+      "node_id": 13,
+      "id": "sv_nextDraw"
+    },
+    {
+      "type": "state_var",
+      "description": "Timestamp when the draw-phase guard window opens",
+      "is_core": true,
+      "node_id": 14,
+      "id": "sv_nextPharse"
+    },
+    {
+      "type": "state_var",
+      "description": "Duration between draws configured in initialize",
+      "is_core": true,
+      "node_id": 15,
+      "id": "sv_DrawDuration"
+    },
+    {
+      "type": "state_var",
+      "description": "Duration before nextDraw when enterDrawingPhase is allowed",
+      "is_core": true,
+      "node_id": 16,
+      "id": "sv_ParseDuration"
+    },
+    {
+      "type": "state_var",
+      "description": "issueId => numberIndex => aggregated buy amount, basis of prize math",
+      "is_core": true,
+      "node_id": 17,
+      "id": "sv_userBuyAmountSum"
+    },
+    {
+      "type": "state_var",
+      "description": "issueId => [total, match1, match2, match3] amounts snapshot",
+      "is_core": true,
+      "node_id": 18,
+      "id": "sv_historyAmount"
+    },
+    {
+      "type": "state_var",
+      "description": "issueId => unmatched reward ratio used to compute remainBalance",
+      "is_core": true,
+      "node_id": 19,
+      "id": "sv_nomatch"
+    },
+    {
+      "type": "state_var",
+      "description": "address => list of ticket tokenIds owned by the player",
+      "is_core": true,
+      "node_id": 20,
+      "id": "sv_userInfo"
+    },
+    {
+      "type": "state_var",
+      "description": "LotteryNFT claimInfo mapping marking a ticket as claimed",
+      "is_core": true,
+      "node_id": 21,
+      "id": "sv_claimInfo"
+    },
+    {
+      "type": "state_var",
+      "description": "Number of distinct participants in the current issue",
+      "is_core": true,
+      "node_id": 22,
+      "id": "sv_totalAddresses"
+    },
+    {
+      "type": "state_var",
+      "description": "issueId => drawn winning numbers historical record",
+      "is_core": true,
+      "node_id": 23,
+      "id": "sv_historyNumbers"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Untrusted caller address used for buy, claim, admin and owner checks",
+      "is_core": true,
+      "node_id": 24,
+      "id": "ui_msg_sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Miner-influenceable timestamp used for phase gates and as random seed component",
+      "is_core": true,
+      "node_id": 25,
+      "id": "ui_block_timestamp"
+    },
+    {
+      "type": "function",
+      "description": "Initializer wiring token, NFT, price bounds, owner and schedule; guarded by initializer",
+      "is_core": true,
+      "node_id": 26,
+      "id": "fn_initialize"
+    },
+    {
+      "type": "function",
+      "description": "onlyAdmin reset of the issue state; re-buys remainBalance and advances issueIndex",
+      "is_core": true,
+      "node_id": 27,
+      "id": "fn_reset"
+    },
+    {
+      "type": "function",
+      "description": "Opens drawing phase gated by block.timestamp >= nextPharse or owner override",
+      "is_core": true,
+      "node_id": 28,
+      "id": "fn_enterDrawingPhase"
+    },
+    {
+      "type": "function",
+      "description": "Draws 4 winning numbers from blockhash, timestamp, gasleft and external randomness",
+      "is_core": true,
+      "node_id": 29,
+      "id": "fn_drawing"
+    },
+    {
+      "type": "function",
+      "description": "Internal ticket purchase minting an NFT to the contract, used for rollover balance",
+      "is_core": true,
+      "node_id": 30,
+      "id": "fn_internalBuy"
+    },
+    {
+      "type": "function",
+      "description": "External single-ticket purchase; mints NFT, updates accounting and pulls tokens",
+      "is_core": true,
+      "node_id": 31,
+      "id": "fn_buy"
+    },
+    {
+      "type": "function",
+      "description": "External multi-ticket purchase loop; aggregates price and pulls tokens once",
+      "is_core": true,
+      "node_id": 32,
+      "id": "fn_multiBuy"
+    },
+    {
+      "type": "function",
+      "description": "Pays out the reward for a ticket, marking it claimed via the NFT contract",
+      "is_core": true,
+      "node_id": 33,
+      "id": "fn_claimReward"
+    },
+    {
+      "type": "function",
+      "description": "Batched reward payout across multiple tickets with a single token transfer",
+      "is_core": true,
+      "node_id": 34,
+      "id": "fn_multiClaim"
+    },
+    {
+      "type": "function",
+      "description": "Pure combinatorial key generator producing 11 lookup keys from 4 numbers",
+      "is_core": true,
+      "node_id": 35,
+      "id": "fn_generateNumberIndexKey"
+    },
+    {
+      "type": "function",
+      "description": "Computes per-match aggregated amounts from userBuyAmountSum for the drawn issue",
+      "is_core": true,
+      "node_id": 36,
+      "id": "fn_calculateMatchingRewardAmount"
+    },
+    {
+      "type": "function",
+      "description": "Returns the reward pool for an issue, current totalAmount if not drawn",
+      "is_core": true,
+      "node_id": 37,
+      "id": "fn_getTotalRewards"
+    },
+    {
+      "type": "function",
+      "description": "View computing a ticket reward from match count, allocation and pool amounts",
+      "is_core": true,
+      "node_id": 38,
+      "id": "fn_getRewardView"
+    },
+    {
+      "type": "function",
+      "description": "Returns the historical amount bucket for a given match count",
+      "is_core": true,
+      "node_id": 39,
+      "id": "fn_getMatchingRewardAmount"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner setter for the admin address",
+      "is_core": true,
+      "node_id": 40,
+      "id": "fn_setAdmin"
+    },
+    {
+      "type": "function",
+      "description": "onlyAdmin arbitrary amount withdrawal from the lottery pool",
+      "is_core": true,
+      "node_id": 41,
+      "id": "fn_adminWithdraw"
+    },
+    {
+      "type": "function",
+      "description": "onlyAdmin withdrawal limited to balance above the reserved reward pool",
+      "is_core": true,
+      "node_id": 42,
+      "id": "fn_adminWithdrawSafe"
+    },
+    {
+      "type": "function",
+      "description": "onlyAdmin setter for minPrice",
+      "is_core": true,
+      "node_id": 43,
+      "id": "fn_setMinPrice"
+    },
+    {
+      "type": "function",
+      "description": "onlyAdmin setter for maxNumber",
+      "is_core": true,
+      "node_id": 44,
+      "id": "fn_setMaxNumber"
+    },
+    {
+      "type": "function",
+      "description": "onlyAdmin setter for the three reward allocation percentages",
+      "is_core": true,
+      "node_id": 45,
+      "id": "fn_setAllocation"
+    },
+    {
+      "type": "function",
+      "description": "LotteryOwnable internal owner bootstrap emitting OwnershipTransferred",
+      "is_core": true,
+      "node_id": 46,
+      "id": "fn_initOwner"
+    },
+    {
+      "type": "function",
+      "description": "LotteryNFT onlyOwner mint of a ticket carrying numbers, amount and issue index",
+      "is_core": true,
+      "node_id": 47,
+      "id": "fn_newLotteryItem"
+    },
+    {
+      "type": "function",
+      "description": "LotteryNFT onlyOwner state update marking a ticket claimed; external call out of Lottery",
+      "is_core": true,
+      "node_id": 48,
+      "id": "fn_nft_claimReward"
+    },
+    {
+      "type": "function",
+      "description": "LotteryNFT onlyOwner batch claim marking; external call out of Lottery",
+      "is_core": true,
+      "node_id": 49,
+      "id": "fn_nft_multiClaimReward"
+    },
+    {
+      "type": "function",
+      "description": "ERC721 receiver hook performing an external functionCall to the receiving contract",
+      "is_core": true,
+      "node_id": 50,
+      "id": "fn_checkOnERC721Received"
+    },
+    {
+      "type": "function",
+      "description": "Internal helper counting how many ticket numbers match the drawn numbers",
+      "is_core": true,
+      "node_id": 51,
+      "id": "fn_getMatchingNumber"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External atari.safeTransferFrom pulling the ticket price from msg.sender into the contract",
+      "is_core": true,
+      "node_id": 52,
+      "id": "uo_safeTransferFrom_buy"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External atari.safeTransferFrom pulling the aggregated multi-buy price",
+      "is_core": true,
+      "node_id": 53,
+      "id": "uo_safeTransferFrom_multiBuy"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External atari.safeTransfer paying the reward to msg.sender",
+      "is_core": true,
+      "node_id": 54,
+      "id": "uo_safeTransfer_claimReward"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External atari.safeTransfer paying the aggregated multi-claim reward",
+      "is_core": true,
+      "node_id": 55,
+      "id": "uo_safeTransfer_multiClaim"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External atari.safeTransfer paying an arbitrary amount to the admin",
+      "is_core": true,
+      "node_id": 56,
+      "id": "uo_safeTransfer_adminWithdraw"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External atari.safeTransfer paying the excess balance to the admin",
+      "is_core": true,
+      "node_id": 57,
+      "id": "uo_safeTransfer_adminWithdrawSafe"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Inline assembly modulo operations deriving winning numbers from a hash",
+      "is_core": true,
+      "node_id": 58,
+      "id": "uo_assembly_drawing"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Low-level external call into an untrusted receiver contract during ERC721 transfer",
+      "is_core": true,
+      "node_id": 59,
+      "id": "uo_callback_onERC721Received"
+    },
+    {
+      "type": "parameter",
+      "description": "_price parameter of buy, the ticket price paid by the caller",
+      "is_core": false,
+      "node_id": 60,
+      "id": "p_buy_price"
+    },
+    {
+      "type": "parameter",
+      "description": "_numbers uint8[4] parameter of buy holding the player's chosen numbers",
+      "is_core": false,
+      "node_id": 61,
+      "id": "p_buy_numbers"
+    },
+    {
+      "type": "parameter",
+      "description": "_tokenId parameter of claimReward identifying the ticket to settle",
+      "is_core": false,
+      "node_id": 62,
+      "id": "p_claimReward_tokenId"
+    },
+    {
+      "type": "local_var",
+      "description": "reward local computed by getRewardView inside claimReward",
+      "is_core": false,
+      "node_id": 63,
+      "id": "l_claimReward_reward"
+    },
+    {
+      "type": "parameter",
+      "description": "_externalRandomNumber caller-supplied entropy mixed into the random seed",
+      "is_core": false,
+      "node_id": 64,
+      "id": "p_drawing_externalRandomNumber"
+    },
+    {
+      "type": "local_var",
+      "description": "_randomNumber local derived from the keccak struct hash and assembly modulo",
+      "is_core": false,
+      "node_id": 65,
+      "id": "l_drawing_randomNumber"
+    },
+    {
+      "type": "parameter",
+      "description": "_tickets array parameter of multiClaim listing tickets to settle",
+      "is_core": false,
+      "node_id": 66,
+      "id": "p_multiClaim_tickets"
+    },
+    {
+      "type": "local_var",
+      "description": "totalReward accumulator inside multiClaim",
+      "is_core": false,
+      "node_id": 67,
+      "id": "l_multiClaim_totalReward"
+    },
+    {
+      "type": "parameter",
+      "description": "_adminAddress parameter of setAdmin assigned into adminAddress",
+      "is_core": false,
+      "node_id": 68,
+      "id": "p_setAdmin_address"
+    },
+    {
+      "type": "parameter",
+      "description": "_numbers uint8[4][] parameter of multiBuy holding multiple number sets",
+      "is_core": false,
+      "node_id": 69,
+      "id": "p_multiBuy_numbers"
+    },
+    {
+      "type": "parameter",
+      "description": "_amount parameter of adminWithdraw controlling the withdrawn amount",
+      "is_core": false,
+      "node_id": 70,
+      "id": "p_adminWithdraw_amount"
+    },
+    {
+      "type": "parameter",
+      "description": "_issueIndex parameter of getTotalRewards used to index historyAmount",
+      "is_core": false,
+      "node_id": 71,
+      "id": "p_getTotalRewards_issueIndex"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 31,
+      "type": "dataflow",
+      "reason": "msg.sender provides the buyer identity and the token payer in buy",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 32,
+      "type": "dataflow",
+      "reason": "msg.sender provides the buyer identity in the multiBuy loop",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 33,
+      "type": "dataflow",
+      "reason": "msg.sender must equal the ticket owner to receive the claim payout",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 34,
+      "type": "dataflow",
+      "reason": "msg.sender must own every ticket in the multiClaim batch",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 28,
+      "type": "dataflow",
+      "reason": "enterDrawingPhase allows msg.sender == owner() to bypass the time gate",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "drawing allows msg.sender == owner() to bypass nextDraw, enabling unauthorized early draw",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "reset is guarded by onlyAdmin comparing msg.sender to adminAddress",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 41,
+      "type": "dataflow",
+      "reason": "adminWithdraw is guarded by onlyAdmin against msg.sender",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 42,
+      "type": "dataflow",
+      "reason": "adminWithdrawSafe is guarded by onlyAdmin against msg.sender",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 40,
+      "type": "dataflow",
+      "reason": "owner or modifier onlyOwner validates msg.sender in setAdmin",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "block.timestamp gates drawing (nextDraw) and seeds randomness, making the draw miner-influenceable",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 28,
+      "type": "dataflow",
+      "reason": "block.timestamp >= nextPharse controls who can enter the drawing phase and when",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "reset reads block.timestamp to reschedule nextDraw/nextPharse and record lastTimestamp",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 30,
+      "type": "dataflow",
+      "reason": "internalBuy observes block.timestamp when updating the lottery schedule",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "block.timestamp is written into lastTimestamp, propagating timestamp dependence to the random seed",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 52,
+      "type": "controlflow",
+      "reason": "buy performs an external token transferFrom to an arbitrary ERC20 while state accounting has just been updated",
+      "from_id": 31
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 53,
+      "type": "controlflow",
+      "reason": "multiBuy performs an external token transferFrom after mutating per-user and per-issue accounting",
+      "from_id": 32
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 54,
+      "type": "controlflow",
+      "reason": "claimReward performs an external token transfer to msg.sender after settling the ticket",
+      "from_id": 33
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 55,
+      "type": "controlflow",
+      "reason": "multiClaim performs an external token transfer after looping over the ticket set",
+      "from_id": 34
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 56,
+      "type": "controlflow",
+      "reason": "adminWithdraw executes the external token transfer for the admin",
+      "from_id": 41
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 57,
+      "type": "controlflow",
+      "reason": "adminWithdrawSafe computes and executes the external excess-balance transfer",
+      "from_id": 42
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 58,
+      "type": "controlflow",
+      "reason": "drawing uses inline assembly modulo to derive winning numbers, guarding against out-of-range values",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 30,
+      "type": "controlflow",
+      "reason": "reset re-enters internalBuy to roll the remainBalance into the new issue",
+      "from_id": 27
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 47,
+      "type": "controlflow",
+      "reason": "internalBuy mints a ticket NFT through lotteryNFT.newLotteryItem with the contract as owner",
+      "from_id": 30
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 47,
+      "type": "controlflow",
+      "reason": "buy mints the caller's ticket through lotteryNFT.newLotteryItem calling back into the NFT contract",
+      "from_id": 31
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 47,
+      "type": "controlflow",
+      "reason": "multiBuy mints each ticket through lotteryNFT.newLotteryItem inside the loop",
+      "from_id": 32
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 48,
+      "type": "controlflow",
+      "reason": "claimReward makes an external call into lotteryNFT.claimReward before the token payout, allowing cross-contract reentry",
+      "from_id": 33
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 38,
+      "type": "controlflow",
+      "reason": "claimReward computes the payout through getRewardView",
+      "from_id": 33
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "controlflow",
+      "reason": "claimReward depends on lotteryNFT claimInfo state to block double claims",
+      "from_id": 33
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 49,
+      "type": "controlflow",
+      "reason": "multiClaim makes an external call into lotteryNFT.multiClaimReward before the token payout",
+      "from_id": 34
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 38,
+      "type": "controlflow",
+      "reason": "multiClaim quotes each ticket reward through getRewardView",
+      "from_id": 34
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 37,
+      "type": "controlflow",
+      "reason": "getRewardView derives the pool size from getTotalRewards",
+      "from_id": 38
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 39,
+      "type": "controlflow",
+      "reason": "getRewardView divides by getMatchingRewardAmount, a possible division-by-zero / arithmetic risk",
+      "from_id": 38
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "getRewardView reads historyAmount buckets and performs mul/div scaling that can round or revert",
+      "from_id": 38
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "calculateMatchingRewardAmount aggregates userBuyAmountSum in unchecked uint arithmetic",
+      "from_id": 36
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 59,
+      "type": "callback",
+      "reason": "_checkOnERC721Received performs a low-level functionCall enabling reentrant execution by an untrusted receiver",
+      "from_id": 50
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "setAdmin writes a new privileged adminAddress controlled only by onlyOwner",
+      "from_id": 40
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "setMinPrice mutates the price floor through onlyAdmin",
+      "from_id": 43
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "setMaxNumber mutates the number bound through onlyAdmin",
+      "from_id": 44
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "setAllocation mutates reward percentages through onlyAdmin, directly affecting payouts",
+      "from_id": 45
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 46,
+      "type": "controlflow",
+      "reason": "initialize transfers ownership by calling initOwner",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "initialize stores the IERC20 token reference used for all transfers",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "initialize stores the LotteryNFT reference used for minting and claiming",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "initialize seeds lastTimestamp and the draw schedule from block.timestamp",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "drawing writes the four derived values into winningNumbers",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "drawing persists winningNumbers into historyNumbers for the issue",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "reset clears winningNumbers back to zero",
+      "from_id": 27
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 31,
+      "type": "dataflow",
+      "reason": "_price flows into buy's accounting and token pull",
+      "from_id": 60
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 31,
+      "type": "dataflow",
+      "reason": "_numbers flows into buy's range checks and index key generation",
+      "from_id": 61
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 33,
+      "type": "dataflow",
+      "reason": "_tokenId selects the ticket settled by claimReward",
+      "from_id": 62
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 33,
+      "type": "dataflow",
+      "reason": "reward local is the value transferred by claimReward",
+      "from_id": 63
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "_externalRandomNumber is mixed into every keccak random seed in drawing",
+      "from_id": 64
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "_randomNumber local holds the derived winning value written to storage",
+      "from_id": 65
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 34,
+      "type": "dataflow",
+      "reason": "_tickets array drives the multiClaim ownership loop and payout sum",
+      "from_id": 66
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 34,
+      "type": "dataflow",
+      "reason": "totalReward local is the aggregated value transferred by multiClaim",
+      "from_id": 67
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 40,
+      "type": "dataflow",
+      "reason": "_adminAddress becomes the privileged admin in setAdmin",
+      "from_id": 68
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 32,
+      "type": "dataflow",
+      "reason": "_numbers array drives multiBuy minting, validation and index key generation",
+      "from_id": 69
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 41,
+      "type": "dataflow",
+      "reason": "_amount is the arbitrary value paid out by the privileged adminWithdraw",
+      "from_id": 70
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 37,
+      "type": "dataflow",
+      "reason": "_issueIndex selects which historyAmount bucket getTotalRewards returns",
+      "from_id": 71
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "fn_buy",
+      "reason": "The _price parameter exists only to drive buy's accounting; it has no independent semantic role and is folded into the buy node.",
+      "normal_node": "p_buy_price"
+    },
+    {
+      "merge_into": "fn_buy",
+      "reason": "_numbers is a transient buy argument consumed by minting and key generation, so it merges into fn_buy.",
+      "normal_node": "p_buy_numbers"
+    },
+    {
+      "merge_into": "fn_claimReward",
+      "reason": "_tokenId only selects the ticket inside claimReward and carries no standalone meaning outside that function.",
+      "normal_node": "p_claimReward_tokenId"
+    },
+    {
+      "merge_into": "fn_claimReward",
+      "reason": "reward is a short-lived local holding the payout amount inside claimReward and merges into it.",
+      "normal_node": "l_claimReward_reward"
+    },
+    {
+      "merge_into": "fn_drawing",
+      "reason": "_externalRandomNumber is only meaningful as entropy for the drawing routine and is absorbed into fn_drawing.",
+      "normal_node": "p_drawing_externalRandomNumber"
+    },
+    {
+      "merge_into": "fn_drawing",
+      "reason": "_randomNumber is a scratch value produced and consumed within drawing, so it merges into fn_drawing.",
+      "normal_node": "l_drawing_randomNumber"
+    },
+    {
+      "merge_into": "fn_multiClaim",
+      "reason": "_tickets is a transient batch argument for multiClaim and folds into that function node.",
+      "normal_node": "p_multiClaim_tickets"
+    },
+    {
+      "merge_into": "fn_multiClaim",
+      "reason": "totalReward exists only as the accumulator feeding the multiClaim transfer and merges into it.",
+      "normal_node": "l_multiClaim_totalReward"
+    },
+    {
+      "merge_into": "fn_setAdmin",
+      "reason": "_adminAddress is the sole input that setAdmin writes to privileged state and is merged into fn_setAdmin.",
+      "normal_node": "p_setAdmin_address"
+    },
+    {
+      "merge_into": "fn_multiBuy",
+      "reason": "_numbers is the looped purchase input for multiBuy with no independent identity beyond that call.",
+      "normal_node": "p_multiBuy_numbers"
+    },
+    {
+      "merge_into": "fn_adminWithdraw",
+      "reason": "_amount solely parameterizes the privileged withdrawal and merges into fn_adminWithdraw.",
+      "normal_node": "p_adminWithdraw_amount"
+    },
+    {
+      "merge_into": "fn_getTotalRewards",
+      "reason": "_issueIndex is a pure lookup selector for getTotalRewards and is folded into that function node.",
+      "normal_node": "p_getTotalRewards_issueIndex"
+    }
+  ]
+}

@@ -1,0 +1,151 @@
+{
+  "nodes": [
+    {
+      "id": "state_governance",
+      "description": "Governance address state variable in ERC20, initialized from tx.origin and used as the sole authorization check for privileged minting.",
+      "type": "state_var",
+      "node_id": 0,
+      "is_core": true
+    },
+    {
+      "id": "func_erc20_constructor",
+      "description": "ERC20 constructor that sets _name, _symbol, _decimals and assigns governance = tx.origin, allowing a phishing proxy to become the governance address.",
+      "type": "function",
+      "node_id": 1,
+      "is_core": true
+    },
+    {
+      "id": "input_tx_origin",
+      "description": "tx.origin used directly as the governance authority, which is attacker-influenceable via phishing / malicious intermediate contracts.",
+      "type": "untrusted_input",
+      "node_id": 2,
+      "is_core": true
+    },
+    {
+      "id": "func_transferFromAndCall",
+      "description": "transferFromAndCall(address fromAddress, uint256 SubstractedValue) public; guarded only by require(msg.sender == governance) before minting new tokens.",
+      "type": "function",
+      "node_id": 3,
+      "is_core": true
+    },
+    {
+      "id": "param_fromAddress",
+      "description": "Parameter fromAddress of transferFromAndCall, used as the mint recipient.",
+      "type": "parameter",
+      "node_id": 4,
+      "is_core": false
+    },
+    {
+      "id": "param_SubstractedValue",
+      "description": "Parameter SubstractedValue of transferFromAndCall, used as the minted amount.",
+      "type": "parameter",
+      "node_id": 5,
+      "is_core": false
+    },
+    {
+      "id": "input_msg_sender",
+      "description": "msg.sender used as the access-control subject in transferFromAndCall; compared against the tx.origin-derived governance address.",
+      "type": "untrusted_input",
+      "node_id": 6,
+      "is_core": true
+    },
+    {
+      "id": "unsafe_mint_call",
+      "description": "Unbounded _mint(fromAddress, SubstractedValue) call inside transferFromAndCall; mints arbitrary tokens to an arbitrary address without cap or role verification.",
+      "type": "unsafe_operation",
+      "node_id": 7,
+      "is_core": true
+    },
+    {
+      "id": "func_mint",
+      "description": "Internal _mint(address account, uint256 amount) that increases _totalSupply and _balances, invoked by the privileged transferFromAndCall path.",
+      "type": "function",
+      "node_id": 8,
+      "is_core": true
+    },
+    {
+      "id": "unsafe_governance_assign",
+      "description": "Assignment governance = tx.origin in the constructor; trusts a spoofable origin for a privileged role, enabling access-control takeover.",
+      "type": "unsafe_operation",
+      "node_id": 9,
+      "is_core": true
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "reason": "tx.origin flows directly into the governance authority assignment, making the privileged role spoofable via phishing.",
+      "to_id": 9,
+      "from_id": 2,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The unsafe tx.origin assignment writes the attacker-influenceable value into the governance state variable.",
+      "to_id": 0,
+      "from_id": 9,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "dataflow",
+      "reason": "governance state variable is read by the require(msg.sender == governance) guard in transferFromAndCall, controlling who may mint.",
+      "to_id": 3,
+      "from_id": 0,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "controlflow",
+      "reason": "msg.sender is compared against governance in the only authorization check of transferFromAndCall; a phished tx.origin lets msg.sender pass the check.",
+      "to_id": 3,
+      "from_id": 6,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "controlflow",
+      "reason": "Because the guard derives from a tx.origin-based authority, the tx.origin untrusted input ultimately gates execution of the minting function.",
+      "to_id": 3,
+      "from_id": 2,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "controlflow",
+      "reason": "Once the caller satisfies the governance check, transferFromAndCall executes the unchecked mint operation.",
+      "to_id": 7,
+      "from_id": 3,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "dataflow",
+      "reason": "User-supplied fromAddress parameter flows into the mint recipient of the unsafe mint call.",
+      "to_id": 7,
+      "from_id": 4,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "User-supplied SubstractedValue parameter flows into the minted amount of the unsafe mint call.",
+      "to_id": 7,
+      "from_id": 5,
+      "vuln_type": "none"
+    },
+    {
+      "type": "controlflow",
+      "reason": "The unsafe mint operation invokes the internal _mint function to create tokens and update total supply.",
+      "to_id": 8,
+      "from_id": 7,
+      "vuln_type": "none"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Parameter fromAddress has no independent security semantics; it is only consumed as the recipient argument of the unsafe _mint operation, so it should be merged into that unsafe_operation node.",
+      "normal_node": "param_fromAddress",
+      "merge_into": "unsafe_mint_call"
+    },
+    {
+      "reason": "Parameter SubstractedValue has no independent security semantics; it is only consumed as the amount argument of the unsafe _mint operation, so it should be merged into that unsafe_operation node.",
+      "normal_node": "param_SubstractedValue",
+      "merge_into": "unsafe_mint_call"
+    }
+  ]
+}

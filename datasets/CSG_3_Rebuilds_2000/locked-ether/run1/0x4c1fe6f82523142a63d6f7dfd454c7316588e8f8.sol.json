@@ -1,0 +1,123 @@
+{
+  "nodes": [
+    {
+      "id": "implementation",
+      "is_core": true,
+      "description": "Address of the fixed implementation contract stored in storage slot 0; set once in the constructor and read by the fallback via sload(0).",
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "constructor",
+      "is_core": true,
+      "description": "Constructor that initialises the immutable implementation address from the deployment argument.",
+      "node_id": 1,
+      "type": "function"
+    },
+    {
+      "id": "fallback",
+      "is_core": true,
+      "description": "Payable fallback that forwards calldata to the implementation using delegatecall inside inline assembly, so the implementation code runs in this contract's storage context.",
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "receive",
+      "is_core": true,
+      "description": "Payable receive function that emits the Received event with the value, sender and calldata.",
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "msg.sender",
+      "is_core": true,
+      "description": "Externally controlled caller address used in the receive event emission.",
+      "node_id": 4,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "delegatecall",
+      "is_core": true,
+      "description": "Low-level delegatecall executed in the fallback against the stored implementation; arbitrary code executes with the proxy's storage and balance.",
+      "node_id": 5,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "_implementation",
+      "is_core": false,
+      "description": "Constructor argument supplying the implementation address, written into the implementation state variable.",
+      "node_id": 6,
+      "type": "parameter"
+    },
+    {
+      "id": "target",
+      "is_core": false,
+      "description": "Assembly local holding sload(0), i.e. the implementation address, used as the delegatecall destination.",
+      "node_id": 7,
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow",
+      "reason": "The constructor parameter _implementation is assigned to the implementation state variable."
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "from_id": 1,
+      "type": "controlflow",
+      "reason": "The constructor writes the implementation storage slot, which determines the delegatecall target for all later calls."
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "controlflow",
+      "reason": "The fallback function unconditionally executes the delegatecall assembly block."
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "type": "dataflow",
+      "reason": "The delegatecall destination is read from the implementation storage slot, so control of that slot controls the executed code."
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow",
+      "reason": "The fallback loads storage slot 0 into the local variable target before delegating."
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "from_id": 7,
+      "type": "dataflow",
+      "reason": "The local target value is the address passed as the target of the delegatecall."
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "dataflow",
+      "reason": "The untrusted msg.sender is emitted in the Received event by the receive function."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "_implementation",
+      "merge_into": "constructor",
+      "reason": "The constructor parameter only exists to be stored into the implementation state variable during construction, so it can be merged into the constructor node."
+    },
+    {
+      "normal_node": "target",
+      "merge_into": "delegatecall",
+      "reason": "The assembly local target is only used as the destination operand of the delegatecall, so it can be merged into the unsafe_operation node."
+    }
+  ]
+}

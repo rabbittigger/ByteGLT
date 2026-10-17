@@ -1,0 +1,934 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Contract owner address; receives house fees and controls all onlyOwner administrative functions.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "owner"
+    },
+    {
+      "type": "state_var",
+      "description": "ERC20 token (USDT-like, 6 decimals) used for deposits and payouts; external call target.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "investToken"
+    },
+    {
+      "type": "state_var",
+      "description": "Secondary ERC20 token sweepable by the owner via takeRemainingTVOTokens.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "tevvoToken"
+    },
+    {
+      "type": "state_var",
+      "description": "Address receiving 3% of every deposit; set in constructor.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "refundAllocation"
+    },
+    {
+      "type": "state_var",
+      "description": "Current daily round index used to key the round mapping and pool logic.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "roundID"
+    },
+    {
+      "type": "state_var",
+      "description": "Monotonic user id counter written during registration.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "currUserID"
+    },
+    {
+      "type": "state_var",
+      "description": "Accumulator of missed direct referral commissions; withdrawable by owner.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "m1"
+    },
+    {
+      "type": "state_var",
+      "description": "Accumulator of missed ROI/sponsor-pool commissions; withdrawable by owner.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "m2"
+    },
+    {
+      "type": "state_var",
+      "description": "Running total of deposits, incremented with raw unchecked += arithmetic.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "totalDeposit"
+    },
+    {
+      "type": "state_var",
+      "description": "Running total of withdrawals, incremented with raw unchecked += arithmetic.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "totalWithdrawn"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping address => User struct holding investment, income limits and referral state.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "player"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping address => PlayerEarnings holding withdrawableAmount and lockedAmount.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "playerEarnings"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping roundID => DailyRound holding startTime, endTime, ended flag and pool balance.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "round"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping user id => address; the referrer lookup table derived from untrusted ids.",
+      "is_core": true,
+      "node_id": 13,
+      "id": "userList"
+    },
+    {
+      "type": "state_var",
+      "description": "Leaderboard[4] of current top sponsors driving pool awards.",
+      "is_core": true,
+      "node_id": 14,
+      "id": "topSponsors"
+    },
+    {
+      "type": "state_var",
+      "description": "Dynamic array of admin addresses each receiving 1% of deposits.",
+      "is_core": true,
+      "node_id": 15,
+      "id": "admins"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping address => bool granting the higher 30% direct referral rate.",
+      "is_core": true,
+      "node_id": 16,
+      "id": "isLeader"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping address => round => PlayerDailyRounds tracking per-round ETH volume.",
+      "is_core": true,
+      "node_id": 17,
+      "id": "plyrRnds_"
+    },
+    {
+      "type": "state_var",
+      "description": "uint256[4] award split (40/30/20/10) applied to the top sponsor pool.",
+      "is_core": true,
+      "node_id": 18,
+      "id": "awardPercentage"
+    },
+    {
+      "type": "state_var",
+      "description": "Leaderboard[4] storing previous round winners and their winning amounts.",
+      "is_core": true,
+      "node_id": 19,
+      "id": "lastTopSponsors"
+    },
+    {
+      "type": "function",
+      "description": "Deployment constructor: takes owner from msg.sender, seeds admin player, initializes round 1 with block.timestamp.",
+      "is_core": true,
+      "node_id": 20,
+      "id": "constructor"
+    },
+    {
+      "type": "function",
+      "description": "Public payable entry point; handles first-time registration and re-investment, performs multiple external token transfers.",
+      "is_core": true,
+      "node_id": 21,
+      "id": "registerUser"
+    },
+    {
+      "type": "function",
+      "description": "Public withdrawal of aggregated earnings; settles income then transfers investToken to msg.sender.",
+      "is_core": true,
+      "node_id": 22,
+      "id": "withdrawEarnings"
+    },
+    {
+      "type": "function",
+      "description": "Time-dependent internal settlement of daily ROI based on block.timestamp deltas.",
+      "is_core": true,
+      "node_id": 23,
+      "id": "settleIncome"
+    },
+    {
+      "type": "function",
+      "description": "Internal loop distributing ROI matching bonus up to 25 uplines; mutates m2.",
+      "is_core": true,
+      "node_id": 24,
+      "id": "roiReferralBonus"
+    },
+    {
+      "type": "function",
+      "description": "Internal direct referral commission distributor (invocation commented out in registerUser).",
+      "is_core": true,
+      "node_id": 25,
+      "id": "directsReferralBonus"
+    },
+    {
+      "type": "function",
+      "description": "Internal round transition; compares pool to 10 ether and calls awardTopPromoters.",
+      "is_core": true,
+      "node_id": 26,
+      "id": "startNextRound"
+    },
+    {
+      "type": "function",
+      "description": "Internal leaderboard insertion logic mutating topSponsors.",
+      "is_core": true,
+      "node_id": 27,
+      "id": "addSponsorToPool"
+    },
+    {
+      "type": "function",
+      "description": "Internal award distribution to the top 4 sponsors using awardPercentage; mutates m2 and leaderboards.",
+      "is_core": true,
+      "node_id": 28,
+      "id": "awardTopPromoters"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner function paying out m1/m2 accumulators to an arbitrary receiver via .transfer.",
+      "is_core": true,
+      "node_id": 29,
+      "id": "withdrawAdminFees"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner sweep of all tevvoToken balance to owner.",
+      "is_core": true,
+      "node_id": 30,
+      "id": "takeRemainingTVOTokens"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner function pushing an address into admins (cap 5).",
+      "is_core": true,
+      "node_id": 31,
+      "id": "addAdmin"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner function removing an address from admins.",
+      "is_core": true,
+      "node_id": 32,
+      "id": "removeAdmin"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner manual trigger of startNextRound.",
+      "is_core": true,
+      "node_id": 33,
+      "id": "drawPool"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner function granting leader status which raises referral payout rates.",
+      "is_core": true,
+      "node_id": 34,
+      "id": "addLeader"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner external entry delegating to _transferOwnership.",
+      "is_core": true,
+      "node_id": 35,
+      "id": "transferOwnership"
+    },
+    {
+      "type": "function",
+      "description": "Internal ownership reassignment with zero-address check.",
+      "is_core": true,
+      "node_id": 36,
+      "id": "_transferOwnership"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used as identity, owner and transfer destination.",
+      "is_core": true,
+      "node_id": 37,
+      "id": "msg.sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Block timestamp (now) driving round scheduling and daily ROI settlement.",
+      "is_core": true,
+      "node_id": 38,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External ERC20 pull of deposit funds from the caller into the contract.",
+      "is_core": true,
+      "node_id": 39,
+      "id": "investToken_safeTransferFrom"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External ERC20 push of fees and payouts to owner/admins/refundAllocation/withdrawer.",
+      "is_core": true,
+      "node_id": 40,
+      "id": "investToken_safeTransfer"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Low-gas native ETH .transfer to an owner-supplied receiver inside withdrawAdminFees.",
+      "is_core": true,
+      "node_id": 41,
+      "id": "address_transfer_call"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External ERC20 transfer of the entire tevvoToken balance to owner.",
+      "is_core": true,
+      "node_id": 42,
+      "id": "tevvoToken_transfer"
+    },
+    {
+      "type": "parameter",
+      "description": "Caller-supplied upline id used to index userList.",
+      "is_core": false,
+      "node_id": 43,
+      "id": "param_referrerID"
+    },
+    {
+      "type": "local_var",
+      "description": "Deposit amount derived from msg.value and reused for fee and pool math.",
+      "is_core": false,
+      "node_id": 44,
+      "id": "local_amount"
+    },
+    {
+      "type": "local_var",
+      "description": "Resolved referrer address taken from the userList mapping.",
+      "is_core": false,
+      "node_id": 45,
+      "id": "local_referrer"
+    },
+    {
+      "type": "local_var",
+      "description": "Aggregated withdrawable earnings sum across four income buckets.",
+      "is_core": false,
+      "node_id": 46,
+      "id": "local_earnings"
+    },
+    {
+      "type": "parameter",
+      "description": "Account whose daily ROI is settled.",
+      "is_core": false,
+      "node_id": 47,
+      "id": "param_playerAddress_settle"
+    },
+    {
+      "type": "parameter",
+      "description": "Requested payout amount for admin fee withdrawal.",
+      "is_core": false,
+      "node_id": 48,
+      "id": "param_amount_adminFees"
+    },
+    {
+      "type": "parameter",
+      "description": "Caller-chosen destination of the native ETH transfer.",
+      "is_core": false,
+      "node_id": 49,
+      "id": "param_receiver_adminFees"
+    },
+    {
+      "type": "parameter",
+      "description": "Selector choosing whether m1 or m2 is drained.",
+      "is_core": false,
+      "node_id": 50,
+      "id": "param_numberUI"
+    },
+    {
+      "type": "local_var",
+      "description": "Upline address walked in the 25-level referral loop.",
+      "is_core": false,
+      "node_id": 51,
+      "id": "local_nextReferrer"
+    },
+    {
+      "type": "local_var",
+      "description": "Residual amount tracked while distributing the ROI matching bonus.",
+      "is_core": false,
+      "node_id": 52,
+      "id": "local_amountLeft"
+    },
+    {
+      "type": "parameter",
+      "description": "Address granted leader status by the owner.",
+      "is_core": false,
+      "node_id": 53,
+      "id": "param_leaderAddress"
+    },
+    {
+      "type": "parameter",
+      "description": "New owner address supplied to transferOwnership.",
+      "is_core": false,
+      "node_id": 54,
+      "id": "param_newOwner"
+    },
+    {
+      "type": "parameter",
+      "description": "Address added to the admins array.",
+      "is_core": false,
+      "node_id": 55,
+      "id": "param_adminAddress"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "access_control",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "Constructor assigns owner = msg.sender, so the deploying caller becomes the privileged account.",
+      "from_id": 37
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "msg.sender is used as the player identity that is registered, credited and debited.",
+      "from_id": 37
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "msg.sender determines which earnings are settled and where investToken is sent.",
+      "from_id": 37
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 21,
+      "type": "controlflow",
+      "reason": "now is written to lastSettledTime and compared against round endTime to branch the flow.",
+      "from_id": 38
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 22,
+      "type": "controlflow",
+      "reason": "Round-expiry check using now can trigger startNextRound from the withdrawal path.",
+      "from_id": 38
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 23,
+      "type": "controlflow",
+      "reason": "Daily ROI payout is entirely conditioned on block.timestamp deltas.",
+      "from_id": 38
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 26,
+      "type": "controlflow",
+      "reason": "Round start/end timestamps are derived from now, making pool timing miner-influenced.",
+      "from_id": 38
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "Constructor writes the owner state variable from the untrusted caller.",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "Constructor wires the investToken ERC20 used for all fund movements.",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "Constructor seeds round[1] startTime/endTime from the block timestamp.",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "Constructor initializes roundID to 1.",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "Registration and re-investment write investment, income-limit and referrer fields; limits arise from mul/div math.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "Deposit credits withdrawableAmount/lockedAmount in playerEarnings.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "currUserID is incremented on every new registration and bounds the referrer id check.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "userList is read for the referrer lookup and written with the new user id.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "totalDeposit uses raw unchecked += which can wrap.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 39,
+      "type": "dataflow",
+      "reason": "Deposit path performs an external ERC20 safeTransferFrom against a caller-influenced token.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 40,
+      "type": "dataflow",
+      "reason": "Deposit path performs external safeTransfer calls to owner, every admin and refundAllocation.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "3% of each deposit is routed to refundAllocation.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "controlflow",
+      "reason": "Referral branch calls addSponsorToPool for the resolved referrer.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "controlflow",
+      "reason": "Expired round detection inside registration triggers startNextRound.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 21,
+      "type": "callback",
+      "reason": "The external token contract regains control during safeTransferFrom and may re-enter registerUser.",
+      "from_id": 39
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 21,
+      "type": "callback",
+      "reason": "The external token contract regains control during safeTransfer and may re-enter registerUser.",
+      "from_id": 40
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "addSponsorToPool reads and rewrites the topSponsors leaderboard.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "Leaderboard ranking decisions are based on plyrRnds_ per-round ETH volume.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 28,
+      "type": "controlflow",
+      "reason": "startNextRound calls awardTopPromoters when the pool reaches 10 ether.",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "Sponsor awards credit incomeLimitLeft and sponsorPoolIncome; remainder tracking uses mul/div.",
+      "from_id": 28
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "Award amounts are derived from awardPercentage applied to the pool.",
+      "from_id": 28
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "awardTopPromoters copies and then zeroes the topSponsors entries.",
+      "from_id": 28
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "Previous winners are persisted into lastTopSponsors and lastTopSponsorsWinningAmount.",
+      "from_id": 28
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "Missed sponsor awards are accumulated in m2.",
+      "from_id": 28
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "controlflow",
+      "reason": "withdrawEarnings always calls settleIncome first to realize pending daily ROI.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "Earnings are aggregated from player income buckets and then zeroed after payout.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "withdrawableAmount is decremented or converted into lockedAmount using raw -= / +=",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "totalWithdrawn uses raw unchecked += which can wrap.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 40,
+      "type": "dataflow",
+      "reason": "Payout performs an external safeTransfer of investToken to msg.sender.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 22,
+      "type": "callback",
+      "reason": "The token contract regains control during the payout transfer, enabling re-entry without a guard.",
+      "from_id": 40
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "Contract token balance is queried to ensure solvency before paying out.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "controlflow",
+      "reason": "Withdrawal path can also advance the round when the timer expired.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 24,
+      "type": "controlflow",
+      "reason": "settleIncome forwards the realized daily income to roiReferralBonus.",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "Daily income, incomeLimitLeft and lastSettledTime are recomputed from timestamp deltas.",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 38,
+      "type": "dataflow",
+      "reason": "Settlement arithmetic depends directly on the miner-influenceable block timestamp.",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "Up to 25 uplines have incomeLimitLeft and roiReferralIncome rewritten in a loop.",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "Unpaid matching bonuses are recorded into m2.",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "Direct referral commission adjusts incomeLimitLeft and directsIncome of the upline.",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "Missed direct commissions are recorded into m1.",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 29,
+      "type": "controlflow",
+      "reason": "onlyOwner gate protects accumulation withdrawal and arbitrary receiver payout.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 30,
+      "type": "controlflow",
+      "reason": "onlyOwner gate allows sweeping the full tevvoToken balance.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 31,
+      "type": "controlflow",
+      "reason": "onlyOwner gate allows adding privileged fee-receiving admins.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 32,
+      "type": "controlflow",
+      "reason": "onlyOwner gate allows removing admins.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 33,
+      "type": "controlflow",
+      "reason": "onlyOwner gate allows manual round advancement and pool redistribution.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 34,
+      "type": "controlflow",
+      "reason": "onlyOwner gate allows granting leader status that changes payout rates.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 35,
+      "type": "controlflow",
+      "reason": "onlyOwner gate protects ownership transfer entry point.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "m1 is decremented by the requested amount before payout.",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "m2 is decremented by the requested amount before payout.",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 41,
+      "type": "dataflow",
+      "reason": "Native ETH is pushed to a caller-supplied receiver address via .transfer.",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 29,
+      "type": "callback",
+      "reason": "The receiver regains control on the ETH transfer and may re-enter privileged payout logic.",
+      "from_id": 41
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 36,
+      "type": "controlflow",
+      "reason": "transferOwnership delegates the privileged state change to the internal helper.",
+      "from_id": 35
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "_transferOwnership overwrites the owner state variable with the supplied address.",
+      "from_id": 36
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "addLeader flips isLeader, which raises referral payouts from 20% to 30%.",
+      "from_id": 34
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "addAdmin pushes into the admins array that drains 1% of every deposit.",
+      "from_id": 31
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "removeAdmin mutates the admins array via swap-and-pop.",
+      "from_id": 32
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 42,
+      "type": "dataflow",
+      "reason": "Owner sweep triggers an external tevvoToken transfer of the full balance.",
+      "from_id": 30
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "Balance of the tevvoToken contract is read before sweeping to owner.",
+      "from_id": 30
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "controlflow",
+      "reason": "drawPool simply forwards execution to startNextRound.",
+      "from_id": 33
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "roundID is incremented when the pool threshold is met.",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "Round pool is reduced by distributed awards and start/end times are rewritten.",
+      "from_id": 26
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "registerUser",
+      "reason": "Transient input only used to index userList inside registerUser.",
+      "normal_node": "param_referrerID"
+    },
+    {
+      "merge_into": "registerUser",
+      "reason": "Local deposit amount whose full lifetime is contained in registerUser.",
+      "normal_node": "local_amount"
+    },
+    {
+      "merge_into": "registerUser",
+      "reason": "Locally resolved referrer address consumed only by registerUser.",
+      "normal_node": "local_referrer"
+    },
+    {
+      "merge_into": "withdrawEarnings",
+      "reason": "Aggregated earnings sum computed and consumed exclusively in withdrawEarnings.",
+      "normal_node": "local_earnings"
+    },
+    {
+      "merge_into": "settleIncome",
+      "reason": "Settlement target used only as an index into player within settleIncome.",
+      "normal_node": "param_playerAddress_settle"
+    },
+    {
+      "merge_into": "withdrawAdminFees",
+      "reason": "Requested payout amount consumed only inside the admin fee withdrawal.",
+      "normal_node": "param_amount_adminFees"
+    },
+    {
+      "merge_into": "address_transfer_call",
+      "reason": "Directly supplies the destination of the native ETH transfer unsafe operation.",
+      "normal_node": "param_receiver_adminFees"
+    },
+    {
+      "merge_into": "withdrawAdminFees",
+      "reason": "Branch selector that chooses between draining m1 and m2.",
+      "normal_node": "param_numberUI"
+    },
+    {
+      "merge_into": "roiReferralBonus",
+      "reason": "Loop cursor over uplines that exists only inside roiReferralBonus.",
+      "normal_node": "local_nextReferrer"
+    },
+    {
+      "merge_into": "roiReferralBonus",
+      "reason": "Residual bookkeeping variable fully scoped to roiReferralBonus.",
+      "normal_node": "local_amountLeft"
+    },
+    {
+      "merge_into": "addLeader",
+      "reason": "Address written into isLeader only by addLeader.",
+      "normal_node": "param_leaderAddress"
+    },
+    {
+      "merge_into": "_transferOwnership",
+      "reason": "New owner value consumed by the internal ownership setter.",
+      "normal_node": "param_newOwner"
+    },
+    {
+      "merge_into": "addAdmin",
+      "reason": "Address appended to the admins array inside addAdmin.",
+      "normal_node": "param_adminAddress"
+    }
+  ]
+}

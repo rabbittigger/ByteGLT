@@ -1,0 +1,161 @@
+{
+  "nodes": [
+    {
+      "id": "state_var.creator",
+      "description": "State variable creator (address) storing the contract deployer, used as the privileged address in kill().",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "state_var.deposits",
+      "description": "State variable deposits (uint) counting the number of value-bearing deposits, incremented in deposit().",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "function.PiggyBank",
+      "description": "Constructor PiggyBank() that sets creator = msg.sender and deposits = 0.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "function.fallback",
+      "description": "Payable fallback function that forwards all plain ether transfers to deposit().",
+      "is_core": true,
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "function.deposit",
+      "description": "Payable deposit() function that increments deposits when msg.value > 0 and returns getNumberOfDeposits().",
+      "is_core": true,
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "function.getNumberOfDeposits",
+      "description": "Constant getter returning the current value of deposits.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "function"
+    },
+    {
+      "id": "function.kill",
+      "description": "kill() function that selfdestructs the contract to creator when msg.sender == creator.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "function"
+    },
+    {
+      "id": "untrusted_input.msg.sender",
+      "description": "Caller-controlled address used for the creator assignment and for the kill() authorization check.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "unsafe_operation.selfdestruct",
+      "description": "selfdestruct(creator) inside kill(), destroying the contract and forwarding the balance.",
+      "is_core": true,
+      "node_id": 8,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_operation.deposits_increment",
+      "description": "Arithmetic statement deposits = deposits + 1 executed inside deposit() when msg.value > 0.",
+      "is_core": true,
+      "node_id": 9,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor writes the deployer address into the creator state variable.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender flows into creator during contract construction.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Constructor initializes the deposits counter to zero.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The payable fallback function unconditionally calls deposit().",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "deposit() executes the deposits + 1 arithmetic statement guarded only by msg.value > 0.",
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The arithmetic statement writes the incremented value back into the deposits state variable.",
+      "to_id": 1,
+      "vuln_type": "arithmetic",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "deposit() calls getNumberOfDeposits() to obtain its return value.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "getNumberOfDeposits() reads the deposits state variable and returns it.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "kill() invokes selfdestruct(creator) when the msg.sender == creator authorization check passes.",
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "from_id": 6,
+      "type": "controlflow"
+    },
+    {
+      "reason": "msg.sender gates access to the selfdestruct call through the creator equality check.",
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "kill() passes the creator state variable as the selfdestruct beneficiary.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "kill() branches on the comparison between msg.sender and creator before destroying the contract.",
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "from_id": 6,
+      "type": "controlflow"
+    }
+  ],
+  "normalization_plan": []
+}

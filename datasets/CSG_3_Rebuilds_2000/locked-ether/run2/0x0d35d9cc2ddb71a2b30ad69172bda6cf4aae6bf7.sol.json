@@ -1,0 +1,121 @@
+{
+  "nodes": [
+    {
+      "id": "_claimer",
+      "description": "Immutable/constant interface reference to the external IMerkleWalletClaimer contract at 0xD8470a6d796d54F13f243A4cf1a890E65bF3670E that receives all forwarded claim calls.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "claimForInBatch",
+      "description": "External function that loops over a caller-supplied array of ClaimArgs inside an unchecked block and forwards each claim to the external claimer contract.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "function"
+    },
+    {
+      "id": "claims",
+      "description": "Caller-supplied dynamic array of ClaimArgs structs (owner, index, wallet, initialSigningKey, claimantSignature, merkleProof) whose contents are fully attacker-controlled.",
+      "is_core": false,
+      "node_id": 2,
+      "type": "parameter"
+    },
+    {
+      "id": "i",
+      "description": "Loop counter declared inside the unchecked block, incremented with ++i and used to index the claims array and to test against claims.length.",
+      "is_core": false,
+      "node_id": 3,
+      "type": "local_var"
+    },
+    {
+      "id": "claim",
+      "description": "Memory copy of claims[i] that is destructured and passed field-by-field into the external claimer call.",
+      "is_core": false,
+      "node_id": 4,
+      "type": "local_var"
+    },
+    {
+      "id": "externalCall_claimer_claimFor",
+      "description": "External call _claimer.claimFor(owner, index, wallet, initialSigningKey, claimantSignature, merkleProof) executed in a loop; the target is a trusted constant but the loop runs inside unchecked, so failure/reentrancy side effects are not guarded by a reentrancy lock.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "claimForInBatch drives the loop body that unconditionally reaches the external _claimer.claimFor call for each array element.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The constant state variable _claimer provides the callee address/interface used to perform the external claimFor call.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "claims.length is read to bound the loop counter i, so the attacker-controlled array size determines iteration count.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Each element claims[i] of the caller-supplied array is copied into the local memory struct claim.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Attacker-controlled array contents ultimately reach the external callee through the forwarded claim fields.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The fields of the local claim struct (owner, index, wallet, initialSigningKey, claimantSignature, merkleProof) are passed as arguments to _claimer.claimFor.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The unchecked block allows the ++i increment on the loop counter to wrap silently, so the loop bound is computed without overflow checks.",
+      "to_id": 3,
+      "vuln_type": "arithmetic",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The external call to the claimer contract hands control to an untrusted callee while the batch loop has no reentrancy guard, allowing callback re-entry into claimForInBatch.",
+      "to_id": 1,
+      "vuln_type": "reentrancy",
+      "from_id": 5,
+      "type": "callback"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The claims parameter exists only to feed this function's loop; it is part of the function signature and adds no independent semantics, so it is normalized into the enclosing function node.",
+      "normal_node": "claims",
+      "merge_into": "claimForInBatch"
+    },
+    {
+      "reason": "The loop counter i is a purely local iteration variable used inside the unchecked loop of claimForInBatch and should be absorbed into that function node.",
+      "normal_node": "i",
+      "merge_into": "claimForInBatch"
+    },
+    {
+      "reason": "The local claim struct is only a temporary holder whose fields are immediately destructured into the external claimer call, so it is merged with the unsafe external call node.",
+      "normal_node": "claim",
+      "merge_into": "externalCall_claimer_claimFor"
+    }
+  ]
+}

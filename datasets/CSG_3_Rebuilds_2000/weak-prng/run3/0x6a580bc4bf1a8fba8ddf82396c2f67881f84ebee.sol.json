@@ -1,0 +1,332 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "description": "Public string array of IPFS hashes used as phase artwork URIs",
+      "id": "phases",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "description": "mapping(uint256 => uint256) recording block.timestamp when a token was claimed",
+      "id": "birth",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "description": "mapping(uint256 => bool) flag marking a token as rare, set from blockhash-based pseudo randomness",
+      "id": "rare",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "description": "Counters.Counter private used as the ERC721 token id supply counter",
+      "id": "_tokenIds",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 4,
+      "description": "address payable constant receiving the claimed ETH via low-level call",
+      "id": "buidlguidl",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "description": "Public claim price in wei, increased by 3% on every claim",
+      "id": "price",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 6,
+      "description": "Payable public entrypoint: takes ETH, forwards it to buidlguidl, raises price, mints a token and records birth/rare",
+      "id": "claim",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "description": "View override returning a phase-based URI derived from token age and rarity",
+      "id": "tokenURI",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 8,
+      "description": "Deploys ERC721('ButterflyClaims','BTFLYC') and sets the IPFS base URI",
+      "id": "constructor",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 9,
+      "description": "Caller-controlled address used as receiver of the minted token in claim()",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 10,
+      "description": "Miner-influenced timestamp used for birth recording and token age computation",
+      "id": "block.timestamp",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 11,
+      "description": "Low-level external call buidlguidl.call{value: msg.value}('') executed before minting, enabling reentrancy",
+      "id": "buidlguidl_call",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 12,
+      "description": "Arithmetic state update price = (price * 103) / 100 executed on each claim",
+      "id": "price_update",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 13,
+      "description": "Pseudo-randomness via blockhash(block.number-1) used to decide the rare flag, gameable by miners",
+      "id": "blockhash_randomness",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 14,
+      "description": "Local bool returned by the low-level ETH call in claim()",
+      "id": "sent",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 15,
+      "description": "Local token id read from _tokenIds.current() in claim()",
+      "id": "id",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 16,
+      "description": "Parameter of tokenURI used to look up birth and rarity",
+      "id": "tokenId",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 17,
+      "description": "Local string holding the selected phase hash in tokenURI()",
+      "id": "_tokenURI",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 18,
+      "description": "Local uint256 age = block.timestamp - birth[tokenId] in tokenURI()",
+      "id": "age",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 19,
+      "description": "Local string holding baseURI() in tokenURI()",
+      "id": "base",
+      "type": "local_var",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is used as the mint recipient inside claim(), so caller identity flows into the function",
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "reason": "claim() executes the external call to buidlguidl with msg.value before minting and recording state",
+      "vuln_type": "reentrancy",
+      "to_id": 11,
+      "type": "controlflow",
+      "from_id": 6
+    },
+    {
+      "reason": "buidlguidl is an arbitrary payable address; its fallback can re-enter claim() while state is not yet updated",
+      "vuln_type": "reentrancy",
+      "to_id": 6,
+      "type": "callback",
+      "from_id": 11
+    },
+    {
+      "reason": "The current price state variable is read to compute the new price",
+      "vuln_type": "arithmetic",
+      "to_id": 12,
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "reason": "price = (price * 103) / 100 writes the arithmetic result back into the price state variable",
+      "vuln_type": "arithmetic",
+      "to_id": 5,
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "reason": "claim() triggers the price arithmetic update on every invocation",
+      "vuln_type": "arithmetic",
+      "to_id": 12,
+      "type": "controlflow",
+      "from_id": 6
+    },
+    {
+      "reason": "block.timestamp is written into birth[id], making token birth depend on miner-controlled time",
+      "vuln_type": "access_control",
+      "to_id": 1,
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "reason": "tokenURI() computes age from block.timestamp, so URI selection is timestamp dependent",
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "reason": "birth[tokenId] is read to derive age, coupling the returned URI to the recorded timestamp",
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "reason": "tokenURI() selects an entry from the phases state array as the artwork hash",
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "reason": "tokenURI() reads the rare mapping to choose between phase 4 and phase 5",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "reason": "claim() may write rare[id] = true based on the blockhash-derived value",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "reason": "claim() invokes the blockhash-based pseudo-random rarity computation",
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "controlflow",
+      "from_id": 6
+    },
+    {
+      "reason": "The blockhash-derived value determines whether the rare flag is set",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "reason": "claim() increments the _tokenIds counter before minting",
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "reason": "claim() assigns _tokenIds.current() to the local id",
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "reason": "The local id is used as mint argument and returned by claim()",
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "from_id": 15
+    },
+    {
+      "reason": "The tokenId parameter indexes birth and rare inside tokenURI()",
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "from_id": 16
+    },
+    {
+      "reason": "tokenURI() assigns the selected phase hash to the local _tokenURI",
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "reason": "tokenURI() stores block.timestamp - birth[tokenId] into the local age",
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "reason": "tokenURI() stores baseURI() into the local base",
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "reason": "The success flag of the external call is captured in the local sent inside claim()",
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "from_id": 6
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The boolean sent is only the success flag of the unsafe low-level call in claim() and carries no independent semantics",
+      "merge_into": "buidlguidl_call",
+      "normal_node": "sent"
+    },
+    {
+      "reason": "The local id is a transient token identifier produced and returned entirely within claim()",
+      "merge_into": "claim",
+      "normal_node": "id"
+    },
+    {
+      "reason": "The tokenId parameter is used exclusively to index state inside tokenURI()",
+      "merge_into": "tokenURI",
+      "normal_node": "tokenId"
+    },
+    {
+      "reason": "The local _tokenURI is a temporary holder for the phase hash computed inside tokenURI()",
+      "merge_into": "tokenURI",
+      "normal_node": "_tokenURI"
+    },
+    {
+      "reason": "The local age is a derived intermediate value of the timestamp-based URI selection in tokenURI()",
+      "merge_into": "tokenURI",
+      "normal_node": "age"
+    },
+    {
+      "reason": "The local base only caches baseURI() for the concatenation performed inside tokenURI()",
+      "merge_into": "tokenURI",
+      "normal_node": "base"
+    }
+  ]
+}

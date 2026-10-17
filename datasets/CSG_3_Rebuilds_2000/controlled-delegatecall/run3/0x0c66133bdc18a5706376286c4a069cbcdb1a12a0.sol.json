@@ -1,0 +1,186 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Public boolean guard flag 'done' that records whether the spell has already been cast; prevents double execution.",
+      "id": "state_done",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Constant public string description of the spell ('Tinlake CF4 Mainnet Spell - 3').",
+      "id": "state_description",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Constant mainnet address ROOT of the Tinlake root (ward) contract that authorizes contracts.",
+      "id": "state_ROOT",
+      "type": "state_var",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "Constant mainnet address NAV_FEED of the Tinlake NAV feed contract whose risk groups are configured.",
+      "id": "state_NAV_FEED",
+      "type": "state_var",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "Constant ray unit ONE = 10**27 used as the threshold/ceiling ratio arguments passed to the NAV feed.",
+      "id": "state_ONE",
+      "type": "state_var",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "Storage address 'self' set to address(this) so the spell can be relied upon by the root as an authorized caller.",
+      "id": "state_self",
+      "type": "state_var",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "Public entry point cast() which requires the spell not to be already cast, marks done and calls execute().",
+      "id": "func_cast",
+      "type": "function",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "Internal execute() that relies the spell on the NAV feed via root and files the new risk groups 6-10 on the NAV feed.",
+      "id": "func_execute",
+      "type": "function",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "External privileged call root.relyContract(NAV_FEED, self) granting the spell contract authority over the NAV feed (in-place privilege escalation).",
+      "id": "unsafe_relyContract",
+      "type": "unsafe_operation",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "description": "External configuration call navFeed.file('riskGroup', ...) repeated for risk groups 6,7,8,9,10 with rate and recovery rate parameters.",
+      "id": "unsafe_navFeed_file",
+      "type": "unsafe_operation",
+      "node_id": 9
+    },
+    {
+      "is_core": false,
+      "description": "Local variable root typed TinlakeRootLike(address(ROOT)) used to make the relyContract call.",
+      "id": "local_root",
+      "type": "local_var",
+      "node_id": 10
+    },
+    {
+      "is_core": false,
+      "description": "Local variable navFeed typed NAVFeedLike(address(NAV_FEED)) used to file risk group parameters.",
+      "id": "local_navFeed",
+      "type": "local_var",
+      "node_id": 11
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "cast() reads the done state variable in require(!done, 'spell-already-cast') to gate execution.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "cast() writes done = true before calling execute(), mutating the guard state variable.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "cast() invokes the internal execute() function after setting the done flag.",
+      "type": "controlflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "reason": "execute() performs the privileged external call root.relyContract(NAV_FEED, self) that grants the spell authority over the NAV feed.",
+      "type": "controlflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "execute() invokes navFeed.file(...) five times to configure the new risk groups on the NAV feed.",
+      "type": "controlflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "reason": "local root is the receiver of the relyContract call and therefore the handle carrying the privilege-granting operation.",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "local navFeed is the receiver used for all the file() calls that write the risk group parameters.",
+      "type": "dataflow",
+      "from_id": 11
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "ROOT constant is cast into the local variable root used for the privileged external call.",
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "NAV_FEED constant is passed as the target address of the relyContract privileged call.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "NAV_FEED constant is cast into the local variable navFeed used for the configuration calls.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "reason": "state variable self (= address(this)) is passed to relyContract as the authorized address, tying the spell's own identity to the privilege grant.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "reason": "constant ONE and the ray-scaled rate/recovery values (e.g. 99.5*10**25) flow as ratio arguments into the risk group filing calls.",
+      "type": "dataflow",
+      "from_id": 4
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "unsafe_relyContract",
+      "reason": "The local variable root only exists to perform the privileged external relyContract call, so it can be folded into that unsafe_operation node.",
+      "normal_node": "local_root"
+    },
+    {
+      "merge_into": "unsafe_navFeed_file",
+      "reason": "The local variable navFeed only exists to perform the external file() configuration calls, so it can be folded into that unsafe_operation node.",
+      "normal_node": "local_navFeed"
+    }
+  ]
+}

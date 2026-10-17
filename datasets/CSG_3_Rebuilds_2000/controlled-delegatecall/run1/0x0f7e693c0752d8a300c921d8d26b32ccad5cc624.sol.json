@@ -1,0 +1,268 @@
+{
+  "nodes": [
+    {
+      "description": "IERC1155 public nft token contract address set in constructor to 0x13bAb10a88fc5F6c77b87878d71c9F1707D2688A; used as the external NFT contract for balanceOf and safeTransferFrom.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "nft"
+    },
+    {
+      "description": "uint256 public price = 0.25 ether; per-unit sale price used in the msg.value check via price.mul(amount).",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "price"
+    },
+    {
+      "description": "uint256 public id = 46; the ERC1155 token id sold and queried in supply().",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 2,
+      "id": "id"
+    },
+    {
+      "description": "address payable public multisig; recipient of the contract balance transferred after each purchase.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 3,
+      "id": "multisig"
+    },
+    {
+      "description": "uint256 public start; sale start timestamp enforced by the block.timestamp >= start check.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 4,
+      "id": "start"
+    },
+    {
+      "description": "constructor(address payable _multisig, uint256 _start) initializing multisig, start, nft and id.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 5,
+      "id": "constructor"
+    },
+    {
+      "description": "buy(uint256 amount) public payable; validates caller, timing, supply and payment, transfers NFT to msg.sender, then forwards the whole balance to multisig.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 6,
+      "id": "buy"
+    },
+    {
+      "description": "supply() public view returns(uint256); returns nft.balanceOf(address(this), id).",
+      "is_core": true,
+      "type": "function",
+      "node_id": 7,
+      "id": "supply"
+    },
+    {
+      "description": "onERC1155Received external pure callback returning the ERC1155 receiver selector; reachable during the NFT transfer.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 8,
+      "id": "onERC1155Received"
+    },
+    {
+      "description": "Caller-controlled address; used in the msg.sender == tx.origin check, as NFT receiver and as the Buy event buyer.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 9,
+      "id": "msg.sender"
+    },
+    {
+      "description": "Miner-influenced timestamp compared against the start variable to gate the sale.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 10,
+      "id": "block.timestamp"
+    },
+    {
+      "description": "Transaction origin used to enforce the no-contracts check msg.sender == tx.origin.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 11,
+      "id": "tx.origin"
+    },
+    {
+      "description": "External call nft.safeTransferFrom(address(this), msg.sender, id, amount, new bytes(0x0)); can invoke an arbitrary receiver callback and is executed before the balance transfer.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 12,
+      "id": "nft_safeTransferFrom"
+    },
+    {
+      "description": "External value call multisig.transfer(address(this).balance) sending the entire contract balance to the multisig address.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 13,
+      "id": "multisig_transfer"
+    },
+    {
+      "description": "Arithmetic price.mul(amount) computing the required payment; multiplication of a storage price by a user-supplied amount.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 14,
+      "id": "price_mul_amount"
+    },
+    {
+      "description": "User-supplied amount parameter of buy(uint256 amount).",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 15,
+      "id": "amount"
+    },
+    {
+      "description": "Constructor parameter assigning the multisig payout address.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 16,
+      "id": "_multisig"
+    },
+    {
+      "description": "Constructor parameter assigning the sale start timestamp.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 17,
+      "id": "_start"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The user-supplied amount is multiplied by the stored price in price.mul(amount), directly determining the payment requirement.",
+      "from_id": 15,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 14
+    },
+    {
+      "reason": "The stored price state variable is an operand of the price.mul(amount) arithmetic operation.",
+      "from_id": 1,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 14
+    },
+    {
+      "reason": "The amount parameter is passed as the transfer quantity to nft.safeTransferFrom.",
+      "from_id": 15,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "msg.sender is the receiver of the external safeTransferFrom call, allowing a malicious caller to be notified and reenter.",
+      "from_id": 9,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "The nft state variable is the target contract of the external safeTransferFrom call.",
+      "from_id": 0,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "The id state variable is supplied as the ERC1155 token id for the transfer.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "The multisig state variable is the destination address of the balance transfer.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 13
+    },
+    {
+      "reason": "msg.sender participates in the msg.sender == tx.origin access-control guard that gates buy().",
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 6
+    },
+    {
+      "reason": "tx.origin is used in the msg.sender == tx.origin guard, giving tx.origin control over whether buy() executes.",
+      "from_id": 11,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 6
+    },
+    {
+      "reason": "block.timestamp gates execution through the block.timestamp >= start requirement.",
+      "from_id": 10,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 6
+    },
+    {
+      "reason": "The start state variable is the threshold compared against block.timestamp in the sale timing check.",
+      "from_id": 4,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "buy() invokes the external safeTransferFrom before transferring the contract balance, an external call inside the function flow.",
+      "from_id": 6,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 12
+    },
+    {
+      "reason": "buy() performs an external value transfer to multisig after the NFT external call.",
+      "from_id": 6,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 13
+    },
+    {
+      "reason": "The external NFT transfer executes before multisig.transfer, so a reentrant call can race the outgoing balance transfer.",
+      "from_id": 12,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 13
+    },
+    {
+      "reason": "The external safeTransferFrom calls the receiver's onERC1155Received callback, which is an entry point for reentrancy.",
+      "from_id": 12,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 8
+    },
+    {
+      "reason": "supply() reads the nft state variable to query the contract's token balance.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "supply() reads the id state variable when calling nft.balanceOf.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 7
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The amount parameter is solely consumed by buy() and its internally inlined operations; it has no independent identity outside the function's data flow.",
+      "normal_node": "amount",
+      "merge_into": "buy"
+    },
+    {
+      "reason": "The _multisig parameter only exists to initialize the multisig state variable inside the constructor.",
+      "normal_node": "_multisig",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "The _start parameter only exists to initialize the start state variable inside the constructor.",
+      "normal_node": "_start",
+      "merge_into": "constructor"
+    }
+  ]
+}

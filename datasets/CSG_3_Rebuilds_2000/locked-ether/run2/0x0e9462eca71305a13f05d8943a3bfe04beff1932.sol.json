@@ -1,0 +1,287 @@
+{
+  "nodes": [
+    {
+      "id": "state_balances",
+      "description": "mapping(address=>uint256) private _balances holding token balances of each account",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "state_allowances",
+      "description": "mapping(address=>mapping(address=>uint256)) private _allowances holding spending approvals",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "state_transactions",
+      "description": "mapping(string=>uint256) private _transactions used as replay-protection registry of consumed withdraw ids",
+      "is_core": true,
+      "node_id": 2,
+      "type": "state_var"
+    },
+    {
+      "id": "state_maxSupply",
+      "description": "uint private maxSupply = 10000000000 * 10**18, hard cap used by internalWithdraw",
+      "is_core": true,
+      "node_id": 3,
+      "type": "state_var"
+    },
+    {
+      "id": "state_totalSupply",
+      "description": "uint256 private _totalSupply total amount of minted tokens",
+      "is_core": true,
+      "node_id": 4,
+      "type": "state_var"
+    },
+    {
+      "id": "state_accessAuthority",
+      "description": "address accessAuthority = 0xA04885E222c1FF34e8E87601EE6e314166b35f33, signer authorised to approve withdrawals",
+      "is_core": true,
+      "node_id": 5,
+      "type": "state_var"
+    },
+    {
+      "id": "state_status",
+      "description": "uint256 private _status reentrancy guard flag inherited from ReentrancyGuard",
+      "is_core": true,
+      "node_id": 6,
+      "type": "state_var"
+    },
+    {
+      "id": "fn_withdraw",
+      "description": "public nonReentrant withdraw(string id, uint256 numberOfTokens, bytes signature) delegating to internalWithdraw",
+      "is_core": true,
+      "node_id": 7,
+      "type": "function"
+    },
+    {
+      "id": "fn_batchWithdraw",
+      "description": "external nonReentrant batchWithdraw(string[] ids, uint256[] numberOfTokens, bytes[] signatures) looping over internalWithdraw",
+      "is_core": true,
+      "node_id": 8,
+      "type": "function"
+    },
+    {
+      "id": "fn_internalWithdraw",
+      "description": "private internalWithdraw(string id, uint256 numberOfTokens, bytes signature) validating signature, id uniqueness and max supply then minting",
+      "is_core": true,
+      "node_id": 9,
+      "type": "function"
+    },
+    {
+      "id": "fn_isWithdrawAuthorised",
+      "description": "private view isWithdrawAuthorised(string id, uint256 numberOfTokens, bytes signature) verifying ECDSA signature against accessAuthority",
+      "is_core": true,
+      "node_id": 10,
+      "type": "function"
+    },
+    {
+      "id": "fn_withdrawAccessor",
+      "description": "private view withdrawAccessor(string id, uint256 numberOfTokens) building the signed message from id, amount, contract address and msg.sender",
+      "is_core": true,
+      "node_id": 11,
+      "type": "function"
+    },
+    {
+      "id": "fn_transferBalance",
+      "description": "external onlyOwner nonReentrant transferBalance() sending the whole contract balance with a low-level call",
+      "is_core": true,
+      "node_id": 12,
+      "type": "function"
+    },
+    {
+      "id": "fn_setAccessAuthority",
+      "description": "external onlyOwner setAccessAuthority(address addr) replacing the withdrawal signer",
+      "is_core": true,
+      "node_id": 13,
+      "type": "function"
+    },
+    {
+      "id": "fn_setMaxSupply",
+      "description": "external onlyOwner setMaxSupply(uint newMaxSupply) replacing the hard supply cap",
+      "is_core": true,
+      "node_id": 14,
+      "type": "function"
+    },
+    {
+      "id": "fn_mint",
+      "description": "internal _mint(address account, uint256 amount) increasing _totalSupply and _balances",
+      "is_core": true,
+      "node_id": 15,
+      "type": "function"
+    },
+    {
+      "id": "fn_burn",
+      "description": "internal _burn(address account, uint256 amount) decreasing _balances and _totalSupply",
+      "is_core": true,
+      "node_id": 16,
+      "type": "function"
+    },
+    {
+      "id": "input_msg_sender",
+      "description": "msg.sender, attacker-controlled caller used as mint recipient and as message component / refund receiver",
+      "is_core": true,
+      "node_id": 17,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "unsafe_low_level_call_transferBalance",
+      "description": "(bool success,) = msg.sender.call{value: address(this).balance}(\"\") low-level value transfer executed before state finalisation",
+      "is_core": true,
+      "node_id": 18,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "withdraw() unconditionally delegates to internalWithdraw()",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "controlflow"
+    },
+    {
+      "reason": "batchWithdraw() calls internalWithdraw() repeatedly inside an unbounded loop",
+      "to_id": 9,
+      "vuln_type": "reentrancy",
+      "from_id": 8,
+      "type": "controlflow"
+    },
+    {
+      "reason": "msg.sender is passed as the mint recipient inside internalWithdraw -> _mint(msg.sender, numberOfTokens)",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 17,
+      "type": "dataflow"
+    },
+    {
+      "reason": "internalWithdraw() requires isWithdrawAuthorised(...) before minting, making signature verification the access gate",
+      "to_id": 10,
+      "vuln_type": "access_control",
+      "from_id": 9,
+      "type": "controlflow"
+    },
+    {
+      "reason": "internalWithdraw() calls _mint(msg.sender, numberOfTokens) after the uniqueness and cap checks",
+      "to_id": 15,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "controlflow"
+    },
+    {
+      "reason": "internalWithdraw() writes _transactions[id] = numberOfTokens after requiring _transactions[id] == 0",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "isWithdrawAuthorised() builds the digest through withdrawAccessor() before ecrecover",
+      "to_id": 11,
+      "vuln_type": "none",
+      "from_id": 10,
+      "type": "controlflow"
+    },
+    {
+      "reason": "withdrawAccessor() concatenates msg.sender into the signed payload, binding the signature to the caller",
+      "to_id": 17,
+      "vuln_type": "access_control",
+      "from_id": 11,
+      "type": "dataflow"
+    },
+    {
+      "reason": "isWithdrawAuthorised() compares the ECDSA-recovered address to accessAuthority",
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "from_id": 10,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_mint() increases the recipient entry of _balances using SafeMath add",
+      "to_id": 0,
+      "vuln_type": "arithmetic",
+      "from_id": 15,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_mint() increases _totalSupply using SafeMath add, checked against maxSupply in internalWithdraw",
+      "to_id": 4,
+      "vuln_type": "arithmetic",
+      "from_id": 15,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_burn() decreases _balances[account] using SafeMath sub",
+      "to_id": 0,
+      "vuln_type": "arithmetic",
+      "from_id": 16,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_burn() decreases _totalSupply using SafeMath sub",
+      "to_id": 4,
+      "vuln_type": "arithmetic",
+      "from_id": 16,
+      "type": "dataflow"
+    },
+    {
+      "reason": "setAccessAuthority() overwrites the signer address used to authorise withdrawals",
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "from_id": 13,
+      "type": "dataflow"
+    },
+    {
+      "reason": "setMaxSupply() overwrites the hard cap that limits minting",
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "from_id": 14,
+      "type": "dataflow"
+    },
+    {
+      "reason": "transferBalance() is gated by onlyOwner which compares _owner to _msgSender()",
+      "to_id": 12,
+      "vuln_type": "access_control",
+      "from_id": 17,
+      "type": "dataflow"
+    },
+    {
+      "reason": "transferBalance() forwards the whole balance through a low-level call to msg.sender",
+      "to_id": 18,
+      "vuln_type": "reentrancy",
+      "from_id": 12,
+      "type": "controlflow"
+    },
+    {
+      "reason": "the low-level value transfer hands control to msg.sender, which can re-enter owner functions before the call returns",
+      "to_id": 12,
+      "vuln_type": "reentrancy",
+      "from_id": 18,
+      "type": "callback"
+    },
+    {
+      "reason": "msg.sender is the callee of the balance transfer and therefore fully controls execution flow",
+      "to_id": 17,
+      "vuln_type": "reentrancy",
+      "from_id": 12,
+      "type": "dataflow"
+    },
+    {
+      "reason": "the nonReentrant modifier on withdraw() reads and writes _status around the external state changes",
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "the nonReentrant modifier on batchWithdraw() reads and writes _status around the loop",
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "from_id": 8,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": []
+}

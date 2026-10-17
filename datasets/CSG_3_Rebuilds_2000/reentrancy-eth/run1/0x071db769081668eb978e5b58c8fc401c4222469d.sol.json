@@ -1,0 +1,453 @@
+{
+  "nodes": [
+    {
+      "id": "MIN_VOTES",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Private constant threshold of 4 votes required before liquidation executes.",
+      "node_id": 0
+    },
+    {
+      "id": "LIQUIDATION_PERCENT",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Private constant percentage (20) of the contract's ETHPoly balance to liquidate.",
+      "node_id": 1
+    },
+    {
+      "id": "splitter",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Address payable that receives the contract balance in process(); a transfer target.",
+      "node_id": 2
+    },
+    {
+      "id": "targets",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Array of addresses eligible to vote; iterated by totalVotes and _resetVotes.",
+      "node_id": 3
+    },
+    {
+      "id": "votes",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Mapping tracking whether an address has voted.",
+      "node_id": 4
+    },
+    {
+      "id": "deployer",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Address authorised to configure the ETHPoly contract; used as access control anchor.",
+      "node_id": 5
+    },
+    {
+      "id": "ethPoly",
+      "is_core": true,
+      "type": "state_var",
+      "description": "External ETHPoly interface used for balanceOf, dividendsOf, liquidate and withdraw.",
+      "node_id": 6
+    },
+    {
+      "id": "constructor",
+      "is_core": true,
+      "type": "function",
+      "description": "Constructor: records msg.sender as deployer and seeds the targets array.",
+      "node_id": 7
+    },
+    {
+      "id": "receive",
+      "is_core": true,
+      "type": "function",
+      "description": "Payable receive fallback that accepts plain ETH.",
+      "node_id": 8
+    },
+    {
+      "id": "setETHPoly",
+      "is_core": true,
+      "type": "function",
+      "description": "External setter for ethPoly guarded only by require(msg.sender == deployer).",
+      "node_id": 9
+    },
+    {
+      "id": "process",
+      "is_core": true,
+      "type": "function",
+      "description": "Withdraws ETHPoly dividends and forwards the whole contract balance to splitter.",
+      "node_id": 10
+    },
+    {
+      "id": "vote",
+      "is_core": true,
+      "type": "function",
+      "description": "Records a vote, and on reaching MIN_VOTES calls liquidate, process and _resetVotes.",
+      "node_id": 11
+    },
+    {
+      "id": "unvote",
+      "is_core": true,
+      "type": "function",
+      "description": "External function revoking the caller's vote.",
+      "node_id": 12
+    },
+    {
+      "id": "totalVotes",
+      "is_core": true,
+      "type": "function",
+      "description": "View function counting votes among the registered targets.",
+      "node_id": 13
+    },
+    {
+      "id": "voted",
+      "is_core": true,
+      "type": "function",
+      "description": "View function returning whether an address has voted.",
+      "node_id": 14
+    },
+    {
+      "id": "_resetVotes",
+      "is_core": true,
+      "type": "function",
+      "description": "Internal function clearing the votes of all targets.",
+      "node_id": 15
+    },
+    {
+      "id": "msg.sender",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used for vote bookkeeping and access control.",
+      "node_id": 16
+    },
+    {
+      "id": "ethPoly.withdraw()",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "External call to ethPoly.withdraw() inside process(); potential reentrancy vector.",
+      "node_id": 17
+    },
+    {
+      "id": "splitter.transfer(_balance)",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "Native ETH transfer of the full contract balance to splitter; potential reentrancy vector.",
+      "node_id": 18
+    },
+    {
+      "id": "ethPoly.liquidate()",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "External call to ethPoly.liquidate() inside vote(); reachable state-changing external call.",
+      "node_id": 19
+    },
+    {
+      "id": "balanceOf*percent/100",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "Arithmetic expression ethPoly.balanceOf(this) * LIQUIDATION_PERCENT / 100 computed in vote().",
+      "node_id": 20
+    },
+    {
+      "id": "_ethPoly",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Parameter of setETHPoly carrying the new ETHPoly implementation address.",
+      "node_id": 21
+    },
+    {
+      "id": "_balance",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Local variable in process() holding address(this).balance before the transfer.",
+      "node_id": 22
+    },
+    {
+      "id": "_user",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Parameter of voted() used to index the votes mapping.",
+      "node_id": 23
+    },
+    {
+      "id": "_count",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Local counter in totalVotes() accumulating the number of votes.",
+      "node_id": 24
+    },
+    {
+      "id": "i",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Loop index used by totalVotes() and _resetVotes() to iterate targets.",
+      "node_id": 25
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 16,
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "constructor reads msg.sender to initialise the deployer address."
+    },
+    {
+      "from_id": 7,
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "constructor writes msg.sender into the deployer state variable."
+    },
+    {
+      "from_id": 9,
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "setETHPoly assigns its argument into the ethPoly state variable."
+    },
+    {
+      "from_id": 21,
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "The _ethPoly parameter flows into the ethPoly state variable."
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "access_control",
+      "to_id": 9,
+      "type": "controlflow",
+      "reason": "setETHPoly is gated only by require(msg.sender == deployer)."
+    },
+    {
+      "from_id": 9,
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "setETHPoly reads deployer to enforce the caller check."
+    },
+    {
+      "from_id": 9,
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "setETHPoly consumes the _ethPoly parameter."
+    },
+    {
+      "from_id": 10,
+      "vuln_type": "reentrancy",
+      "to_id": 17,
+      "type": "controlflow",
+      "reason": "process() performs an external call ethPoly.withdraw() before state changes settle."
+    },
+    {
+      "from_id": 10,
+      "vuln_type": "reentrancy",
+      "to_id": 18,
+      "type": "callback",
+      "reason": "process() forwards the entire balance to splitter via transfer, an outbound call-back path."
+    },
+    {
+      "from_id": 10,
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "process() caches address(this).balance into the _balance local variable."
+    },
+    {
+      "from_id": 22,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "The _balance local is passed as the amount to splitter.transfer."
+    },
+    {
+      "from_id": 2,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "The splitter state variable is the recipient of the transfer."
+    },
+    {
+      "from_id": 6,
+      "vuln_type": "reentrancy",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "The ethPoly state variable is the target of the withdraw external call."
+    },
+    {
+      "from_id": 6,
+      "vuln_type": "reentrancy",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "The ethPoly state variable is the target of the liquidate external call."
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "vote() reads msg.sender to key the votes mapping."
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "vote() writes votes[msg.sender] = true."
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "vote() calls totalVotes() to decide whether the threshold is reached."
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "arithmetic",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "vote() uses LIQUIDATION_PERCENT inside the liquidation amount calculation."
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "reentrancy",
+      "to_id": 19,
+      "type": "controlflow",
+      "reason": "vote() triggers the external ethPoly.liquidate() call."
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "arithmetic",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "vote() evaluates balanceOf(this) * LIQUIDATION_PERCENT / 100 before liquidating."
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "reentrancy",
+      "to_id": 10,
+      "type": "controlflow",
+      "reason": "vote() calls process(), which performs further external calls and value transfer."
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "controlflow",
+      "reason": "vote() calls _resetVotes() after a successful liquidation."
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "unvote() reads msg.sender to identify the caller's vote."
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "unvote() sets votes[msg.sender] = false."
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "totalVotes() iterates over the targets array."
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "controlflow",
+      "reason": "totalVotes() delegates each membership check to voted()."
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "totalVotes() indirectly reads the votes mapping through voted()."
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "none",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "totalVotes() increments the _count local accumulator."
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "totalVotes() uses the loop index i to traverse targets."
+    },
+    {
+      "from_id": 14,
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "voted() reads the votes mapping for the supplied address."
+    },
+    {
+      "from_id": 14,
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "voted() uses the _user parameter as the mapping key."
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "_resetVotes() iterates over the targets array."
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "_resetVotes() writes false into the votes mapping for each target."
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "_resetVotes() uses the loop index i to traverse targets."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "setETHPoly",
+      "normal_node": "_ethPoly",
+      "reason": "Parameter _ethPoly only carries data into the setETHPoly function body; collapse it into that core function."
+    },
+    {
+      "merge_into": "process",
+      "normal_node": "_balance",
+      "reason": "Local _balance is a temporary snapshot inside process() feeding the transfer; merge into process."
+    },
+    {
+      "merge_into": "voted",
+      "normal_node": "_user",
+      "reason": "Parameter _user is only used to index votes inside voted(); merge into the voted function."
+    },
+    {
+      "merge_into": "totalVotes",
+      "normal_node": "_count",
+      "reason": "Local _count is a purely internal accumulator of totalVotes(); merge into that function."
+    },
+    {
+      "merge_into": "totalVotes",
+      "normal_node": "i",
+      "reason": "Loop index i is a transient iterator used by totalVotes()/_resetVotes(); merge into the totalVotes core function."
+    }
+  ]
+}

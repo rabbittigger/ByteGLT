@@ -1,0 +1,763 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "owner",
+      "is_core": true,
+      "description": "Owner address set at construction; gates all onlyOwner functions."
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "id": "admin",
+      "is_core": true,
+      "description": "Admin address, defaults to owner, gates onlyAdmin functions (payouts, redenomination, voting)."
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "id": "frozen",
+      "is_core": true,
+      "description": "Global circuit breaker flag checked by most state-changing functions."
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "id": "round",
+      "is_core": true,
+      "description": "Redenomination round counter (1..9) driving mul[] and decimal logic."
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "id": "epoch",
+      "is_core": true,
+      "description": "Epoch counter (1..10) limiting game lifecycle and voting."
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "id": "dec",
+      "is_core": true,
+      "description": "uint[8] array of burned decimal digits; mutated by renewDec and redenominate."
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "id": "mul",
+      "is_core": true,
+      "description": "uint[9] multiplier table indexed by round used to truncate balances."
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "id": "current_toadd",
+      "is_core": true,
+      "description": "uint[9] per-digit dividend amounts computed by redenominate and consumed by updateAccount."
+    },
+    {
+      "node_id": 8,
+      "type": "state_var",
+      "id": "epoch_fund",
+      "is_core": true,
+      "description": "Token reservoir for the current epoch paid out by payout()."
+    },
+    {
+      "node_id": 9,
+      "type": "state_var",
+      "id": "team_fund",
+      "is_core": true,
+      "description": "10% team fund accrued in payout and withdrawable by owner."
+    },
+    {
+      "node_id": 10,
+      "type": "state_var",
+      "id": "redenom_dao_fund",
+      "is_core": true,
+      "description": "30% DAO fund accrued in payout and withdrawable by owner."
+    },
+    {
+      "node_id": 11,
+      "type": "state_var",
+      "id": "_totalSupply",
+      "is_core": true,
+      "description": "ERC20 total supply, mutated by payout, updateAccount, redenominate."
+    },
+    {
+      "node_id": 12,
+      "type": "state_var",
+      "id": "accounts",
+      "is_core": true,
+      "description": "mapping(address=>Account) holding balance, lastRound, lastVotedEpoch, bitmask."
+    },
+    {
+      "node_id": 13,
+      "type": "state_var",
+      "id": "allowed",
+      "is_core": true,
+      "description": "ERC20 allowance mapping owner=>spender=>amount."
+    },
+    {
+      "node_id": 14,
+      "type": "state_var",
+      "id": "votingActive",
+      "is_core": true,
+      "description": "Flag enabling/disabling the ballot; consumed by onlyVoter."
+    },
+    {
+      "node_id": 15,
+      "type": "state_var",
+      "id": "projects",
+      "is_core": true,
+      "description": "Dynamic array of Project structs voted on during an epoch."
+    },
+    {
+      "node_id": 16,
+      "type": "function",
+      "id": "setAdmin",
+      "is_core": true,
+      "description": "onlyOwner setter that reassigns admin."
+    },
+    {
+      "node_id": 17,
+      "type": "function",
+      "id": "transferOwnership",
+      "is_core": true,
+      "description": "onlyOwner two-step ownership transfer initiation."
+    },
+    {
+      "node_id": 18,
+      "type": "function",
+      "id": "acceptOwnership",
+      "is_core": true,
+      "description": "Completes ownership transfer when called by newOwner."
+    },
+    {
+      "node_id": 19,
+      "type": "function",
+      "id": "payout",
+      "is_core": true,
+      "description": "private core payout routine: fixes amount, calls updateAccount/renewDec, splits team/DAO parts, mints and emits Transfer."
+    },
+    {
+      "node_id": 20,
+      "type": "function",
+      "id": "pay055",
+      "is_core": true,
+      "description": "onlyAdmin payout of 0.555666XX whose value depends on block.timestamp%100."
+    },
+    {
+      "node_id": 21,
+      "type": "function",
+      "id": "payCustom",
+      "is_core": true,
+      "description": "onlyOwner arbitrary payout that forwards amount to payout()."
+    },
+    {
+      "node_id": 22,
+      "type": "function",
+      "id": "transfer",
+      "is_core": true,
+      "description": "ERC20 transfer: fix_amount, updateAccount on both sides, SafeMath balance moves, renewDec."
+    },
+    {
+      "node_id": 23,
+      "type": "function",
+      "id": "transferFrom",
+      "is_core": true,
+      "description": "ERC20 transferFrom spending allowance with updateAccount/renewDec and SafeMath subtractions."
+    },
+    {
+      "node_id": 24,
+      "type": "function",
+      "id": "approve",
+      "is_core": true,
+      "description": "ERC20 approve writing allowed[msg.sender][spender]."
+    },
+    {
+      "node_id": 25,
+      "type": "function",
+      "id": "approveAndCall",
+      "is_core": true,
+      "description": "Sets allowance then calls external spender contract receiveApproval — external call after state write."
+    },
+    {
+      "node_id": 26,
+      "type": "function",
+      "id": "updateAccount",
+      "is_core": true,
+      "description": "Public dividend refresher mutating accounts, dec, current_toadd and _totalSupply based on round."
+    },
+    {
+      "node_id": 27,
+      "type": "function",
+      "id": "redenominate",
+      "is_core": true,
+      "description": "onlyAdmin round advance: truncates _totalSupply/team_fund/DAO fund, recomputes current_toadd with unchecked division."
+    },
+    {
+      "node_id": 28,
+      "type": "function",
+      "id": "vote",
+      "is_core": true,
+      "description": "onlyVoter ballot vote adding sqrt(balance) weight to a project and stamping lastVotedEpoch."
+    },
+    {
+      "node_id": 29,
+      "type": "function",
+      "id": "StartNewEpoch",
+      "is_core": true,
+      "description": "onlyAdmin epoch rollover: resets dec/round, increments epoch, refills epoch_fund, deletes projects."
+    },
+    {
+      "node_id": 30,
+      "type": "function",
+      "id": "enableVoting",
+      "is_core": true,
+      "description": "onlyAdmin activation of voting when round==9."
+    },
+    {
+      "node_id": 31,
+      "type": "function",
+      "id": "withdraw_team_fund",
+      "is_core": true,
+      "description": "onlyOwner withdrawal crediting accounts[to].balance from team_fund."
+    },
+    {
+      "node_id": 32,
+      "type": "function",
+      "id": "freeze_contract",
+      "is_core": true,
+      "description": "onlyOwner emergency freeze setting frozen=true."
+    },
+    {
+      "node_id": 33,
+      "type": "function",
+      "id": "transferAnyERC20Token",
+      "is_core": true,
+      "description": "onlyOwner rescue that calls transfer() on an arbitrary tokenAddress contract."
+    },
+    {
+      "node_id": 34,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "is_core": true,
+      "description": "Caller-controlled address used for ownership, voting, allowance and balance accounting."
+    },
+    {
+      "node_id": 35,
+      "type": "untrusted_input",
+      "id": "block.timestamp",
+      "is_core": true,
+      "description": "Miner-influenced timestamp used in pay055/pay055loyal to pick the payout's last two digits."
+    },
+    {
+      "node_id": 36,
+      "type": "unsafe_operation",
+      "id": "ext_call_receiveApproval",
+      "is_core": true,
+      "description": "External call ApproveAndCallFallBack(spender).receiveApproval(...) to an attacker-supplied contract."
+    },
+    {
+      "node_id": 37,
+      "type": "unsafe_operation",
+      "id": "ext_call_erc20_transfer",
+      "is_core": true,
+      "description": "External call ERC20Interface(tokenAddress).transfer(owner, tokens) on an arbitrary contract."
+    },
+    {
+      "node_id": 38,
+      "type": "unsafe_operation",
+      "id": "timestamp_mod_amount",
+      "is_core": true,
+      "description": "55566600 + (block.timestamp%100) makes minted amount miner-manipulable."
+    },
+    {
+      "node_id": 39,
+      "type": "unsafe_operation",
+      "id": "division_redenominate",
+      "is_core": true,
+      "description": "Unchecked multiplications/divisions (numbers[k]*1e9/total_current, k2e9[n]*unclimed/10/1e9) with no SafeMath and possible division by zero."
+    },
+    {
+      "node_id": 40,
+      "type": "parameter",
+      "id": "param_to_payout",
+      "is_core": false,
+      "description": "address to parameter of payout()."
+    },
+    {
+      "node_id": 41,
+      "type": "parameter",
+      "id": "param_amount_payout",
+      "is_core": false,
+      "description": "uint amount parameter of payout()."
+    },
+    {
+      "node_id": 42,
+      "type": "parameter",
+      "id": "param_tokens_transfer",
+      "is_core": false,
+      "description": "uint tokens parameter of transfer()."
+    },
+    {
+      "node_id": 43,
+      "type": "parameter",
+      "id": "param_from_transferFrom",
+      "is_core": false,
+      "description": "address from parameter of transferFrom()."
+    },
+    {
+      "node_id": 44,
+      "type": "local_var",
+      "id": "local_fixedAmount_payout",
+      "is_core": false,
+      "description": "Truncated amount computed by fix_amount inside payout()."
+    },
+    {
+      "node_id": 45,
+      "type": "local_var",
+      "id": "local_team_part_payout",
+      "is_core": false,
+      "description": "10% team cut derived from fixedAmount inside payout()."
+    },
+    {
+      "node_id": 46,
+      "type": "local_var",
+      "id": "local_diff_updateAccount",
+      "is_core": false,
+      "description": "Burned-decimal remainder of the user balance inside updateAccount()."
+    },
+    {
+      "node_id": 47,
+      "type": "local_var",
+      "id": "local_unclimed_redenominate",
+      "is_core": false,
+      "description": "dec[8-round] pool of unclaimed decimals read by redenominate()."
+    },
+    {
+      "node_id": 48,
+      "type": "local_var",
+      "id": "local_total_current_redenominate",
+      "is_core": false,
+      "description": "dec[8-1-round] current active decimal sum used as divisor in redenominate()."
+    },
+    {
+      "node_id": 49,
+      "type": "local_var",
+      "id": "local_k05summ_redenominate",
+      "is_core": false,
+      "description": "Accumulated ke9 values for the first five digits in redenominate()."
+    },
+    {
+      "node_id": 50,
+      "type": "local_var",
+      "id": "local_newFixedBalance_updateAccount",
+      "is_core": false,
+      "description": "Truncated balance (tempDividedBalance*current_mul()) inside updateAccount()."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "setAdmin is guarded by onlyOwner which compares msg.sender to owner.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 34,
+      "to_id": 16
+    },
+    {
+      "reason": "transferOwnership is guarded by onlyOwner (msg.sender == owner).",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 34,
+      "to_id": 17
+    },
+    {
+      "reason": "acceptOwnership requires msg.sender == newOwner before reassigning owner.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 34,
+      "to_id": 18
+    },
+    {
+      "reason": "msg.sender is the debit side of the ERC20 transfer.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 34,
+      "to_id": 22
+    },
+    {
+      "reason": "transferFrom spends allowed[from][msg.sender], so caller identity is authoritative.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 34,
+      "to_id": 23
+    },
+    {
+      "reason": "approve writes the allowance under the msg.sender key.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 34,
+      "to_id": 24
+    },
+    {
+      "reason": "approveAndCall stores the allowance for msg.sender and passes msg.sender to the callback.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 34,
+      "to_id": 25
+    },
+    {
+      "reason": "onlyVoter enforces KYC bitmask, non-ban and lastVotedEpoch checks on msg.sender.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 34,
+      "to_id": 28
+    },
+    {
+      "reason": "withdraw_team_fund is onlyOwner, authorising by msg.sender.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 34,
+      "to_id": 31
+    },
+    {
+      "reason": "pay055 derives the minted amount from block.timestamp, making it miner-influenceable.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 35,
+      "to_id": 20
+    },
+    {
+      "reason": "block.timestamp%100 feeds directly into the value passed to payout().",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 35,
+      "to_id": 38
+    },
+    {
+      "reason": "pay055 forwards the timestamp-derived amount to payout().",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 20,
+      "to_id": 19
+    },
+    {
+      "reason": "payCustom forwards the caller-supplied amount to payout().",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 21,
+      "to_id": 19
+    },
+    {
+      "reason": "pay055 executes the timestamp-dependent amount computation.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 20,
+      "to_id": 38
+    },
+    {
+      "reason": "payout subtracts the total minted amount from epoch_fund.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 19,
+      "to_id": 8
+    },
+    {
+      "reason": "payout credits team_fund with the 10% cut.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 19,
+      "to_id": 9
+    },
+    {
+      "reason": "payout credits redenom_dao_fund with the 30% cut.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 19,
+      "to_id": 10
+    },
+    {
+      "reason": "payout increases accounts[to].balance and consumes account state.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 19,
+      "to_id": 12
+    },
+    {
+      "reason": "payout mints by increasing _totalSupply.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 19,
+      "to_id": 11
+    },
+    {
+      "reason": "transfer refreshes recipient and sender via updateAccount before moving balances.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 22,
+      "to_id": 26
+    },
+    {
+      "reason": "transferFrom calls updateAccount on both from and to.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 23,
+      "to_id": 26
+    },
+    {
+      "reason": "transfer reads and writes accounts[].balance.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 12
+    },
+    {
+      "reason": "transferFrom decrements allowed[from][msg.sender].",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 23,
+      "to_id": 13
+    },
+    {
+      "reason": "approve writes allowed[msg.sender][spender].",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 24,
+      "to_id": 13
+    },
+    {
+      "reason": "approveAndCall writes allowed[msg.sender][spender] before the external call.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 25,
+      "to_id": 13
+    },
+    {
+      "reason": "approveAndCall invokes an arbitrary spender contract after mutating allowance state, allowing reentrant control flow.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 25,
+      "to_id": 36
+    },
+    {
+      "reason": "transferAnyERC20Token calls into an owner-supplied token contract, which can reenter the token.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 33,
+      "to_id": 37
+    },
+    {
+      "reason": "updateAccount reads and writes the dec[] digit ledger through renewDec.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 26,
+      "to_id": 5
+    },
+    {
+      "reason": "updateAccount consumes current_toadd[] dividends computed by redenominate.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 26,
+      "to_id": 7
+    },
+    {
+      "reason": "updateAccount rewrites accounts[account].balance and lastRound.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 26,
+      "to_id": 12
+    },
+    {
+      "reason": "redenominate increments and stores the round counter.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 27,
+      "to_id": 3
+    },
+    {
+      "reason": "redenominate reads/clears dec[] entries to move burned decimals.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 27,
+      "to_id": 5
+    },
+    {
+      "reason": "redenominate performs unchecked multiplication/division on total_current and unclimed without SafeMath or zero-divisor guards.",
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "from_id": 27,
+      "to_id": 39
+    },
+    {
+      "reason": "vote accumulates sqrt(balance) into projects[p].votesWeight.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 28,
+      "to_id": 15
+    },
+    {
+      "reason": "StartNewEpoch clears the projects array via delete.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 15
+    },
+    {
+      "reason": "StartNewEpoch increments the epoch counter.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 4
+    },
+    {
+      "reason": "StartNewEpoch replenishes epoch_fund from total_fund.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 8
+    },
+    {
+      "reason": "enableVoting flips votingActive to true.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 30,
+      "to_id": 14
+    },
+    {
+      "reason": "payout recipient parameter drives the account credited.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 40,
+      "to_id": 19
+    },
+    {
+      "reason": "payout amount parameter drives fixedAmount and the funds split.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 41,
+      "to_id": 19
+    },
+    {
+      "reason": "transfer tokens parameter is truncated and debited/credited.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 42,
+      "to_id": 22
+    },
+    {
+      "reason": "transferFrom from parameter selects the debited account and allowance owner.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 43,
+      "to_id": 23
+    },
+    {
+      "reason": "fixedAmount is the truncated value used for accounting inside payout.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 44,
+      "to_id": 19
+    },
+    {
+      "reason": "team_part is derived from fixedAmount and credited to team_fund by payout.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 45,
+      "to_id": 19
+    },
+    {
+      "reason": "diff is the burned remainder driving the Transfer and balance truncation in updateAccount.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 46,
+      "to_id": 26
+    },
+    {
+      "reason": "unclimed divides into current_toadd inside redenominate and can overflow/truncate silently.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 47,
+      "to_id": 27
+    },
+    {
+      "reason": "total_current is the divisor of numbers[k]*1e9 with no zero-check, risking division by zero.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 48,
+      "to_id": 27
+    },
+    {
+      "reason": "k05summ accumulates unchecked products that scale the digits assigned to current_toadd.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 49,
+      "to_id": 27
+    },
+    {
+      "reason": "newFixedBalance is the truncated balance written back by updateAccount.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 50,
+      "to_id": 26
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Transient call argument; absorbing into payout removes nodes that carry no independent state.",
+      "merge_into": "payout",
+      "normal_node": "param_to_payout"
+    },
+    {
+      "reason": "Transient call argument; its effect is fully described by payout's dataflow edges.",
+      "merge_into": "payout",
+      "normal_node": "param_amount_payout"
+    },
+    {
+      "reason": "Transient call argument; only meaningful as an input to the transfer value flow.",
+      "merge_into": "transfer",
+      "normal_node": "param_tokens_transfer"
+    },
+    {
+      "reason": "Transient call argument; its only role is selecting the debited account inside transferFrom.",
+      "merge_into": "transferFrom",
+      "normal_node": "param_from_transferFrom"
+    },
+    {
+      "reason": "Intermediate SSA value entirely contained within payout.",
+      "merge_into": "payout",
+      "normal_node": "local_fixedAmount_payout"
+    },
+    {
+      "reason": "Intermediate value used only to credit team_fund inside payout.",
+      "merge_into": "payout",
+      "normal_node": "local_team_part_payout"
+    },
+    {
+      "reason": "Temporary arithmetic result local to updateAccount.",
+      "merge_into": "updateAccount",
+      "normal_node": "local_diff_updateAccount"
+    },
+    {
+      "reason": "Temporary dividend pool read and consumed only inside redenominate.",
+      "merge_into": "redenominate",
+      "normal_node": "local_unclimed_redenominate"
+    },
+    {
+      "reason": "Temporary divisor local to redenominate; keeping it separate adds no semantics.",
+      "merge_into": "redenominate",
+      "normal_node": "local_total_current_redenominate"
+    },
+    {
+      "reason": "Accumulator scoped to the redenominate loop body.",
+      "merge_into": "redenominate",
+      "normal_node": "local_k05summ_redenominate"
+    },
+    {
+      "reason": "Intermediate truncated-balance value that only feeds updateAccount's writes.",
+      "merge_into": "updateAccount",
+      "normal_node": "local_newFixedBalance_updateAccount"
+    }
+  ]
+}

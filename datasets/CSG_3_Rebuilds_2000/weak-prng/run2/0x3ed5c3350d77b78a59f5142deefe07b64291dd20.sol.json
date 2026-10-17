@@ -1,0 +1,572 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Mapping address=>bytes storing each bettor's victory message.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "VRFBet.victoryMessages"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping uint=>Bet queue of pending bets used by resolvePriorBets.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "VRFBet.betQueue"
+    },
+    {
+      "type": "state_var",
+      "description": "Cap on simultaneous pending bets to avoid locking funds.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "VRFBet.MAX_SIMULTANEOUS_BETS"
+    },
+    {
+      "type": "state_var",
+      "description": "Index of the next bet to process/resolve.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "VRFBet.index"
+    },
+    {
+      "type": "state_var",
+      "description": "Index where the next bet will be placed.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "VRFBet.indexBetPlace"
+    },
+    {
+      "type": "state_var",
+      "description": "Trusted VRF contract address authorized to call receiveApproval.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "VRFBet.vrfAddress"
+    },
+    {
+      "type": "state_var",
+      "description": "VerifyToken interface instance of the VRF token contract.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "VRFBet.vrfcontract"
+    },
+    {
+      "type": "state_var",
+      "description": "AutomatedExchange interface instance used to buy tokens with ETH.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "VRFBet.exchangecontract"
+    },
+    {
+      "type": "function",
+      "description": "Entry point from VRF token approve-and-call; pulls tokens then places a bet.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "VRFBet.receiveApproval"
+    },
+    {
+      "type": "function",
+      "description": "Payable entry point buying VRF tokens via exchange then placing a bet.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "VRFBet.placeBetEth"
+    },
+    {
+      "type": "function",
+      "description": "Private token payout helper performing an external token transfer.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "VRFBet.payout"
+    },
+    {
+      "type": "function",
+      "description": "Private bet placement: resolves prior bets then enqueues new bet.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "VRFBet._placeBet"
+    },
+    {
+      "type": "function",
+      "description": "Public loop resolving/refunding queued bets and paying winners.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "VRFBet.resolvePriorBets"
+    },
+    {
+      "type": "function",
+      "description": "Allows a lone bettor to cancel the last unpaired bet.",
+      "is_core": true,
+      "node_id": 13,
+      "id": "VRFBet.cancelBet"
+    },
+    {
+      "type": "function",
+      "description": "View helper telling whether msg.sender can cancel.",
+      "is_core": true,
+      "node_id": 14,
+      "id": "VRFBet.canCancelBet"
+    },
+    {
+      "type": "function",
+      "description": "View helper checking parity of a number.",
+      "is_core": true,
+      "node_id": 15,
+      "id": "VRFBet.isEven"
+    },
+    {
+      "type": "function",
+      "description": "Internal randomness source based on blockhash and an entropy address.",
+      "is_core": true,
+      "node_id": 16,
+      "id": "VRFBet.maxRandom"
+    },
+    {
+      "type": "function",
+      "description": "Internal randomness modulo upper bound.",
+      "is_core": true,
+      "node_id": 17,
+      "id": "VRFBet.random"
+    },
+    {
+      "type": "function",
+      "description": "View helper returning bet state for a bettor.",
+      "is_core": true,
+      "node_id": 18,
+      "id": "VRFBet.getBetState"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used for authorization and bet ownership.",
+      "is_core": true,
+      "node_id": 19,
+      "id": "msg.sender"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External call pulling VRF tokens from 'from' before state changes (reentrancy surface).",
+      "is_core": true,
+      "node_id": 20,
+      "id": "unsafe.vrfcontract.transferFrom"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External payable call into AutomatedExchange before bet state update (reentrancy surface).",
+      "is_core": true,
+      "node_id": 21,
+      "id": "unsafe.exchangecontract.buyTokens"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External token transfer inside payout executed in a resolution loop (reentrancy surface).",
+      "is_core": true,
+      "node_id": 22,
+      "id": "unsafe.payout.transfer"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Randomness derived from blockhash/block.number, manipulable/weak (block dependency).",
+      "is_core": true,
+      "node_id": 23,
+      "id": "unsafe.maxRandom.keccak256.blockhash"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Unchecked arithmetic increment index+=2 / index+=1 inside resolution loop.",
+      "is_core": true,
+      "node_id": 24,
+      "id": "unsafe.index.add"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Index arithmetic growth without cap on indexBetPlace.",
+      "is_core": true,
+      "node_id": 25,
+      "id": "unsafe.indexBetPlace.add"
+    },
+    {
+      "type": "parameter",
+      "description": "Token owner address pulled from by transferFrom.",
+      "is_core": false,
+      "node_id": 26,
+      "id": "param.receiveApproval.from"
+    },
+    {
+      "type": "parameter",
+      "description": "Token amount wagered.",
+      "is_core": false,
+      "node_id": 27,
+      "id": "param.receiveApproval.tokens"
+    },
+    {
+      "type": "parameter",
+      "description": "Token contract address passed by the caller.",
+      "is_core": false,
+      "node_id": 28,
+      "id": "param.receiveApproval.token"
+    },
+    {
+      "type": "parameter",
+      "description": "Victory message payload.",
+      "is_core": false,
+      "node_id": 29,
+      "id": "param.receiveApproval.data"
+    },
+    {
+      "type": "parameter",
+      "description": "Victory message for the ETH-funded bet.",
+      "is_core": false,
+      "node_id": 30,
+      "id": "param.placeBetEth.victoryMessage"
+    },
+    {
+      "type": "parameter",
+      "description": "Recipient of the payout transfer.",
+      "is_core": false,
+      "node_id": 31,
+      "id": "param.payout.to"
+    },
+    {
+      "type": "parameter",
+      "description": "Amount of tokens to pay out.",
+      "is_core": false,
+      "node_id": 32,
+      "id": "param.payout.numTokens"
+    },
+    {
+      "type": "parameter",
+      "description": "Wagered token amount stored in the bet.",
+      "is_core": false,
+      "node_id": 33,
+      "id": "param._placeBet.numTokens"
+    },
+    {
+      "type": "parameter",
+      "description": "Bettor address stored in the bet.",
+      "is_core": false,
+      "node_id": 34,
+      "id": "param._placeBet.from"
+    },
+    {
+      "type": "parameter",
+      "description": "Victory message stored in victoryMessages.",
+      "is_core": false,
+      "node_id": 35,
+      "id": "param._placeBet.victoryMessage"
+    },
+    {
+      "type": "parameter",
+      "description": "Upper bound for modulo randomness.",
+      "is_core": false,
+      "node_id": 36,
+      "id": "param.random.upper"
+    },
+    {
+      "type": "parameter",
+      "description": "Block number used for blockhash.",
+      "is_core": false,
+      "node_id": 37,
+      "id": "param.random.blockn"
+    },
+    {
+      "type": "parameter",
+      "description": "Entropy address (bettor) for randomness.",
+      "is_core": false,
+      "node_id": 38,
+      "id": "param.random.entropy"
+    },
+    {
+      "type": "parameter",
+      "description": "Block number used for blockhash.",
+      "is_core": false,
+      "node_id": 39,
+      "id": "param.maxRandom.blockn"
+    },
+    {
+      "type": "parameter",
+      "description": "Entropy address for randomness seed.",
+      "is_core": false,
+      "node_id": 40,
+      "id": "param.maxRandom.entropy"
+    },
+    {
+      "type": "parameter",
+      "description": "Bettor whose state is queried.",
+      "is_core": false,
+      "node_id": 41,
+      "id": "param.getBetState.bettor"
+    },
+    {
+      "type": "local_var",
+      "description": "Token balance snapshot before buying tokens.",
+      "is_core": false,
+      "node_id": 42,
+      "id": "local.placeBetEth.tokensBefore"
+    },
+    {
+      "type": "local_var",
+      "description": "Sum of the two bet amounts to be paid out.",
+      "is_core": false,
+      "node_id": 43,
+      "id": "local.resolvePriorBets.totalbet"
+    },
+    {
+      "type": "local_var",
+      "description": "Random outcome value used to pick the winner.",
+      "is_core": false,
+      "node_id": 44,
+      "id": "local.resolvePriorBets.randval"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "access_control",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "msg.sender is compared to vrfAddress in the authorization require, so a caller-controlled value gates entry.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "msg.sender is used as the bettor address when placing an ETH-funded bet.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "cancelBet authorizes using require(betQueue[index].bettor==msg.sender).",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "canCancelBet checks the last bettor against msg.sender.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "getBetState filters the queue by the caller-supplied bettor address.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 20,
+      "type": "controlflow",
+      "reason": "receiveApproval performs an external token transferFrom call.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "Bet state is written in _placeBet after the external transferFrom call returns.",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 21,
+      "type": "controlflow",
+      "reason": "placeBetEth makes an external payable call to buyTokens on the exchange.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "Bet queue mutation happens after the external exchange call.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "_placeBet calls resolvePriorBets which performs token payouts to external addresses.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 10,
+      "type": "controlflow",
+      "reason": "resolvePriorBets invokes payout in a loop, enabling repeated external token transfers before indexes advance.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 22,
+      "type": "controlflow",
+      "reason": "payout executes an external VRF token transfer to the winner.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "controlflow",
+      "reason": "resolvePriorBets calls random to decide the winner.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "controlflow",
+      "reason": "random delegates its raw number generation to maxRandom.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 23,
+      "type": "controlflow",
+      "reason": "maxRandom computes randomness from blockhash, a block-dependent and miner-influenceable value.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "resolvePriorBets reads and advances the state variable index over the betQueue.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "index is incremented (index+=2 / index+=1) without overflow checks during resolution.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "indexBetPlace is written when queueing a bet and grows unboundedly.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "_placeBet executes indexBetPlace+=1, an unchecked plain arithmetic operation.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "betQueue entries control payout amounts and recipients inside the resolution loop.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "Bet records supply the recipient and amount used by payout.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "victoryMessages are emitted when finalizing bets during resolution.",
+      "from_id": 0
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "VRFBet.receiveApproval",
+      "reason": "Parameter only feeds the external transferFrom call inside receiveApproval.",
+      "normal_node": "param.receiveApproval.from"
+    },
+    {
+      "merge_into": "VRFBet.receiveApproval",
+      "reason": "Parameter is only used to specify the token amount moved in receiveApproval.",
+      "normal_node": "param.receiveApproval.tokens"
+    },
+    {
+      "merge_into": "VRFBet.receiveApproval",
+      "reason": "Parameter is an unused token address passed into receiveApproval.",
+      "normal_node": "param.receiveApproval.token"
+    },
+    {
+      "merge_into": "VRFBet.receiveApproval",
+      "reason": "Parameter is forwarded as the victory message to _placeBet via receiveApproval.",
+      "normal_node": "param.receiveApproval.data"
+    },
+    {
+      "merge_into": "VRFBet.placeBetEth",
+      "reason": "Parameter is only consumed as the bet's victory message in placeBetEth.",
+      "normal_node": "param.placeBetEth.victoryMessage"
+    },
+    {
+      "merge_into": "VRFBet.payout",
+      "reason": "Parameter is the recipient of the token transfer performed in payout.",
+      "normal_node": "param.payout.to"
+    },
+    {
+      "merge_into": "VRFBet.payout",
+      "reason": "Parameter determines the amount transferred in payout.",
+      "normal_node": "param.payout.numTokens"
+    },
+    {
+      "merge_into": "VRFBet._placeBet",
+      "reason": "Parameter is stored as betAmount in the queue written by _placeBet.",
+      "normal_node": "param._placeBet.numTokens"
+    },
+    {
+      "merge_into": "VRFBet._placeBet",
+      "reason": "Parameter is stored as the bettor and used as the victoryMessages key in _placeBet.",
+      "normal_node": "param._placeBet.from"
+    },
+    {
+      "merge_into": "VRFBet._placeBet",
+      "reason": "Parameter is written to the victoryMessages mapping by _placeBet.",
+      "normal_node": "param._placeBet.victoryMessage"
+    },
+    {
+      "merge_into": "VRFBet.random",
+      "reason": "Parameter is the modulo bound applied in random.",
+      "normal_node": "param.random.upper"
+    },
+    {
+      "merge_into": "VRFBet.random",
+      "reason": "Parameter is forwarded to maxRandom for the blockhash seed.",
+      "normal_node": "param.random.blockn"
+    },
+    {
+      "merge_into": "VRFBet.random",
+      "reason": "Parameter is forwarded to maxRandom as entropy.",
+      "normal_node": "param.random.entropy"
+    },
+    {
+      "merge_into": "unsafe.maxRandom.keccak256.blockhash",
+      "reason": "Parameter is the block number whose blockhash seeds the unsafe randomness.",
+      "normal_node": "param.maxRandom.blockn"
+    },
+    {
+      "merge_into": "unsafe.maxRandom.keccak256.blockhash",
+      "reason": "Parameter is packed into the keccak256 randomness seed.",
+      "normal_node": "param.maxRandom.entropy"
+    },
+    {
+      "merge_into": "VRFBet.getBetState",
+      "reason": "Parameter is only used to filter the queue in getBetState.",
+      "normal_node": "param.getBetState.bettor"
+    },
+    {
+      "merge_into": "VRFBet.placeBetEth",
+      "reason": "Local snapshot used solely to compute the bought token amount within placeBetEth.",
+      "normal_node": "local.placeBetEth.tokensBefore"
+    },
+    {
+      "merge_into": "VRFBet.resolvePriorBets",
+      "reason": "Local sum feeds payout amounts and randomness upper bound inside resolvePriorBets.",
+      "normal_node": "local.resolvePriorBets.totalbet"
+    },
+    {
+      "merge_into": "VRFBet.resolvePriorBets",
+      "reason": "Local random value determines the payout branch inside resolvePriorBets.",
+      "normal_node": "local.resolvePriorBets.randval"
+    }
+  ]
+}

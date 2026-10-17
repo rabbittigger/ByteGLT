@@ -1,0 +1,865 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "description": "ERC20 token used for governance voting and vote locking",
+      "is_core": true,
+      "id": "votingToken"
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Constant duration of voting on a proposal (86000)",
+      "is_core": true,
+      "id": "votingPeriod"
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "description": "Constant time since submission before execution (86000*2)",
+      "is_core": true,
+      "id": "executionPeriod"
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "description": "Minimum votes in support required for a proposal to succeed",
+      "is_core": true,
+      "id": "quorumVotes"
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "description": "Minimum locked balance required for an account to create a proposal",
+      "is_core": true,
+      "id": "proposalThreshold"
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "description": "Total number of proposals ever created",
+      "is_core": true,
+      "id": "proposalCount"
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "description": "Mapping of proposal id to Proposal record",
+      "is_core": true,
+      "id": "proposals"
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "description": "Mapping proposalId => voter => Receipt",
+      "is_core": true,
+      "id": "receipts"
+    },
+    {
+      "node_id": 8,
+      "type": "state_var",
+      "description": "Mapping of voter address to timestamp until which tokens are locked",
+      "is_core": true,
+      "id": "voteLock"
+    },
+    {
+      "node_id": 9,
+      "type": "state_var",
+      "description": "Internal accounting of locked token balances per address",
+      "is_core": true,
+      "id": "balanceOf"
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "description": "Constructor setting the voting token",
+      "is_core": true,
+      "id": "constructor"
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "description": "Modifier that pulls voter tokens, mints internal balance and sets voteLock",
+      "is_core": true,
+      "id": "lockVotes"
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "description": "View function computing the ProposalState from timestamps and tallies",
+      "is_core": true,
+      "id": "state"
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "description": "Executes a queued proposal via delegatecall to an arbitrary target",
+      "is_core": true,
+      "id": "execute"
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "description": "Creates a new proposal after locking voter tokens",
+      "is_core": true,
+      "id": "propose"
+    },
+    {
+      "node_id": 15,
+      "type": "function",
+      "description": "Casts a vote on an active proposal using locked balance",
+      "is_core": true,
+      "id": "vote"
+    },
+    {
+      "node_id": 16,
+      "type": "function",
+      "description": "Returns locked tokens to the voter after voteLock expiry",
+      "is_core": true,
+      "id": "withdraw"
+    },
+    {
+      "node_id": 17,
+      "type": "function",
+      "description": "Internal mint of internal accounting balance",
+      "is_core": true,
+      "id": "_mint"
+    },
+    {
+      "node_id": 18,
+      "type": "function",
+      "description": "Internal burn of internal accounting balance",
+      "is_core": true,
+      "id": "_burn"
+    },
+    {
+      "node_id": 19,
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used for balances, receipts, locks and transfers",
+      "is_core": true,
+      "id": "msg.sender"
+    },
+    {
+      "node_id": 20,
+      "type": "untrusted_input",
+      "description": "Miner-influenceable time used for proposal lifecycle and vote locks",
+      "is_core": true,
+      "id": "block.timestamp"
+    },
+    {
+      "node_id": 21,
+      "type": "unsafe_operation",
+      "description": "_target.delegatecall(_data) executes arbitrary code inside Governance storage context",
+      "is_core": true,
+      "id": "unsafe_delegatecall"
+    },
+    {
+      "node_id": 22,
+      "type": "unsafe_operation",
+      "description": "votingToken.transferFrom pulls an externally-reported token balance into the contract",
+      "is_core": true,
+      "id": "unsafe_transferFrom"
+    },
+    {
+      "node_id": 23,
+      "type": "unsafe_operation",
+      "description": "votingToken.transfer sends tokens to msg.sender in withdraw",
+      "is_core": true,
+      "id": "unsafe_transfer"
+    },
+    {
+      "node_id": 24,
+      "type": "unsafe_operation",
+      "description": "voteLock[msg.sender] = block.timestamp + votingPeriod timestamp-dependent state write",
+      "is_core": true,
+      "id": "unsafe_voteLockWrite"
+    },
+    {
+      "node_id": 25,
+      "type": "parameter",
+      "description": "Parameter of state(uint proposalId)",
+      "is_core": false,
+      "id": "proposalId"
+    },
+    {
+      "node_id": 26,
+      "type": "parameter",
+      "description": "Parameter _proposalId of execute",
+      "is_core": false,
+      "id": "_proposalId_execute"
+    },
+    {
+      "node_id": 27,
+      "type": "parameter",
+      "description": "Parameter _target of execute, the delegatecall destination",
+      "is_core": false,
+      "id": "_target_execute"
+    },
+    {
+      "node_id": 28,
+      "type": "parameter",
+      "description": "Parameter _data of execute, calldata forwarded to delegatecall",
+      "is_core": false,
+      "id": "_data_execute"
+    },
+    {
+      "node_id": 29,
+      "type": "local_var",
+      "description": "Local keccak256(abi.encode(_target,_data)) in execute",
+      "is_core": false,
+      "id": "txHash_execute"
+    },
+    {
+      "node_id": 30,
+      "type": "local_var",
+      "description": "Storage pointer to proposals[_proposalId] in execute",
+      "is_core": false,
+      "id": "proposal_execute"
+    },
+    {
+      "node_id": 31,
+      "type": "local_var",
+      "description": "Success flag returned by the delegatecall in execute",
+      "is_core": false,
+      "id": "success_execute"
+    },
+    {
+      "node_id": 32,
+      "type": "local_var",
+      "description": "Return data of the delegatecall in execute",
+      "is_core": false,
+      "id": "returnData_execute"
+    },
+    {
+      "node_id": 33,
+      "type": "parameter",
+      "description": "Parameter _target of propose",
+      "is_core": false,
+      "id": "_target_propose"
+    },
+    {
+      "node_id": 34,
+      "type": "parameter",
+      "description": "Parameter _data of propose",
+      "is_core": false,
+      "id": "_data_propose"
+    },
+    {
+      "node_id": 35,
+      "type": "local_var",
+      "description": "Local txHash computed in propose",
+      "is_core": false,
+      "id": "txHash_propose"
+    },
+    {
+      "node_id": 36,
+      "type": "local_var",
+      "description": "Proposal struct built and stored in propose",
+      "is_core": false,
+      "id": "newProposal"
+    },
+    {
+      "node_id": 37,
+      "type": "parameter",
+      "description": "Parameter _proposalId of vote",
+      "is_core": false,
+      "id": "_proposalId_vote"
+    },
+    {
+      "node_id": 38,
+      "type": "parameter",
+      "description": "Parameter _support of vote",
+      "is_core": false,
+      "id": "_support_vote"
+    },
+    {
+      "node_id": 39,
+      "type": "local_var",
+      "description": "Storage pointer to proposals[_proposalId] in vote",
+      "is_core": false,
+      "id": "proposal_vote"
+    },
+    {
+      "node_id": 40,
+      "type": "local_var",
+      "description": "Storage pointer to receipts[_proposalId][msg.sender] in vote",
+      "is_core": false,
+      "id": "receipt_vote"
+    },
+    {
+      "node_id": 41,
+      "type": "local_var",
+      "description": "Local votes = balanceOf[msg.sender] in vote",
+      "is_core": false,
+      "id": "votes_vote"
+    },
+    {
+      "node_id": 42,
+      "type": "parameter",
+      "description": "Parameter _account of _mint",
+      "is_core": false,
+      "id": "_account_mint"
+    },
+    {
+      "node_id": 43,
+      "type": "parameter",
+      "description": "Parameter _amount of _mint",
+      "is_core": false,
+      "id": "_amount_mint"
+    },
+    {
+      "node_id": 44,
+      "type": "parameter",
+      "description": "Parameter _account of _burn",
+      "is_core": false,
+      "id": "_account_burn"
+    },
+    {
+      "node_id": 45,
+      "type": "parameter",
+      "description": "Parameter _amount of _burn",
+      "is_core": false,
+      "id": "_amount_burn"
+    },
+    {
+      "node_id": 46,
+      "type": "parameter",
+      "description": "Constructor parameter _votingToken",
+      "is_core": false,
+      "id": "_votingToken"
+    },
+    {
+      "node_id": 47,
+      "type": "local_var",
+      "description": "Local tokenBalance read from votingToken.balanceOf in lockVotes",
+      "is_core": false,
+      "id": "tokenBalance_lockVotes"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 11,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "msg.sender determines the locked tokens pulled and the voteLock entry written in lockVotes",
+      "from_id": 19
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "propose checks balanceOf[msg.sender] against proposalThreshold and stores msg.sender as proposer",
+      "from_id": 19
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "vote keys the Receipt mapping and vote weight on msg.sender",
+      "from_id": 19
+    },
+    {
+      "to_id": 16,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "withdraw checks voteLock[msg.sender] and transfers tokens to msg.sender",
+      "from_id": 19
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "execute is publicly callable with no restriction tying the caller to the proposal, so any msg.sender can trigger the delegatecall",
+      "from_id": 19
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "state() outcome depends on block.timestamp comparisons against proposal.startTime",
+      "from_id": 20
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "lockVotes sets voteLock to block.timestamp + votingPeriod",
+      "from_id": 20
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "propose stores block.timestamp as the proposal startTime",
+      "from_id": 20
+    },
+    {
+      "to_id": 16,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "withdraw authorization depends on block.timestamp exceeding voteLock",
+      "from_id": 20
+    },
+    {
+      "to_id": 24,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "timestamp-derived lock value written into voteLock state",
+      "from_id": 20
+    },
+    {
+      "to_id": 24,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "lockVotes writes the computed lock value into voteLock mapping",
+      "from_id": 11
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_target parameter is the destination of the delegatecall in execute",
+      "from_id": 27
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_data parameter is the calldata forwarded to the delegatecall in execute",
+      "from_id": 28
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_proposalId selects the proposal inspected and marked executed",
+      "from_id": 26
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "txHash computed from user inputs is compared with proposal.txHash",
+      "from_id": 29
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "success flag from delegatecall gates contract execution success",
+      "from_id": 31
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "returnData from delegatecall is returned to the caller",
+      "from_id": 32
+    },
+    {
+      "to_id": 21,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "execute forwards attacker-supplied target and data into the delegatecall operation",
+      "from_id": 13
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "execute marks proposal.executed = true in the proposals mapping",
+      "from_id": 13
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "delegatecall runs untrusted external code with Governance storage, enabling re-entry into execute/vote/withdraw",
+      "from_id": 21
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "proposalId parameter indexes the proposals mapping read in state()",
+      "from_id": 25
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_target parameter is hashed into the stored proposal txHash",
+      "from_id": 33
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_data parameter is hashed into the stored proposal txHash",
+      "from_id": 34
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "computed txHash is stored into the new Proposal record",
+      "from_id": 35
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "newProposal struct is written into the proposals mapping",
+      "from_id": 36
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_proposalId parameter selects the proposal and receipt entries in vote",
+      "from_id": 37
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_support parameter decides which tally is incremented",
+      "from_id": 38
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "reason": "local votes value is added to forVotes/againstVotes tallies",
+      "from_id": 41
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "receipt storage pointer writes hasVoted/support/votes into receipts mapping",
+      "from_id": 40
+    },
+    {
+      "to_id": 17,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_amount parameter is added into balanceOf by _mint",
+      "from_id": 43
+    },
+    {
+      "to_id": 17,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_account parameter selects the balanceOf entry credited in _mint",
+      "from_id": 42
+    },
+    {
+      "to_id": 18,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_amount parameter is subtracted from balanceOf by _burn",
+      "from_id": 45
+    },
+    {
+      "to_id": 18,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_account parameter selects the balanceOf entry debited in _burn",
+      "from_id": 44
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_mint increments balanceOf internal accounting",
+      "from_id": 17
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_burn decrements balanceOf internal accounting",
+      "from_id": 18
+    },
+    {
+      "to_id": 17,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "balanceOf state is read and increased by _mint",
+      "from_id": 9
+    },
+    {
+      "to_id": 18,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "balanceOf state is read and decreased by _burn",
+      "from_id": 9
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "vote weight is taken from balanceOf[msg.sender]",
+      "from_id": 9
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "proposal creation is gated on balanceOf[msg.sender] >= proposalThreshold",
+      "from_id": 9
+    },
+    {
+      "to_id": 16,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "withdraw amount is read from balanceOf[msg.sender]",
+      "from_id": 9
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "externally reported token balance is locked and minted internally in lockVotes",
+      "from_id": 47
+    },
+    {
+      "to_id": 22,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "lockVotes performs votingToken.transferFrom with the computed token balance",
+      "from_id": 11
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "ERC20 transferFrom is an external call that can re-enter Governance before lock state is consistent",
+      "from_id": 22
+    },
+    {
+      "to_id": 23,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "withdraw performs votingToken.transfer to msg.sender",
+      "from_id": 16
+    },
+    {
+      "to_id": 16,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "ERC20 transfer is an external call made before _burn, allowing re-entrant withdraw on unchanged balance",
+      "from_id": 23
+    },
+    {
+      "to_id": 17,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "lockVotes calls _mint to credit internal balance",
+      "from_id": 11
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "propose is wrapped by the lockVotes modifier",
+      "from_id": 14
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "vote is wrapped by the lockVotes modifier",
+      "from_id": 15
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "execute calls state() to validate the proposal stage",
+      "from_id": 13
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "state() reads tally and execution fields from the proposals mapping",
+      "from_id": 12
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "vote increments forVotes/againstVotes in the proposals mapping",
+      "from_id": 15
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "propose increments proposalCount state variable",
+      "from_id": 14
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "lockVotes writes the voteLock entry for the voter",
+      "from_id": 11
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "withdraw reads voteLock[msg.sender] to authorize the transfer",
+      "from_id": 16
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "lockVotes updates balanceOf via _mint",
+      "from_id": 11
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "execute reads the Proposal storage record from the proposals mapping",
+      "from_id": 30
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "vote reads the Proposal storage record from the proposals mapping",
+      "from_id": 39
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "constructor assigns the votingToken state variable from _votingToken",
+      "from_id": 46
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "state",
+      "normal_node": "proposalId",
+      "reason": "Parameter only feeds the proposals lookup inside state()"
+    },
+    {
+      "merge_into": "execute",
+      "normal_node": "_proposalId_execute",
+      "reason": "Parameter only indexes the proposal record inside execute()"
+    },
+    {
+      "merge_into": "unsafe_delegatecall",
+      "normal_node": "_target_execute",
+      "reason": "Parameter is the delegatecall destination and is subsumed by the unsafe operation"
+    },
+    {
+      "merge_into": "unsafe_delegatecall",
+      "normal_node": "_data_execute",
+      "reason": "Parameter is the calldata of the delegatecall and is subsumed by the unsafe operation"
+    },
+    {
+      "merge_into": "execute",
+      "normal_node": "txHash_execute",
+      "reason": "Local hash is only used for proposal validation inside execute()"
+    },
+    {
+      "merge_into": "execute",
+      "normal_node": "proposal_execute",
+      "reason": "Local storage pointer only used within execute() to set executed=true"
+    },
+    {
+      "merge_into": "execute",
+      "normal_node": "success_execute",
+      "reason": "Local success flag only gates the revert check inside execute()"
+    },
+    {
+      "merge_into": "execute",
+      "normal_node": "returnData_execute",
+      "reason": "Local return buffer is only returned by execute()"
+    },
+    {
+      "merge_into": "propose",
+      "normal_node": "_target_propose",
+      "reason": "Parameter only contributes to the txHash stored by propose()"
+    },
+    {
+      "merge_into": "propose",
+      "normal_node": "_data_propose",
+      "reason": "Parameter only contributes to the txHash stored by propose()"
+    },
+    {
+      "merge_into": "propose",
+      "normal_node": "txHash_propose",
+      "reason": "Local hash is only written into the new Proposal in propose()"
+    },
+    {
+      "merge_into": "propose",
+      "normal_node": "newProposal",
+      "reason": "Local struct is immediately stored by propose()"
+    },
+    {
+      "merge_into": "vote",
+      "normal_node": "_proposalId_vote",
+      "reason": "Parameter only indexes proposal and receipt storage in vote()"
+    },
+    {
+      "merge_into": "vote",
+      "normal_node": "_support_vote",
+      "reason": "Parameter only selects which tally is incremented in vote()"
+    },
+    {
+      "merge_into": "vote",
+      "normal_node": "proposal_vote",
+      "reason": "Local storage pointer only used within vote()"
+    },
+    {
+      "merge_into": "vote",
+      "normal_node": "receipt_vote",
+      "reason": "Local storage pointer only used within vote()"
+    },
+    {
+      "merge_into": "vote",
+      "normal_node": "votes_vote",
+      "reason": "Local vote weight is only used for tally arithmetic inside vote()"
+    },
+    {
+      "merge_into": "_mint",
+      "normal_node": "_account_mint",
+      "reason": "Parameter only selects the balanceOf entry credited by _mint()"
+    },
+    {
+      "merge_into": "_mint",
+      "normal_node": "_amount_mint",
+      "reason": "Parameter is only added into balanceOf by _mint()"
+    },
+    {
+      "merge_into": "_burn",
+      "normal_node": "_account_burn",
+      "reason": "Parameter only selects the balanceOf entry debited by _burn()"
+    },
+    {
+      "merge_into": "_burn",
+      "normal_node": "_amount_burn",
+      "reason": "Parameter is only subtracted from balanceOf by _burn()"
+    },
+    {
+      "merge_into": "constructor",
+      "normal_node": "_votingToken",
+      "reason": "Constructor parameter only initializes the votingToken state variable"
+    },
+    {
+      "merge_into": "lockVotes",
+      "normal_node": "tokenBalance_lockVotes",
+      "reason": "Local balance is only used to size the locked transfer and mint in the modifier"
+    }
+  ]
+}

@@ -1,0 +1,231 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Public uint256 state variable test1; declared in NFGasNames, never read or written by contract logic.",
+      "id": "test1",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Public bytes32 state variable test2; declared in NFGasNames, never read or written by contract logic.",
+      "id": "test2",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Public mapping(uint256 => string) names; persistent storage of name strings keyed by token id, written in setName.",
+      "id": "names",
+      "type": "state_var",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "Public IERC721 nfgas; reference to the external NFT contract whose ownerOf(id) is queried for access control.",
+      "id": "nfgas",
+      "type": "state_var",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "Constructor(address a) that casts the supplied address to IERC721 and stores it in the nfgas state variable.",
+      "id": "constructor",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "Public setName(uint256 id, string memory name): verifies NFT ownership, verifies that the name hash modulo 1025 equals id, then stores names[id] = name.",
+      "id": "setName",
+      "type": "function",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "Caller-controlled address; used as the ownership requirement (nfgas.ownerOf(id) == msg.sender) gating the names[id] write.",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "node_id": 6
+    },
+    {
+      "is_core": false,
+      "description": "Address parameter a of the constructor; used to instantiate the IERC721 nfgas reference.",
+      "id": "param_a",
+      "type": "parameter",
+      "node_id": 7
+    },
+    {
+      "is_core": false,
+      "description": "Caller-supplied uint256 id parameter of setName; used as the ownerOf lookup key, the hash comparison target, and the names mapping key.",
+      "id": "param_id",
+      "type": "parameter",
+      "node_id": 8
+    },
+    {
+      "is_core": false,
+      "description": "Caller-supplied string name parameter of setName; hashed with keccak256 for the id check and written into the names mapping.",
+      "id": "param_name",
+      "type": "parameter",
+      "node_id": 9
+    },
+    {
+      "is_core": false,
+      "description": "Local variable hashValue = uint(keccak256(abi.encodePacked(name))) % 1025; compared against the id parameter in a require.",
+      "id": "local_hashValue",
+      "type": "local_var",
+      "node_id": 10
+    },
+    {
+      "is_core": true,
+      "description": "External call nfgas.ownerOf(id) on an attacker-influenceable ERC721 address, executed before any state update in setName.",
+      "id": "unsafe_ownerOf_call",
+      "type": "unsafe_operation",
+      "node_id": 11
+    },
+    {
+      "is_core": true,
+      "description": "State write names[id] = name executed after the external ownerOf call; mutates persistent storage based on validated caller input.",
+      "id": "unsafe_names_write",
+      "type": "unsafe_operation",
+      "node_id": 12
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "Constructor converts the supplied address into an IERC721 and assigns it to the nfgas state variable.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "Constructor parameter a is consumed by the constructor body when building the IERC721 reference.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "The address parameter a propagates into the nfgas state variable, fixing which external NFT contract will be called.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "The nfgas state variable supplies the external contract target for the ownerOf(id) call inside setName.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "The id parameter is passed as the argument of the external ownerOf(id) call.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "access_control",
+      "reason": "msg.sender is compared with the return value of nfgas.ownerOf(id); this ownership check is the sole access-control gate for the function.",
+      "type": "controlflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "access_control",
+      "reason": "The names[id] state write can only be reached when msg.sender satisfies the ownerOf(id) ownership requirement.",
+      "type": "controlflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "The id parameter is used as the storage key of the names[id] = name assignment.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "The name parameter is stored as the value of the names[id] = name assignment.",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "The name parameter is hashed with keccak256(abi.encodePacked(name)) to compute the local hashValue.",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "The require(hashValue == id) comparison ties the id parameter to the locally computed hashValue and reverts on mismatch.",
+      "type": "controlflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "Function setName computes and uses the local hashValue during its hash-validation step.",
+      "type": "controlflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "The hashValue check result controls whether execution of setName proceeds to the storage write.",
+      "type": "controlflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "reason": "setName performs an external call to nfgas.ownerOf(id); because nfgas is a caller-supplied contract address, the call can transfer control to untrusted code.",
+      "type": "callback",
+      "from_id": 5
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "Function setName performs the names[id] = name storage write as its final action.",
+      "type": "controlflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "reentrancy",
+      "reason": "The external nfgas.ownerOf(id) call is executed before the names[id] = name state write, allowing a malicious nfgas contract to reenter setName and observe or mutate state mid-execution.",
+      "type": "callback",
+      "from_id": 11
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "constructor",
+      "reason": "Constructor parameter a has no independent identity; its only role is to initialize the nfgas state variable, so it is folded into the constructor core node.",
+      "normal_node": "param_a"
+    },
+    {
+      "merge_into": "unsafe_names_write",
+      "reason": "The id parameter is used solely as the key of the names[id] = name storage write, so it is merged into that unsafe operation.",
+      "normal_node": "param_id"
+    },
+    {
+      "merge_into": "unsafe_names_write",
+      "reason": "The name parameter is stored directly into the names mapping by the names[id] = name write, so it is merged into that unsafe operation.",
+      "normal_node": "param_name"
+    },
+    {
+      "merge_into": "setName",
+      "reason": "The local hashValue exists only inside setName to run the hash-validation require, so it is merged into the enclosing core function.",
+      "normal_node": "local_hashValue"
+    }
+  ]
+}

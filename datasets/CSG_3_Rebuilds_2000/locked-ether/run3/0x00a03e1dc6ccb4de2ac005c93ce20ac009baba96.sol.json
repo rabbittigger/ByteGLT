@@ -1,0 +1,133 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "External function disperseTokenSimple that loops over 3 recipients and pulls tokens from msg.sender via token.transferFrom.",
+      "id": "disperseTokenSimple",
+      "type": "function",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Caller-controlled address used as the 'from' argument of token.transferFrom, determining whose tokens are moved.",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "External call to an arbitrary, attacker-supplied IERC20 token contract whose boolean return is enforced by require; target address and behavior are not trusted.",
+      "id": "token.transferFrom",
+      "type": "unsafe_operation",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "Unchecked uint256 multiplication of a caller-supplied value by 10**18 under Solidity 0.6.x, which can silently overflow.",
+      "id": "values[i]*10**18",
+      "type": "unsafe_operation",
+      "node_id": 3
+    },
+    {
+      "is_core": false,
+      "description": "IERC20 token address supplied by the caller; fully controllable external contract.",
+      "id": "token",
+      "type": "parameter",
+      "node_id": 4
+    },
+    {
+      "is_core": false,
+      "description": "Fixed-size address[3] array of transfer destinations supplied by the caller.",
+      "id": "recipients",
+      "type": "parameter",
+      "node_id": 5
+    },
+    {
+      "is_core": false,
+      "description": "Fixed-size uint256[3] array of amounts supplied by the caller and scaled by 10**18.",
+      "id": "values",
+      "type": "parameter",
+      "node_id": 6
+    },
+    {
+      "is_core": false,
+      "description": "Loop counter iterating over the recipients/values arrays.",
+      "id": "i",
+      "type": "local_var",
+      "node_id": 7
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 2,
+      "vuln_type": "reentrancy",
+      "reason": "The function body invokes the external token.transferFrom call inside a loop, exposing control to an untrusted token contract that may reenter.",
+      "type": "controlflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "arithmetic",
+      "reason": "Execution reaches the unchecked values[i]*10**18 multiplication, which can overflow uint256.",
+      "type": "controlflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "msg.sender flows directly into the from parameter of token.transferFrom, so the caller selects the source of the pulled tokens.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "The caller-supplied token parameter is the target contract of the external transferFrom call.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "Elements of the caller-supplied recipients array flow into the to parameter of token.transferFrom.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "arithmetic",
+      "reason": "Caller-supplied values array elements flow into the unchecked multiplication values[i]*10**18.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "The local loop counter i governs loop iteration and therefore controls how many times the function body executes.",
+      "type": "controlflow",
+      "from_id": 7
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "token.transferFrom",
+      "reason": "The token parameter exists only to supply the target contract for the external transferFrom call.",
+      "normal_node": "token"
+    },
+    {
+      "merge_into": "token.transferFrom",
+      "reason": "The recipients array parameter only supplies the destination addresses of token.transferFrom.",
+      "normal_node": "recipients"
+    },
+    {
+      "merge_into": "values[i]*10**18",
+      "reason": "The values array parameter is consumed exclusively by the unchecked scaling multiplication before being passed to transferFrom.",
+      "normal_node": "values"
+    },
+    {
+      "merge_into": "disperseTokenSimple",
+      "reason": "The local loop counter has no independent semantics and only drives the enclosing function's loop.",
+      "normal_node": "i"
+    }
+  ]
+}

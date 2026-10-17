@@ -1,0 +1,147 @@
+{
+  "nodes": [
+    {
+      "description": "External function disperseTokenSimple(IERC20,address[3],uint256[3]) that loops over recipients and pulls tokens from msg.sender via transferFrom, multiplying each value by 10**18.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 0,
+      "id": "func_disperseTokenSimple"
+    },
+    {
+      "description": "Parameter token of type IERC20: the token contract on which the external transferFrom call is executed.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 1,
+      "id": "param_token"
+    },
+    {
+      "description": "Parameter recipients: fixed-size address[3] array of destination addresses receiving the dispersed tokens.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 2,
+      "id": "param_recipients"
+    },
+    {
+      "description": "Parameter values: fixed-size uint256[3] array of amounts that are scaled by 10**18 before transfer.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 3,
+      "id": "param_values"
+    },
+    {
+      "description": "Loop counter i (uint256) used to index recipients[i] and values[i] while iterating over the arrays.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 4,
+      "id": "local_i"
+    },
+    {
+      "description": "msg.sender used as the 'from' address of transferFrom, controlling whose tokens are spent and which addresses are credited.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 5,
+      "id": "untrusted_msg_sender"
+    },
+    {
+      "description": "Unchecked arithmetic values[i]*10**18 compiled with Solidity 0.6.12 (no built-in overflow protection), allowing silent multiplication overflow/truncation.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 6,
+      "id": "unsafe_values_mul"
+    },
+    {
+      "description": "External call token.transferFrom(msg.sender, recipients[i], values[i]*10**18) executed inside a loop, with its boolean result only checked by require.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 7,
+      "id": "unsafe_transferFrom"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The function body executes the unchecked multiplication values[i]*10**18 on every loop iteration, so control flow reaches the unsafe arithmetic operation.",
+      "from_id": 0,
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "to_id": 6
+    },
+    {
+      "reason": "The function body executes the external token.transferFrom call inside its for-loop, so control flow reaches the external call site.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 7
+    },
+    {
+      "reason": "The function consumes the untrusted msg.sender value and forwards it as the source account of the token transfer, making the caller identity security-relevant.",
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "The loop index i determines which element values[i] is read for the arithmetic operation.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "The caller-supplied values array supplies the multiplicand for values[i]*10**18, so attacker-controlled data reaches the unchecked arithmetic.",
+      "from_id": 3,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "The (possibly overflowed) result of values[i]*10**18 flows directly into the external transferFrom amount argument.",
+      "from_id": 6,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "msg.sender flows into the 'from' parameter of transferFrom, so the untrusted caller decides which balance is debited.",
+      "from_id": 5,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "The recipients array supplies recipients[i], the destination address of the external transferFrom call.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "The external token.transferFrom call hands control to an attacker-controlled token contract which may re-enter disperseTokenSimple before the loop state settles (state changes/external interaction ordering).",
+      "from_id": 7,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 0
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "param_token is only used as the receiver of the external transferFrom call, so it should be merged into the unsafe_transferFrom operation node.",
+      "normal_node": "param_token",
+      "merge_into": "unsafe_transferFrom"
+    },
+    {
+      "reason": "param_recipients is only used to supply recipients[i] to the transferFrom call, so it should be merged into the unsafe_transferFrom operation node.",
+      "normal_node": "param_recipients",
+      "merge_into": "unsafe_transferFrom"
+    },
+    {
+      "reason": "param_values is only used as the multiplicand in values[i]*10**18, so it should be merged into the unsafe multiplication operation node.",
+      "normal_node": "param_values",
+      "merge_into": "unsafe_values_mul"
+    },
+    {
+      "reason": "local_i exists solely to index values[i] for the multiplication, so it should be merged into the unsafe multiplication operation node.",
+      "normal_node": "local_i",
+      "merge_into": "unsafe_values_mul"
+    }
+  ]
+}

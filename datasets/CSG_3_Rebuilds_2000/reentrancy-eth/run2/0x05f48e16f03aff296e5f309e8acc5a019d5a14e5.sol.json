@@ -1,0 +1,438 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Auctioned ERC1155 token id (64) set in constructor",
+      "id": "state_id",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "description": "ERC1155 token contract address used for transfers",
+      "id": "state_token",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "description": "Flag marking the auction as finalized",
+      "id": "state_ended",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "description": "Amount of the current highest bid",
+      "id": "state_lastBid",
+      "is_core": true
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "description": "Address of the current highest bidder",
+      "id": "state_winning",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "description": "Auction duration (24 hours)",
+      "id": "state_length",
+      "is_core": true
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "description": "Auction start timestamp",
+      "id": "state_startTime",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "description": "Auction end timestamp, mutated on late bids",
+      "id": "state_endTime",
+      "is_core": true
+    },
+    {
+      "node_id": 8,
+      "type": "state_var",
+      "description": "Fee recipient address",
+      "id": "state_haus",
+      "is_core": true
+    },
+    {
+      "node_id": 9,
+      "type": "state_var",
+      "description": "Seller address receiving proceeds or the NFT on pull",
+      "id": "state_seller",
+      "is_core": true
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "description": "Constructor initializing token, id, times, seller and haus",
+      "id": "fn_constructor",
+      "is_core": true
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "description": "Payable bid function; refunds previous bidder, extends endTime, records new winner",
+      "id": "fn_bid",
+      "is_core": true
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "description": "Finalizes the auction: sends ERC1155 to winner, splits ETH between haus and seller",
+      "id": "fn_end",
+      "is_core": true
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "description": "Returns the ERC1155 to the seller when there were no bids",
+      "id": "fn_pull",
+      "is_core": true
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "description": "View function returning block.timestamp < endTime",
+      "id": "fn_live",
+      "is_core": true
+    },
+    {
+      "node_id": 15,
+      "type": "function",
+      "description": "ERC1155 receiver hook returning the selector",
+      "id": "fn_onERC1155Received",
+      "is_core": true
+    },
+    {
+      "node_id": 16,
+      "type": "untrusted_input",
+      "description": "msg.sender, caller of bid/end/pull, becomes winning bidder",
+      "id": "untrusted_msg_sender",
+      "is_core": true
+    },
+    {
+      "node_id": 17,
+      "type": "untrusted_input",
+      "description": "block.timestamp used for auction timing and time-based rules",
+      "id": "untrusted_block_timestamp",
+      "is_core": true
+    },
+    {
+      "node_id": 18,
+      "type": "untrusted_input",
+      "description": "tx.origin compared against msg.sender to block contracts",
+      "id": "untrusted_tx_origin",
+      "is_core": true
+    },
+    {
+      "node_id": 19,
+      "type": "unsafe_operation",
+      "description": "winning.transfer(lastBid) ETH refund to the previous bidder inside bid()",
+      "id": "unsafe_winning_transfer",
+      "is_core": true
+    },
+    {
+      "node_id": 20,
+      "type": "unsafe_operation",
+      "description": "IERC1155(token).safeTransferFrom(address(this), winning, id, 1, ...) in end()",
+      "id": "unsafe_safeTransferFrom_end",
+      "is_core": true
+    },
+    {
+      "node_id": 21,
+      "type": "unsafe_operation",
+      "description": "haus.transfer(hausFee) ETH payout in end()",
+      "id": "unsafe_haus_transfer",
+      "is_core": true
+    },
+    {
+      "node_id": 22,
+      "type": "unsafe_operation",
+      "description": "seller.transfer(address(this).balance) ETH payout in end()",
+      "id": "unsafe_seller_transfer",
+      "is_core": true
+    },
+    {
+      "node_id": 23,
+      "type": "unsafe_operation",
+      "description": "IERC1155(token).safeTransferFrom(address(this), seller, id, 1, ...) in pull()",
+      "id": "unsafe_safeTransferFrom_pull",
+      "is_core": true
+    },
+    {
+      "node_id": 24,
+      "type": "local_var",
+      "description": "local balance = address(this).balance in end()",
+      "id": "local_balance",
+      "is_core": false
+    },
+    {
+      "node_id": 25,
+      "type": "local_var",
+      "description": "local hausFee = balance.div(20).mul(3) in end()",
+      "id": "local_hausFee",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is used in bid() as the new winning bidder and bidder identity",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 16,
+      "to_id": 11
+    },
+    {
+      "reason": "block.timestamp gates bid() (start, end and 15-minute extension)",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 17,
+      "to_id": 11
+    },
+    {
+      "reason": "tx.origin is compared with msg.sender in bid() as an access restriction",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 18,
+      "to_id": 11
+    },
+    {
+      "reason": "live() depends directly on block.timestamp < endTime",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 17,
+      "to_id": 14
+    },
+    {
+      "reason": "startTime is required to be reached before bidding",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 6,
+      "to_id": 11
+    },
+    {
+      "reason": "endTime is read and extended with now inside bid()",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 7,
+      "to_id": 11
+    },
+    {
+      "reason": "endTime is read by live() for the auction state",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 7,
+      "to_id": 14
+    },
+    {
+      "reason": "lastBid.mul(110).div(100) computes the minimum next bid",
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 3,
+      "to_id": 11
+    },
+    {
+      "reason": "the address controlled by a previous msg.sender (winning) receives ETH via transfer",
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 16,
+      "to_id": 19
+    },
+    {
+      "reason": "bid() performs the external ETH transfer before updating lastBid/winning",
+      "type": "controlflow",
+      "vuln_type": "reentrancy",
+      "from_id": 11,
+      "to_id": 19
+    },
+    {
+      "reason": "lastBid state update happens after the external transfer, allowing reentrant bids",
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 19,
+      "to_id": 3
+    },
+    {
+      "reason": "winning is the recipient of the refund transfer",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 4,
+      "to_id": 19
+    },
+    {
+      "reason": "require(!ended) guards end()",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 2,
+      "to_id": 12
+    },
+    {
+      "reason": "require(winning != address(0)) guards end()",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 4,
+      "to_id": 12
+    },
+    {
+      "reason": "require(!live()) guards end()",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 14,
+      "to_id": 12
+    },
+    {
+      "reason": "end() calls the external ERC1155 safeTransferFrom on the token contract before setting ended",
+      "type": "controlflow",
+      "vuln_type": "reentrancy",
+      "from_id": 12,
+      "to_id": 20
+    },
+    {
+      "reason": "end() sends the house fee via an external ETH transfer",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 12,
+      "to_id": 21
+    },
+    {
+      "reason": "end() sends the remaining balance to the seller via an external ETH transfer",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 12,
+      "to_id": 22
+    },
+    {
+      "reason": "haus (payable address) is the recipient of haus.transfer",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 8,
+      "to_id": 21
+    },
+    {
+      "reason": "seller (payable address) is the recipient of seller.transfer",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 9,
+      "to_id": 22
+    },
+    {
+      "reason": "end() reads address(this).balance into the local variable balance",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 12,
+      "to_id": 24
+    },
+    {
+      "reason": "local balance is not used directly but co-determines the payout split",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 24,
+      "to_id": 21
+    },
+    {
+      "reason": "seller.transfer sends the remaining contract balance",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 24,
+      "to_id": 22
+    },
+    {
+      "reason": "hausFee is derived from balance.div(20).mul(3)",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 24,
+      "to_id": 25
+    },
+    {
+      "reason": "hausFee is the amount passed to haus.transfer",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 25,
+      "to_id": 21
+    },
+    {
+      "reason": "require(!ended) guards pull()",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 2,
+      "to_id": 13
+    },
+    {
+      "reason": "require(!live()) guards pull()",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 14,
+      "to_id": 13
+    },
+    {
+      "reason": "pull() performs an external ERC1155 transfer before flipping ended",
+      "type": "controlflow",
+      "vuln_type": "reentrancy",
+      "from_id": 13,
+      "to_id": 23
+    },
+    {
+      "reason": "token address is the target contract of the ERC1155 call in end()",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 1,
+      "to_id": 20
+    },
+    {
+      "reason": "token address is the target contract of the ERC1155 call in pull()",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 1,
+      "to_id": 23
+    },
+    {
+      "reason": "ERC1155 safeTransferFrom invokes the receiver hook, potentially reentering end() before ended is set",
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 20,
+      "to_id": 12
+    },
+    {
+      "reason": "ERC1155 safeTransferFrom callback can reenter pull() while ended is still false",
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 23,
+      "to_id": 13
+    },
+    {
+      "reason": "safeTransferFrom triggers the onERC1155Received hook on the receiving contract",
+      "type": "callback",
+      "vuln_type": "none",
+      "from_id": 20,
+      "to_id": 15
+    },
+    {
+      "reason": "constructor computes endTime = startTime + length",
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 10,
+      "to_id": 7
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "local_balance",
+      "reason": "local variable balance is only a temporary holder of address(this).balance inside end() and does not carry independent semantics",
+      "merge_into": "fn_end"
+    },
+    {
+      "normal_node": "local_hausFee",
+      "reason": "local variable hausFee exists solely to compute the amount passed to haus.transfer and should be merged into that unsafe operation",
+      "merge_into": "unsafe_haus_transfer"
+    }
+  ]
+}

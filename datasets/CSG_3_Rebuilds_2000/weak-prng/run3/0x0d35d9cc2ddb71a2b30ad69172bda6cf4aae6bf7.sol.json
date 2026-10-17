@@ -1,0 +1,156 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Immutable constant state variable referencing IMerkleWalletClaimer at 0xD8470a6d796d54F13f243A4cf1a890E65bF3670E",
+      "id": "_claimer",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "External function that loops over ClaimArgs[] and forwards each claim to _claimer.claimFor",
+      "id": "claimForInBatch",
+      "type": "function",
+      "node_id": 1
+    },
+    {
+      "is_core": false,
+      "description": "Calldata/memory array of ClaimArgs supplied by the caller to claimForInBatch",
+      "id": "claims",
+      "type": "parameter",
+      "node_id": 2
+    },
+    {
+      "is_core": false,
+      "description": "Loop index used to iterate over claims",
+      "id": "i",
+      "type": "local_var",
+      "node_id": 3
+    },
+    {
+      "is_core": false,
+      "description": "Local memory copy of ClaimArgs at claims[i]",
+      "id": "claim",
+      "type": "local_var",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "External call to _claimer.claimFor forwarding owner, index, wallet, initialSigningKey, claimantSignature and merkleProof",
+      "id": "claimer_call",
+      "type": "unsafe_operation",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "Unchecked ++i increment in an unchecked block, which can overflow without reverting",
+      "id": "unchecked_increment",
+      "type": "unsafe_operation",
+      "node_id": 6
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "claimForInBatch executes the external _claimer.claimFor call during each loop iteration.",
+      "type": "controlflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "_claimer state variable supplies the target address for the external call.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "claims.length determines the loop bound for i.",
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "claims[i] is copied into the local claim variable.",
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "loop index i selects which ClaimArgs element becomes claim.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "fields of local claim are forwarded as arguments to _claimer.claimFor.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "reentrancy",
+      "reason": "External call to _claimer can reenter claimForInBatch before the loop completes.",
+      "type": "callback",
+      "from_id": 5
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "arithmetic",
+      "reason": "claimForInBatch contains the unchecked increment operation.",
+      "type": "controlflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "arithmetic",
+      "reason": "loop index i is incremented by unchecked ++i.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "arithmetic",
+      "reason": "unchecked increment writes the updated value back to i.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "after the external call, execution proceeds to the unchecked loop increment.",
+      "type": "controlflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "loop continues to the next iteration and may execute another external call.",
+      "type": "controlflow",
+      "from_id": 6
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "claimForInBatch",
+      "reason": "Parameter claims is the input array consumed by the claimForInBatch loop.",
+      "normal_node": "claims"
+    },
+    {
+      "merge_into": "claimForInBatch",
+      "reason": "Loop index i is a local variable controlling the claimForInBatch loop.",
+      "normal_node": "i"
+    },
+    {
+      "merge_into": "claimer_call",
+      "reason": "Local claim copy is directly passed to the external claimer_call operation.",
+      "normal_node": "claim"
+    }
+  ]
+}

@@ -1,0 +1,125 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Public address state variable 'owner' storing the deployer/owner account; read by the restricted modifier and written in the constructor.",
+      "id": "state_var_owner",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Public uint state variable 'last_completed_migration' written by setCompleted.",
+      "id": "state_var_last_completed_migration",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Constructor of Migrations that initializes owner from the deploying caller.",
+      "id": "function_constructor_Migrations",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "Public setCompleted(uint) function guarded by the restricted modifier that writes last_completed_migration.",
+      "id": "function_setCompleted",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "restricted modifier that checks msg.sender == owner before executing the guarded function body.",
+      "id": "function_modifier_restricted",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "msg.sender, caller-controlled address used for owner assignment and the access-control comparison.",
+      "id": "untrusted_input_msg_sender",
+      "type": "untrusted_input",
+      "node_id": 5
+    },
+    {
+      "is_core": false,
+      "description": "Input parameter 'completed' of setCompleted(uint).",
+      "id": "parameter_completed",
+      "type": "parameter",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "State-mutating write last_completed_migration = completed, reachable only if the msg.sender == owner access-control check passes.",
+      "id": "unsafe_operation_state_write_migration",
+      "type": "unsafe_operation",
+      "node_id": 7
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "msg.sender is assigned into the owner state variable in the constructor, establishing the privileged account.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "reason": "owner state variable is read inside the restricted modifier to authorize the caller.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "reason": "msg.sender is compared against owner in the restricted modifier's access-control check.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "The restricted modifier gates execution of setCompleted based on the caller identity.",
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "Caller-controlled msg.sender determines whether setCompleted executes at all via the modifier.",
+      "type": "controlflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "The completed parameter is the value written by the state write operation in setCompleted.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "setCompleted executes the state write operation on last_completed_migration.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "arithmetic",
+      "reason": "The state write mutates last_completed_migration using the provided uint value, an unchecked assignment.",
+      "type": "dataflow",
+      "from_id": 7
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "unsafe_operation_state_write_migration",
+      "reason": "The parameter 'completed' has no independent behavior; it is consumed solely as the value of the state write operation in setCompleted and can be merged into it.",
+      "normal_node": "parameter_completed"
+    }
+  ]
+}

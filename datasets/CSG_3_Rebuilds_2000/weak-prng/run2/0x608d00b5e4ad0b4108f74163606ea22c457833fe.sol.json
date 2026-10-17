@@ -1,0 +1,760 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Address of the contract owner, set to msg.sender in the constructor; controls winnerLimit and receives 10% of the pot.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "owner"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping address => uint8[] storing the country IDs owned by each player; mutated during buy and attack.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "playerCountries"
+    },
+    {
+      "type": "state_var",
+      "description": "Fixed array of 178 addresses mapping each country ID to its current owner.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "ownerofCountry"
+    },
+    {
+      "type": "state_var",
+      "description": "Dynamic array of all players who ever bought a country; scanned in isGameEnd to detect a winner.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "playerList"
+    },
+    {
+      "type": "state_var",
+      "description": "Accumulated Ether pot (in wei) received via buyCountry and paid out by isGameEnd.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "totalmoney"
+    },
+    {
+      "type": "state_var",
+      "description": "Stores the result of the last battle randomness computation (block hash modulo a+b).",
+      "is_core": true,
+      "node_id": 5,
+      "id": "lastR"
+    },
+    {
+      "type": "state_var",
+      "description": "Address of the winner of the last finished game.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "lastgameendWinner"
+    },
+    {
+      "type": "state_var",
+      "description": "Number of countries required to win the game; default 50, changeable only by the owner.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "winnerLimit"
+    },
+    {
+      "type": "state_var",
+      "description": "Fixed array of 15 addresses recording the last attacker, defender and battle results.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "winnerloser"
+    },
+    {
+      "type": "function",
+      "description": "Constructor: assigns owner = msg.sender.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "fn_Risk"
+    },
+    {
+      "type": "function",
+      "description": "Payable function that lets a player buy an unowned country for exactly 10 finney.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "fn_buyCountry"
+    },
+    {
+      "type": "function",
+      "description": "Core game logic: computes attacker/defender strength, derives randomness from block.blockhash, transfers countries between players and calls isGameEnd.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "fn_attackCountry"
+    },
+    {
+      "type": "function",
+      "description": "Checks whether a player reached winnerLimit, then distributes the pot with transfer() and resets all game state.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "fn_isGameEnd"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only setter for winnerLimit, protected by assert(msg.sender==owner).",
+      "is_core": true,
+      "node_id": 13,
+      "id": "fn_setwinnerLimit"
+    },
+    {
+      "type": "function",
+      "description": "Constant getter returning the full ownerofCountry array.",
+      "is_core": true,
+      "node_id": 14,
+      "id": "fn_getCountryOwnershipList"
+    },
+    {
+      "type": "function",
+      "description": "Constant getter returning totalmoney.",
+      "is_core": true,
+      "node_id": 15,
+      "id": "fn_getTotalBet"
+    },
+    {
+      "type": "function",
+      "description": "Constant getter returning a country ID at a given index for a given player.",
+      "is_core": true,
+      "node_id": 16,
+      "id": "fn_getaddr"
+    },
+    {
+      "type": "function",
+      "description": "Constant getter returning the number of countries owned by an address.",
+      "is_core": true,
+      "node_id": 17,
+      "id": "fn_len"
+    },
+    {
+      "type": "function",
+      "description": "Constant getter returning the last battle randomness value lastR.",
+      "is_core": true,
+      "node_id": 18,
+      "id": "fn_lastrandom"
+    },
+    {
+      "type": "function",
+      "description": "Constant getter returning the winnerloser array.",
+      "is_core": true,
+      "node_id": 19,
+      "id": "fn_getwinnerloser"
+    },
+    {
+      "type": "function",
+      "description": "Constant getter returning the last finished game winner.",
+      "is_core": true,
+      "node_id": 20,
+      "id": "fn_lastgamewinner"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "msg.sender: used as owner, buyer, attacker and payer identity throughout the contract.",
+      "is_core": true,
+      "node_id": 21,
+      "id": "input_msg_sender"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "totalmoney += msg.value in buyCountry: unchecked accumulation of Ether (arithmetic/overflow risk).",
+      "is_core": true,
+      "node_id": 22,
+      "id": "unsafe_totalmoney_add"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "winner.transfer(totalmoney/10*9) and owner.transfer(totalmoney/10) in isGameEnd: external Ether sends before state is fully reset (reentrancy risk).",
+      "is_core": true,
+      "node_id": 23,
+      "id": "unsafe_transfer_payout"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "lastR = uint256(block.blockhash(block.number-1)) % (a+b): miner-influenced pseudo-randomness deciding the battle outcome (weak randomness / access control).",
+      "is_core": true,
+      "node_id": 24,
+      "id": "unsafe_blockhash_randomness"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "playerCountries[x].length = 0 and reset of ownerofCountry/playerList/winnerloser: direct storage-array length manipulation.",
+      "is_core": true,
+      "node_id": 25,
+      "id": "unsafe_array_truncate"
+    },
+    {
+      "type": "parameter",
+      "description": "countryID parameter of buyCountry: index of the country to purchase.",
+      "is_core": false,
+      "node_id": 26,
+      "id": "param_countryID_buy"
+    },
+    {
+      "type": "parameter",
+      "description": "countryID parameter of attackCountry: index of the country being attacked.",
+      "is_core": false,
+      "node_id": 27,
+      "id": "param_countryID_attack"
+    },
+    {
+      "type": "parameter",
+      "description": "x parameter of setwinnerLimit: new winning threshold.",
+      "is_core": false,
+      "node_id": 28,
+      "id": "param_x_setwinnerLimit"
+    },
+    {
+      "type": "parameter",
+      "description": "ax parameter of getaddr: player address lookup key.",
+      "is_core": false,
+      "node_id": 29,
+      "id": "param_ax_getaddr"
+    },
+    {
+      "type": "parameter",
+      "description": "bx parameter of getaddr: index into the player's country array.",
+      "is_core": false,
+      "node_id": 30,
+      "id": "param_bx_getaddr"
+    },
+    {
+      "type": "parameter",
+      "description": "ax parameter of len: player address lookup key.",
+      "is_core": false,
+      "node_id": 31,
+      "id": "param_ax_len"
+    },
+    {
+      "type": "local_var",
+      "description": "attacker local variable in attackCountry, set from msg.sender.",
+      "is_core": false,
+      "node_id": 32,
+      "id": "local_attacker"
+    },
+    {
+      "type": "local_var",
+      "description": "defender local variable in attackCountry, set from ownerofCountry[countryID].",
+      "is_core": false,
+      "node_id": 33,
+      "id": "local_defender"
+    },
+    {
+      "type": "local_var",
+      "description": "Attacker strength bucket 'a' derived from attacker's country count.",
+      "is_core": false,
+      "node_id": 34,
+      "id": "local_a"
+    },
+    {
+      "type": "local_var",
+      "description": "Defender strength bucket 'b' derived from defender's country count.",
+      "is_core": false,
+      "node_id": 35,
+      "id": "local_b"
+    },
+    {
+      "type": "local_var",
+      "description": "Loop counter i in attackCountry used for shifting winnerloser, transferring countries and iterating battles.",
+      "is_core": false,
+      "node_id": 36,
+      "id": "local_i_attack"
+    },
+    {
+      "type": "local_var",
+      "description": "loopcount local in attackCountry holding the number of countries to transfer.",
+      "is_core": false,
+      "node_id": 37,
+      "id": "local_loopcount_attack"
+    },
+    {
+      "type": "local_var",
+      "description": "loopcount local in isGameEnd holding playerList.length.",
+      "is_core": false,
+      "node_id": 38,
+      "id": "local_loopcount_isGameEnd"
+    },
+    {
+      "type": "local_var",
+      "description": "winner local in isGameEnd, defaults to owner and becomes the payout recipient.",
+      "is_core": false,
+      "node_id": 39,
+      "id": "local_winner_isGameEnd"
+    },
+    {
+      "type": "local_var",
+      "description": "del boolean local in isGameEnd flagging that the game must be reset.",
+      "is_core": false,
+      "node_id": 40,
+      "id": "local_del_isGameEnd"
+    },
+    {
+      "type": "local_var",
+      "description": "Loop counter i in isGameEnd used both as uint8 player loop and uint for state reset loops.",
+      "is_core": false,
+      "node_id": 41,
+      "id": "local_i_isGameEnd"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "msg.sender is stored as owner in the constructor.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "Constructor Risk() writes the owner state variable.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 22,
+      "type": "controlflow",
+      "reason": "buyCountry executes the unchecked totalmoney += msg.value accumulation.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "Unchecked addition updates totalmoney and can overflow with enough deposits.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "countryID parameter feeds buyCountry.",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "countryID indexes ownerofCountry for the ownership assertion and assignment.",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "msg.sender is used as the key when pushing into playerCountries.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "msg.sender becomes the new owner of the bought country.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "msg.sender is appended to playerList on every buy.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "msg.sender drives all assertions and state writes in buyCountry.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "countryID parameter feeds attackCountry.",
+      "from_id": 27
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "msg.sender determines the attacker identity and ownership assertions in attackCountry.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 32,
+      "type": "dataflow",
+      "reason": "attacker local is assigned directly from msg.sender.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "countryID indexes ownerofCountry to resolve the defender.",
+      "from_id": 27
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "attacker local is used for strength computation and country transfer in attackCountry.",
+      "from_id": 32
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "defender local drives the defender branch and country transfer in attackCountry.",
+      "from_id": 33
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "Attacker strength bucket a selects the winning condition branch.",
+      "from_id": 34
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "Defender strength bucket b participates in the battle outcome decision.",
+      "from_id": 35
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "Loop counter i controls winnerloser shifting and country transfer loops.",
+      "from_id": 36
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "loopcount determines how many countries are moved from loser to winner.",
+      "from_id": 37
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 24,
+      "type": "controlflow",
+      "reason": "attackCountry computes battle randomness from block.blockhash(block.number-1).",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "The block-hash-derived value is written into lastR and decides the battle winner.",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "Attacker strength a is the modulus operand of the miner-influenced randomness.",
+      "from_id": 34
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "Defender strength b is the modulus operand of the miner-influenced randomness.",
+      "from_id": 35
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "Loser's country array is truncated via playerCountries[...].length = 0.",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "ownerofCountry entries are reassigned to the attacking player.",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "controlflow",
+      "reason": "attackCountry performs direct storage array manipulation when transferring countries.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "attackCountry calls isGameEnd after each battle.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 23,
+      "type": "controlflow",
+      "reason": "isGameEnd performs external Ether transfers to winner and owner.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "transfer amounts are computed from totalmoney and sent before state is fully cleared, enabling reentrancy.",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "The winner local receives 90% of the pot via an external transfer call.",
+      "from_id": 39
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "loopcount bounds the winner-search loop over playerList.",
+      "from_id": 38
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "winner local is the payout target and is stored in lastgameendWinner.",
+      "from_id": 39
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "del flag gates the whole pot payout and state reset block.",
+      "from_id": 40
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "Loop counter i iterates the players and the state-reset loops in isGameEnd.",
+      "from_id": 41
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "playerList.length is set to 0 during the game reset.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "All playerCountries arrays are cleared during the game reset.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "ownerofCountry entries are zeroed during the game reset.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "lastgameendWinner is updated with the winning player.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "winnerloser history is zeroed during the game reset.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "totalmoney is read for the 90/10 payout and then reset to zero.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "x parameter supplies the new winnerLimit value.",
+      "from_id": 28
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "msg.sender is asserted to equal owner in setwinnerLimit (access control).",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "setwinnerLimit writes the winnerLimit state variable.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "ax parameter feeds the getaddr lookup.",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "bx parameter indexes the player's country array in getaddr.",
+      "from_id": 30
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "ax parameter feeds the len lookup.",
+      "from_id": 31
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "getaddr reads playerCountries.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "len reads playerCountries[ax].length.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "getCountryOwnershipList returns ownerofCountry.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "getTotalBet returns totalmoney.",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "lastrandom returns lastR.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "getwinnerloser returns winnerloser.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "lastgamewinner returns lastgameendWinner.",
+      "from_id": 20
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "fn_buyCountry",
+      "reason": "countryID is only used as the index argument of buyCountry.",
+      "normal_node": "param_countryID_buy"
+    },
+    {
+      "merge_into": "fn_attackCountry",
+      "reason": "countryID is only used as the index argument of attackCountry.",
+      "normal_node": "param_countryID_attack"
+    },
+    {
+      "merge_into": "fn_setwinnerLimit",
+      "reason": "x is only the new value assigned to winnerLimit inside setwinnerLimit.",
+      "normal_node": "param_x_setwinnerLimit"
+    },
+    {
+      "merge_into": "fn_getaddr",
+      "reason": "ax is only used as the mapping key inside getaddr.",
+      "normal_node": "param_ax_getaddr"
+    },
+    {
+      "merge_into": "fn_getaddr",
+      "reason": "bx is only the array index inside getaddr.",
+      "normal_node": "param_bx_getaddr"
+    },
+    {
+      "merge_into": "fn_len",
+      "reason": "ax is only used as the mapping key inside len.",
+      "normal_node": "param_ax_len"
+    },
+    {
+      "merge_into": "fn_attackCountry",
+      "reason": "attacker is a temporary alias of msg.sender inside attackCountry.",
+      "normal_node": "local_attacker"
+    },
+    {
+      "merge_into": "fn_attackCountry",
+      "reason": "defender is a temporary alias of ownerofCountry[countryID] inside attackCountry.",
+      "normal_node": "local_defender"
+    },
+    {
+      "merge_into": "fn_attackCountry",
+      "reason": "a is the attacker strength bucket computed and consumed only in attackCountry.",
+      "normal_node": "local_a"
+    },
+    {
+      "merge_into": "fn_attackCountry",
+      "reason": "b is the defender strength bucket computed and consumed only in attackCountry.",
+      "normal_node": "local_b"
+    },
+    {
+      "merge_into": "fn_attackCountry",
+      "reason": "i is the loop counter used only within attackCountry.",
+      "normal_node": "local_i_attack"
+    },
+    {
+      "merge_into": "fn_attackCountry",
+      "reason": "loopcount bounds the country-transfer loop inside attackCountry.",
+      "normal_node": "local_loopcount_attack"
+    },
+    {
+      "merge_into": "fn_isGameEnd",
+      "reason": "loopcount holds playerList.length only inside isGameEnd.",
+      "normal_node": "local_loopcount_isGameEnd"
+    },
+    {
+      "merge_into": "fn_isGameEnd",
+      "reason": "winner is the payout recipient determined inside isGameEnd.",
+      "normal_node": "local_winner_isGameEnd"
+    },
+    {
+      "merge_into": "fn_isGameEnd",
+      "reason": "del gates the payout and reset block inside isGameEnd.",
+      "normal_node": "local_del_isGameEnd"
+    },
+    {
+      "merge_into": "fn_isGameEnd",
+      "reason": "i is the loop counter used only within isGameEnd.",
+      "normal_node": "local_i_isGameEnd"
+    }
+  ]
+}

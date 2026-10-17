@@ -1,0 +1,170 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Public address state variable `owner`, set in the constructor from msg.sender and used by the restricted modifier.",
+      "id": "state_var_owner",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Public uint state variable `last_completed_migration`, written by setCompleted and read by upgrade.",
+      "id": "state_var_last_completed_migration",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Constructor that assigns owner = msg.sender, establishing the privileged account.",
+      "id": "function_constructor",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "External function setCompleted(uint completed) guarded by the `restricted` modifier; writes last_completed_migration.",
+      "id": "function_setCompleted",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "External unrestricted function upgrade(address new_address) that instantiates Migrations(new_address) and propagates last_completed_migration.",
+      "id": "function_upgrade",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "msg.sender, attacker-controllable caller identity used for the owner assignment and the restricted access check.",
+      "id": "untrusted_input_msg_sender",
+      "type": "untrusted_input",
+      "node_id": 5
+    },
+    {
+      "is_core": false,
+      "description": "Parameter `completed` of setCompleted, the value written into last_completed_migration.",
+      "id": "parameter_completed",
+      "type": "parameter",
+      "node_id": 6
+    },
+    {
+      "is_core": false,
+      "description": "Parameter `new_address` of upgrade, an arbitrary caller-supplied contract address used as the external call target.",
+      "id": "parameter_new_address",
+      "type": "parameter",
+      "node_id": 7
+    },
+    {
+      "is_core": false,
+      "description": "Local variable `upgraded` holding the Migrations instance created from new_address and used for the outgoing call.",
+      "id": "local_var_upgraded",
+      "type": "local_var",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "description": "External call `upgraded.setCompleted(last_completed_migration)` on a caller-supplied address; can invoke attacker-controlled code and is vulnerable to reentrancy/unsafe external call.",
+      "id": "unsafe_operation_external_call",
+      "type": "unsafe_operation",
+      "node_id": 9
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "Constructor assigns msg.sender to the owner state variable.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "Constructor writes the owner state variable.",
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "The `completed` parameter is written into last_completed_migration.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "setCompleted writes the last_completed_migration state variable.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "The restricted modifier gates setCompleted on msg.sender == owner, so caller identity controls entry.",
+      "type": "controlflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "access_control",
+      "reason": "Caller-supplied new_address determines the target contract of the external call, granting the caller control over the callee.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "last_completed_migration is passed as the argument of the external call.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "reentrancy",
+      "reason": "The `upgraded` instance obtained from new_address is the receiver of the external call.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "reentrancy",
+      "reason": "upgrade performs the external call to the arbitrary address, enabling reentrant execution.",
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "upgrade reads last_completed_migration to forward it to the new contract.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "reentrancy",
+      "reason": "The external call invokes setCompleted on the target contract, which can re-enter the calling context.",
+      "type": "callback",
+      "from_id": 9
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "function_setCompleted",
+      "reason": "Parameter `completed` exists only to supply the value stored by setCompleted, so it is normalized into that core function node.",
+      "normal_node": "parameter_completed"
+    },
+    {
+      "merge_into": "function_upgrade",
+      "reason": "Parameter `new_address` is consumed only by upgrade to build the external call target, so it is normalized into that core function node.",
+      "normal_node": "parameter_new_address"
+    },
+    {
+      "merge_into": "unsafe_operation_external_call",
+      "reason": "Local variable `upgraded` is a temporary handle used solely for the unsafe external call, so it is normalized into that core unsafe_operation node.",
+      "normal_node": "local_var_upgraded"
+    }
+  ]
+}

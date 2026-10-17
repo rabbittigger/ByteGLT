@@ -1,0 +1,168 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Public pure function validating a BubbleBudz id by checking the upper 96 bits against a fixed address and the low bits against 1.",
+      "id": "func_isValidBubbleBudz",
+      "type": "function",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Public pure function extracting the raw genesis id from tokenId_ via mask/shift and subtracting 2.",
+      "id": "func_bubbleBudsGenesisId",
+      "type": "function",
+      "node_id": 1
+    },
+    {
+      "is_core": false,
+      "description": "Input id_ passed to isValidBubbleBudz, inspected via shift and bitwise AND.",
+      "id": "param_id_",
+      "type": "parameter",
+      "node_id": 2
+    },
+    {
+      "is_core": false,
+      "description": "Input tokenId_ passed to bubbleBudsGenesisId, masked and shifted to extract the raw id.",
+      "id": "param_tokenId_",
+      "type": "parameter",
+      "node_id": 3
+    },
+    {
+      "is_core": false,
+      "description": "Intermediate local _rawId holding the masked and shifted value derived from tokenId_.",
+      "id": "local_rawId",
+      "type": "local_var",
+      "node_id": 4
+    },
+    {
+      "is_core": false,
+      "description": "Local _fixedId = _rawId - 2, the value returned by bubbleBudsGenesisId.",
+      "id": "local_fixedId",
+      "type": "local_var",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "Bitwise shift (id_ >> 96) and mask (id_ & 0xffffffffff) comparisons used for validation.",
+      "id": "unsafe_bitwise_check",
+      "type": "unsafe_operation",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "Arithmetic operation _rawId - 2, which can underflow when the extracted raw id is less than 2.",
+      "id": "unsafe_subtraction",
+      "type": "unsafe_operation",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "Bitwise mask (tokenId_ & 0xffffff0000000000 style mask) and shift by 40 extracting the raw id.",
+      "id": "unsafe_mask_shift",
+      "type": "unsafe_operation",
+      "node_id": 8
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "Parameter id_ is the sole input consumed by isValidBubbleBudz.",
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "Parameter tokenId_ is the sole input consumed by bubbleBudsGenesisId.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "isValidBubbleBudz execution leads into the bitwise shift/mask validation operations.",
+      "type": "controlflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "arithmetic",
+      "reason": "id_ is shifted by 96 and bitwise-ANDed with a mask inside the validation checks.",
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "bubbleBudsGenesisId execution leads into the mask and shift of tokenId_.",
+      "type": "controlflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "arithmetic",
+      "reason": "tokenId_ is masked and shifted by 40 to derive the raw genesis id.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "arithmetic",
+      "reason": "Local _rawId is assigned from the masked/shifted value produced by the bitwise operation.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "bubbleBudsGenesisId execution continues into the subtraction of 2.",
+      "type": "controlflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "arithmetic",
+      "reason": "_rawId feeds the subtraction _rawId - 2, which can underflow for raw ids below 2.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "arithmetic",
+      "reason": "Local _fixedId is assigned the result of the subtraction _rawId - 2.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "_fixedId is returned as the function result of bubbleBudsGenesisId.",
+      "type": "dataflow",
+      "from_id": 5
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "func_isValidBubbleBudz",
+      "reason": "id_ is only a transient input of isValidBubbleBudz and carries no independent semantic identity.",
+      "normal_node": "param_id_"
+    },
+    {
+      "merge_into": "func_bubbleBudsGenesisId",
+      "reason": "tokenId_ is only a transient input of bubbleBudsGenesisId and is fully absorbed by its computation.",
+      "normal_node": "param_tokenId_"
+    },
+    {
+      "merge_into": "unsafe_mask_shift",
+      "reason": "_rawId exists solely to hold the masked and shifted output of the bitwise unsafe operation.",
+      "normal_node": "local_rawId"
+    },
+    {
+      "merge_into": "unsafe_subtraction",
+      "reason": "_fixedId exists solely to hold the result of the _rawId - 2 subtraction unsafe operation.",
+      "normal_node": "local_fixedId"
+    }
+  ]
+}

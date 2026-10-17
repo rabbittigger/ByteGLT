@@ -1,0 +1,163 @@
+{
+  "nodes": [
+    {
+      "type": "function",
+      "description": "External view function that derives a pseudo-random number from tx.origin, nonce, blockhash of previous block, block.timestamp and seed, then applies modulo mod.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "Randomizer.randomMod"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Attacker-controllable origin address fed into the keccak256 randomness preimage.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "tx.origin"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Miner/validator-influenceable timestamp used in the randomness preimage, making the result predictable/dependent on block conditions.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Weak randomness generation: keccak256(abi.encodePacked(tx.origin, nonce, blockhash(block.number - 1), block.timestamp, seed)) is fully predictable and manipulable by callers and block producers.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "unsafe_randomness_keccak256"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Modulo operation using a caller-supplied divisor mod; a zero mod causes a division-by-zero revert (Solidity 0.8 checked arithmetic).",
+      "is_core": true,
+      "node_id": 4,
+      "id": "unsafe_modulo_mod"
+    },
+    {
+      "type": "parameter",
+      "description": "Caller-supplied seed mixed into the randomness preimage of randomMod.",
+      "is_core": false,
+      "node_id": 5,
+      "id": "param_seed"
+    },
+    {
+      "type": "parameter",
+      "description": "Caller-supplied nonce mixed into the randomness preimage of randomMod.",
+      "is_core": false,
+      "node_id": 6,
+      "id": "param_nonce"
+    },
+    {
+      "type": "parameter",
+      "description": "Caller-supplied modulus acting as the divisor of the keccak256 output in randomMod.",
+      "is_core": false,
+      "node_id": 7,
+      "id": "param_mod"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "tx.origin is read inside randomMod and becomes part of the returned randomness value, creating origin/identity dependency.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "block.timestamp is read inside randomMod and becomes part of the returned randomness value, creating timestamp dependency.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "The seed parameter is passed into randomMod and encoded into the keccak256 preimage.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "The nonce parameter is passed into randomMod and encoded into the keccak256 preimage.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "The mod parameter is passed into randomMod and used as the modulus of the returned value.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "tx.origin flows directly into the keccak256 randomness preimage, letting the caller influence the generated number.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "block.timestamp flows directly into the keccak256 randomness preimage, letting block producers influence the generated number.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "seed is packed into abi.encodePacked for the keccak256 randomness preimage.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "nonce is packed into abi.encodePacked for the keccak256 randomness preimage.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "controlflow",
+      "reason": "randomMod executes the weak keccak256 randomness computation as its core logic before returning.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 4,
+      "type": "controlflow",
+      "reason": "randomMod applies the modulo arithmetic operation on the keccak256 result using the caller-supplied mod.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "The caller-supplied mod parameter is the divisor of the modulo operation, so mod == 0 triggers an arithmetic revert.",
+      "from_id": 7
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "Randomizer.randomMod",
+      "reason": "seed is a call-scoped parameter whose only role is being consumed by the randomMod randomness computation, so it collapses into the function node.",
+      "normal_node": "param_seed"
+    },
+    {
+      "merge_into": "Randomizer.randomMod",
+      "reason": "nonce is a call-scoped parameter used only inside randomMod's keccak256 preimage, so it collapses into the function node.",
+      "normal_node": "param_nonce"
+    },
+    {
+      "merge_into": "unsafe_modulo_mod",
+      "reason": "mod directly parameterizes the modulo divisor, so it collapses into the modulo unsafe_operation node.",
+      "normal_node": "param_mod"
+    }
+  ]
+}

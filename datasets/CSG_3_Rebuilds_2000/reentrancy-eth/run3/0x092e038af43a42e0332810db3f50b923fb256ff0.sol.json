@@ -1,0 +1,590 @@
+{
+  "nodes": [
+    {
+      "id": "free",
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Immutable IFree external contract reference set in the constructor from the freeAddr argument.",
+      "is_core": true
+    },
+    {
+      "id": "addressToStakes",
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Mapping(address => Stake) holding each staker's first/second stake block numbers, mint block number and total staked ETH.",
+      "is_core": true
+    },
+    {
+      "id": "free0TokenIdUsed",
+      "node_id": 2,
+      "type": "state_var",
+      "description": "Mapping(uint256 => bool) tracking whether a Free0 NFT has already been consumed for a Free3 mint.",
+      "is_core": true
+    },
+    {
+      "id": "administrator",
+      "node_id": 3,
+      "type": "state_var",
+      "description": "Privileged address that can withdraw failed stakes and transfer administratorship.",
+      "is_core": true
+    },
+    {
+      "id": "stakePeriod",
+      "node_id": 4,
+      "type": "state_var",
+      "description": "Immutable minimum number of blocks that must elapse between the first and second stake / before claiming.",
+      "is_core": true
+    },
+    {
+      "id": "progressPeriodExpiration",
+      "node_id": 5,
+      "type": "state_var",
+      "description": "Immutable block window upper bound used both to gate staking/claiming and to detect failed (expired) stakes.",
+      "is_core": true
+    },
+    {
+      "id": "constructor",
+      "node_id": 6,
+      "type": "function",
+      "description": "Constructor: stores IFree address, stakePeriod, progressPeriodExpiration and sets administrator = msg.sender.",
+      "is_core": true
+    },
+    {
+      "id": "transferAdministratorship",
+      "node_id": 7,
+      "type": "function",
+      "description": "Admin-only function that overwrites the administrator state variable with a new address.",
+      "is_core": true
+    },
+    {
+      "id": "firstStake",
+      "node_id": 8,
+      "type": "function",
+      "description": "Payable first stake: records firstStakeBlockNumber and accumulates totalStaked; requires >= 0.25 ether and no previous first stake.",
+      "is_core": true
+    },
+    {
+      "id": "secondStake",
+      "node_id": 9,
+      "type": "function",
+      "description": "Payable second stake gated by a block-number window between firstStakeBlockNumber+stakePeriod and firstStakeBlockNumber+progressPeriodExpiration.",
+      "is_core": true
+    },
+    {
+      "id": "withdraw",
+      "node_id": 10,
+      "type": "function",
+      "description": "Admin-only recovery of staked ETH when both stake windows expired, ETH is still staked and no token was minted; pays administrator.",
+      "is_core": true
+    },
+    {
+      "id": "claim",
+      "node_id": 11,
+      "type": "function",
+      "description": "Mints a Free3 (collectionId 3) after verifying Free0 ownership and block window; appends attribute, marks token used, refunds/returns staked ETH.",
+      "is_core": true
+    },
+    {
+      "id": "msg_sender",
+      "node_id": 12,
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used as mapping key, admin check subject, owner check and payout recipient.",
+      "is_core": true
+    },
+    {
+      "id": "block_timestamp",
+      "node_id": 13,
+      "type": "untrusted_input",
+      "description": "Miner-influenceable block time reference (block.number used in this contract) driving all staking/claim/withdraw windows.",
+      "is_core": true
+    },
+    {
+      "id": "withdraw_eth_transfer",
+      "node_id": 14,
+      "type": "unsafe_operation",
+      "description": "payable(administrator).transfer(stake.totalStaked) executed before stake.totalStaked is reset to zero.",
+      "is_core": true
+    },
+    {
+      "id": "claim_eth_transfer",
+      "node_id": 15,
+      "type": "unsafe_operation",
+      "description": "payable(msg.sender).transfer(stake.totalStaked) in claim, executed after an external call and before stake.totalStaked = 0.",
+      "is_core": true
+    },
+    {
+      "id": "free_mint_call",
+      "node_id": 16,
+      "type": "unsafe_operation",
+      "description": "External call free.mint(3, msg.sender) into the caller-supplied IFree contract inside claim.",
+      "is_core": true
+    },
+    {
+      "id": "free_appendAttribute_call",
+      "node_id": 17,
+      "type": "unsafe_operation",
+      "description": "External call free.appendAttributeToToken(free0TokenId, ...) into the caller-supplied IFree contract inside claim.",
+      "is_core": true
+    },
+    {
+      "id": "param_newAdministrator",
+      "node_id": 18,
+      "type": "parameter",
+      "description": "New administrator address supplied to transferAdministratorship.",
+      "is_core": false
+    },
+    {
+      "id": "param_staker",
+      "node_id": 19,
+      "type": "parameter",
+      "description": "Staker address supplied to withdraw, used to index addressToStakes.",
+      "is_core": false
+    },
+    {
+      "id": "param_free0TokenId",
+      "node_id": 20,
+      "type": "parameter",
+      "description": "Free0 token id supplied to claim, validated through IFree and free0TokenIdUsed.",
+      "is_core": false
+    },
+    {
+      "id": "param_freeAddr",
+      "node_id": 21,
+      "type": "parameter",
+      "description": "Constructor argument specifying the IFree contract address stored in free.",
+      "is_core": false
+    },
+    {
+      "id": "param_stakePeriod",
+      "node_id": 22,
+      "type": "parameter",
+      "description": "Constructor argument assigned to immutable stakePeriod.",
+      "is_core": false
+    },
+    {
+      "id": "param_progressPeriodExpiration",
+      "node_id": 23,
+      "type": "parameter",
+      "description": "Constructor argument assigned to immutable progressPeriodExpiration.",
+      "is_core": false
+    },
+    {
+      "id": "local_stake_firstStake",
+      "node_id": 24,
+      "type": "local_var",
+      "description": "Stake storage pointer to addressToStakes[msg.sender] inside firstStake.",
+      "is_core": false
+    },
+    {
+      "id": "local_stake_secondStake",
+      "node_id": 25,
+      "type": "local_var",
+      "description": "Stake storage pointer to addressToStakes[msg.sender] inside secondStake.",
+      "is_core": false
+    },
+    {
+      "id": "local_stake_withdraw",
+      "node_id": 26,
+      "type": "local_var",
+      "description": "Stake storage pointer to addressToStakes[staker] inside withdraw.",
+      "is_core": false
+    },
+    {
+      "id": "local_stake_claim",
+      "node_id": 27,
+      "type": "local_var",
+      "description": "Stake storage pointer to addressToStakes[msg.sender] inside claim.",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "reason": "Constructor assigns free = IFree(freeAddr).",
+      "type": "dataflow",
+      "from_id": 6,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 3,
+      "reason": "Constructor sets administrator = msg.sender, establishing the privileged role.",
+      "type": "dataflow",
+      "from_id": 6,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 4,
+      "reason": "Constructor assigns immutable stakePeriod.",
+      "type": "dataflow",
+      "from_id": 6,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 5,
+      "reason": "Constructor assigns immutable progressPeriodExpiration.",
+      "type": "dataflow",
+      "from_id": 6,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 6,
+      "reason": "freeAddr parameter is used to build the IFree reference.",
+      "type": "dataflow",
+      "from_id": 21,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 6,
+      "reason": "_stakePeriod parameter flows into state var stakePeriod.",
+      "type": "dataflow",
+      "from_id": 22,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 6,
+      "reason": "_progressPeriodExpiration parameter flows into state var progressPeriodExpiration.",
+      "type": "dataflow",
+      "from_id": 23,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 6,
+      "reason": "msg.sender is stored as the initial administrator.",
+      "type": "dataflow",
+      "from_id": 12,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 3,
+      "reason": "transferAdministratorship overwrites the administrator state variable.",
+      "type": "dataflow",
+      "from_id": 7,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 7,
+      "reason": "onlyAdmin modifier requires msg.sender == administrator before executing.",
+      "type": "controlflow",
+      "from_id": 12,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 7,
+      "reason": "newAdministrator parameter is written into the administrator state variable.",
+      "type": "dataflow",
+      "from_id": 18,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 1,
+      "reason": "firstStake reads and writes addressToStakes[msg.sender].",
+      "type": "dataflow",
+      "from_id": 8,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "msg.sender used as the addressToStakes mapping key in firstStake.",
+      "type": "dataflow",
+      "from_id": 12,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "firstStakeBlockNumber is set from block.number.",
+      "type": "dataflow",
+      "from_id": 13,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 24,
+      "reason": "firstStake creates the Stake storage pointer local.",
+      "type": "dataflow",
+      "from_id": 8,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 1,
+      "reason": "Local stake pointer aliases the addressToStakes entry.",
+      "type": "dataflow",
+      "from_id": 24,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 1,
+      "reason": "secondStake reads and writes addressToStakes[msg.sender].",
+      "type": "dataflow",
+      "from_id": 9,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 9,
+      "reason": "msg.sender used as the addressToStakes mapping key in secondStake.",
+      "type": "dataflow",
+      "from_id": 12,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 9,
+      "reason": "block.number window between firstStakeBlockNumber+stakePeriod and +progressPeriodExpiration gates the second stake.",
+      "type": "controlflow",
+      "from_id": 13,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 4,
+      "reason": "secondStake reads immutable stakePeriod for the lower bound.",
+      "type": "dataflow",
+      "from_id": 9,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 5,
+      "reason": "secondStake reads immutable progressPeriodExpiration for the upper bound.",
+      "type": "dataflow",
+      "from_id": 9,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 25,
+      "reason": "secondStake creates the Stake storage pointer local.",
+      "type": "dataflow",
+      "from_id": 9,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 1,
+      "reason": "Local stake pointer aliases the addressToStakes entry.",
+      "type": "dataflow",
+      "from_id": 25,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 1,
+      "reason": "withdraw reads and resets addressToStakes[staker].",
+      "type": "dataflow",
+      "from_id": 10,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "staker parameter indexes the addressToStakes mapping.",
+      "type": "dataflow",
+      "from_id": 19,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "onlyAdmin modifier requires msg.sender == administrator in withdraw.",
+      "type": "controlflow",
+      "from_id": 12,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 10,
+      "reason": "Block-number expiration comparisons decide whether withdrawal is permitted.",
+      "type": "controlflow",
+      "from_id": 13,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 5,
+      "reason": "withdraw reads immutable progressPeriodExpiration to compute stake failure.",
+      "type": "dataflow",
+      "from_id": 10,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 3,
+      "reason": "withdraw sends the staked ETH to the privileged administrator address.",
+      "type": "dataflow",
+      "from_id": 10,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 14,
+      "reason": "withdraw performs payable(administrator).transfer(stake.totalStaked).",
+      "type": "dataflow",
+      "from_id": 10,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 1,
+      "reason": "stake.totalStaked is set to 0 only after the ETH transfer, violating checks-effects-interactions.",
+      "type": "dataflow",
+      "from_id": 14,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 1,
+      "reason": "claim reads and writes addressToStakes[msg.sender] (mintBlockNumber, totalStaked).",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 2,
+      "reason": "claim marks free0TokenIdUsed[free0TokenId] = true.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 11,
+      "reason": "msg.sender is checked as Free0 owner and receives the returned stake in claim.",
+      "type": "dataflow",
+      "from_id": 12,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 11,
+      "reason": "claim is gated by a block.number window after the second stake.",
+      "type": "controlflow",
+      "from_id": 13,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 4,
+      "reason": "claim reads immutable stakePeriod for the lower window bound.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 5,
+      "reason": "claim reads immutable progressPeriodExpiration for the upper window bound.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 11,
+      "reason": "free0TokenId parameter drives all IFree checks and the used-token bookkeeping in claim.",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "claim invokes the free IFree instance for ownership, collection id, mint and attribute calls.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "claim executes the external appendAttributeToToken call.",
+      "type": "controlflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "claim executes the external free.mint(3, msg.sender) call.",
+      "type": "controlflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 15,
+      "reason": "claim transfers the staked ETH back to msg.sender.",
+      "type": "controlflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 27,
+      "reason": "claim creates the Stake storage pointer local.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 1,
+      "reason": "Local stake pointer aliases the addressToStakes entry.",
+      "type": "dataflow",
+      "from_id": 27,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "free is a caller-supplied external contract; mint is a callback entry point controllable by the Free00 owner/deployer.",
+      "type": "callback",
+      "from_id": 0,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 17,
+      "reason": "free is a caller-supplied external contract; appendAttributeToToken is an external callback executed during claim.",
+      "type": "callback",
+      "from_id": 0,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 15,
+      "reason": "External free.mint call occurs before stake.totalStaked is zeroed and before the ETH transfer, allowing reentrancy into claim.",
+      "type": "callback",
+      "from_id": 16,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 1,
+      "reason": "stake.totalStaked = 0 is executed after the ETH transfer and external call in claim (CEI violation).",
+      "type": "dataflow",
+      "from_id": 15,
+      "vuln_type": "reentrancy"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "transferAdministratorship",
+      "reason": "Single-use parameter that only feeds the administrator assignment in transferAdministratorship.",
+      "normal_node": "param_newAdministrator"
+    },
+    {
+      "merge_into": "withdraw",
+      "reason": "Single-use parameter only used as the addressToStakes key in withdraw.",
+      "normal_node": "param_staker"
+    },
+    {
+      "merge_into": "claim",
+      "reason": "Single-use parameter only consumed by the IFree checks and free0TokenIdUsed bookkeeping in claim.",
+      "normal_node": "param_free0TokenId"
+    },
+    {
+      "merge_into": "constructor",
+      "reason": "Constructor argument consumed once when constructing the IFree reference.",
+      "normal_node": "param_freeAddr"
+    },
+    {
+      "merge_into": "constructor",
+      "reason": "Constructor argument written once into immutable stakePeriod.",
+      "normal_node": "param_stakePeriod"
+    },
+    {
+      "merge_into": "constructor",
+      "reason": "Constructor argument written once into immutable progressPeriodExpiration.",
+      "normal_node": "param_progressPeriodExpiration"
+    },
+    {
+      "merge_into": "firstStake",
+      "reason": "Storage pointer created and only used inside firstStake; carries no standalone semantics.",
+      "normal_node": "local_stake_firstStake"
+    },
+    {
+      "merge_into": "secondStake",
+      "reason": "Storage pointer created and only used inside secondStake; carries no standalone semantics.",
+      "normal_node": "local_stake_secondStake"
+    },
+    {
+      "merge_into": "withdraw",
+      "reason": "Storage pointer created and only used inside withdraw; carries no standalone semantics.",
+      "normal_node": "local_stake_withdraw"
+    },
+    {
+      "merge_into": "claim",
+      "reason": "Storage pointer created and only used inside claim; carries no standalone semantics.",
+      "normal_node": "local_stake_claim"
+    }
+  ]
+}

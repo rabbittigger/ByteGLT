@@ -1,0 +1,191 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "ERC20 private _totalSupply holding the total minted token supply.",
+      "id": "state_totalSupply",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "ERC20 private _balances mapping (address => uint256) tracking account balances.",
+      "id": "state_balances",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "ERC20 private _allowances nested mapping tracking spender allowances.",
+      "id": "state_allowances",
+      "type": "state_var",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "ERC20._transfer(address,address,uint256) internal: validates addresses, invokes hook, and updates _balances.",
+      "id": "fn_erc20_transfer",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "ERC20._beforeTokenTransfer(address,address,uint256) internal virtual hook called before every balance mutation.",
+      "id": "fn_erc20_beforeTokenTransfer",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "MintToken.transferMany(address[],uint256[]) external: loops and calls _transfer from _msgSender() to each recipient.",
+      "id": "fn_mintToken_transferMany",
+      "type": "function",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "MintToken constructor: mints 250 * 10**6 * 10**18 tokens to _msgSender().",
+      "id": "fn_mintToken_constructor",
+      "type": "function",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "msg.sender, the caller-controlled address returned by _msgSender().",
+      "id": "input_msg_sender",
+      "type": "untrusted_input",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "Unchecked uint256 loop counter increment (i++) inside transferMany, native arithmetic without SafeMath.",
+      "id": "op_unchecked_loop_increment",
+      "type": "unsafe_operation",
+      "node_id": 8
+    },
+    {
+      "is_core": false,
+      "description": "recipients array parameter of transferMany.",
+      "id": "param_recipients",
+      "type": "parameter",
+      "node_id": 9
+    },
+    {
+      "is_core": false,
+      "description": "values array parameter of transferMany.",
+      "id": "param_values",
+      "type": "parameter",
+      "node_id": 10
+    },
+    {
+      "is_core": false,
+      "description": "Loop index i local variable in transferMany.",
+      "id": "local_i",
+      "type": "local_var",
+      "node_id": 11
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "recipients array is supplied to transferMany and indexed in the loop.",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "values array is supplied to transferMany and used as transfer amounts.",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "local counter i bounds the loop iterating over recipients/values in transferMany.",
+      "type": "controlflow",
+      "from_id": 11
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "arithmetic",
+      "reason": "i is incremented with unchecked native arithmetic (i++) in Solidity 0.6.0.",
+      "type": "controlflow",
+      "from_id": 11
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "transferMany repeatedly calls ERC20._transfer for each recipient.",
+      "type": "controlflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "reentrancy",
+      "reason": "_transfer invokes the overridable virtual hook _beforeTokenTransfer before updating balances, enabling reentrancy if overridden.",
+      "type": "callback",
+      "from_id": 3
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "_transfer reads and writes _balances for sender and recipient.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "msg.sender (via _msgSender()) is passed as the sender argument to _transfer, so caller controls the debited account.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "reason": "constructor mints the initial supply to _msgSender(), giving the deployer caller the whole supply.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "arithmetic",
+      "reason": "constructor _mint increases _totalSupply via SafeMath.add.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "constructor _mint credits the recipient balance in _balances.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "arithmetic",
+      "reason": "transferMany loop performs unchecked counter arithmetic to drive iterations.",
+      "type": "controlflow",
+      "from_id": 5
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "fn_mintToken_transferMany",
+      "reason": "recipients is only meaningful as the destination array consumed by transferMany, so collapse it into that function node.",
+      "normal_node": "param_recipients"
+    },
+    {
+      "merge_into": "fn_mintToken_transferMany",
+      "reason": "values is only meaningful as the amount array consumed by transferMany, so collapse it into that function node.",
+      "normal_node": "param_values"
+    },
+    {
+      "merge_into": "op_unchecked_loop_increment",
+      "reason": "local loop index i exists only to drive the unchecked increment operation inside transferMany, so merge it into that unsafe_operation node.",
+      "normal_node": "local_i"
+    }
+  ]
+}

@@ -1,0 +1,632 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Minimum amount of YOP tokens required to open a stake position; settable by governance.",
+      "is_core": true,
+      "id": "minStakeAmount"
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Cap on the total working supply (amount * lockPeriod) accepted by the contract.",
+      "is_core": true,
+      "id": "stakingLimit"
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "description": "Aggregate working balance of all active stakes; increased on mint/transfer-in and decreased on burn/transfer-out.",
+      "is_core": true,
+      "id": "totalWorkingSupply"
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "description": "Array of Stake structs holding lockPeriod, amount, startTime and lastTransferTime for every stake position.",
+      "is_core": true,
+      "id": "stakes"
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "description": "Address of the YOPRewards contract used to recalculate staking rewards on mint/burn.",
+      "is_core": true,
+      "id": "yopRewards"
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "description": "Optional access control manager address checked through hasAccess before staking.",
+      "is_core": true,
+      "id": "accessControlManager"
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "description": "Mapping of account to the list of stake ids (NFT ids) it currently owns.",
+      "is_core": true,
+      "id": "stakesForAddress"
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "description": "Mapping of token id to current NFT owner, kept in sync by the transfer hook.",
+      "is_core": true,
+      "id": "owners"
+    },
+    {
+      "node_id": 8,
+      "type": "function",
+      "description": "External payable-less entry point creating a new staking position, pulling YOP tokens and minting the receipt NFT.",
+      "is_core": true,
+      "id": "stake"
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "description": "External function burning one unlocked stake NFT and returning the underlying YOP tokens to a chosen address.",
+      "is_core": true,
+      "id": "unstakeSingle"
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "description": "External function burning all unlocked stake NFTs of the caller in a batch and transferring the total amount.",
+      "is_core": true,
+      "id": "unstakeAll"
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "description": "Governance-only setter for minStakeAmount.",
+      "is_core": true,
+      "id": "setMinStakeAmount"
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "description": "Governance-only setter for stakingLimit.",
+      "is_core": true,
+      "id": "setStakingLimit"
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "description": "Governance-only setter delegating to _updateAccessControlManager.",
+      "is_core": true,
+      "id": "setAccessControlManager"
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "description": "Proxy initializer wiring ERC1155, pauseable base and staking configuration.",
+      "is_core": true,
+      "id": "initialize"
+    },
+    {
+      "node_id": 15,
+      "type": "function",
+      "description": "ERC1155 hook performing staking bookkeeping: working supply updates, ownership list maintenance and stake reset on burn.",
+      "is_core": true,
+      "id": "_beforeTokenTransfer"
+    },
+    {
+      "node_id": 16,
+      "type": "function",
+      "description": "View helper deciding whether a stake's lock period elapsed relative to block.timestamp.",
+      "is_core": true,
+      "id": "_isUnlocked"
+    },
+    {
+      "node_id": 17,
+      "type": "function",
+      "description": "Time source wrapper returning block.timestamp, used for stake start time and unlock checks.",
+      "is_core": true,
+      "id": "_getBlockTimestamp"
+    },
+    {
+      "node_id": 18,
+      "type": "function",
+      "description": "Pure helper computing amount * lockPeriod for a stake.",
+      "is_core": true,
+      "id": "_workingBalanceOfStake"
+    },
+    {
+      "node_id": 19,
+      "type": "function",
+      "description": "Internal helper removing a stake id from a storage array by shifting elements and popping.",
+      "is_core": true,
+      "id": "_removeValue"
+    },
+    {
+      "node_id": 20,
+      "type": "function",
+      "description": "Internal setter that stores the access control manager address and emits an event.",
+      "is_core": true,
+      "id": "_updateAccessControlManager"
+    },
+    {
+      "node_id": 21,
+      "type": "untrusted_input",
+      "description": "Caller-controlled address; used for balance checks, NFT ownership checks, mint/burn recipient and access control lookups.",
+      "is_core": true,
+      "id": "msg.sender"
+    },
+    {
+      "node_id": 22,
+      "type": "untrusted_input",
+      "description": "Miner/validator-influenced timestamp used as the staking clock for start times and unlock conditions.",
+      "is_core": true,
+      "id": "block.timestamp"
+    },
+    {
+      "node_id": 23,
+      "type": "unsafe_operation",
+      "description": "External call to IYOPRewards(yopRewards).calculateStakingRewards(tokenId) executed before local staking state is finalised.",
+      "is_core": true,
+      "id": "external_call_calculateStakingRewards"
+    },
+    {
+      "node_id": 24,
+      "type": "unsafe_operation",
+      "description": "SafeERC20Upgradeable.safeTransferFrom pulling YOP tokens from the staker into the contract.",
+      "is_core": true,
+      "id": "external_call_safeTransferFrom"
+    },
+    {
+      "node_id": 25,
+      "type": "unsafe_operation",
+      "description": "SafeERC20Upgradeable.safeTransfer pushing locked YOP tokens out of the contract on unstake.",
+      "is_core": true,
+      "id": "external_call_safeTransfer"
+    },
+    {
+      "node_id": 26,
+      "type": "unsafe_operation",
+      "description": "ERC1155 _mint of the receipt NFT, which invokes the transfer hook and the receiver acceptance check.",
+      "is_core": true,
+      "id": "unsafe_op__mint"
+    },
+    {
+      "node_id": 27,
+      "type": "unsafe_operation",
+      "description": "ERC1155 _burn / _burnBatch of receipt NFTs, which invokes the transfer hook and mutates balances.",
+      "is_core": true,
+      "id": "unsafe_op__burn"
+    },
+    {
+      "node_id": 28,
+      "type": "unsafe_operation",
+      "description": "Low-level acceptance check calling onERC1155Received/onERC1155BatchReceived on a contract recipient, an untrusted external callback.",
+      "is_core": true,
+      "id": "unsafe_op_receiver_acceptance_check"
+    },
+    {
+      "node_id": 29,
+      "type": "parameter",
+      "description": "Amount of YOP tokens to lock in stake(uint248 _amount, uint8 _lockPeriod).",
+      "is_core": false,
+      "id": "param__amount"
+    },
+    {
+      "node_id": 30,
+      "type": "parameter",
+      "description": "Lock duration in months supplied to stake.",
+      "is_core": false,
+      "id": "param__lockPeriod"
+    },
+    {
+      "node_id": 31,
+      "type": "parameter",
+      "description": "Stake/NFT id supplied to unstakeSingle.",
+      "is_core": false,
+      "id": "param__stakeId"
+    },
+    {
+      "node_id": 32,
+      "type": "parameter",
+      "description": "Recipient address supplied to unstakeSingle.",
+      "is_core": false,
+      "id": "param__to_unstakeSingle"
+    },
+    {
+      "node_id": 33,
+      "type": "parameter",
+      "description": "Recipient address supplied to unstakeAll.",
+      "is_core": false,
+      "id": "param__to_unstakeAll"
+    },
+    {
+      "node_id": 34,
+      "type": "parameter",
+      "description": "New minimum stake amount supplied to setMinStakeAmount.",
+      "is_core": false,
+      "id": "param__minAmount"
+    },
+    {
+      "node_id": 35,
+      "type": "parameter",
+      "description": "New staking limit supplied to setStakingLimit.",
+      "is_core": false,
+      "id": "param__limit"
+    },
+    {
+      "node_id": 36,
+      "type": "local_var",
+      "description": "Local variable in stake() holding the id assigned to the newly minted NFT.",
+      "is_core": false,
+      "id": "local_tokenId"
+    },
+    {
+      "node_id": 37,
+      "type": "local_var",
+      "description": "Local accumulator in unstakeAll() summing all unlocked stake amounts.",
+      "is_core": false,
+      "id": "local_toTransfer"
+    },
+    {
+      "node_id": 38,
+      "type": "local_var",
+      "description": "Local variable in _beforeTokenTransfer computing the working balance of a stake before supply updates.",
+      "is_core": false,
+      "id": "local_balance"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "msg.sender is used for the balanceOf check, the token pull and the NFT mint in stake().",
+      "from_id": 21
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "msg.sender must own the stake NFT (balanceOf) before it can be unstaked.",
+      "from_id": 21
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "msg.sender's stake id list drives the batch unstake enumeration.",
+      "from_id": 21
+    },
+    {
+      "to_id": 17,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "_getBlockTimestamp returns block.timestamp, making all staking timing miner-influenced.",
+      "from_id": 22
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "Stake startTime and lastTransferTime derive from block.timestamp.",
+      "from_id": 17
+    },
+    {
+      "to_id": 16,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "Unlock determination compares block.timestamp against startTime plus lock period.",
+      "from_id": 17
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "lastTransferTime bookkeeping in the hook is written from block.timestamp.",
+      "from_id": 17
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "require(_isUnlocked(s)) gates unstakeSingle on the current timestamp.",
+      "from_id": 16
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "_getUnlockedStakeIds filters candidate stakes through _isUnlocked before unstakeAll.",
+      "from_id": 16
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "Staked amount is validated against minStakeAmount.",
+      "from_id": 8
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "totalWorkingSupply + amount*lockPeriod is required to stay below stakingLimit.",
+      "from_id": 8
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "Minting the receipt updates totalWorkingSupply through the transfer hook.",
+      "from_id": 8
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The new Stake struct is pushed into the stakes array.",
+      "from_id": 8
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "yopRewards address is used for the rewards recalculation call.",
+      "from_id": 8
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "accessControlManager is queried with hasAccess(msg.sender, address(this)).",
+      "from_id": 8
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The stake record is read from stakes[_stakeId] before burning.",
+      "from_id": 9
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "Burn path clears owners[tokenId] inside the transfer hook.",
+      "from_id": 9
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "stakesForAddress[msg.sender] is copied and iterated to find unlocked stakes.",
+      "from_id": 10
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "Batch burn updates the owners mapping for each stake id.",
+      "from_id": 10
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_removeValue compacts the caller's stakesForAddress array when a stake leaves the account.",
+      "from_id": 19
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_updateAccessControlManager writes the accessControlManager state variable.",
+      "from_id": 20
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "Governance setter writes minStakeAmount.",
+      "from_id": 11
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "Governance setter writes stakingLimit.",
+      "from_id": 12
+    },
+    {
+      "to_id": 20,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "setAccessControlManager delegates to the internal update helper.",
+      "from_id": 13
+    },
+    {
+      "to_id": 23,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "stake() calls into YOPRewards to recalculate rewards for the new token id.",
+      "from_id": 8
+    },
+    {
+      "to_id": 23,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "unstakeSingle calls YOPRewards before burning the NFT.",
+      "from_id": 9
+    },
+    {
+      "to_id": 23,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "unstakeAll calls YOPRewards once per unlocked stake id.",
+      "from_id": 10
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The rewards call target is read from the yopRewards state variable.",
+      "from_id": 23
+    },
+    {
+      "to_id": 24,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "stake() transfers YOP tokens from the staker to this contract via SafeERC20.",
+      "from_id": 8
+    },
+    {
+      "to_id": 25,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "unstakeSingle transfers the unlocked amount to the recipient via SafeERC20.",
+      "from_id": 9
+    },
+    {
+      "to_id": 25,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "unstakeAll transfers the accumulated amount to the recipient in a single transfer.",
+      "from_id": 10
+    },
+    {
+      "to_id": 26,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "stake() mints the ERC1155 receipt token for the staker.",
+      "from_id": 8
+    },
+    {
+      "to_id": 27,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "unstakeSingle burns the staking NFT receipt.",
+      "from_id": 9
+    },
+    {
+      "to_id": 27,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "unstakeAll burns all unlocked staking NFT receipts in a batch.",
+      "from_id": 10
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "none",
+      "type": "callback",
+      "reason": "_mint invokes the overridden _beforeTokenTransfer hook that mutates staking bookkeeping.",
+      "from_id": 26
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "none",
+      "type": "callback",
+      "reason": "_burn and _burnBatch invoke the overridden _beforeTokenTransfer hook that resets stake records.",
+      "from_id": 27
+    },
+    {
+      "to_id": 28,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "Minting to a contract staker executes the ERC1155 receiver acceptance check, an untrusted callback that can reenter staking logic.",
+      "from_id": 26
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "reason": "The external YOPRewards call happens before stakes.push, so a malicious rewards contract can reenter while staking state is stale.",
+      "from_id": 23
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "calculateStakingRewards is executed before _burn triggers the hook that decrements totalWorkingSupply and clears the stake.",
+      "from_id": 23
+    },
+    {
+      "to_id": 18,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "The hook computes the stake working balance through _workingBalanceOfStake.",
+      "from_id": 15
+    },
+    {
+      "to_id": 19,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "The hook removes the token id from the previous owner's stake list.",
+      "from_id": 15
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "reason": "working balance multiplies uint248 amount by uint8 lockPeriod into a uint256, which can overflow for extreme staked amounts.",
+      "from_id": 18
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "reason": "totalWorkingSupply -= balance can underflow if the bookkeeping for a stake is ever desynchronised from the supply.",
+      "from_id": 15
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "stake",
+      "normal_node": "param__amount",
+      "reason": "_amount is an input parameter used exclusively by stake() for limit checks, token transfer and minting."
+    },
+    {
+      "merge_into": "stake",
+      "normal_node": "param__lockPeriod",
+      "reason": "_lockPeriod is an input parameter used only inside stake() to build the Stake struct and the working supply."
+    },
+    {
+      "merge_into": "unstakeSingle",
+      "normal_node": "param__stakeId",
+      "reason": "_stakeId is an input parameter used only inside unstakeSingle to index the stakes array."
+    },
+    {
+      "merge_into": "unstakeSingle",
+      "normal_node": "param__to_unstakeSingle",
+      "reason": "_to is an input parameter used only inside unstakeSingle as the token transfer recipient."
+    },
+    {
+      "merge_into": "unstakeAll",
+      "normal_node": "param__to_unstakeAll",
+      "reason": "_to is an input parameter used only inside unstakeAll as the aggregated transfer recipient."
+    },
+    {
+      "merge_into": "setMinStakeAmount",
+      "normal_node": "param__minAmount",
+      "reason": "_minAmount is an input parameter used only inside setMinStakeAmount to write the state variable."
+    },
+    {
+      "merge_into": "setStakingLimit",
+      "normal_node": "param__limit",
+      "reason": "_limit is an input parameter used only inside setStakingLimit to update the staking cap."
+    },
+    {
+      "merge_into": "stake",
+      "normal_node": "local_tokenId",
+      "reason": "tokenId is a local temporary in stake() that becomes the minted NFT id."
+    },
+    {
+      "merge_into": "unstakeAll",
+      "normal_node": "local_toTransfer",
+      "reason": "toTransfer is a local accumulator in unstakeAll used only for the outgoing token transfer."
+    },
+    {
+      "merge_into": "_beforeTokenTransfer",
+      "normal_node": "local_balance",
+      "reason": "balance is a local temporary in _beforeTokenTransfer feeding the totalWorkingSupply adjustments."
+    }
+  ]
+}

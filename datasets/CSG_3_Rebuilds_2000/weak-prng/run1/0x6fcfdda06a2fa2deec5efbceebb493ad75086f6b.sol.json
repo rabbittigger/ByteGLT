@@ -1,0 +1,659 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "investments",
+      "is_core": true,
+      "description": "mapping(address => uint256) tracking each investor's deposited principal"
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "id": "joined",
+      "is_core": true,
+      "description": "mapping(address => uint256) storing the timestamp of the last investment/withdraw used for ROI accrual"
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "id": "referrer",
+      "is_core": true,
+      "description": "mapping(address => uint256) holding accrued referral earnings per address"
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "id": "step",
+      "is_core": true,
+      "description": "ROI step constant (1000) used in the dividend formula"
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "id": "minimum",
+      "is_core": true,
+      "description": "minimum investment of 10 finney enforced in buy()"
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "id": "maximum",
+      "is_core": true,
+      "description": "maximum investment of 5 ether enforced in buy()"
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "id": "stakingRequirement",
+      "is_core": true,
+      "description": "amount a referrer must have invested to earn referral rewards"
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "id": "ownerWallet",
+      "is_core": true,
+      "description": "address receiving the 5% fee on every investment"
+    },
+    {
+      "node_id": 8,
+      "type": "state_var",
+      "id": "owner",
+      "is_core": true,
+      "description": "owner address used by the onlyOwner modifier"
+    },
+    {
+      "node_id": 9,
+      "type": "state_var",
+      "id": "gameStarted",
+      "is_core": true,
+      "description": "flag gating buy() until the owner starts the game"
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "id": "constructor",
+      "is_core": true,
+      "description": "constructor setting owner and ownerWallet to msg.sender"
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "id": "startGame",
+      "is_core": true,
+      "description": "onlyOwner function that flips gameStarted to true"
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "id": "transferOwnership",
+      "is_core": true,
+      "description": "onlyOwner function transferring owner and ownerWallet to new addresses"
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "id": "fallback",
+      "is_core": true,
+      "description": "payable fallback that forwards to buy(0x0)"
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "id": "buy",
+      "is_core": true,
+      "description": "payable investment entry point; validates limits, pays referrers and the owner fee"
+    },
+    {
+      "node_id": 15,
+      "type": "function",
+      "id": "getBalance",
+      "is_core": true,
+      "description": "view function computing accrued dividends from elapsed time and exponential ROI multiplier"
+    },
+    {
+      "node_id": 16,
+      "type": "function",
+      "id": "withdraw",
+      "is_core": true,
+      "description": "pays the caller their accrued balance and resets the joined timestamp"
+    },
+    {
+      "node_id": 17,
+      "type": "function",
+      "id": "bounty",
+      "is_core": true,
+      "description": "pays out accumulated referral earnings to the caller"
+    },
+    {
+      "node_id": 18,
+      "type": "function",
+      "id": "checkBalance",
+      "is_core": true,
+      "description": "view helper returning getBalance(msg.sender)"
+    },
+    {
+      "node_id": 19,
+      "type": "function",
+      "id": "checkInvestments",
+      "is_core": true,
+      "description": "view helper returning investments[_investor]"
+    },
+    {
+      "node_id": 20,
+      "type": "function",
+      "id": "checkReferral",
+      "is_core": true,
+      "description": "view helper returning referrer[_hunter]"
+    },
+    {
+      "node_id": 21,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "is_core": true,
+      "description": "caller-controlled address used for ownership, investments, transfers and referrals"
+    },
+    {
+      "node_id": 22,
+      "type": "untrusted_input",
+      "id": "block.timestamp",
+      "is_core": true,
+      "description": "block timestamp used to accrue ROI, influenceable by miners"
+    },
+    {
+      "node_id": 23,
+      "type": "unsafe_operation",
+      "id": "transfer_msg_sender_withdraw",
+      "is_core": true,
+      "description": "msg.sender.transfer(balance) inside withdraw() executing an external call to an untrusted address"
+    },
+    {
+      "node_id": 24,
+      "type": "unsafe_operation",
+      "id": "transfer_ownerWallet_buy",
+      "is_core": true,
+      "description": "ownerWallet.transfer(5%) inside buy() executing an external call during investment logic"
+    },
+    {
+      "node_id": 25,
+      "type": "unsafe_operation",
+      "id": "transfer_msg_sender_bounty",
+      "is_core": true,
+      "description": "msg.sender.transfer(refBalance) inside bounty() executing an external call to an untrusted address"
+    },
+    {
+      "node_id": 26,
+      "type": "unsafe_operation",
+      "id": "exponentiation_roi",
+      "is_core": true,
+      "description": "unchecked exponentiation 3**(minutesCount/180) and chained multiplications in the ROI formula"
+    },
+    {
+      "node_id": 27,
+      "type": "parameter",
+      "id": "_referredBy",
+      "is_core": false,
+      "description": "referrer address passed to buy()"
+    },
+    {
+      "node_id": 28,
+      "type": "parameter",
+      "id": "newOwner",
+      "is_core": false,
+      "description": "new owner address passed to transferOwnership()"
+    },
+    {
+      "node_id": 29,
+      "type": "parameter",
+      "id": "newOwnerWallet",
+      "is_core": false,
+      "description": "new fee wallet address passed to transferOwnership()"
+    },
+    {
+      "node_id": 30,
+      "type": "parameter",
+      "id": "_address",
+      "is_core": false,
+      "description": "investor address queried in getBalance()"
+    },
+    {
+      "node_id": 31,
+      "type": "parameter",
+      "id": "_investor",
+      "is_core": false,
+      "description": "investor address queried in checkInvestments()"
+    },
+    {
+      "node_id": 32,
+      "type": "parameter",
+      "id": "_hunter",
+      "is_core": false,
+      "description": "referrer address queried in checkReferral()"
+    },
+    {
+      "node_id": 33,
+      "type": "local_var",
+      "id": "_customerAddress",
+      "is_core": false,
+      "description": "local copy of msg.sender inside buy()"
+    },
+    {
+      "node_id": 34,
+      "type": "local_var",
+      "id": "minutesCount",
+      "is_core": false,
+      "description": "elapsed minutes since last join, derived from block.timestamp"
+    },
+    {
+      "node_id": 35,
+      "type": "local_var",
+      "id": "userROIMultiplier",
+      "is_core": false,
+      "description": "3**(minutesCount/180) ROI multiplier computed in getBalance()"
+    },
+    {
+      "node_id": 36,
+      "type": "local_var",
+      "id": "percent",
+      "is_core": false,
+      "description": "per-iteration percentage payout in the getBalance() loop"
+    },
+    {
+      "node_id": 37,
+      "type": "local_var",
+      "id": "balance_getBalance",
+      "is_core": false,
+      "description": "accumulated dividend balance computed in getBalance()"
+    },
+    {
+      "node_id": 38,
+      "type": "local_var",
+      "id": "balance_withdraw",
+      "is_core": false,
+      "description": "dividend amount pulled from getBalance() in withdraw()"
+    },
+    {
+      "node_id": 39,
+      "type": "local_var",
+      "id": "refBalance",
+      "is_core": false,
+      "description": "referral balance returned by checkReferral() in bounty()"
+    },
+    {
+      "node_id": 40,
+      "type": "local_var",
+      "id": "i",
+      "is_core": false,
+      "description": "loop counter over the exponential ROI multiplier in getBalance()"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "constructor assigns msg.sender to the owner state variable",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 8
+    },
+    {
+      "reason": "constructor assigns msg.sender to the ownerWallet state variable",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 7
+    },
+    {
+      "reason": "onlyOwner restricts startGame() to the caller matching owner",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 21,
+      "to_id": 11
+    },
+    {
+      "reason": "onlyOwner restricts transferOwnership() to the caller matching owner",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 21,
+      "to_id": 12
+    },
+    {
+      "reason": "onlyOwner modifier compares msg.sender against the owner state variable before startGame executes",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 8,
+      "to_id": 11
+    },
+    {
+      "reason": "onlyOwner modifier compares msg.sender against the owner state variable before transferOwnership executes",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 8,
+      "to_id": 12
+    },
+    {
+      "reason": "caller-triggered payable fallback entry point",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 21,
+      "to_id": 13
+    },
+    {
+      "reason": "fallback forwards all value to buy(0x0)",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 13,
+      "to_id": 14
+    },
+    {
+      "reason": "msg.sender is copied into _customerAddress and used for investment accounting in buy()",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 14
+    },
+    {
+      "reason": "investments[msg.sender] is read and incremented in buy()",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 0
+    },
+    {
+      "reason": "block.timestamp is written into joined[msg.sender] in buy() and withdraw(), making ROI miner-influenceable",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 1
+    },
+    {
+      "reason": "msg.sender is the recipient of the external transfer in withdraw()",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 23
+    },
+    {
+      "reason": "computed dividend balance flows into msg.sender.transfer(balance) in withdraw()",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 37,
+      "to_id": 23
+    },
+    {
+      "reason": "ownerWallet address receives an external transfer during buy()",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 24
+    },
+    {
+      "reason": "bounty() executes msg.sender.transfer(refBalance)",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 17,
+      "to_id": 25
+    },
+    {
+      "reason": "msg.sender is the untrusted recipient of the bounty payout",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 25
+    },
+    {
+      "reason": "refBalance derived from referrer[msg.sender] is transferred out in bounty()",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 39,
+      "to_id": 25
+    },
+    {
+      "reason": "userROIMultiplier feeds the exponentiation and multiplication chain in the ROI formula",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 35,
+      "to_id": 26
+    },
+    {
+      "reason": "minutesCount drives minutesCount/180 and the modulo arithmetic in getBalance()",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 34,
+      "to_id": 26
+    },
+    {
+      "reason": "investments[_address] is multiplied by step and the ROI multiplier to compute the balance",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 37
+    },
+    {
+      "reason": "minutesCount/180 is the exponent producing userROIMultiplier",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 34,
+      "to_id": 35
+    },
+    {
+      "reason": "each percent iteration is accumulated into balance",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 36,
+      "to_id": 37
+    },
+    {
+      "reason": "loop counter i scales the per-iteration percent value",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 40,
+      "to_id": 36
+    },
+    {
+      "reason": "withdraw() calls getBalance(msg.sender) to determine the payout",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 15,
+      "to_id": 16
+    },
+    {
+      "reason": "checkBalance() delegates to getBalance(msg.sender)",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 18,
+      "to_id": 15
+    },
+    {
+      "reason": "_referredBy indexes the referrer mapping for referral credit",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 27,
+      "to_id": 2
+    },
+    {
+      "reason": "_address indexes the investments mapping inside getBalance()",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 30,
+      "to_id": 0
+    },
+    {
+      "reason": "_investor indexes the investments mapping inside checkInvestments()",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 31,
+      "to_id": 0
+    },
+    {
+      "reason": "_hunter indexes the referrer mapping inside checkReferral()",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 32,
+      "to_id": 2
+    },
+    {
+      "reason": "newOwner is written into the owner state variable",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 28,
+      "to_id": 8
+    },
+    {
+      "reason": "newOwnerWallet is written into the ownerWallet state variable",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 7
+    },
+    {
+      "reason": "_referredBy is consumed by buy() for referral bookkeeping",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 27,
+      "to_id": 14
+    },
+    {
+      "reason": "_address is consumed by getBalance()",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 30,
+      "to_id": 15
+    },
+    {
+      "reason": "_investor is consumed by checkInvestments()",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 31,
+      "to_id": 19
+    },
+    {
+      "reason": "_hunter is consumed by checkReferral()",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 32,
+      "to_id": 20
+    },
+    {
+      "reason": "_customerAddress is compared against _referredBy inside buy()",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 33,
+      "to_id": 14
+    },
+    {
+      "reason": "msg.sender is passed to checkReferral() inside bounty()",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 39
+    },
+    {
+      "reason": "caller invokes the public bounty() function",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 21,
+      "to_id": 17
+    },
+    {
+      "reason": "stakingRequirement gates referral rewards in buy()",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 14
+    },
+    {
+      "reason": "minimum is enforced on msg.value in buy()",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 14
+    },
+    {
+      "reason": "maximum is enforced on msg.value in buy()",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 14
+    },
+    {
+      "reason": "gameStarted must be true before buy() proceeds",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 9,
+      "to_id": 14
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "input parameter only used to index the referrer mapping inside buy()",
+      "merge_into": "buy",
+      "normal_node": "_referredBy"
+    },
+    {
+      "reason": "input parameter only used to overwrite the owner state variable",
+      "merge_into": "transferOwnership",
+      "normal_node": "newOwner"
+    },
+    {
+      "reason": "input parameter only used to overwrite the ownerWallet state variable",
+      "merge_into": "transferOwnership",
+      "normal_node": "newOwnerWallet"
+    },
+    {
+      "reason": "argument only consumed by the getBalance() view computation",
+      "merge_into": "getBalance",
+      "normal_node": "_address"
+    },
+    {
+      "reason": "argument only consumed by the checkInvestments() accessor",
+      "merge_into": "checkInvestments",
+      "normal_node": "_investor"
+    },
+    {
+      "reason": "argument only consumed by the checkReferral() accessor",
+      "merge_into": "checkReferral",
+      "normal_node": "_hunter"
+    },
+    {
+      "reason": "temporary copy of msg.sender used solely for the referral comparison in buy()",
+      "merge_into": "buy",
+      "normal_node": "_customerAddress"
+    },
+    {
+      "reason": "derived time value only used for the ROI math in getBalance()",
+      "merge_into": "getBalance",
+      "normal_node": "minutesCount"
+    },
+    {
+      "reason": "intermediate exponentiation result feeding the unsafe ROI arithmetic",
+      "merge_into": "exponentiation_roi",
+      "normal_node": "userROIMultiplier"
+    },
+    {
+      "reason": "loop-local accumulator discarded after getBalance() returns",
+      "merge_into": "getBalance",
+      "normal_node": "percent"
+    },
+    {
+      "reason": "returned accumulator local to getBalance()",
+      "merge_into": "getBalance",
+      "normal_node": "balance_getBalance"
+    },
+    {
+      "reason": "withdraw-local amount that is sent to msg.sender via the external transfer",
+      "merge_into": "transfer_msg_sender_withdraw",
+      "normal_node": "balance_withdraw"
+    },
+    {
+      "reason": "bounty-local amount that is sent to msg.sender via the external transfer",
+      "merge_into": "transfer_msg_sender_bounty",
+      "normal_node": "refBalance"
+    },
+    {
+      "reason": "loop counter scoped to the getBalance() ROI accumulation loop",
+      "merge_into": "getBalance",
+      "normal_node": "i"
+    }
+  ]
+}

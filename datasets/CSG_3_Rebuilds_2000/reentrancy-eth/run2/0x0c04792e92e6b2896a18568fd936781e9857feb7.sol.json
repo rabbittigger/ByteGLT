@@ -1,0 +1,1761 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "description": "uint8 stage flag controlling deposit/closed/payout behavior",
+      "id": "contractStage",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "description": "address of the contract owner, gate for onlyOwner functions",
+      "id": "owner",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "description": "array of contribution cap levels, index 0 is the pool ceiling",
+      "id": "contributionCaps",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "description": "owner fee percentage stored scaled by 1e20",
+      "id": "feePct",
+      "is_core": true
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "description": "address that receives the pooled ether in submitPool",
+      "id": "receiverAddress",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "description": "flag toggling between per-address caps and the global pool cap",
+      "id": "whitelistIsActive",
+      "is_core": true
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "description": "timestamp after which pending contribution caps become active",
+      "id": "nextCapTime",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "description": "pending contribution caps to be activated at nextCapTime",
+      "id": "nextContributionCaps",
+      "is_core": true
+    },
+    {
+      "node_id": 8,
+      "type": "state_var",
+      "description": "block number of the last receiverAddress change, used for the 6000 block delay",
+      "id": "addressChangeBlock",
+      "is_core": true
+    },
+    {
+      "node_id": 9,
+      "type": "state_var",
+      "description": "snapshot of contract balance at submitPool, used for pro-rata math",
+      "id": "finalBalance",
+      "is_core": true
+    },
+    {
+      "node_id": 10,
+      "type": "state_var",
+      "description": "array of ether amounts to be refunded pro-rata in stage 3",
+      "id": "ethRefundAmount",
+      "is_core": true
+    },
+    {
+      "node_id": 11,
+      "type": "state_var",
+      "description": "default ERC20 token used for withdrawals when no token address is supplied",
+      "id": "activeToken",
+      "is_core": true
+    },
+    {
+      "node_id": 12,
+      "type": "state_var",
+      "description": "mapping of contributor address to Contributor struct holding balance, cap and claimed tokens",
+      "id": "whitelist",
+      "is_core": true
+    },
+    {
+      "node_id": 13,
+      "type": "state_var",
+      "description": "mapping of token address to TokenAllocation struct with pct array and remaining balance",
+      "id": "distributionMap",
+      "is_core": true
+    },
+    {
+      "node_id": 14,
+      "type": "state_var",
+      "description": "re-entrancy mutex used by the noReentrancy modifier",
+      "id": "locked",
+      "is_core": true
+    },
+    {
+      "node_id": 15,
+      "type": "untrusted_input",
+      "description": "caller controlled address used for ownership, whitelist lookup and transfers",
+      "id": "msg.sender",
+      "is_core": true
+    },
+    {
+      "node_id": 16,
+      "type": "untrusted_input",
+      "description": "miner influenced timestamp used for delayed cap activation logic",
+      "id": "block.timestamp",
+      "is_core": true
+    },
+    {
+      "node_id": 17,
+      "type": "unsafe_operation",
+      "description": "receiverAddress.call.value(amountInWei).gas(...) low level call in submitPool",
+      "id": "low_level_call_submitPool",
+      "is_core": true
+    },
+    {
+      "node_id": 18,
+      "type": "unsafe_operation",
+      "description": "msg.sender.transfer(amountToTransfer) inside withdraw",
+      "id": "msg_sender_transfer",
+      "is_core": true
+    },
+    {
+      "node_id": 19,
+      "type": "unsafe_operation",
+      "description": "receiver.transfer(ethAmount) inside _withdraw stage 3 refund path",
+      "id": "receiver_transfer_withdraw",
+      "is_core": true
+    },
+    {
+      "node_id": 20,
+      "type": "unsafe_operation",
+      "description": "addr.transfer(...) refunding ether to an owner supplied address in revoke and modifyIndividualCap",
+      "id": "addr_transfer_refund",
+      "is_core": true
+    },
+    {
+      "node_id": 21,
+      "type": "unsafe_operation",
+      "description": "ERC20 transfer calls in _withdraw and enableTokenWithdrawals",
+      "id": "token_transfer",
+      "is_core": true
+    },
+    {
+      "node_id": 22,
+      "type": "unsafe_operation",
+      "description": "inline assembly extcodesize check used to reject contract addresses in authorize",
+      "id": "extcodesize_assembly",
+      "is_core": true
+    },
+    {
+      "node_id": 23,
+      "type": "unsafe_operation",
+      "description": "external call to whitelistContract.checkMemberLevel on a fixed external contract",
+      "id": "external_call_whitelist",
+      "is_core": true
+    },
+    {
+      "node_id": 24,
+      "type": "unsafe_operation",
+      "description": "SafeMath mul/sub/add arithmetic used across the contract",
+      "id": "safemath_arithmetic",
+      "is_core": true
+    },
+    {
+      "node_id": 25,
+      "type": "function",
+      "description": "constructor setting owner, receiver, caps and fee and self-whitelisting the owner",
+      "id": "PresalePool_constructor",
+      "is_core": true
+    },
+    {
+      "node_id": 26,
+      "type": "function",
+      "description": "payable fallback routing ether to _ethDeposit or _ethRefund based on contractStage",
+      "id": "fallback",
+      "is_core": true
+    },
+    {
+      "node_id": 27,
+      "type": "function",
+      "description": "internal deposit handler enforcing gas price, min and cap limits",
+      "id": "_ethDeposit",
+      "is_core": true
+    },
+    {
+      "node_id": 28,
+      "type": "function",
+      "description": "internal stage 3 handler accepting owner/receiver ether top-ups into ethRefundAmount",
+      "id": "_ethRefund",
+      "is_core": true
+    },
+    {
+      "node_id": 29,
+      "type": "function",
+      "description": "public contributor withdrawal of ether in stages 1-2 or delegation to _withdraw in stage 3",
+      "id": "withdraw",
+      "is_core": true
+    },
+    {
+      "node_id": 30,
+      "type": "function",
+      "description": "owner-only forced withdrawal on behalf of a contributor in stage 3",
+      "id": "withdrawFor",
+      "is_core": true
+    },
+    {
+      "node_id": 31,
+      "type": "function",
+      "description": "internal stage 3 pro-rata ether refund and token claim logic",
+      "id": "_withdraw",
+      "is_core": true
+    },
+    {
+      "node_id": 32,
+      "type": "function",
+      "description": "owner-only whitelisting of an address with a contribution cap, rejects contracts",
+      "id": "authorize",
+      "is_core": true
+    },
+    {
+      "node_id": 33,
+      "type": "function",
+      "description": "owner-only batch whitelisting loop calling authorize",
+      "id": "authorizeMany",
+      "is_core": true
+    },
+    {
+      "node_id": 34,
+      "type": "function",
+      "description": "owner-only removal from whitelist with ether refund",
+      "id": "revoke",
+      "is_core": true
+    },
+    {
+      "node_id": 35,
+      "type": "function",
+      "description": "owner-only change of a contributor cap with excess refund",
+      "id": "modifyIndividualCap",
+      "is_core": true
+    },
+    {
+      "node_id": 36,
+      "type": "function",
+      "description": "owner-only change of a single contribution level cap",
+      "id": "modifyLevelCap",
+      "is_core": true
+    },
+    {
+      "node_id": 37,
+      "type": "function",
+      "description": "owner-only change of all level caps, optionally delayed by a timestamp",
+      "id": "modifyAllLevelCaps",
+      "is_core": true
+    },
+    {
+      "node_id": 38,
+      "type": "function",
+      "description": "owner-only change of the maximum contract balance and clamping of level caps",
+      "id": "modifyMaxContractBalance",
+      "is_core": true
+    },
+    {
+      "node_id": 39,
+      "type": "function",
+      "description": "owner-only toggle of whitelistIsActive",
+      "id": "toggleWhitelist",
+      "is_core": true
+    },
+    {
+      "node_id": 40,
+      "type": "function",
+      "description": "internal cap resolution including delayed cap activation based on block.timestamp",
+      "id": "_checkCap",
+      "is_core": true
+    },
+    {
+      "node_id": 41,
+      "type": "function",
+      "description": "internal sync of authorization and cap from the external whitelist contract",
+      "id": "_checkWhitelistContract",
+      "is_core": true
+    },
+    {
+      "node_id": 42,
+      "type": "function",
+      "description": "view helper returning pool cap, balance and remaining capacity",
+      "id": "checkPoolBalance",
+      "is_core": true
+    },
+    {
+      "node_id": 43,
+      "type": "function",
+      "description": "view helper returning contributor balance, cap and remaining balance",
+      "id": "checkContributorBalance",
+      "is_core": true
+    },
+    {
+      "node_id": 44,
+      "type": "function",
+      "description": "view helper returning claimable token amount for a contributor",
+      "id": "checkAvailableTokens",
+      "is_core": true
+    },
+    {
+      "node_id": 45,
+      "type": "function",
+      "description": "owner-only transition from stage 1 to stage 2",
+      "id": "closeContributions",
+      "is_core": true
+    },
+    {
+      "node_id": 46,
+      "type": "function",
+      "description": "owner-only transition from stage 2 back to stage 1",
+      "id": "reopenContributions",
+      "is_core": true
+    },
+    {
+      "node_id": 47,
+      "type": "function",
+      "description": "owner-only one-time assignment of the payout address and 6000 block delay record",
+      "id": "setReceiverAddress",
+      "is_core": true
+    },
+    {
+      "node_id": 48,
+      "type": "function",
+      "description": "owner-only payout of pooled ether to receiverAddress and transition to stage 3",
+      "id": "submitPool",
+      "is_core": true
+    },
+    {
+      "node_id": 49,
+      "type": "function",
+      "description": "owner-only token accounting that takes the fee and pushes the distribution percentage",
+      "id": "enableTokenWithdrawals",
+      "is_core": true
+    },
+    {
+      "node_id": 50,
+      "type": "function",
+      "description": "ERC223 token fallback emitting ERC223Received",
+      "id": "tokenFallback",
+      "is_core": true
+    },
+    {
+      "node_id": 51,
+      "type": "function",
+      "description": "internal helper converting a ratio into a 1e20 scaled percentage",
+      "id": "_toPct",
+      "is_core": true
+    },
+    {
+      "node_id": 52,
+      "type": "function",
+      "description": "internal helper applying a 1e20 scaled percentage to a value",
+      "id": "_applyPct",
+      "is_core": true
+    },
+    {
+      "node_id": 53,
+      "type": "parameter",
+      "description": "constructor parameter stored into receiverAddress",
+      "id": "receiverAddr",
+      "is_core": false
+    },
+    {
+      "node_id": 54,
+      "type": "parameter",
+      "description": "constructor parameter stored into contributionCaps",
+      "id": "capAmounts",
+      "is_core": false
+    },
+    {
+      "node_id": 55,
+      "type": "parameter",
+      "description": "constructor parameter converted into feePct",
+      "id": "fee",
+      "is_core": false
+    },
+    {
+      "node_id": 56,
+      "type": "parameter",
+      "description": "optional ERC20 token address for a stage 3 withdrawal",
+      "id": "tokenAddr_withdraw",
+      "is_core": false
+    },
+    {
+      "node_id": 57,
+      "type": "parameter",
+      "description": "contributor address for withdrawFor",
+      "id": "contributor",
+      "is_core": false
+    },
+    {
+      "node_id": 58,
+      "type": "parameter",
+      "description": "optional ERC20 token address for withdrawFor",
+      "id": "tokenAddr_withdrawFor",
+      "is_core": false
+    },
+    {
+      "node_id": 59,
+      "type": "parameter",
+      "description": "address receiving the refund or tokens in _withdraw",
+      "id": "receiver_withdraw",
+      "is_core": false
+    },
+    {
+      "node_id": 60,
+      "type": "parameter",
+      "description": "token selector used inside _withdraw",
+      "id": "tokenAddr_withdraw_internal",
+      "is_core": false
+    },
+    {
+      "node_id": 61,
+      "type": "parameter",
+      "description": "address being whitelisted in authorize",
+      "id": "addr_authorize",
+      "is_core": false
+    },
+    {
+      "node_id": 62,
+      "type": "parameter",
+      "description": "cap level or wei cap assigned in authorize",
+      "id": "cap_authorize",
+      "is_core": false
+    },
+    {
+      "node_id": 63,
+      "type": "parameter",
+      "description": "array of addresses whitelisted in authorizeMany",
+      "id": "addr_authorizeMany",
+      "is_core": false
+    },
+    {
+      "node_id": 64,
+      "type": "parameter",
+      "description": "shared cap level applied by authorizeMany",
+      "id": "cap_authorizeMany",
+      "is_core": false
+    },
+    {
+      "node_id": 65,
+      "type": "parameter",
+      "description": "address removed from the whitelist in revoke",
+      "id": "addr_revoke",
+      "is_core": false
+    },
+    {
+      "node_id": 66,
+      "type": "parameter",
+      "description": "address whose individual cap is modified",
+      "id": "addr_modifyIndividualCap",
+      "is_core": false
+    },
+    {
+      "node_id": 67,
+      "type": "parameter",
+      "description": "new cap value applied in modifyIndividualCap",
+      "id": "cap_modifyIndividualCap",
+      "is_core": false
+    },
+    {
+      "node_id": 68,
+      "type": "parameter",
+      "description": "contribution level index updated in modifyLevelCap",
+      "id": "level_modifyLevelCap",
+      "is_core": false
+    },
+    {
+      "node_id": 69,
+      "type": "parameter",
+      "description": "new cap for the level in modifyLevelCap",
+      "id": "cap_modifyLevelCap",
+      "is_core": false
+    },
+    {
+      "node_id": 70,
+      "type": "parameter",
+      "description": "array of new caps for all levels",
+      "id": "cap_modifyAllLevelCaps",
+      "is_core": false
+    },
+    {
+      "node_id": 71,
+      "type": "parameter",
+      "description": "optional future timestamp for the delayed cap change",
+      "id": "time_modifyAllLevelCaps",
+      "is_core": false
+    },
+    {
+      "node_id": 72,
+      "type": "parameter",
+      "description": "new pool ceiling value",
+      "id": "amount_modifyMaxContractBalance",
+      "is_core": false
+    },
+    {
+      "node_id": 73,
+      "type": "parameter",
+      "description": "ether amount forwarded to receiverAddress by submitPool",
+      "id": "amountInWei",
+      "is_core": false
+    },
+    {
+      "node_id": 74,
+      "type": "parameter",
+      "description": "ERC20 token address enabled for withdrawals",
+      "id": "tokenAddr_enableTokenWithdrawals",
+      "is_core": false
+    },
+    {
+      "node_id": 75,
+      "type": "parameter",
+      "description": "flag preventing the token from becoming the default withdrawal token",
+      "id": "notDefault",
+      "is_core": false
+    },
+    {
+      "node_id": 76,
+      "type": "parameter",
+      "description": "numerator for the percentage computation in _toPct",
+      "id": "numerator_toPct",
+      "is_core": false
+    },
+    {
+      "node_id": 77,
+      "type": "parameter",
+      "description": "denominator for the percentage computation in _toPct",
+      "id": "denominator_toPct",
+      "is_core": false
+    },
+    {
+      "node_id": 78,
+      "type": "parameter",
+      "description": "value scaled by a percentage in _applyPct",
+      "id": "numerator_applyPct",
+      "is_core": false
+    },
+    {
+      "node_id": 79,
+      "type": "parameter",
+      "description": "1e20 scaled percentage used by _applyPct",
+      "id": "pct_applyPct",
+      "is_core": false
+    },
+    {
+      "node_id": 80,
+      "type": "local_var",
+      "description": "storage reference to whitelist[msg.sender] inside _ethDeposit",
+      "id": "c_ethDeposit",
+      "is_core": false
+    },
+    {
+      "node_id": 81,
+      "type": "local_var",
+      "description": "computed contributor balance inside _ethDeposit",
+      "id": "newBalance",
+      "is_core": false
+    },
+    {
+      "node_id": 82,
+      "type": "local_var",
+      "description": "balance being refunded to the caller inside withdraw",
+      "id": "amountToTransfer",
+      "is_core": false
+    },
+    {
+      "node_id": 83,
+      "type": "local_var",
+      "description": "storage reference to whitelist[receiver] inside _withdraw",
+      "id": "c_withdraw",
+      "is_core": false
+    },
+    {
+      "node_id": 84,
+      "type": "local_var",
+      "description": "storage reference to distributionMap[tokenAddr] inside _withdraw",
+      "id": "d_withdraw",
+      "is_core": false
+    },
+    {
+      "node_id": 85,
+      "type": "local_var",
+      "description": "accumulated pro-rata ether refund in _withdraw",
+      "id": "ethAmount",
+      "is_core": false
+    },
+    {
+      "node_id": 86,
+      "type": "local_var",
+      "description": "accumulated token claim amount in _withdraw",
+      "id": "tokenAmount",
+      "is_core": false
+    },
+    {
+      "node_id": 87,
+      "type": "local_var",
+      "description": "extcodesize result used to reject contract addresses in authorize",
+      "id": "size",
+      "is_core": false
+    },
+    {
+      "node_id": 88,
+      "type": "local_var",
+      "description": "membership level fetched from the external whitelist contract",
+      "id": "level_checkWhitelist",
+      "is_core": false
+    },
+    {
+      "node_id": 89,
+      "type": "local_var",
+      "description": "newly allocated token amount computed in enableTokenWithdrawals",
+      "id": "amount_enableTokenWithdrawals",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "reason": "constructor assigns the owner state variable",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 25,
+      "to_id": 1
+    },
+    {
+      "reason": "owner is taken directly from the caller controlled msg.sender",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 15,
+      "to_id": 1
+    },
+    {
+      "reason": "constructor writes receiverAddress",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 25,
+      "to_id": 4
+    },
+    {
+      "reason": "receiverAddr parameter is stored in receiverAddress",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 53,
+      "to_id": 4
+    },
+    {
+      "reason": "constructor writes contributionCaps",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 25,
+      "to_id": 2
+    },
+    {
+      "reason": "capAmounts parameter is stored in contributionCaps",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 54,
+      "to_id": 2
+    },
+    {
+      "reason": "constructor writes feePct",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 25,
+      "to_id": 3
+    },
+    {
+      "reason": "fee parameter is converted and stored as feePct",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 55,
+      "to_id": 3
+    },
+    {
+      "reason": "constructor calls _toPct to compute feePct",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 25,
+      "to_id": 51
+    },
+    {
+      "reason": "_toPct performs mul and division on the supplied values",
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 51,
+      "to_id": 24
+    },
+    {
+      "reason": "constructor whitelists the deployer",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 25,
+      "to_id": 12
+    },
+    {
+      "reason": "whitelist entry is created for msg.sender",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 15,
+      "to_id": 12
+    },
+    {
+      "reason": "fallback reads contractStage to route the call",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 26,
+      "to_id": 0
+    },
+    {
+      "reason": "stage 1 routes the payable fallback to _ethDeposit",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 26,
+      "to_id": 27
+    },
+    {
+      "reason": "stage 3 routes the payable fallback to _ethRefund",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 26,
+      "to_id": 28
+    },
+    {
+      "reason": "_ethDeposit asserts contractStage equals 1",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 27,
+      "to_id": 0
+    },
+    {
+      "reason": "msg.sender is the contributor key used in _ethDeposit",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 15,
+      "to_id": 27
+    },
+    {
+      "reason": "reads contributionCaps[0] as the pool ceiling",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 27,
+      "to_id": 2
+    },
+    {
+      "reason": "calls _checkCap for the depositing address",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 27,
+      "to_id": 40
+    },
+    {
+      "reason": "adds msg.value to the contributor balance with SafeMath",
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 27,
+      "to_id": 24
+    },
+    {
+      "reason": "writes the updated balance into whitelist[msg.sender]",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 27,
+      "to_id": 12
+    },
+    {
+      "reason": "_ethRefund asserts contractStage equals 3",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 28,
+      "to_id": 0
+    },
+    {
+      "reason": "msg.sender must equal owner or receiverAddress to refund",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 15,
+      "to_id": 28
+    },
+    {
+      "reason": "compares msg.sender against owner",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 28,
+      "to_id": 1
+    },
+    {
+      "reason": "compares msg.sender against receiverAddress",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 28,
+      "to_id": 4
+    },
+    {
+      "reason": "pushes received ether into ethRefundAmount",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 28,
+      "to_id": 10
+    },
+    {
+      "reason": "msg.sender is the withdrawing contributor in withdraw",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 15,
+      "to_id": 29
+    },
+    {
+      "reason": "reads and clears the contributor balance from whitelist",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 29,
+      "to_id": 12
+    },
+    {
+      "reason": "branches on contractStage to decide the withdrawal path",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 29,
+      "to_id": 0
+    },
+    {
+      "reason": "sends ether back to msg.sender inside withdraw",
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 29,
+      "to_id": 18
+    },
+    {
+      "reason": "stage 3 delegates the withdrawal to _withdraw",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 29,
+      "to_id": 31
+    },
+    {
+      "reason": "onlyOwner guard on withdrawFor",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 30,
+      "to_id": 1
+    },
+    {
+      "reason": "withdrawFor requires contractStage equals 3",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 30,
+      "to_id": 0
+    },
+    {
+      "reason": "reads whitelist[contributor].balance before withdrawal",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 30,
+      "to_id": 12
+    },
+    {
+      "reason": "withdrawFor delegates the payout to _withdraw",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 30,
+      "to_id": 31
+    },
+    {
+      "reason": "_withdraw asserts contractStage equals 3",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 31,
+      "to_id": 0
+    },
+    {
+      "reason": "reads the contributor struct from whitelist",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 31,
+      "to_id": 12
+    },
+    {
+      "reason": "reads the token allocation from distributionMap",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 31,
+      "to_id": 13
+    },
+    {
+      "reason": "uses finalBalance as the denominator for pro-rata math",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 31,
+      "to_id": 9
+    },
+    {
+      "reason": "iterates over ethRefundAmount to accumulate refunds",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 31,
+      "to_id": 10
+    },
+    {
+      "reason": "computes the contributor percentage via _toPct",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 31,
+      "to_id": 51
+    },
+    {
+      "reason": "applies stored percentages via _applyPct",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 31,
+      "to_id": 52
+    },
+    {
+      "reason": "accumulates refund and token amounts with SafeMath add",
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 31,
+      "to_id": 24
+    },
+    {
+      "reason": "transfers the computed ether refund to the receiver address",
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 31,
+      "to_id": 19
+    },
+    {
+      "reason": "calls ERC20 transfer to deliver claimed tokens",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 31,
+      "to_id": 21
+    },
+    {
+      "reason": "_applyPct multiplies then divides the scaled value",
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 52,
+      "to_id": 24
+    },
+    {
+      "reason": "onlyOwner guard on authorize",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 32,
+      "to_id": 1
+    },
+    {
+      "reason": "authorize requires contractStage equals 1",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 32,
+      "to_id": 0
+    },
+    {
+      "reason": "calls _checkWhitelistContract before whitelisting",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 32,
+      "to_id": 41
+    },
+    {
+      "reason": "writes cap and authorized flag into whitelist[addr]",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 32,
+      "to_id": 12
+    },
+    {
+      "reason": "extcodesize assembly check rejects contract addresses",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 32,
+      "to_id": 22
+    },
+    {
+      "reason": "validates the requested cap against contributionCaps",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 32,
+      "to_id": 2
+    },
+    {
+      "reason": "onlyOwner guard on authorizeMany",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 33,
+      "to_id": 1
+    },
+    {
+      "reason": "loops calling authorize for each supplied address",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 33,
+      "to_id": 32
+    },
+    {
+      "reason": "validates the shared cap against contributionCaps",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 33,
+      "to_id": 2
+    },
+    {
+      "reason": "onlyOwner guard on revoke",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 34,
+      "to_id": 1
+    },
+    {
+      "reason": "revoke requires contractStage below 3",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 34,
+      "to_id": 0
+    },
+    {
+      "reason": "clears authorization and balance in whitelist[addr]",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 34,
+      "to_id": 12
+    },
+    {
+      "reason": "queries the external whitelist contract membership level",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 34,
+      "to_id": 23
+    },
+    {
+      "reason": "refunds the stored balance to the revoked address",
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 34,
+      "to_id": 20
+    },
+    {
+      "reason": "onlyOwner guard on modifyIndividualCap",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 35,
+      "to_id": 1
+    },
+    {
+      "reason": "modifyIndividualCap requires contractStage below 3",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 35,
+      "to_id": 0
+    },
+    {
+      "reason": "calls _checkWhitelistContract before modifying the cap",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 35,
+      "to_id": 41
+    },
+    {
+      "reason": "reads and writes the contributor cap in whitelist",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 35,
+      "to_id": 12
+    },
+    {
+      "reason": "recomputes the effective cap via _checkCap",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 35,
+      "to_id": 40
+    },
+    {
+      "reason": "refunds the excess balance to the contributor address",
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 35,
+      "to_id": 20
+    },
+    {
+      "reason": "validates the new cap against contributionCaps",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 35,
+      "to_id": 2
+    },
+    {
+      "reason": "onlyOwner guard on modifyLevelCap",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 36,
+      "to_id": 1
+    },
+    {
+      "reason": "modifyLevelCap requires contractStage below 3",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 36,
+      "to_id": 0
+    },
+    {
+      "reason": "writes the new value into contributionCaps[level]",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 36,
+      "to_id": 2
+    },
+    {
+      "reason": "clears any pending delayed cap change",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 36,
+      "to_id": 6
+    },
+    {
+      "reason": "onlyOwner guard on modifyAllLevelCaps",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 37,
+      "to_id": 1
+    },
+    {
+      "reason": "modifyAllLevelCaps requires contractStage below 3",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 37,
+      "to_id": 0
+    },
+    {
+      "reason": "delay must be greater than block.timestamp",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 37,
+      "to_id": 16
+    },
+    {
+      "reason": "immediate path calls modifyLevelCap for each level",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 37,
+      "to_id": 36
+    },
+    {
+      "reason": "stages the pending caps in nextContributionCaps",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 37,
+      "to_id": 7
+    },
+    {
+      "reason": "sets nextCapTime for delayed activation",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 37,
+      "to_id": 6
+    },
+    {
+      "reason": "onlyOwner guard on modifyMaxContractBalance",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 38,
+      "to_id": 1
+    },
+    {
+      "reason": "modifyMaxContractBalance requires contractStage below 3",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 38,
+      "to_id": 0
+    },
+    {
+      "reason": "writes contributionCaps[0] and clamps higher level caps",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 38,
+      "to_id": 2
+    },
+    {
+      "reason": "clears pending cap time after direct modification",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 38,
+      "to_id": 6
+    },
+    {
+      "reason": "onlyOwner guard on toggleWhitelist",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 39,
+      "to_id": 1
+    },
+    {
+      "reason": "toggles whitelistIsActive",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 39,
+      "to_id": 5
+    },
+    {
+      "reason": "returns the pool cap when whitelistIsActive is false",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 40,
+      "to_id": 5
+    },
+    {
+      "reason": "reads contributionCaps to resolve the cap level",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 40,
+      "to_id": 2
+    },
+    {
+      "reason": "calls _checkWhitelistContract to sync authorization",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 40,
+      "to_id": 41
+    },
+    {
+      "reason": "reads the contributor struct from whitelist",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 40,
+      "to_id": 12
+    },
+    {
+      "reason": "activates pending caps when block.timestamp exceeds nextCapTime",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 40,
+      "to_id": 16
+    },
+    {
+      "reason": "resets nextCapTime after activating pending caps",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 40,
+      "to_id": 6
+    },
+    {
+      "reason": "copies nextContributionCaps into contributionCaps",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 40,
+      "to_id": 7
+    },
+    {
+      "reason": "reads and mutates the whitelist entry for the address",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 41,
+      "to_id": 12
+    },
+    {
+      "reason": "external call to checkMemberLevel on the whitelist contract",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 41,
+      "to_id": 23
+    },
+    {
+      "reason": "validates the returned level against contributionCaps.length",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 41,
+      "to_id": 2
+    },
+    {
+      "reason": "branches on contractStage to compute remaining capacity",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 42,
+      "to_id": 0
+    },
+    {
+      "reason": "reads contributionCaps[0] for return values",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 42,
+      "to_id": 2
+    },
+    {
+      "reason": "SafeMath sub of this.balance from the pool cap",
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 42,
+      "to_id": 24
+    },
+    {
+      "reason": "reads the contributor struct from whitelist",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 43,
+      "to_id": 12
+    },
+    {
+      "reason": "branches on whitelistIsActive to pick the cap source",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 43,
+      "to_id": 5
+    },
+    {
+      "reason": "reads contributionCaps for cap resolution",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 43,
+      "to_id": 2
+    },
+    {
+      "reason": "external call to checkMemberLevel for non authorized addresses",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 43,
+      "to_id": 23
+    },
+    {
+      "reason": "compares nextCapTime to block.timestamp to choose active caps",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 43,
+      "to_id": 16
+    },
+    {
+      "reason": "reads nextCapTime for the delay comparison",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 43,
+      "to_id": 6
+    },
+    {
+      "reason": "reads nextContributionCaps for the pending cap value",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 43,
+      "to_id": 7
+    },
+    {
+      "reason": "SafeMath sub for remaining contributor balance",
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 43,
+      "to_id": 24
+    },
+    {
+      "reason": "reads tokensClaimed for the contributor",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 44,
+      "to_id": 12
+    },
+    {
+      "reason": "reads the distribution pct array for the token",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 44,
+      "to_id": 13
+    },
+    {
+      "reason": "applies token percentages via _applyPct",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 44,
+      "to_id": 52
+    },
+    {
+      "reason": "onlyOwner guard on closeContributions",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 45,
+      "to_id": 1
+    },
+    {
+      "reason": "advances contractStage from 1 to 2",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 45,
+      "to_id": 0
+    },
+    {
+      "reason": "onlyOwner guard on reopenContributions",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 46,
+      "to_id": 1
+    },
+    {
+      "reason": "returns contractStage from 2 to 1",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 46,
+      "to_id": 0
+    },
+    {
+      "reason": "onlyOwner guard on setReceiverAddress",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 47,
+      "to_id": 1
+    },
+    {
+      "reason": "assigns the payout receiverAddress",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 47,
+      "to_id": 4
+    },
+    {
+      "reason": "records addressChangeBlock for the 6000 block delay",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 47,
+      "to_id": 8
+    },
+    {
+      "reason": "onlyOwner guard on submitPool",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 48,
+      "to_id": 1
+    },
+    {
+      "reason": "requires contractStage below 3 and then sets it to 3",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 48,
+      "to_id": 0
+    },
+    {
+      "reason": "sends the pooled ether to receiverAddress",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 48,
+      "to_id": 4
+    },
+    {
+      "reason": "enforces the 6000 block waiting period after a receiver change",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 48,
+      "to_id": 8
+    },
+    {
+      "reason": "snapshots this.balance into finalBalance",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 48,
+      "to_id": 9
+    },
+    {
+      "reason": "pushes leftover ether into ethRefundAmount",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 48,
+      "to_id": 10
+    },
+    {
+      "reason": "low level call forwarding gas to the receiver address",
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 48,
+      "to_id": 17
+    },
+    {
+      "reason": "noReentrancy modifier uses the locked mutex",
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 48,
+      "to_id": 14
+    },
+    {
+      "reason": "SafeMath sub on msg.gas to reserve gas for the call",
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 48,
+      "to_id": 24
+    },
+    {
+      "reason": "onlyOwner guard on enableTokenWithdrawals",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 49,
+      "to_id": 1
+    },
+    {
+      "reason": "enableTokenWithdrawals requires contractStage equals 3",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 49,
+      "to_id": 0
+    },
+    {
+      "reason": "sets or validates the default activeToken",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 49,
+      "to_id": 11
+    },
+    {
+      "reason": "writes pct and balanceRemaining into distributionMap",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 49,
+      "to_id": 13
+    },
+    {
+      "reason": "ERC20 transfer of the owner fee and token balance queries",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 49,
+      "to_id": 21
+    },
+    {
+      "reason": "uses feePct to compute the owner fee",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 49,
+      "to_id": 3
+    },
+    {
+      "reason": "uses finalBalance to compute the distribution percentage",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 49,
+      "to_id": 9
+    },
+    {
+      "reason": "noReentrancy modifier uses the locked mutex",
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 49,
+      "to_id": 14
+    },
+    {
+      "reason": "SafeMath sub on token balances to derive the distributable amount",
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 49,
+      "to_id": 24
+    },
+    {
+      "reason": "computes the distribution percentage via _toPct",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 49,
+      "to_id": 51
+    },
+    {
+      "reason": "applies feePct via _applyPct",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 49,
+      "to_id": 52
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "receiverAddr",
+      "reason": "constructor parameter stored directly into receiverAddress",
+      "merge_into": "PresalePool_constructor"
+    },
+    {
+      "normal_node": "capAmounts",
+      "reason": "constructor parameter stored directly into contributionCaps",
+      "merge_into": "PresalePool_constructor"
+    },
+    {
+      "normal_node": "fee",
+      "reason": "constructor parameter converted into feePct",
+      "merge_into": "PresalePool_constructor"
+    },
+    {
+      "normal_node": "tokenAddr_withdraw",
+      "reason": "withdraw argument selecting the token for stage 3 withdrawals",
+      "merge_into": "withdraw"
+    },
+    {
+      "normal_node": "contributor",
+      "reason": "withdrawFor argument identifying the contributor",
+      "merge_into": "withdrawFor"
+    },
+    {
+      "normal_node": "tokenAddr_withdrawFor",
+      "reason": "withdrawFor argument selecting the token",
+      "merge_into": "withdrawFor"
+    },
+    {
+      "normal_node": "receiver_withdraw",
+      "reason": "_withdraw argument receiving the refund or tokens",
+      "merge_into": "_withdraw"
+    },
+    {
+      "normal_node": "tokenAddr_withdraw_internal",
+      "reason": "_withdraw argument selecting the token allocation",
+      "merge_into": "_withdraw"
+    },
+    {
+      "normal_node": "addr_authorize",
+      "reason": "authorize argument identifying the address to whitelist",
+      "merge_into": "authorize"
+    },
+    {
+      "normal_node": "cap_authorize",
+      "reason": "authorize argument setting the contribution cap",
+      "merge_into": "authorize"
+    },
+    {
+      "normal_node": "addr_authorizeMany",
+      "reason": "authorizeMany argument array of addresses to whitelist",
+      "merge_into": "authorizeMany"
+    },
+    {
+      "normal_node": "cap_authorizeMany",
+      "reason": "authorizeMany argument cap level applied to all addresses",
+      "merge_into": "authorizeMany"
+    },
+    {
+      "normal_node": "addr_revoke",
+      "reason": "revoke argument identifying the address to remove",
+      "merge_into": "revoke"
+    },
+    {
+      "normal_node": "addr_modifyIndividualCap",
+      "reason": "modifyIndividualCap argument identifying the contributor",
+      "merge_into": "modifyIndividualCap"
+    },
+    {
+      "normal_node": "cap_modifyIndividualCap",
+      "reason": "modifyIndividualCap argument setting the new cap",
+      "merge_into": "modifyIndividualCap"
+    },
+    {
+      "normal_node": "level_modifyLevelCap",
+      "reason": "modifyLevelCap argument selecting the level",
+      "merge_into": "modifyLevelCap"
+    },
+    {
+      "normal_node": "cap_modifyLevelCap",
+      "reason": "modifyLevelCap argument setting the new level cap",
+      "merge_into": "modifyLevelCap"
+    },
+    {
+      "normal_node": "cap_modifyAllLevelCaps",
+      "reason": "modifyAllLevelCaps argument array of new caps",
+      "merge_into": "modifyAllLevelCaps"
+    },
+    {
+      "normal_node": "time_modifyAllLevelCaps",
+      "reason": "modifyAllLevelCaps argument giving the activation delay",
+      "merge_into": "modifyAllLevelCaps"
+    },
+    {
+      "normal_node": "amount_modifyMaxContractBalance",
+      "reason": "modifyMaxContractBalance argument setting the pool ceiling",
+      "merge_into": "modifyMaxContractBalance"
+    },
+    {
+      "normal_node": "amountInWei",
+      "reason": "submitPool argument giving the ether amount to forward",
+      "merge_into": "submitPool"
+    },
+    {
+      "normal_node": "tokenAddr_enableTokenWithdrawals",
+      "reason": "enableTokenWithdrawals argument identifying the ERC20 token",
+      "merge_into": "enableTokenWithdrawals"
+    },
+    {
+      "normal_node": "notDefault",
+      "reason": "enableTokenWithdrawals argument controlling default token selection",
+      "merge_into": "enableTokenWithdrawals"
+    },
+    {
+      "normal_node": "numerator_toPct",
+      "reason": "_toPct argument providing the numerator",
+      "merge_into": "_toPct"
+    },
+    {
+      "normal_node": "denominator_toPct",
+      "reason": "_toPct argument providing the denominator",
+      "merge_into": "_toPct"
+    },
+    {
+      "normal_node": "numerator_applyPct",
+      "reason": "_applyPct argument providing the value to scale",
+      "merge_into": "_applyPct"
+    },
+    {
+      "normal_node": "pct_applyPct",
+      "reason": "_applyPct argument providing the scaled percentage",
+      "merge_into": "_applyPct"
+    },
+    {
+      "normal_node": "c_ethDeposit",
+      "reason": "_ethDeposit local storage reference to the caller contributor struct",
+      "merge_into": "_ethDeposit"
+    },
+    {
+      "normal_node": "newBalance",
+      "reason": "_ethDeposit local holding the updated contributor balance",
+      "merge_into": "_ethDeposit"
+    },
+    {
+      "normal_node": "amountToTransfer",
+      "reason": "withdraw local holding the balance being refunded to the caller",
+      "merge_into": "withdraw"
+    },
+    {
+      "normal_node": "c_withdraw",
+      "reason": "_withdraw local storage reference to the receiver contributor struct",
+      "merge_into": "_withdraw"
+    },
+    {
+      "normal_node": "d_withdraw",
+      "reason": "_withdraw local storage reference to the token distribution struct",
+      "merge_into": "_withdraw"
+    },
+    {
+      "normal_node": "ethAmount",
+      "reason": "_withdraw local accumulating the pro-rata ether refund",
+      "merge_into": "_withdraw"
+    },
+    {
+      "normal_node": "tokenAmount",
+      "reason": "_withdraw local accumulating the token claim amount",
+      "merge_into": "_withdraw"
+    },
+    {
+      "normal_node": "size",
+      "reason": "authorize local holding the extcodesize result",
+      "merge_into": "authorize"
+    },
+    {
+      "normal_node": "level_checkWhitelist",
+      "reason": "_checkWhitelistContract local holding the external membership level",
+      "merge_into": "_checkWhitelistContract"
+    },
+    {
+      "normal_node": "amount_enableTokenWithdrawals",
+      "reason": "enableTokenWithdrawals local holding the newly allocated token amount",
+      "merge_into": "enableTokenWithdrawals"
+    }
+  ]
+}

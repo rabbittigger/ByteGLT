@@ -1,0 +1,312 @@
+{
+  "nodes": [
+    {
+      "id": "admin",
+      "type": "state_var",
+      "node_id": 0,
+      "is_core": true,
+      "description": "Address stored by CTokenAdminStorage; set to msg.sender by the creator and then to admin_ after initialization."
+    },
+    {
+      "id": "implementation",
+      "type": "state_var",
+      "node_id": 1,
+      "is_core": true,
+      "description": "Address of the implementation contract the delegator forwards all calls to via delegatecall."
+    },
+    {
+      "id": "constructor",
+      "type": "function",
+      "node_id": 2,
+      "is_core": true,
+      "description": "CEtherDelegator constructor that sets admin to msg.sender, delegatecalls initialize on the implementation and registers the first implementation."
+    },
+    {
+      "id": "_setImplementation",
+      "type": "function",
+      "node_id": 3,
+      "is_core": true,
+      "description": "Admin-only setter that swaps the implementation address and optionally calls _resignImplementation/_becomeImplementation on it."
+    },
+    {
+      "id": "delegateTo",
+      "type": "function",
+      "node_id": 4,
+      "is_core": true,
+      "description": "Internal helper performing callee.delegatecall(data) and bubbling up revert data on failure."
+    },
+    {
+      "id": "delegateToImplementation",
+      "type": "function",
+      "node_id": 5,
+      "is_core": true,
+      "description": "Public wrapper that delegatecalls the current implementation with caller-supplied data."
+    },
+    {
+      "id": "fallback",
+      "type": "function",
+      "node_id": 6,
+      "is_core": true,
+      "description": "Payable fallback that delegatecalls the implementation with msg.data and returns or reverts the raw returndata."
+    },
+    {
+      "id": "msg_sender",
+      "type": "untrusted_input",
+      "node_id": 7,
+      "is_core": true,
+      "description": "Caller of the constructor, used to seed the admin storage slot."
+    },
+    {
+      "id": "delegatecall_delegateTo",
+      "type": "unsafe_operation",
+      "node_id": 8,
+      "is_core": true,
+      "description": "delegatecall to an externally supplied callee inside delegateTo, executing untrusted code in this contract's storage context."
+    },
+    {
+      "id": "delegatecall_fallback",
+      "type": "unsafe_operation",
+      "node_id": 9,
+      "is_core": true,
+      "description": "delegatecall to the stored implementation with raw msg.data in the fallback function."
+    },
+    {
+      "id": "require_admin_rights",
+      "type": "unsafe_operation",
+      "node_id": 10,
+      "is_core": true,
+      "description": "hasAdminRights() check gating _setImplementation; the only access-control barrier protecting the implementation swap."
+    },
+    {
+      "id": "param_callee",
+      "type": "parameter",
+      "node_id": 11,
+      "is_core": false,
+      "description": "Address of the contract delegateTo delegatecalls."
+    },
+    {
+      "id": "param_delegateTo_data",
+      "type": "parameter",
+      "node_id": 12,
+      "is_core": false,
+      "description": "Raw calldata bytes forwarded to callee in delegateTo."
+    },
+    {
+      "id": "param_setImplementation_impl",
+      "type": "parameter",
+      "node_id": 13,
+      "is_core": false,
+      "description": "New implementation address supplied to _setImplementation."
+    },
+    {
+      "id": "param_allowResign",
+      "type": "parameter",
+      "node_id": 14,
+      "is_core": false,
+      "description": "Boolean flag controlling whether _resignImplementation is called on the old implementation."
+    },
+    {
+      "id": "param_setImplementation_data",
+      "type": "parameter",
+      "node_id": 15,
+      "is_core": false,
+      "description": "Encoded bytes passed to _becomeImplementation on the new implementation."
+    },
+    {
+      "id": "local_oldImplementation",
+      "type": "local_var",
+      "node_id": 16,
+      "is_core": false,
+      "description": "Temporary holding the previous implementation address before it is overwritten and emitted."
+    },
+    {
+      "id": "param_delegateToImplementation_data",
+      "type": "parameter",
+      "node_id": 17,
+      "is_core": false,
+      "description": "Raw bytes forwarded by delegateToImplementation to delegateTo."
+    },
+    {
+      "id": "param_constructor_impl",
+      "type": "parameter",
+      "node_id": 18,
+      "is_core": false,
+      "description": "Implementation address passed to the constructor for the initial delegatecall."
+    },
+    {
+      "id": "param_constructor_data",
+      "type": "parameter",
+      "node_id": 19,
+      "is_core": false,
+      "description": "Encoded becomeImplementation data passed to _setImplementation from the constructor."
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "reason": "msg.sender is written into the admin storage slot during construction, granting the deployer privileged control."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 2,
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "The constructor invokes delegateTo, triggering the delegatecall to the newly supplied implementation."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 2,
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "The constructor calls _setImplementation, which is protected by the hasAdminRights check."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 3,
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "_setImplementation routes _resignImplementation/_becomeImplementation calls through delegateToImplementation into delegateTo."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 5,
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "delegateToImplementation forwards execution into the internal delegateTo helper."
+    },
+    {
+      "type": "callback",
+      "from_id": 6,
+      "to_id": 9,
+      "vuln_type": "reentrancy",
+      "reason": "The fallback delegatecalls the implementation with raw msg.data, giving arbitrary external code full control of this storage context."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 9,
+      "vuln_type": "reentrancy",
+      "reason": "The stored implementation address is the target of the fallback delegatecall."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "The stored implementation address is the callee used by delegateToImplementation/delegateTo."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 1,
+      "vuln_type": "access_control",
+      "reason": "The implementation_ parameter rewrites the implementation storage variable, redirecting all future delegatecalls."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "The previous implementation value is captured before the storage variable is overwritten."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "The callee parameter is the destination of the delegatecall inside delegateTo."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "The data parameter is the raw payload executed by the delegatecall inside delegateTo."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "Caller-supplied data flows from delegateToImplementation into delegateTo."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "The constructor implementation_ argument is used as the callee of the initial delegatecall."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 19,
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "Constructor becomeImplementationData is forwarded into _setImplementation."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "becomeImplementationData is encoded and forwarded through delegateToImplementation into delegateTo."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 3,
+      "to_id": 10,
+      "vuln_type": "access_control",
+      "reason": "_setImplementation is guarded by the hasAdminRights requirement before any implementation change."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param_callee",
+      "merge_into": "delegateTo",
+      "reason": "callee is a transient argument consumed only by the delegatecall in delegateTo and carries no independent semantic identity."
+    },
+    {
+      "normal_node": "param_delegateTo_data",
+      "merge_into": "delegateTo",
+      "reason": "data is a transient argument consumed only by the delegatecall in delegateTo."
+    },
+    {
+      "normal_node": "param_setImplementation_impl",
+      "merge_into": "_setImplementation",
+      "reason": "implementation_ exists only to update the implementation state variable inside _setImplementation."
+    },
+    {
+      "normal_node": "param_allowResign",
+      "merge_into": "_setImplementation",
+      "reason": "allowResign only branches the internal resign call inside _setImplementation."
+    },
+    {
+      "normal_node": "param_setImplementation_data",
+      "merge_into": "_setImplementation",
+      "reason": "becomeImplementationData is only encoded and forwarded by _setImplementation."
+    },
+    {
+      "normal_node": "local_oldImplementation",
+      "merge_into": "_setImplementation",
+      "reason": "oldImplementation is a short-lived local used only for the swap and event inside _setImplementation."
+    },
+    {
+      "normal_node": "param_delegateToImplementation_data",
+      "merge_into": "delegateToImplementation",
+      "reason": "data is a pass-through argument consumed only by delegateTo inside delegateToImplementation."
+    },
+    {
+      "normal_node": "param_constructor_impl",
+      "merge_into": "constructor",
+      "reason": "implementation_ is consumed only by the constructor to seed the delegation target."
+    },
+    {
+      "normal_node": "param_constructor_data",
+      "merge_into": "constructor",
+      "reason": "becomeImplementationData is consumed only by the constructor when calling _setImplementation."
+    }
+  ]
+}

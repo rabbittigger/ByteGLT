@@ -1,0 +1,813 @@
+{
+  "nodes": [
+    {
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used as transfer sender, spender, disputer, voter and fork proposer.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "msg.sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Block timestamp accessed as `now`, used for dispute deadlines and voting windows.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "function",
+      "description": "ERC20 transfer entry point; delegates to doTransfer with msg.sender as _from.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "TellorTransfer.transfer"
+    },
+    {
+      "type": "function",
+      "description": "Spends allowance and delegates to doTransfer; mutates self.allowed.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "TellorTransfer.transferFrom"
+    },
+    {
+      "type": "function",
+      "description": "Sets allowance for a spender after zero-allowance and non-zero address checks.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "TellorTransfer.approve"
+    },
+    {
+      "type": "function",
+      "description": "Core balance-moving routine that validates, updates checkpoints and emits Transfer.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "TellorTransfer.doTransfer"
+    },
+    {
+      "type": "function",
+      "description": "Binary search over balance checkpoints at a given block number.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "TellorTransfer.balanceOfAt"
+    },
+    {
+      "type": "function",
+      "description": "Determines spendable balance, subtracting stakeAmount for staked accounts.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "TellorTransfer.allowedToTrade"
+    },
+    {
+      "type": "function",
+      "description": "Pushes or overwrites the latest balance checkpoint for the current block.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "TellorTransfer.updateBalanceAtNow"
+    },
+    {
+      "type": "function",
+      "description": "Opens a dispute, charges a fee, sets deadlines and status flags.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "TellorDispute.beginDispute"
+    },
+    {
+      "type": "function",
+      "description": "Casts a weighted vote using the voter balance snapshotted at dispute start.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "TellorDispute.vote"
+    },
+    {
+      "type": "function",
+      "description": "Finalizes a dispute after the minimum execution date has passed.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "TellorDispute.tallyVotes"
+    },
+    {
+      "type": "function",
+      "description": "Creates a fork proposal dispute and charges an escalating fork fee.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "TellorDispute.proposeFork"
+    },
+    {
+      "type": "function",
+      "description": "Migrates the tellorContract address after a passing fork vote and delay.",
+      "is_core": true,
+      "node_id": 13,
+      "id": "TellorDispute.updateTellor"
+    },
+    {
+      "type": "function",
+      "description": "Refunds or slashes fees/stakes after the dispute resolution delay; permissionless.",
+      "is_core": true,
+      "node_id": 14,
+      "id": "TellorDispute.unlockDisputeFee"
+    },
+    {
+      "type": "function",
+      "description": "Recalculates disputeFee as a function of stakeAmount, stakerCount and targetMiners.",
+      "is_core": true,
+      "node_id": 15,
+      "id": "TellorDispute.updateMinDisputeFee"
+    },
+    {
+      "type": "state_var",
+      "description": "Nested allowance mapping cleared and written by approve/transferFrom.",
+      "is_core": true,
+      "node_id": 16,
+      "id": "self.allowed"
+    },
+    {
+      "type": "state_var",
+      "description": "Per-address checkpoint array storing historical balances.",
+      "is_core": true,
+      "node_id": 17,
+      "id": "self.balances"
+    },
+    {
+      "type": "state_var",
+      "description": "StakeInfo mapping (currentStatus, startDate) for each staker.",
+      "is_core": true,
+      "node_id": 18,
+      "id": "self.stakerDetails"
+    },
+    {
+      "type": "state_var",
+      "description": "Generic uint storage: stakeAmount, disputeFee, stakerCount, total_supply, version, etc.",
+      "is_core": true,
+      "node_id": 19,
+      "id": "self.uintVars"
+    },
+    {
+      "type": "state_var",
+      "description": "Dispute structs keyed by disputeId, including tally, voted and disputeUintVars.",
+      "is_core": true,
+      "node_id": 20,
+      "id": "self.disputesById"
+    },
+    {
+      "type": "state_var",
+      "description": "Request structs holding mined values, inDispute flags and apiUintVars.",
+      "is_core": true,
+      "node_id": 21,
+      "id": "self.requestDetails"
+    },
+    {
+      "type": "state_var",
+      "description": "Maps a dispute hash to its originating disputeId.",
+      "is_core": true,
+      "node_id": 22,
+      "id": "self.disputeIdByDisputeHash"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "self.allowed[_from][msg.sender] -= _amount performed with raw arithmetic rather than SafeMath.",
+      "is_core": true,
+      "node_id": 23,
+      "id": "unsafe_allowance_decrement"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "previousBalance - _amount and previousBalance + _amount computed with raw arithmetic inside doTransfer.",
+      "is_core": true,
+      "node_id": 24,
+      "id": "unsafe_balance_arithmetic"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "self.uintVars[stakerCount] -= 1 in unlockDisputeFee without SafeMath or underflow guard.",
+      "is_core": true,
+      "node_id": 25,
+      "id": "unsafe_staker_count_decrement"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "apiUintVars[disputeCount]-- in unlockDisputeFee without underflow protection.",
+      "is_core": true,
+      "node_id": 26,
+      "id": "unsafe_dispute_count_decrement"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Dispute deadlines written from now (now + 2 days * dispRounds, now + 7 days), making resolution time miner-influenceable.",
+      "is_core": true,
+      "node_id": 27,
+      "id": "timestamp_deadline_write"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Voting/unlock eligibility gated purely on now (now >= minExecutionDate, now - tallyDate > 1 days), a timestamp dependency.",
+      "is_core": true,
+      "node_id": 28,
+      "id": "timestamp_time_gate"
+    },
+    {
+      "type": "parameter",
+      "description": "Recipient address parameter of transfer/transferFrom/doTransfer.",
+      "is_core": false,
+      "node_id": 29,
+      "id": "param:_to"
+    },
+    {
+      "type": "parameter",
+      "description": "Token amount parameter used throughout the transfer path.",
+      "is_core": false,
+      "node_id": 30,
+      "id": "param:_amount"
+    },
+    {
+      "type": "parameter",
+      "description": "Source address parameter of transferFrom/doTransfer.",
+      "is_core": false,
+      "node_id": 31,
+      "id": "param:_from"
+    },
+    {
+      "type": "parameter",
+      "description": "Spender address parameter of approve.",
+      "is_core": false,
+      "node_id": 32,
+      "id": "param:_spender"
+    },
+    {
+      "type": "parameter",
+      "description": "Account whose historical balance is queried.",
+      "is_core": false,
+      "node_id": 33,
+      "id": "param:_user"
+    },
+    {
+      "type": "parameter",
+      "description": "Block number used for the checkpoint search in balanceOfAt.",
+      "is_core": false,
+      "node_id": 34,
+      "id": "param:_blockNumber"
+    },
+    {
+      "type": "parameter",
+      "description": "Request identifier parameter of beginDispute.",
+      "is_core": false,
+      "node_id": 35,
+      "id": "param:_requestId"
+    },
+    {
+      "type": "parameter",
+      "description": "Mined timestamp parameter of beginDispute.",
+      "is_core": false,
+      "node_id": 36,
+      "id": "param:_timestamp"
+    },
+    {
+      "type": "parameter",
+      "description": "Index of the disputed miner slot, also drives the fee calculation.",
+      "is_core": false,
+      "node_id": 37,
+      "id": "param:_minerIndex"
+    },
+    {
+      "type": "parameter",
+      "description": "Dispute identifier parameter of vote/tallyVotes/updateTellor/unlockDisputeFee.",
+      "is_core": false,
+      "node_id": 38,
+      "id": "param:_disputeId"
+    },
+    {
+      "type": "parameter",
+      "description": "Vote direction flag in vote.",
+      "is_core": false,
+      "node_id": 39,
+      "id": "param:_supportsDispute"
+    },
+    {
+      "type": "parameter",
+      "description": "Proposed fork address parameter of proposeFork.",
+      "is_core": false,
+      "node_id": 40,
+      "id": "param:_propNewTellorAddress"
+    },
+    {
+      "type": "local_var",
+      "description": "Cached balance of _from/_to inside doTransfer.",
+      "is_core": false,
+      "node_id": 41,
+      "id": "local:previousBalance"
+    },
+    {
+      "type": "local_var",
+      "description": "Storage pointer to the balance checkpoint array in balanceOfAt.",
+      "is_core": false,
+      "node_id": 42,
+      "id": "local:checkpoints"
+    },
+    {
+      "type": "local_var",
+      "description": "Balance-at-dispute-start used as voting weight in vote.",
+      "is_core": false,
+      "node_id": 43,
+      "id": "local:voteWeight"
+    },
+    {
+      "type": "local_var",
+      "description": "Disputed miner address derived from the minersByValue array.",
+      "is_core": false,
+      "node_id": 44,
+      "id": "local:_miner"
+    },
+    {
+      "type": "local_var",
+      "description": "Computed dispute fee transferred to the contract in beginDispute.",
+      "is_core": false,
+      "node_id": 45,
+      "id": "local:_fee"
+    },
+    {
+      "type": "local_var",
+      "description": "Cached dispute tally read in tallyVotes.",
+      "is_core": false,
+      "node_id": 46,
+      "id": "local:_tally"
+    },
+    {
+      "type": "local_var",
+      "description": "Number of dispute rounds used for fees and deadlines.",
+      "is_core": false,
+      "node_id": 47,
+      "id": "local:dispRounds"
+    },
+    {
+      "type": "local_var",
+      "description": "Storage pointer to the reported miner's StakeInfo.",
+      "is_core": false,
+      "node_id": 48,
+      "id": "local:stakes"
+    },
+    {
+      "type": "local_var",
+      "description": "Loop-local dispute identifier used when refunding fees.",
+      "is_core": false,
+      "node_id": 49,
+      "id": "local:_id"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "msg.sender is forwarded as the _from address of transfer via doTransfer.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "msg.sender is the spender whose allowance is debited in transferFrom.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "msg.sender owns the allowance slot written by approve.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "msg.sender becomes reportingParty and pays the dispute fee.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "msg.sender determines voteWeight and the voted flag in vote.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "msg.sender becomes reportedMiner/reportingParty and pays the fork fee.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "unlockDisputeFee is permissionless and its outcome depends only on caller-supplied dispute state.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "updateMinDisputeFee is externally callable by any address with no access control.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "Dispute timestamps (minExecutionDate = now + 2 days * dispRounds) are derived from the block timestamp.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "tallyVotes eligibility depends on now >= minExecutionDate, a pure timestamp dependency.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "updateTellor requires now - tallyDate > 1 days before the contract address can be migrated.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "unlockDisputeFee requires now - tallyDate > 1 days before any funds are released.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "transfer delegates all value movement to doTransfer.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "transferFrom calls doTransfer after debiting the allowance.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "transferFrom writes self.allowed[_from][msg.sender].",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "Allowance is reduced with unchecked subtraction rather than SafeMath.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "approve overwrites the allowance entry for msg.sender and _spender.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "doTransfer reads the current balances of _from and _to via balanceOf.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "doTransfer requires allowedToTrade before moving funds.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "doTransfer writes new checkpoints into self.balances.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "Balance subtraction/addition is performed with raw uint arithmetic.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "balanceOfAt reads the checkpoint array from self.balances.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "allowedToTrade inspects stakerDetails[_user].currentStatus.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "allowedToTrade subtracts uintVars[stakeAmount] from the balance.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "updateBalanceAtNow pushes or rewrites the latest checkpoint.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "beginDispute collects the dispute fee through TellorTransfer.doTransfer.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "beginDispute creates and populates disputesById[disputeId].",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "beginDispute reads requestDetails and clears inDispute/finalValues.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "beginDispute maps the dispute hash to a disputeId and tracks rounds.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "The dispute deadline is computed directly from the current timestamp.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "vote reads the historical balance via balanceOfAt at the dispute block.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "vote updates voted, numberOfVotes and tally on disputesById.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "tallyVotes mutates executed, disputeVotePassed, tallyDate and staker status.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 28,
+      "type": "controlflow",
+      "reason": "Execution of tallyVotes is gated solely by the current timestamp versus minExecutionDate.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "proposeFork charges the fork fee through TellorTransfer.doTransfer.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "proposeFork writes the new fork dispute and round bookkeeping.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "proposeFork registers the fork hash in disputeIdByDisputeHash.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "Fork proposal deadline (now + 7 days) is derived from the block timestamp.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "updateTellor bumps uintVars[version] from the dispute's newVersion.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "updateTellor reads dispute flags, proposedForkAddress and tallyDate.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 28,
+      "type": "dataflow",
+      "reason": "Migration is allowed only after now - tallyDate exceeds one day.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "unlockDisputeFee returns stakes and fees through multiple doTransfer calls.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "unlockDisputeFee calls updateMinDisputeFee after slashing a staker.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "unlockDisputeFee mutates the reported miner's stake status and startDate.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "unlockDisputeFee reads stakeAmount and decrements stakerCount.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "unlockDisputeFee iterates disputesById to refund each round's fee.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "stakerCount is decremented with raw arithmetic, risking underflow and desynchronised fee accounting.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 26,
+      "type": "dataflow",
+      "reason": "apiUintVars[disputeCount] is decremented without a lower-bound check.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 28,
+      "type": "controlflow",
+      "reason": "Fee unlocking is permitted only when now - tallyDate > 1 days.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "updateMinDisputeFee writes uintVars[disputeFee] using stakeAmount, stakerCount and targetMiners.",
+      "from_id": 15
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "TellorTransfer.doTransfer",
+      "reason": "The recipient parameter only exists to drive the doTransfer value movement.",
+      "normal_node": "param:_to"
+    },
+    {
+      "merge_into": "unsafe_balance_arithmetic",
+      "reason": "The amount parameter is consumed by the unchecked balance arithmetic in doTransfer.",
+      "normal_node": "param:_amount"
+    },
+    {
+      "merge_into": "TellorTransfer.doTransfer",
+      "reason": "The source address is only meaningful inside doTransfer's balance updates.",
+      "normal_node": "param:_from"
+    },
+    {
+      "merge_into": "TellorTransfer.approve",
+      "reason": "The spender parameter is exclusively used by approve's allowance write.",
+      "normal_node": "param:_spender"
+    },
+    {
+      "merge_into": "TellorTransfer.balanceOfAt",
+      "reason": "The user parameter selects the checkpoint array read by balanceOfAt.",
+      "normal_node": "param:_user"
+    },
+    {
+      "merge_into": "TellorTransfer.balanceOfAt",
+      "reason": "The block number parameter bounds the binary search in balanceOfAt.",
+      "normal_node": "param:_blockNumber"
+    },
+    {
+      "merge_into": "TellorDispute.beginDispute",
+      "reason": "The requestId parameter keys requestDetails inside beginDispute.",
+      "normal_node": "param:_requestId"
+    },
+    {
+      "merge_into": "TellorDispute.beginDispute",
+      "reason": "The timestamp parameter selects the mined value being disputed in beginDispute.",
+      "normal_node": "param:_timestamp"
+    },
+    {
+      "merge_into": "TellorDispute.beginDispute",
+      "reason": "The miner index parameter drives fee selection and inDispute flags in beginDispute.",
+      "normal_node": "param:_minerIndex"
+    },
+    {
+      "merge_into": "TellorDispute.unlockDisputeFee",
+      "reason": "The disputeId parameter resolves the dispute chain that unlockDisputeFee pays out.",
+      "normal_node": "param:_disputeId"
+    },
+    {
+      "merge_into": "TellorDispute.vote",
+      "reason": "The support flag only chooses the sign of the tally update in vote.",
+      "normal_node": "param:_supportsDispute"
+    },
+    {
+      "merge_into": "TellorDispute.proposeFork",
+      "reason": "The proposed address is hashed and stored by proposeFork as proposedForkAddress.",
+      "normal_node": "param:_propNewTellorAddress"
+    },
+    {
+      "merge_into": "unsafe_balance_arithmetic",
+      "reason": "The cached balance is the operand of the unchecked addition/subtraction in doTransfer.",
+      "normal_node": "local:previousBalance"
+    },
+    {
+      "merge_into": "TellorTransfer.updateBalanceAtNow",
+      "reason": "The checkpoint pointer is the storage target written by updateBalanceAtNow.",
+      "normal_node": "local:checkpoints"
+    },
+    {
+      "merge_into": "TellorDispute.vote",
+      "reason": "Vote weight is computed and immediately applied to the tally inside vote.",
+      "normal_node": "local:voteWeight"
+    },
+    {
+      "merge_into": "TellorDispute.beginDispute",
+      "reason": "The disputed miner address is resolved from storage and stored on the new dispute in beginDispute.",
+      "normal_node": "local:_miner"
+    },
+    {
+      "merge_into": "TellorDispute.beginDispute",
+      "reason": "The fee local is calculated and transferred out within beginDispute.",
+      "normal_node": "local:_fee"
+    },
+    {
+      "merge_into": "TellorDispute.tallyVotes",
+      "reason": "The cached tally is read and consumed only by tallyVotes.",
+      "normal_node": "local:_tally"
+    },
+    {
+      "merge_into": "TellorDispute.beginDispute",
+      "reason": "The round counter is derived from dispute state and used for deadlines/fees in beginDispute.",
+      "normal_node": "local:dispRounds"
+    },
+    {
+      "merge_into": "TellorDispute.unlockDisputeFee",
+      "reason": "The stake pointer is loaded purely to mutate or slash the reported miner's stake.",
+      "normal_node": "local:stakes"
+    },
+    {
+      "merge_into": "TellorDispute.unlockDisputeFee",
+      "reason": "The loop identifier only indexes disputesById during the refund loop.",
+      "normal_node": "local:_id"
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "nodes": [
+    {
+      "description": "External pure function compute(uint256 x) that evaluates a large degree polynomial f(x) over the field defined by PRIME using Horner's method in inline assembly, then returns result % PRIME.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 0,
+      "id": "EcdsaPointsXColumn.compute"
+    },
+    {
+      "description": "Input parameter x (uint256) supplied by the caller; used as the Horner multiplier in every mulmod step inside the assembly block.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 1,
+      "id": "compute.x"
+    },
+    {
+      "description": "Named return variable/local accumulator 'result' that is repeatedly updated by the chained add/mulmod Horner iterations and finally reduced modulo PRIME.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 2,
+      "id": "compute.result"
+    },
+    {
+      "description": "Local constant 0x800000000000011000000000000000000000000000000000000000000000001 used as the modulus for every mulmod and for the final 'result % PRIME'.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 3,
+      "id": "compute.PRIME"
+    },
+    {
+      "description": "Inline assembly block performing batched Horner iterations with add and mulmod against PRIME, plus the final 'result % PRIME' reduction; raw arithmetic with no explicit reason string or bounds check.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 4,
+      "id": "compute.assembly_horner_mulmod"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Caller-supplied parameter x flows into function compute as its only input.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "The named return variable result carries the computed value back to the function's return.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "Parameter x is consumed as the multiplier of every mulmod iteration in the assembly Horner evaluation.",
+      "from_id": 1,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "PRIME is used as the modulus of every mulmod and of the final result % PRIME reduction inside the assembly block; arithmetic on this value determines overflow behaviour.",
+      "from_id": 3,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "The assembly-computed value is assigned to result and returned as the function output.",
+      "from_id": 4,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "Execution of compute unconditionally enters the inline assembly arithmetic block before returning.",
+      "from_id": 0,
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "to_id": 4
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Parameter x has no independent security role; it is an argument of compute and should be folded into the function node.",
+      "normal_node": "compute.x",
+      "merge_into": "EcdsaPointsXColumn.compute"
+    },
+    {
+      "reason": "result is a transient local accumulator/return slot of compute and carries no separate state, so it merges into the function node.",
+      "normal_node": "compute.result",
+      "merge_into": "EcdsaPointsXColumn.compute"
+    },
+    {
+      "reason": "PRIME is a local constant used solely as the modulus of the assembly add/mulmod operations, so it folds into that unsafe_operation node.",
+      "normal_node": "compute.PRIME",
+      "merge_into": "compute.assembly_horner_mulmod"
+    }
+  ]
+}

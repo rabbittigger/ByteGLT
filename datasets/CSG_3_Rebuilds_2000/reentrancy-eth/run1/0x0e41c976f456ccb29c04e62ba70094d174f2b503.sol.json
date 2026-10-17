@@ -1,0 +1,337 @@
+{
+  "nodes": [
+    {
+      "description": "Public owner address of the Ownable contract, set to the deployer and used as the privileged account in the onlyOwner check.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "owner"
+    },
+    {
+      "description": "Constructor of the Ownable contract that assigns msg.sender to the owner state variable.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 1,
+      "id": "Ownable"
+    },
+    {
+      "description": "Caller-supplied address used both to initialise owner and inside the onlyOwner modifier guard.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 2,
+      "id": "msg.sender"
+    },
+    {
+      "description": "Access-control modifier that reverts when msg.sender is not the stored owner and otherwise continues execution of the guarded function.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "onlyOwner"
+    },
+    {
+      "description": "Reference to the external NoahToken contract used for balance lookups and token transfers.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 4,
+      "id": "noahToken"
+    },
+    {
+      "description": "Constructor that casts the supplied address parameter into the NoahToken interface stored in noahToken.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 5,
+      "id": "NoahDividend_constructor"
+    },
+    {
+      "description": "Address argument of the NoahDividend constructor that is cast to the NoahToken handle.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 6,
+      "id": "noahTokenAddress"
+    },
+    {
+      "description": "Public view helper that returns the NoahToken balance held by a given investor address.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 7,
+      "id": "balanceOfInvestor"
+    },
+    {
+      "description": "Address argument of balanceOfInvestor forwarded to the external balanceOf call.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 8,
+      "id": "investor"
+    },
+    {
+      "description": "Owner-restricted batch distribution function that iterates over investor/amount arrays performing external NoahToken transfers.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 9,
+      "id": "multiTransfer"
+    },
+    {
+      "description": "Array of recipient addresses used for array allocation, length checks and transfer destinations.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 10,
+      "id": "investors"
+    },
+    {
+      "description": "Array of token amounts matched by index with the investors array during the batch transfer loop.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 11,
+      "id": "tokenAmounts"
+    },
+    {
+      "description": "Dynamic address array allocated in multiTransfer that records the successfully transferred recipients.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 12,
+      "id": "results"
+    },
+    {
+      "description": "Loop counter iterating over the investors array in multiTransfer.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 13,
+      "id": "i"
+    },
+    {
+      "description": "Boolean returned by the external NoahToken transfer call, used to decide whether a recipient is recorded.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 14,
+      "id": "result"
+    },
+    {
+      "description": "External call noahToken.transfer(investors[i], tokenAmounts[i]) executed inside a loop while contract state is being modified, exposing an external-call/reentrancy surface.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 15,
+      "id": "ext_call_noahToken_transfer"
+    },
+    {
+      "description": "revert() executed in the onlyOwner modifier when msg.sender does not match owner, enforcing the access-control restriction.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 16,
+      "id": "revert_onlyOwner"
+    },
+    {
+      "description": "revert() executed when the investors/tokenAmounts arrays are empty or have mismatched lengths.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 17,
+      "id": "revert_multiTransfer"
+    },
+    {
+      "description": "External static call noahToken.balanceOf(investor) whose result is returned directly to the caller.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 18,
+      "id": "ext_call_noahToken_balanceOf"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The Ownable constructor writes msg.sender into the owner state variable.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "Untrusted msg.sender is stored as the privileged owner, defining the authorization principal.",
+      "from_id": 2,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "The untrusted msg.sender is compared against owner, driving the onlyOwner revert branch.",
+      "from_id": 2,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 16
+    },
+    {
+      "reason": "The stored owner state variable is read to validate the caller inside the onlyOwner modifier.",
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 16
+    },
+    {
+      "reason": "The onlyOwner modifier gates entry into multiTransfer, restricting the batch transfer to the owner.",
+      "from_id": 3,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 9
+    },
+    {
+      "reason": "Execution of the onlyOwner modifier branches into the revert() guard when the caller is not owner.",
+      "from_id": 3,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 16
+    },
+    {
+      "reason": "The constructor parameter noahTokenAddress is cast and assigned to the noahToken state variable.",
+      "from_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "The NoahDividend constructor writes the NoahToken reference into noahToken.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "The investor parameter is forwarded as the argument of the external balanceOf call.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 18
+    },
+    {
+      "reason": "balanceOfInvestor invokes the external noahToken.balanceOf call and returns its value.",
+      "from_id": 7,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 18
+    },
+    {
+      "reason": "multiTransfer executes the external token transfer inside its loop, giving the callee control before the batch completes.",
+      "from_id": 9,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 15
+    },
+    {
+      "reason": "Recipient addresses taken from the untrusted investors array are passed into the external transfer call.",
+      "from_id": 10,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 15
+    },
+    {
+      "reason": "Token amounts taken from the tokenAmounts array are passed as the value argument of the external transfer.",
+      "from_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 15
+    },
+    {
+      "reason": "The length of the investors array is compared with tokenAmounts length before any transfer is performed.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "The loop counter i selects the investor/amount pair used in each external transfer call.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 15
+    },
+    {
+      "reason": "The loop counter indexes the investors array to obtain each recipient.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 10
+    },
+    {
+      "reason": "The boolean returned by the external transfer call is captured in the result local variable.",
+      "from_id": 15,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 14
+    },
+    {
+      "reason": "A successful transfer result causes the corresponding recipient to be written into the results array.",
+      "from_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "The recipient address from investors is stored into the results array on success.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "multiTransfer allocates, populates and returns the results address array.",
+      "from_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "multiTransfer reverts when the input arrays are empty or their lengths do not match.",
+      "from_id": 9,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 17
+    },
+    {
+      "reason": "The investors array length feeds the validation condition that triggers revert().",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 17
+    },
+    {
+      "reason": "The tokenAmounts array length feeds the validation condition that triggers revert().",
+      "from_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 17
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The constructor parameter only exists to initialise the noahToken state variable inside NoahDividend's constructor.",
+      "normal_node": "noahTokenAddress",
+      "merge_into": "NoahDividend_constructor"
+    },
+    {
+      "reason": "The investor parameter is a transient input of balanceOfInvestor forwarded to the external balanceOf call.",
+      "normal_node": "investor",
+      "merge_into": "balanceOfInvestor"
+    },
+    {
+      "reason": "The investors array is a transient input consumed entirely by the multiTransfer batch loop.",
+      "normal_node": "investors",
+      "merge_into": "multiTransfer"
+    },
+    {
+      "reason": "The tokenAmounts array is a transient input consumed entirely by the multiTransfer batch loop.",
+      "normal_node": "tokenAmounts",
+      "merge_into": "multiTransfer"
+    },
+    {
+      "reason": "The results array is a locally allocated return buffer of multiTransfer and carries no independent semantics.",
+      "normal_node": "results",
+      "merge_into": "multiTransfer"
+    },
+    {
+      "reason": "The loop counter i is a purely local iteration index of the multiTransfer loop.",
+      "normal_node": "i",
+      "merge_into": "multiTransfer"
+    },
+    {
+      "reason": "The result boolean is a purely local sink for the return value of the external noahToken.transfer call.",
+      "normal_node": "result",
+      "merge_into": "ext_call_noahToken_transfer"
+    }
+  ]
+}

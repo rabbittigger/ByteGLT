@@ -1,0 +1,578 @@
+{
+  "nodes": [
+    {
+      "id": "state_id",
+      "is_core": true,
+      "type": "state_var",
+      "description": "uint256 public id: ERC1155 token id being auctioned (set to 51 in constructor)",
+      "node_id": 0
+    },
+    {
+      "id": "state_token",
+      "is_core": true,
+      "type": "state_var",
+      "description": "address public token: ERC1155 contract address used in safeTransferFrom calls",
+      "node_id": 1
+    },
+    {
+      "id": "state_ended",
+      "is_core": true,
+      "type": "state_var",
+      "description": "bool public ended: auction finalization flag, set true in end() and pull()",
+      "node_id": 2
+    },
+    {
+      "id": "state_startBidTime",
+      "is_core": true,
+      "type": "state_var",
+      "description": "uint256 public startBidTime: unix timestamp when bidding opens",
+      "node_id": 3
+    },
+    {
+      "id": "state_haus",
+      "is_core": true,
+      "type": "state_var",
+      "description": "address payable public haus: recipient of the 15% protocol fee",
+      "node_id": 4
+    },
+    {
+      "id": "state_seller",
+      "is_core": true,
+      "type": "state_var",
+      "description": "address payable public seller: recipient of proceeds / NFT on failed auction",
+      "node_id": 5
+    },
+    {
+      "id": "state_bidLength",
+      "is_core": true,
+      "type": "state_var",
+      "description": "uint256 public bidLength: anti-sniping extension window (20.5 hours)",
+      "node_id": 6
+    },
+    {
+      "id": "state_auctionLength",
+      "is_core": true,
+      "type": "state_var",
+      "description": "uint256 public auctionLength: total auction duration (20.5 hours)",
+      "node_id": 7
+    },
+    {
+      "id": "state_lastBid",
+      "is_core": true,
+      "type": "state_var",
+      "description": "uint256 public lastBid: current highest bid amount, also refunded to previous bidder",
+      "node_id": 8
+    },
+    {
+      "id": "state_lastBidTime",
+      "is_core": true,
+      "type": "state_var",
+      "description": "uint256 public lastBidTime: timestamp of the most recent bid",
+      "node_id": 9
+    },
+    {
+      "id": "state_winning",
+      "is_core": true,
+      "type": "state_var",
+      "description": "address payable public winning: current highest bidder, receives refund and the NFT",
+      "node_id": 10
+    },
+    {
+      "id": "func_constructor",
+      "is_core": true,
+      "type": "function",
+      "description": "constructor(): initializes token, id, startBidTime, lastBid, seller and haus",
+      "node_id": 11
+    },
+    {
+      "id": "func_bid",
+      "is_core": true,
+      "type": "function",
+      "description": "bid() payable: validates bid window and bid size, refunds previous winner, then records new bid",
+      "node_id": 12
+    },
+    {
+      "id": "func_end",
+      "is_core": true,
+      "type": "function",
+      "description": "end(): finalizes auction, transfers ERC1155 to winner, splits ETH between haus and seller",
+      "node_id": 13
+    },
+    {
+      "id": "func_pull",
+      "is_core": true,
+      "type": "function",
+      "description": "pull(): returns ERC1155 to seller when no bids were placed",
+      "node_id": 14
+    },
+    {
+      "id": "func_live",
+      "is_core": true,
+      "type": "function",
+      "description": "live() external view: returns whether the auction is still active based on timestamps",
+      "node_id": 15
+    },
+    {
+      "id": "func_onERC1155Received",
+      "is_core": true,
+      "type": "function",
+      "description": "onERC1155Received(): ERC1155 receiver hook invoked during safeTransferFrom callbacks",
+      "node_id": 16
+    },
+    {
+      "id": "input_msg_sender",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "msg.sender: caller address used as bidder identity and winner",
+      "node_id": 17
+    },
+    {
+      "id": "input_tx_origin",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "tx.origin: used in bid() as a 'no contracts' gate, enabling phishing/EOA-spoof bypass",
+      "node_id": 18
+    },
+    {
+      "id": "input_block_timestamp",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "block.timestamp: drives every auction timing decision (bid window, end, pull, live)",
+      "node_id": 19
+    },
+    {
+      "id": "op_winning_transfer",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "winning.transfer(lastBid): external ETH refund executed before lastBid/winning/lastBidTime are updated",
+      "node_id": 20
+    },
+    {
+      "id": "op_erc1155_safeTransferFrom_end",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "IERC1155(token).safeTransferFrom(...) in end(): external call that can invoke the receiver's onERC1155Received hook before ended=true",
+      "node_id": 21
+    },
+    {
+      "id": "op_erc1155_safeTransferFrom_pull",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "IERC1155(token).safeTransferFrom(...) in pull(): external call to seller triggering receiver callback",
+      "node_id": 22
+    },
+    {
+      "id": "op_haus_transfer",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "haus.transfer(hausFee): external ETH payment of the 15% protocol fee",
+      "node_id": 23
+    },
+    {
+      "id": "op_seller_transfer",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "seller.transfer(address(this).balance): external ETH payment of remaining proceeds",
+      "node_id": 24
+    },
+    {
+      "id": "op_min_bid_arithmetic",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "lastBid.mul(105).div(100): arithmetic computing the minimum accepted bid (rounding/overflow surface)",
+      "node_id": 25
+    },
+    {
+      "id": "op_fee_arithmetic",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "balance.div(20).mul(3): arithmetic computing the haus fee (integer division truncation)",
+      "node_id": 26
+    },
+    {
+      "id": "local_balance",
+      "is_core": false,
+      "type": "local_var",
+      "description": "local variable balance: cached contract balance inside end()",
+      "node_id": 27
+    },
+    {
+      "id": "local_hausFee",
+      "is_core": false,
+      "type": "local_var",
+      "description": "local variable hausFee: computed protocol fee inside end()",
+      "node_id": 28
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 17,
+      "vuln_type": "access_control",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "msg.sender is used in bid() to record the bidder/winner and is trusted as the refund recipient"
+    },
+    {
+      "from_id": 18,
+      "vuln_type": "access_control",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "bid() requires msg.sender == tx.origin, an origin-based authorization check that can be bypassed via phishing or intermediary contracts"
+    },
+    {
+      "from_id": 19,
+      "vuln_type": "access_control",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "block.timestamp gates whether a bid is accepted and whether the anti-sniping window is still open"
+    },
+    {
+      "from_id": 19,
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "block.timestamp decides whether end() may finalize the auction (miner-controllable)"
+    },
+    {
+      "from_id": 19,
+      "vuln_type": "access_control",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "block.timestamp decides whether pull() may return the NFT to the seller"
+    },
+    {
+      "from_id": 19,
+      "vuln_type": "access_control",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "live() derives its result entirely from block.timestamp comparisons"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "reentrancy",
+      "to_id": 20,
+      "type": "controlflow",
+      "reason": "bid() performs an external ETH refund to the previous winner before updating lastBid, winning and lastBidTime (checks-effects-interactions violation)"
+    },
+    {
+      "from_id": 10,
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "the stored winning address is the destination of the refund transfer"
+    },
+    {
+      "from_id": 8,
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "the stored lastBid amount is the value of the refund transfer"
+    },
+    {
+      "from_id": 8,
+      "vuln_type": "arithmetic",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "lastBid feeds the mul(105).div(100) minimum-bid arithmetic"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "arithmetic",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "bid() evaluates msg.value against the computed minimum bid, an arithmetic comparison that can revert or misprice"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "bid() writes lastBid = msg.value"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "bid() writes lastBidTime = block.timestamp"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "bid() writes winning = msg.sender"
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "reentrancy",
+      "to_id": 21,
+      "type": "controlflow",
+      "reason": "end() invokes an external ERC1155 safeTransferFrom before setting ended = true and before draining balances"
+    },
+    {
+      "from_id": 21,
+      "vuln_type": "reentrancy",
+      "to_id": 16,
+      "type": "callback",
+      "reason": "safeTransferFrom invokes the receiver's onERC1155Received hook, an external callback controllable by the receiver"
+    },
+    {
+      "from_id": 14,
+      "vuln_type": "reentrancy",
+      "to_id": 22,
+      "type": "controlflow",
+      "reason": "pull() invokes an external ERC1155 safeTransferFrom before marking the auction ended"
+    },
+    {
+      "from_id": 22,
+      "vuln_type": "reentrancy",
+      "to_id": 16,
+      "type": "callback",
+      "reason": "safeTransferFrom invokes onERC1155Received on the receiving party during pull()"
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "arithmetic",
+      "to_id": 26,
+      "type": "dataflow",
+      "reason": "end() computes the fee with balance.div(20).mul(3), an order-dependent integer arithmetic expression"
+    },
+    {
+      "from_id": 27,
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "dataflow",
+      "reason": "the cached balance local is the operand of the fee arithmetic"
+    },
+    {
+      "from_id": 27,
+      "vuln_type": "none",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "the cached balance is forwarded to the seller transfer"
+    },
+    {
+      "from_id": 28,
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "the computed hausFee local is the value sent to the haus address"
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "controlflow",
+      "reason": "end() executes the haus fee transfer"
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "reentrancy",
+      "to_id": 24,
+      "type": "controlflow",
+      "reason": "end() performs a second external ETH transfer to the seller while the contract still holds funds and ended is not yet set"
+    },
+    {
+      "from_id": 4,
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "the stored haus address is the recipient of the protocol fee"
+    },
+    {
+      "from_id": 5,
+      "vuln_type": "none",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "the stored seller address is the recipient of the remaining proceeds"
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "end() writes ended = true"
+    },
+    {
+      "from_id": 14,
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "pull() writes ended = true"
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "constructor initializes the token address"
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "constructor initializes startBidTime"
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "constructor sets the initial lastBid reserve price"
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "constructor initializes the seller address"
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "constructor initializes the haus address"
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "constructor initializes the ERC1155 token id"
+    },
+    {
+      "from_id": 7,
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "auctionLength bounds the bid acceptance window"
+    },
+    {
+      "from_id": 6,
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "bidLength bounds the last-minute bid extension check"
+    },
+    {
+      "from_id": 9,
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "lastBidTime determines whether a previous bid exists and must be refunded"
+    },
+    {
+      "from_id": 6,
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "bidLength participates in end() finalization timing"
+    },
+    {
+      "from_id": 7,
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "auctionLength participates in end() finalization timing"
+    },
+    {
+      "from_id": 9,
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "lastBidTime is used to decide whether end() may run"
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "startBidTime is used in the end() timing condition"
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "startBidTime is used in the pull() timing condition"
+    },
+    {
+      "from_id": 6,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "bidLength is used by live()"
+    },
+    {
+      "from_id": 7,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "auctionLength is used by live()"
+    },
+    {
+      "from_id": 9,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "lastBidTime is used by live()"
+    },
+    {
+      "from_id": 1,
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "the token address is the target of the ERC1155 call in end()"
+    },
+    {
+      "from_id": 1,
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "the token address is the target of the ERC1155 call in pull()"
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "the token id is transferred in end()"
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "the token id is transferred in pull()"
+    },
+    {
+      "from_id": 10,
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "the winning address receives the ERC1155 token in end()"
+    },
+    {
+      "from_id": 5,
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "the seller address receives the ERC1155 token in pull()"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "op_fee_arithmetic",
+      "normal_node": "local_balance",
+      "reason": "the local balance is only an intermediate cache used to compute balance.div(20).mul(3) and the seller payout, so it folds into the fee arithmetic unsafe operation"
+    },
+    {
+      "merge_into": "op_haus_transfer",
+      "normal_node": "local_hausFee",
+      "reason": "hausFee exists only to hold the value passed to haus.transfer, so it normalizes into that unsafe transfer operation"
+    }
+  ]
+}

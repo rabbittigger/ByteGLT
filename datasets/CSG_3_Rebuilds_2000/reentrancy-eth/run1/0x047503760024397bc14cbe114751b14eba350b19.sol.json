@@ -1,0 +1,691 @@
+{
+  "nodes": [
+    {
+      "id": "admin",
+      "is_core": true,
+      "type": "state_var",
+      "description": "address payable admin; marketplace administrator receiving commission payments",
+      "node_id": 0
+    },
+    {
+      "id": "contract_owner",
+      "is_core": true,
+      "type": "state_var",
+      "description": "address contract_owner; privileged owner allowed to update admin/commission/mint settings",
+      "node_id": 1
+    },
+    {
+      "id": "commissionRate",
+      "is_core": true,
+      "type": "state_var",
+      "description": "uint256 commissionRate (0-100) applied to sale and auction amounts",
+      "node_id": 2
+    },
+    {
+      "id": "soldFor",
+      "is_core": true,
+      "type": "state_var",
+      "description": "mapping(uint256 => uint256) soldFor; last price a token was sold for",
+      "node_id": 3
+    },
+    {
+      "id": "sellBidPrice",
+      "is_core": true,
+      "type": "state_var",
+      "description": "mapping(uint256 => uint256) sellBidPrice; fixed sell price or last bid for a token",
+      "node_id": 4
+    },
+    {
+      "id": "_wallets",
+      "is_core": true,
+      "type": "state_var",
+      "description": "mapping(uint256 => address payable) _wallets; payment destination for a token sale",
+      "node_id": 5
+    },
+    {
+      "id": "auctions",
+      "is_core": true,
+      "type": "state_var",
+      "description": "mapping(uint256 => Auction) auctions; per-token auction state (beneficiary, end, highestBidder, highestBid, open, reserve)",
+      "node_id": 6
+    },
+    {
+      "id": "anyoneCanMint",
+      "is_core": true,
+      "type": "state_var",
+      "description": "bool anyoneCanMint; toggles open minting in ERC721Mintable",
+      "node_id": 7
+    },
+    {
+      "id": "msg.sender",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "External caller address controlling owner/buyer/bidder authorization paths",
+      "node_id": 8
+    },
+    {
+      "id": "block.timestamp",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "block timestamp (now) used for auction deadline checks",
+      "node_id": 9
+    },
+    {
+      "id": "tx.origin",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "Transaction origin; not used in authorization but treated as untrusted input",
+      "node_id": 10
+    },
+    {
+      "id": "sell",
+      "is_core": true,
+      "type": "function",
+      "description": "sell(uint256,uint256,address payable): owner lists token at fixed price, approves contract and sets payout wallet",
+      "node_id": 11
+    },
+    {
+      "id": "buy",
+      "is_core": true,
+      "type": "function",
+      "description": "buy(uint256) payable nonReentrant: buys a listed NFT, transfers NFT, pays seller wallet and admin commission",
+      "node_id": 12
+    },
+    {
+      "id": "createAuction",
+      "is_core": true,
+      "type": "function",
+      "description": "createAuction(uint256,uint,address payable,uint256): owner opens an auction, approves contract for token",
+      "node_id": 13
+    },
+    {
+      "id": "bid",
+      "is_core": true,
+      "type": "function",
+      "description": "bid(uint256) payable nonReentrant: places a higher bid, refunds previous highest bidder via low-level call",
+      "node_id": 14
+    },
+    {
+      "id": "withdraw",
+      "is_core": true,
+      "type": "function",
+      "description": "withdraw(uint256) nonReentrant: refunds highest bidder and deletes auction when conditions met",
+      "node_id": 15
+    },
+    {
+      "id": "auctionFinalize",
+      "is_core": true,
+      "type": "function",
+      "description": "auctionFinalize(uint256) nonReentrant: pays beneficiary/admin, transfers NFT to highest bidder, deletes auction",
+      "node_id": 16
+    },
+    {
+      "id": "updateAdmin",
+      "is_core": true,
+      "type": "function",
+      "description": "updateAdmin(address payable,uint256,bool): contract_owner updates admin, commissionRate, anyoneCanMint",
+      "node_id": 17
+    },
+    {
+      "id": "callOptionalReturn",
+      "is_core": true,
+      "type": "function",
+      "description": "callOptionalReturn(IERC721,bytes): performs low-level call to transferFrom with optional return decoding",
+      "node_id": 18
+    },
+    {
+      "id": "canBid",
+      "is_core": true,
+      "type": "function",
+      "description": "canBid(uint256): view helper checking auction open, timestamp, non-contract bidder, approval",
+      "node_id": 19
+    },
+    {
+      "id": "canWithdraw",
+      "is_core": true,
+      "type": "function",
+      "description": "canWithdraw(uint256): view helper determining whether an unfinalized auction can be withdrawn",
+      "node_id": 20
+    },
+    {
+      "id": "canFinalize",
+      "is_core": true,
+      "type": "function",
+      "description": "canFinalize(uint256): view helper determining whether auction ended and reserve was met",
+      "node_id": 21
+    },
+    {
+      "id": "transfer",
+      "is_core": true,
+      "type": "function",
+      "description": "transfer(address,uint256): ERC721Full helper calling internal _transferFrom for msg.sender",
+      "node_id": 22
+    },
+    {
+      "id": "autoMint",
+      "is_core": true,
+      "type": "function",
+      "description": "autoMint(string,address): mints with auto-incremented tokenId and sets token URI",
+      "node_id": 23
+    },
+    {
+      "id": "call_wallet_buy",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "Low-level _wallets[tokenId].call.value(amount4owner) ether transfer to seller wallet in buy()",
+      "node_id": 24
+    },
+    {
+      "id": "call_admin_buy",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "Low-level admin.call.value(amount4admin) ether transfer of commission in buy()",
+      "node_id": 25
+    },
+    {
+      "id": "call_refund_bid",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "Low-level highestBidder.call.value(highestBid) refund of previous bidder in bid()",
+      "node_id": 26
+    },
+    {
+      "id": "call_withdraw_refund",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "Low-level highestBidder.call.value(highestBid) refund in withdraw()",
+      "node_id": 27
+    },
+    {
+      "id": "call_beneficiary_finalize",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "Low-level beneficiary.call.value(amount4owner) ether transfer in auctionFinalize()",
+      "node_id": 28
+    },
+    {
+      "id": "call_admin_finalize",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "Low-level admin.call.value(amount4admin) commission transfer in auctionFinalize()",
+      "node_id": 29
+    },
+    {
+      "id": "low_level_call_optional",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "address(token).call(data) low-level external call inside callOptionalReturn",
+      "node_id": 30
+    },
+    {
+      "id": "commission_arithmetic",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "Arithmetic computations value.mul(commissionRate).div(100) and value.sub(amount4admin) for payout splitting",
+      "node_id": 31
+    },
+    {
+      "id": "sell_tokenId_param",
+      "is_core": false,
+      "type": "parameter",
+      "description": "uint256 tokenId parameter of sell()",
+      "node_id": 32
+    },
+    {
+      "id": "sell_price_param",
+      "is_core": false,
+      "type": "parameter",
+      "description": "uint256 price parameter of sell()",
+      "node_id": 33
+    },
+    {
+      "id": "sell_wallet_param",
+      "is_core": false,
+      "type": "parameter",
+      "description": "address payable wallet parameter of sell() stored in _wallets",
+      "node_id": 34
+    },
+    {
+      "id": "createAuction_closingTime_param",
+      "is_core": false,
+      "type": "parameter",
+      "description": "uint _closingTime parameter of createAuction() (auctionEnd)",
+      "node_id": 35
+    },
+    {
+      "id": "createAuction_beneficiary_param",
+      "is_core": false,
+      "type": "parameter",
+      "description": "address payable _beneficiary parameter of createAuction()",
+      "node_id": 36
+    },
+    {
+      "id": "createAuction_reserve_param",
+      "is_core": false,
+      "type": "parameter",
+      "description": "uint256 _reservePrice parameter of createAuction()",
+      "node_id": 37
+    },
+    {
+      "id": "updateAdmin_admin_param",
+      "is_core": false,
+      "type": "parameter",
+      "description": "address payable _admin parameter of updateAdmin()",
+      "node_id": 38
+    },
+    {
+      "id": "updateAdmin_rate_param",
+      "is_core": false,
+      "type": "parameter",
+      "description": "uint256 _commissionRate parameter of updateAdmin()",
+      "node_id": 39
+    },
+    {
+      "id": "updateAdmin_mint_param",
+      "is_core": false,
+      "type": "parameter",
+      "description": "bool _anyoneCanMint parameter of updateAdmin()",
+      "node_id": 40
+    },
+    {
+      "id": "amount4admin_local",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Local uint256 amount4admin holding computed commission payout",
+      "node_id": 41
+    },
+    {
+      "id": "amount4owner_local",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Local uint256 amount4owner holding computed remainder payout to seller",
+      "node_id": 42
+    },
+    {
+      "id": "highestBidder_local",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Local address payable highestBidder snapshot in auctionFinalize()",
+      "node_id": 43
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 8,
+      "vuln_type": "access_control",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "msg.sender must equal contract_owner to update admin parameters"
+    },
+    {
+      "from_id": 8,
+      "vuln_type": "access_control",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "sell() requires ownerOf(tokenId)==msg.sender before listing"
+    },
+    {
+      "from_id": 8,
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "createAuction() requires ownerOf(tokenId)==msg.sender to open auction"
+    },
+    {
+      "from_id": 8,
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "msg.sender is the buyer used in transferFrom and ownership checks in buy()"
+    },
+    {
+      "from_id": 8,
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "msg.sender becomes highestBidder and must not be token owner or a contract"
+    },
+    {
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "canBid relies on now <= auctionEnd, creating timestamp dependency"
+    },
+    {
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "canWithdraw relies on now >= auctionEnd, creating timestamp dependency"
+    },
+    {
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "canFinalize relies on now >= auctionEnd, creating timestamp dependency"
+    },
+    {
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "bid() requires now <= auctionEnd before accepting a bid"
+    },
+    {
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "auctionFinalize() requires now >= auctionEnd before finalizing"
+    },
+    {
+      "from_id": 2,
+      "vuln_type": "arithmetic",
+      "to_id": 31,
+      "type": "dataflow",
+      "reason": "commissionRate is multiplied/divided to derive payout amounts"
+    },
+    {
+      "from_id": 4,
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "sell() writes sellBidPrice[tokenId]"
+    },
+    {
+      "from_id": 4,
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "buy() reads sellBidPrice[tokenId] for price validation and clears it"
+    },
+    {
+      "from_id": 5,
+      "vuln_type": "none",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "_wallets[tokenId] is the target of the low-level payout in buy()"
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "admin address receives commission via low-level call in buy()"
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "admin address receives commission via low-level call in auctionFinalize()"
+    },
+    {
+      "from_id": 6,
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "dataflow",
+      "reason": "auctions[tokenId].highestBidder is refunded via low-level call in bid()"
+    },
+    {
+      "from_id": 6,
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "auctions[tokenId].highestBidder is refunded via low-level call in withdraw()"
+    },
+    {
+      "from_id": 6,
+      "vuln_type": "none",
+      "to_id": 28,
+      "type": "dataflow",
+      "reason": "auctions[tokenId].beneficiary is paid via low-level call in auctionFinalize()"
+    },
+    {
+      "from_id": 6,
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "bid() reads and writes auctions[tokenId] bid state"
+    },
+    {
+      "from_id": 6,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "withdraw() reads auctions[tokenId] then deletes it"
+    },
+    {
+      "from_id": 6,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "auctionFinalize() reads auctions[tokenId] and deletes it at the end"
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "buy() writes soldFor[tokenId] with msg.value"
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "auctionFinalize() writes soldFor[tokenId] with highestBid"
+    },
+    {
+      "from_id": 32,
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "tokenId parameter selects the token being sold"
+    },
+    {
+      "from_id": 33,
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "price parameter sets sellBidPrice[tokenId]"
+    },
+    {
+      "from_id": 34,
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "wallet parameter is stored as the sale payout address"
+    },
+    {
+      "from_id": 35,
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "_closingTime parameter sets auctions[tokenId].auctionEnd"
+    },
+    {
+      "from_id": 36,
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "_beneficiary parameter sets auctions[tokenId].beneficiary"
+    },
+    {
+      "from_id": 37,
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "_reservePrice parameter sets auctions[tokenId].reserve"
+    },
+    {
+      "from_id": 38,
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "_admin parameter overwrites the admin state variable"
+    },
+    {
+      "from_id": 39,
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "_commissionRate parameter overwrites the commissionRate state variable"
+    },
+    {
+      "from_id": 40,
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "_anyoneCanMint parameter overwrites the anyoneCanMint state variable"
+    },
+    {
+      "from_id": 31,
+      "vuln_type": "arithmetic",
+      "to_id": 41,
+      "type": "dataflow",
+      "reason": "amount4admin is computed via mul/div on commissionRate"
+    },
+    {
+      "from_id": 31,
+      "vuln_type": "arithmetic",
+      "to_id": 42,
+      "type": "dataflow",
+      "reason": "amount4owner is computed via subtraction from msg.value"
+    },
+    {
+      "from_id": 43,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "local highestBidder snapshot is used for NFT transfer in auctionFinalize()"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "controlflow",
+      "reason": "buy() invokes callOptionalReturn to perform transferFrom of the NFT"
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "controlflow",
+      "reason": "auctionFinalize() invokes callOptionalReturn to transfer the NFT to the bidder"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "reentrancy",
+      "to_id": 24,
+      "type": "callback",
+      "reason": "buy() sends ether to the seller wallet with a low-level call that can reenter before state is finalized"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "reentrancy",
+      "to_id": 25,
+      "type": "callback",
+      "reason": "buy() sends commission to admin via low-level call after external payout, enabling reentrant state read"
+    },
+    {
+      "from_id": 14,
+      "vuln_type": "reentrancy",
+      "to_id": 26,
+      "type": "callback",
+      "reason": "bid() refunds the previous highest bidder before recording the new bid, allowing reentrancy"
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "reentrancy",
+      "to_id": 27,
+      "type": "callback",
+      "reason": "withdraw() refunds the highest bidder before deleting the auction, allowing reentrancy"
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "reentrancy",
+      "to_id": 28,
+      "type": "callback",
+      "reason": "auctionFinalize() pays the beneficiary before transferring the NFT and deleting auction state"
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "reentrancy",
+      "to_id": 29,
+      "type": "callback",
+      "reason": "auctionFinalize() pays admin commission via low-level call before finalizing auction state"
+    },
+    {
+      "from_id": 18,
+      "vuln_type": "reentrancy",
+      "to_id": 30,
+      "type": "callback",
+      "reason": "callOptionalReturn performs an arbitrary low-level call to the token contract whose receiver hook may reenter"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "sell",
+      "normal_node": "sell_tokenId_param",
+      "reason": "tokenId parameter is only meaningful within the sell() function"
+    },
+    {
+      "merge_into": "sell",
+      "normal_node": "sell_price_param",
+      "reason": "price parameter is only meaningful within the sell() function"
+    },
+    {
+      "merge_into": "sell",
+      "normal_node": "sell_wallet_param",
+      "reason": "wallet parameter is only meaningful within the sell() function"
+    },
+    {
+      "merge_into": "createAuction",
+      "normal_node": "createAuction_closingTime_param",
+      "reason": "_closingTime parameter is only meaningful within createAuction()"
+    },
+    {
+      "merge_into": "createAuction",
+      "normal_node": "createAuction_beneficiary_param",
+      "reason": "_beneficiary parameter is only meaningful within createAuction()"
+    },
+    {
+      "merge_into": "createAuction",
+      "normal_node": "createAuction_reserve_param",
+      "reason": "_reservePrice parameter is only meaningful within createAuction()"
+    },
+    {
+      "merge_into": "updateAdmin",
+      "normal_node": "updateAdmin_admin_param",
+      "reason": "_admin parameter is only meaningful within updateAdmin()"
+    },
+    {
+      "merge_into": "updateAdmin",
+      "normal_node": "updateAdmin_rate_param",
+      "reason": "_commissionRate parameter is only meaningful within updateAdmin()"
+    },
+    {
+      "merge_into": "updateAdmin",
+      "normal_node": "updateAdmin_mint_param",
+      "reason": "_anyoneCanMint parameter is only meaningful within updateAdmin()"
+    },
+    {
+      "merge_into": "commission_arithmetic",
+      "normal_node": "amount4admin_local",
+      "reason": "amount4admin is a temporary result of the commission arithmetic operation"
+    },
+    {
+      "merge_into": "commission_arithmetic",
+      "normal_node": "amount4owner_local",
+      "reason": "amount4owner is a temporary result of the commission arithmetic operation"
+    },
+    {
+      "merge_into": "auctionFinalize",
+      "normal_node": "highestBidder_local",
+      "reason": "highestBidder local snapshot exists only inside auctionFinalize()"
+    }
+  ]
+}

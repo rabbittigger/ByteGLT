@@ -1,0 +1,257 @@
+{
+  "nodes": [
+    {
+      "description": "Immutable IERC20 state variable holding the liquidity asset token controlled by the FundingLocker.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "liquidityAsset"
+    },
+    {
+      "description": "Immutable address state variable storing the authorized Loan contract that may pull or drain funds.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "loan"
+    },
+    {
+      "description": "Constructor of FundingLocker that sets the liquidityAsset and loan state variables.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 2,
+      "id": "constructor"
+    },
+    {
+      "description": "isLoan modifier that enforces msg.sender == loan, providing access control on pull and drain.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "isLoan"
+    },
+    {
+      "description": "External isLoan-guarded function that transfers a requested amount of liquidity asset to a destination address.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 4,
+      "id": "pull"
+    },
+    {
+      "description": "External isLoan-guarded function that transfers the entire liquidity asset balance held by the contract to the Loan.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 5,
+      "id": "drain"
+    },
+    {
+      "description": "Caller-controlled address used in the isLoan modifier comparison against the loan state variable.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 6,
+      "id": "msg.sender"
+    },
+    {
+      "description": "External call to the liquidity asset token contract performed during safeTransfer, allowing arbitrary token code to execute.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 7,
+      "id": "tokenExternalCall"
+    },
+    {
+      "description": "SafeERC20 library function invoked by pull and drain that encodes and dispatches the token transfer call.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 8,
+      "id": "safeTransfer"
+    },
+    {
+      "description": "Low-level address(token).functionCall performed by _callOptionalReturn, transferring control to the token contract with all available gas.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 9,
+      "id": "lowLevelCall"
+    },
+    {
+      "description": "Constructor parameter _liquidityAsset used to initialize the liquidityAsset state variable.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 10,
+      "id": "param__liquidityAsset"
+    },
+    {
+      "description": "Constructor parameter _loan used to initialize the loan state variable.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 11,
+      "id": "param__loan"
+    },
+    {
+      "description": "pull function parameter dst, the destination address receiving the liquidity asset tokens.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 12,
+      "id": "param_dst"
+    },
+    {
+      "description": "pull function parameter amt, the amount of liquidity asset tokens to transfer.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 13,
+      "id": "param_amt"
+    },
+    {
+      "description": "Local variable amt in drain holding the contract's full liquidity asset balance before transferring it to the Loan.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 14,
+      "id": "local_amt"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is read inside the isLoan modifier to authenticate the caller.",
+      "from_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "msg.sender is compared against the loan state variable, granting privileged access when equal.",
+      "from_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "pull is guarded by the isLoan modifier, which must pass before execution proceeds.",
+      "from_id": 4,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 3
+    },
+    {
+      "reason": "drain is guarded by the isLoan modifier, which must pass before execution proceeds.",
+      "from_id": 5,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 3
+    },
+    {
+      "reason": "pull invokes SafeERC20.safeTransfer on the liquidity asset token.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "drain invokes SafeERC20.safeTransfer on the liquidity asset token.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "safeTransfer hands control to the external token contract, enabling reentrancy before state settles.",
+      "from_id": 8,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 7
+    },
+    {
+      "reason": "The token external call is dispatched through the low-level address(token).functionCall, forwarding all gas to untrusted code.",
+      "from_id": 7,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 9
+    },
+    {
+      "reason": "Constructor parameter _liquidityAsset flows into the constructor execution.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "Constructor parameter _loan flows into the constructor execution.",
+      "from_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "_liquidityAsset is assigned to the liquidityAsset state variable.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "_loan is assigned to the loan state variable.",
+      "from_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "The dst parameter flows into pull's transfer logic.",
+      "from_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "The amt parameter flows into pull's transfer logic.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "The local amt computed from the token balance flows into drain's transfer.",
+      "from_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "The dst parameter is forwarded to safeTransfer as the transfer recipient.",
+      "from_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "The amt parameter is forwarded to safeTransfer as the transfer amount.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 8
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Constructor parameter only initializes the liquidityAsset state variable and should be merged into the constructor core function.",
+      "normal_node": "param__liquidityAsset",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "Constructor parameter only initializes the loan state variable and should be merged into the constructor core function.",
+      "normal_node": "param__loan",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "Non-core parameter is only consumed by the pull function's transfer call and should be merged into pull.",
+      "normal_node": "param_dst",
+      "merge_into": "pull"
+    },
+    {
+      "reason": "Non-core parameter is only consumed by the pull function's transfer call and should be merged into pull.",
+      "normal_node": "param_amt",
+      "merge_into": "pull"
+    },
+    {
+      "reason": "Non-core local variable is derived from the token balance and only used by drain's transfer and should be merged into drain.",
+      "normal_node": "local_amt",
+      "merge_into": "drain"
+    }
+  ]
+}

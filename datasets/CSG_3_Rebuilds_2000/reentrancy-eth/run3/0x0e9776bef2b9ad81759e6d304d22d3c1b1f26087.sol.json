@@ -1,0 +1,242 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Public constant bytes32 role identifier keccak256(\"SNAPSHOT_ROLE\") used to gate the snapshot() function.",
+      "id": "SPUMEToken.SNAPSHOT_ROLE",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Private mapping(bytes32 => RoleData) storing role members and adminRole used by hasRole/_grantRole.",
+      "id": "AccessControl._roles",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Counters.Counter holding the monotonically increasing current snapshot id.",
+      "id": "ERC20Snapshot._currentSnapshotId",
+      "type": "state_var",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "Constructor: mints initialSupply to msg.sender and sets DEFAULT_ADMIN_ROLE for msg.sender.",
+      "id": "SPUMEToken.constructor",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "Public function; requires SNAPSHOT_ROLE for msg.sender then calls internal _snapshot().",
+      "id": "SPUMEToken.snapshot",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "Internal function that increments _currentSnapshotId, emits Snapshot and returns the new id.",
+      "id": "ERC20Snapshot._snapshot",
+      "type": "function",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "Public view role check reading _roles[role].members[account].",
+      "id": "AccessControl.hasRole",
+      "type": "function",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "Internal function writing _roles[role].members[account] = true and emitting RoleGranted.",
+      "id": "AccessControl._grantRole",
+      "type": "function",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "Internal function that grants a role without permission checks; only safe in constructor.",
+      "id": "AccessControl._setupRole",
+      "type": "function",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "description": "Internal mint: increases _totalSupply and _balances[account]; hook call to _beforeTokenTransfer/afterTokenTransfer.",
+      "id": "ERC20._mint",
+      "type": "function",
+      "node_id": 9
+    },
+    {
+      "is_core": true,
+      "description": "Caller-controlled address used in the constructor (mint/setupRole) and in snapshot() role checks.",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "node_id": 10
+    },
+    {
+      "is_core": true,
+      "description": "require(hasRole(SNAPSHOT_ROLE, msg.sender)) access-control gate inside snapshot(); reverts if caller lacks role.",
+      "id": "unsafe_operation.snapshot.roleRequire",
+      "type": "unsafe_operation",
+      "node_id": 11
+    },
+    {
+      "is_core": true,
+      "description": "_currentSnapshotId.increment() unchecked counter update plus Snapshot event emission inside _snapshot().",
+      "id": "unsafe_operation._snapshot.incrementCounter",
+      "type": "unsafe_operation",
+      "node_id": 12
+    },
+    {
+      "is_core": false,
+      "description": "Constructor parameter defining the total amount of tokens minted to msg.sender.",
+      "id": "SPUMEToken.constructor.initialSupply",
+      "type": "parameter",
+      "node_id": 13
+    },
+    {
+      "is_core": false,
+      "description": "Local variable holding the current snapshot id returned by _getCurrentSnapshotId().",
+      "id": "ERC20Snapshot._snapshot.currentId",
+      "type": "local_var",
+      "node_id": 14
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "msg.sender is passed to _mint and _setupRole(DEFAULT_ADMIN_ROLE, ...) inside the constructor, granting the deployer admin rights.",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "reason": "Constructor invokes _mint(msg.sender, initialSupply), which performs _totalSupply += amount and _balances[account] += amount.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "reason": "initialSupply flows into _mint and is added to total supply and balance, a supply-value dependent arithmetic path.",
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "reason": "Constructor calls _setupRole(DEFAULT_ADMIN_ROLE, msg.sender), an unchecked role grant.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "reason": "_setupRole forwards to _grantRole, which writes the role membership without permission checks.",
+      "type": "controlflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "access_control",
+      "reason": "_grantRole writes _roles[role].members[account] = true, mutating the privileged state mapping.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "reason": "msg.sender is supplied as the account argument of hasRole inside snapshot(), so the caller controls access evaluation.",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "reason": "snapshot() passes the SNAPSHOT_ROLE constant as the required role in the authorization check.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "reason": "snapshot() calls hasRole(SNAPSHOT_ROLE, msg.sender) through the require guard.",
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "access_control",
+      "reason": "hasRole reads _roles[role].members[account] to decide whether the caller is authorized.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "access_control",
+      "reason": "Execution of snapshot() reaches the require(hasRole(...)) guard that protects the state-changing snapshot creation.",
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "reason": "Only if the role check passes does snapshot() continue to create the snapshot.",
+      "type": "controlflow",
+      "from_id": 11
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "snapshot() delegates to the internal _snapshot() implementation after the access check.",
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "_snapshot() executes _currentSnapshotId.increment() and emits Snapshot(currentId).",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "The counter increment writes the _currentSnapshotId state variable.",
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "_snapshot() reads the counters state via _getCurrentSnapshotId() to derive the emitted/returned id.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "none",
+      "reason": "_snapshot() assigns the retrieved counter value to the local currentId and returns it.",
+      "type": "dataflow",
+      "from_id": 5
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "ERC20._mint",
+      "reason": "initialSupply is a constructor parameter used only as the amount argument of ERC20._mint; it normalizes into the _mint supply arithmetic.",
+      "normal_node": "SPUMEToken.constructor.initialSupply"
+    },
+    {
+      "merge_into": "ERC20Snapshot._snapshot",
+      "reason": "currentId is a transient local of ERC20Snapshot._snapshot used only to return the incremented counter value; it normalizes into _snapshot.",
+      "normal_node": "ERC20Snapshot._snapshot.currentId"
+    }
+  ]
+}

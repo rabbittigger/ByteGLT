@@ -1,0 +1,289 @@
+{
+  "nodes": [
+    {
+      "description": "bytes32 public merkleRoot used to verify claim proofs; set in constructor and by setMerkleRoot.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "merkleRoot"
+    },
+    {
+      "description": "address public rings; address of the ERC721 ring collection used for ownerOf and transferFrom.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "rings"
+    },
+    {
+      "description": "bool public paused; circuit breaker checked in claimRing and set by setPaused.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 2,
+      "id": "paused"
+    },
+    {
+      "description": "mapping(address => bool) public claimed; tracks which addresses have already claimed a ring.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 3,
+      "id": "claimed"
+    },
+    {
+      "description": "Public claim function: validates pause state, claim status, token owner and merkle proof, then marks claimed and transfers the token.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 4,
+      "id": "claimRing"
+    },
+    {
+      "description": "onlyOwner function that updates merkleRoot.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 5,
+      "id": "setMerkleRoot"
+    },
+    {
+      "description": "onlyOwner function that updates the rings contract address.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 6,
+      "id": "setRings"
+    },
+    {
+      "description": "onlyOwner function that updates the paused flag.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 7,
+      "id": "setPaused"
+    },
+    {
+      "description": "Constructor of RingDrop initializing merkleRoot and rings from arguments.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 8,
+      "id": "constructor"
+    },
+    {
+      "description": "Caller-controlled address used for claim tracking, merkle leaf computation and transfer recipient.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 9,
+      "id": "msg.sender"
+    },
+    {
+      "description": "External call IERC721(rings).transferFrom(tokenOwner, msg.sender, tokenId) performing the actual ring transfer.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 10,
+      "id": "transferFrom_external_call"
+    },
+    {
+      "description": "bytes32[] merkle proof supplied by the caller of claimRing.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 11,
+      "id": "proof"
+    },
+    {
+      "description": "uint256 identifier of the ring token to claim, supplied by the caller.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 12,
+      "id": "tokenId"
+    },
+    {
+      "description": "Local address holding the current owner of tokenId, read via IERC721(rings).ownerOf.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 13,
+      "id": "tokenOwner"
+    },
+    {
+      "description": "Ownable view returning the current _owner address; used in the tokenOwner == owner() check.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 14,
+      "id": "owner"
+    },
+    {
+      "description": "Ownable onlyOwner function transferring ownership to a new address.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 15,
+      "id": "transferOwnership"
+    },
+    {
+      "description": "Ownable onlyOwner function renouncing ownership.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 16,
+      "id": "renounceOwnership"
+    },
+    {
+      "description": "Private address in Ownable storing the contract owner.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 17,
+      "id": "_owner"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The caller-supplied merkle proof parameter is consumed by claimRing for MerkleProof.verify.",
+      "from_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "The caller-supplied tokenId parameter is used in claimRing for ownerOf and transferFrom.",
+      "from_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "tokenId flows directly into the external transferFrom call.",
+      "from_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 10
+    },
+    {
+      "reason": "tokenOwner local is passed as the 'from' argument of the external transferFrom call.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 10
+    },
+    {
+      "reason": "msg.sender controls the caller and the transfer recipient, enabling reentrant behavior against the external call.",
+      "from_id": 9,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 10
+    },
+    {
+      "reason": "claimRing triggers the external transferFrom call, which is the reentrancy entry point of the contract.",
+      "from_id": 4,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 10
+    },
+    {
+      "reason": "msg.sender determines the claimed mapping slot that gates whether a caller may claim.",
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "claimRing reads and writes the claimed mapping to prevent duplicate claims.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "claimRing conditionally reverts based on the paused state variable.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 2
+    },
+    {
+      "reason": "claimRing reads merkleRoot as the root argument to MerkleProof.verify.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "claimRing reads the rings address to instantiate the IERC721 interface.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "claimRing calls the Ownable owner() function to compare against the token owner.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 14
+    },
+    {
+      "reason": "Only the owner may call setMerkleRoot, which writes the merkleRoot state variable.",
+      "from_id": 5,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "Only the owner may call setRings, which writes the rings state variable.",
+      "from_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "Only the owner may call setPaused, which writes the paused state variable.",
+      "from_id": 7,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "Constructor initializes merkleRoot.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "Constructor initializes rings.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "transferOwnership (onlyOwner) indirectly updates _owner via _setOwner.",
+      "from_id": 15,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 17
+    },
+    {
+      "reason": "renounceOwnership (onlyOwner) indirectly clears _owner via _setOwner.",
+      "from_id": 16,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 17
+    },
+    {
+      "reason": "owner() returns the value stored in the _owner state variable.",
+      "from_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 17
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The merkle proof parameter is only meaningful within claimRing where it is consumed by MerkleProof.verify, so it can be folded into that function node.",
+      "normal_node": "proof",
+      "merge_into": "claimRing"
+    },
+    {
+      "reason": "tokenId is a caller parameter used solely inside claimRing for ownerOf and transferFrom and can be folded into the function node.",
+      "normal_node": "tokenId",
+      "merge_into": "claimRing"
+    },
+    {
+      "reason": "The tokenOwner local is derived from ownerOf and immediately passed as the from argument of the external transferFrom call, so it merges into that unsafe operation.",
+      "normal_node": "tokenOwner",
+      "merge_into": "transferFrom_external_call"
+    }
+  ]
+}

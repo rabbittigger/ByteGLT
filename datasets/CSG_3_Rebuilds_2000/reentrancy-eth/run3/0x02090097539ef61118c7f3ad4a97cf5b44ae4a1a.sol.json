@@ -1,0 +1,628 @@
+{
+  "nodes": [
+    {
+      "id": "_transfer",
+      "node_id": 0,
+      "type": "function",
+      "description": "Private transfer routine that enforces bot checks, cooldown, max tx limit and triggers swap/ETH fee distribution before performing the reflection transfer.",
+      "is_core": true
+    },
+    {
+      "id": "swapTokensForEth",
+      "node_id": 1,
+      "type": "function",
+      "description": "Private function that approves the router and swaps contract tokens for ETH via the Uniswap V2 router, guarded by lockTheSwap.",
+      "is_core": true
+    },
+    {
+      "id": "sendETHToFee",
+      "node_id": 2,
+      "type": "function",
+      "description": "Private function that forwards the accumulated ETH balance to the two fee wallets via address.transfer.",
+      "is_core": true
+    },
+    {
+      "id": "openTrading",
+      "node_id": 3,
+      "type": "function",
+      "description": "Owner-only function that creates the Uniswap pair, adds liquidity with the contract ETH balance and enables swapping/cooldown.",
+      "is_core": true
+    },
+    {
+      "id": "manualswap",
+      "node_id": 4,
+      "type": "function",
+      "description": "External function restricted to _feeAddrWallet1 that manually swaps the whole contract token balance for ETH.",
+      "is_core": true
+    },
+    {
+      "id": "manualsend",
+      "node_id": 5,
+      "type": "function",
+      "description": "External function restricted to _feeAddrWallet1 that manually sends the contract ETH balance to the fee wallets.",
+      "is_core": true
+    },
+    {
+      "id": "transfer",
+      "node_id": 6,
+      "type": "function",
+      "description": "ERC20 transfer entry point that forwards msg.sender, recipient and amount to _transfer.",
+      "is_core": true
+    },
+    {
+      "id": "transferFrom",
+      "node_id": 7,
+      "type": "function",
+      "description": "ERC20 transferFrom entry point that performs the transfer and decrements the allowance.",
+      "is_core": true
+    },
+    {
+      "id": "setBots",
+      "node_id": 8,
+      "type": "function",
+      "description": "Owner-only function that marks an array of addresses as bots, blocking their transfers.",
+      "is_core": true
+    },
+    {
+      "id": "removeStrictTxLimit",
+      "node_id": 9,
+      "type": "function",
+      "description": "Owner-only function that resets the max transaction amount back to the full total supply.",
+      "is_core": true
+    },
+    {
+      "id": "cooldown",
+      "node_id": 10,
+      "type": "state_var",
+      "description": "Mapping of address to last-trade timestamp used to enforce the 15 second cooldown between buys.",
+      "is_core": true
+    },
+    {
+      "id": "_maxTxAmount",
+      "node_id": 11,
+      "type": "state_var",
+      "description": "Maximum amount accepted in a transfer while the strict limit is enabled.",
+      "is_core": true
+    },
+    {
+      "id": "_rTotal",
+      "node_id": 12,
+      "type": "state_var",
+      "description": "Total reflection supply used for the rAmount/tAmount conversion arithmetic.",
+      "is_core": true
+    },
+    {
+      "id": "_rOwned",
+      "node_id": 13,
+      "type": "state_var",
+      "description": "Mapping holding the reflection balances that are actually mutated on transfer.",
+      "is_core": true
+    },
+    {
+      "id": "_owner",
+      "node_id": 14,
+      "type": "state_var",
+      "description": "Contract owner address backing the onlyOwner modifier.",
+      "is_core": true
+    },
+    {
+      "id": "uniswapV2Router",
+      "node_id": 15,
+      "type": "state_var",
+      "description": "Uniswap V2 router instance used both for the swap and for adding liquidity.",
+      "is_core": true
+    },
+    {
+      "id": "_feeAddrWallet1",
+      "node_id": 16,
+      "type": "state_var",
+      "description": "Primary fee wallet that receives half of the swapped ETH and is the only allowed caller of the manual functions.",
+      "is_core": true
+    },
+    {
+      "id": "msg.sender",
+      "node_id": 17,
+      "type": "untrusted_input",
+      "description": "Untrusted caller address used for transfers, allowance spending and manual function authorization.",
+      "is_core": true
+    },
+    {
+      "id": "block.timestamp",
+      "node_id": 18,
+      "type": "untrusted_input",
+      "description": "Miner-controlled timestamp used for the cooldown window and as the Uniswap swap/liquidity deadline.",
+      "is_core": true
+    },
+    {
+      "id": "swapExactTokensForETHSupportingFeeOnTransferTokens",
+      "node_id": 19,
+      "type": "unsafe_operation",
+      "description": "External call to the Uniswap router swap that moves the contract token balance to ETH with amountOutMin 0.",
+      "is_core": true
+    },
+    {
+      "id": "feeWalletEthTransfer",
+      "node_id": 20,
+      "type": "unsafe_operation",
+      "description": "External ETH transfer to _feeAddrWallet1 and _feeAddrWallet2 executed after the swap.",
+      "is_core": true
+    },
+    {
+      "id": "addLiquidityETH",
+      "node_id": 21,
+      "type": "unsafe_operation",
+      "description": "External payable call to the router adding the contract ETH balance as liquidity with a timestamp deadline.",
+      "is_core": true
+    },
+    {
+      "id": "_isExcludedFromFee",
+      "node_id": 22,
+      "type": "state_var",
+      "description": "Mapping of addresses exempt from contract fees and from the cooldown/max-tx checks.",
+      "is_core": true
+    },
+    {
+      "id": "param_from_transfer",
+      "node_id": 23,
+      "type": "parameter",
+      "description": "Parameter 'from' of _transfer.",
+      "is_core": false
+    },
+    {
+      "id": "param_to_transfer",
+      "node_id": 24,
+      "type": "parameter",
+      "description": "Parameter 'to' of _transfer.",
+      "is_core": false
+    },
+    {
+      "id": "param_amount_transfer",
+      "node_id": 25,
+      "type": "parameter",
+      "description": "Parameter 'amount' of _transfer.",
+      "is_core": false
+    },
+    {
+      "id": "local_contractTokenBalance",
+      "node_id": 26,
+      "type": "local_var",
+      "description": "Local variable holding balanceOf(address(this)) and passed to swapTokensForEth.",
+      "is_core": false
+    },
+    {
+      "id": "local_contractETHBalance",
+      "node_id": 27,
+      "type": "local_var",
+      "description": "Local variable holding address(this).balance and passed to sendETHToFee.",
+      "is_core": false
+    },
+    {
+      "id": "param_sender_transferFrom",
+      "node_id": 28,
+      "type": "parameter",
+      "description": "Parameter 'sender' of transferFrom.",
+      "is_core": false
+    },
+    {
+      "id": "param_recipient_transferFrom",
+      "node_id": 29,
+      "type": "parameter",
+      "description": "Parameter 'recipient' of transferFrom.",
+      "is_core": false
+    },
+    {
+      "id": "param_amount_transferFrom",
+      "node_id": 30,
+      "type": "parameter",
+      "description": "Parameter 'amount' of transferFrom.",
+      "is_core": false
+    },
+    {
+      "id": "param_tokenAmount_swap",
+      "node_id": 31,
+      "type": "parameter",
+      "description": "Parameter 'tokenAmount' of swapTokensForEth.",
+      "is_core": false
+    },
+    {
+      "id": "param_amount_sendETHToFee",
+      "node_id": 32,
+      "type": "parameter",
+      "description": "Parameter 'amount' of sendETHToFee.",
+      "is_core": false
+    },
+    {
+      "id": "local_path",
+      "node_id": 33,
+      "type": "local_var",
+      "description": "Local address[] swap path built in swapTokensForEth.",
+      "is_core": false
+    },
+    {
+      "id": "param_recipient_transfer",
+      "node_id": 34,
+      "type": "parameter",
+      "description": "Parameter 'recipient' of transfer.",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "reason": "Parameter 'from' of _transfer is used for the zero-address and bot checks.",
+      "type": "dataflow",
+      "from_id": 23,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "Parameter 'to' of _transfer is the recipient and drives cooldown and fee lookup.",
+      "type": "dataflow",
+      "from_id": 24,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "Parameter 'amount' of _transfer is compared against _maxTxAmount.",
+      "type": "dataflow",
+      "from_id": 25,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "msg.sender becomes 'from' when transfer() calls _transfer.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "cooldown[to] is written from block.timestamp, making the rate limit timestamp dependent.",
+      "type": "dataflow",
+      "from_id": 18,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 0,
+      "reason": "The cooldown require in _transfer compares cooldown[to] with block.timestamp.",
+      "type": "dataflow",
+      "from_id": 18,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 0,
+      "reason": "_isExcludedFromFee[to] is read inside _transfer to skip restrictions.",
+      "type": "dataflow",
+      "from_id": 22,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "_maxTxAmount bounds the transfer amount in _transfer.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 1,
+      "reason": "contractTokenBalance is passed as the tokenAmount argument to swapTokensForEth.",
+      "type": "dataflow",
+      "from_id": 26,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 2,
+      "reason": "contractETHBalance is passed as the amount argument to sendETHToFee.",
+      "type": "dataflow",
+      "from_id": 27,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 1,
+      "reason": "_transfer calls swapTokensForEth, which performs an external router swap inside the transfer flow.",
+      "type": "controlflow",
+      "from_id": 0,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 2,
+      "reason": "_transfer calls sendETHToFee, which pushes ETH out inside the transfer flow.",
+      "type": "controlflow",
+      "from_id": 0,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 19,
+      "reason": "swapTokensForEth invokes the external Uniswap swap operation.",
+      "type": "controlflow",
+      "from_id": 1,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 1,
+      "reason": "uniswapV2Router is the target contract used by swapTokensForEth.",
+      "type": "dataflow",
+      "from_id": 15,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 1,
+      "reason": "block.timestamp is supplied as the swap deadline argument.",
+      "type": "dataflow",
+      "from_id": 18,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 1,
+      "reason": "Parameter tokenAmount of swapTokensForEth is approved and swapped.",
+      "type": "dataflow",
+      "from_id": 31,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 1,
+      "reason": "The local path array configures the token pair used by the swap.",
+      "type": "dataflow",
+      "from_id": 33,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 20,
+      "reason": "sendETHToFee performs the external ETH transfers to the fee wallets.",
+      "type": "controlflow",
+      "from_id": 2,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 2,
+      "reason": "Parameter amount of sendETHToFee is split and transferred out.",
+      "type": "dataflow",
+      "from_id": 32,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 20,
+      "reason": "_feeAddrWallet1 is the ETH recipient inside sendETHToFee.",
+      "type": "dataflow",
+      "from_id": 16,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 4,
+      "reason": "manualswap requires that msg.sender equals _feeAddrWallet1.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 4,
+      "reason": "_feeAddrWallet1 is the hard-coded privileged caller compared in manualswap.",
+      "type": "dataflow",
+      "from_id": 16,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 5,
+      "reason": "manualsend requires that msg.sender equals _feeAddrWallet1.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 5,
+      "reason": "_feeAddrWallet1 is the hard-coded privileged caller compared in manualsend.",
+      "type": "dataflow",
+      "from_id": 16,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 1,
+      "reason": "manualswap unconditionally calls swapTokensForEth on the full contract balance.",
+      "type": "controlflow",
+      "from_id": 4,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 2,
+      "reason": "manualsend unconditionally calls sendETHToFee on the full ETH balance.",
+      "type": "controlflow",
+      "from_id": 5,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 3,
+      "reason": "openTrading is gated by the onlyOwner modifier reading _owner.",
+      "type": "dataflow",
+      "from_id": 14,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 3,
+      "reason": "The onlyOwner check compares _owner with _msgSender() in openTrading.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 21,
+      "reason": "openTrading calls the router addLiquidityETH with the contract ETH balance.",
+      "type": "controlflow",
+      "from_id": 3,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 21,
+      "reason": "uniswapV2Router is the target of the addLiquidityETH call.",
+      "type": "dataflow",
+      "from_id": 15,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 21,
+      "reason": "block.timestamp is passed as the liquidity deadline in openTrading.",
+      "type": "dataflow",
+      "from_id": 18,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 8,
+      "reason": "setBots is gated by the onlyOwner modifier reading _owner.",
+      "type": "dataflow",
+      "from_id": 14,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 9,
+      "reason": "removeStrictTxLimit is gated by the onlyOwner modifier reading _owner.",
+      "type": "dataflow",
+      "from_id": 14,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 0,
+      "reason": "transfer delegates the whole transfer logic to _transfer.",
+      "type": "controlflow",
+      "from_id": 6,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "transferFrom delegates the whole transfer logic to _transfer.",
+      "type": "controlflow",
+      "from_id": 7,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 6,
+      "reason": "Parameter recipient of transfer is forwarded to _transfer.",
+      "type": "dataflow",
+      "from_id": 34,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 6,
+      "reason": "Parameter amount of transfer is forwarded to _transfer.",
+      "type": "dataflow",
+      "from_id": 25,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "Parameter sender of transferFrom is forwarded to _transfer and allowance lookup.",
+      "type": "dataflow",
+      "from_id": 28,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "Parameter recipient of transferFrom is forwarded to _transfer.",
+      "type": "dataflow",
+      "from_id": 29,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "Parameter amount of transferFrom is subtracted from the allowance.",
+      "type": "dataflow",
+      "from_id": 30,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 6,
+      "reason": "msg.sender is used as the spender/sender inside transfer.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "msg.sender is used as the spender approving the allowance in transferFrom.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 11,
+      "reason": "removeStrictTxLimit overwrites the _maxTxAmount state variable.",
+      "type": "dataflow",
+      "from_id": 9,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "_rTotal participates in the reflection rate arithmetic used during _transfer.",
+      "type": "dataflow",
+      "from_id": 12,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 0,
+      "reason": "_rOwned balances of sender and recipient are updated in _transfer.",
+      "type": "dataflow",
+      "from_id": 13,
+      "vuln_type": "none"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "_transfer",
+      "reason": "The 'from' parameter only exists as an input to the _transfer function body.",
+      "normal_node": "param_from_transfer"
+    },
+    {
+      "merge_into": "_transfer",
+      "reason": "The 'to' parameter only exists as an input to the _transfer function body.",
+      "normal_node": "param_to_transfer"
+    },
+    {
+      "merge_into": "_transfer",
+      "reason": "The 'amount' parameter only exists as an input to the _transfer function body.",
+      "normal_node": "param_amount_transfer"
+    },
+    {
+      "merge_into": "swapTokensForEth",
+      "reason": "The temporary balance is computed solely to be supplied to swapTokensForEth.",
+      "normal_node": "local_contractTokenBalance"
+    },
+    {
+      "merge_into": "sendETHToFee",
+      "reason": "The temporary ETH balance is computed solely to be supplied to sendETHToFee.",
+      "normal_node": "local_contractETHBalance"
+    },
+    {
+      "merge_into": "transferFrom",
+      "reason": "The 'sender' parameter is only consumed by the transferFrom function body.",
+      "normal_node": "param_sender_transferFrom"
+    },
+    {
+      "merge_into": "transferFrom",
+      "reason": "The 'recipient' parameter is only consumed by the transferFrom function body.",
+      "normal_node": "param_recipient_transferFrom"
+    },
+    {
+      "merge_into": "transferFrom",
+      "reason": "The 'amount' parameter is only consumed by the transferFrom function body.",
+      "normal_node": "param_amount_transferFrom"
+    },
+    {
+      "merge_into": "swapTokensForEth",
+      "reason": "The 'tokenAmount' parameter is only consumed by the swapTokensForEth function body.",
+      "normal_node": "param_tokenAmount_swap"
+    },
+    {
+      "merge_into": "sendETHToFee",
+      "reason": "The 'amount' parameter is only consumed by the sendETHToFee function body.",
+      "normal_node": "param_amount_sendETHToFee"
+    },
+    {
+      "merge_into": "swapTokensForEth",
+      "reason": "The local swap path array exists only to parameterize the swap call.",
+      "normal_node": "local_path"
+    },
+    {
+      "merge_into": "transfer",
+      "reason": "The 'recipient' parameter is only consumed by the transfer function body.",
+      "normal_node": "param_recipient_transfer"
+    }
+  ]
+}

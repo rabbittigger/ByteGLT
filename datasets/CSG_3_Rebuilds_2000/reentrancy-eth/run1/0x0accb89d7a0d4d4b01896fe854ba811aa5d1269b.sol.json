@@ -1,0 +1,146 @@
+{
+  "nodes": [
+    {
+      "description": "Public mapping (address => uint) tracking each hodler's deposited balance",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "hodlers"
+    },
+    {
+      "description": "Constant timestamp (1749995999) used as the unlock time for withdrawals",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "partyTime"
+    },
+    {
+      "description": "Payable fallback function that credits msg.value to hodlers[msg.sender] and emits Hodl",
+      "is_core": true,
+      "type": "function",
+      "node_id": 2,
+      "id": "fallback"
+    },
+    {
+      "description": "Withdrawal function gated by block.timestamp > partyTime and a positive hodler balance",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "party"
+    },
+    {
+      "description": "msg.sender: caller-controlled address used as mapping key and transfer recipient",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 4,
+      "id": "msg_sender"
+    },
+    {
+      "description": "block.timestamp: miner-influenceable time used to gate the party() withdrawal",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 5,
+      "id": "block_timestamp"
+    },
+    {
+      "description": "Unchecked += arithmetic on hodlers[msg.sender] += msg.value (Solidity 0.4.12, no SafeMath)",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 6,
+      "id": "unchecked_addition"
+    },
+    {
+      "description": "msg.sender.transfer(value) external value transfer that can trigger a callback (reentrancy)",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 7,
+      "id": "external_transfer"
+    },
+    {
+      "description": "Local variable holding the cached hodler balance before the external transfer",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 8,
+      "id": "value"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is used as the mapping key when crediting hodlers[msg.sender] in the fallback",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "msg.sender indexes the state slot involved in the unchecked ++/+= arithmetic",
+      "from_id": 4,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "Result of the unchecked addition is written back into hodlers[msg.sender], allowing balance overflow",
+      "from_id": 6,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "block.timestamp is compared against partyTime and controls whether party() may execute",
+      "from_id": 5,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "hodlers[msg.sender] is read into the local variable value inside party()",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "Local value is passed as the amount of the external msg.sender.transfer call",
+      "from_id": 8,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "msg.sender is the recipient of the external transfer, giving the caller control during the call",
+      "from_id": 4,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "party() execution reaches the external msg.sender.transfer(value) call",
+      "from_id": 3,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 7
+    },
+    {
+      "reason": "The payable fallback path mutates hodlers[msg.sender] on every deposit",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 0
+    },
+    {
+      "reason": "The external transfer can re-enter the payable fallback and re-credit hodlers before state settles",
+      "from_id": 7,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 2
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The local variable value is only a temporary alias for the amount passed to the external transfer operation, so it can be folded into that unsafe_operation node",
+      "normal_node": "value",
+      "merge_into": "external_transfer"
+    }
+  ]
+}

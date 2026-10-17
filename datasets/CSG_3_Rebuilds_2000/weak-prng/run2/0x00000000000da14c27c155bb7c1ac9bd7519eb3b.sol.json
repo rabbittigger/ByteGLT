@@ -1,0 +1,186 @@
+{
+  "nodes": [
+    {
+      "id": "registry",
+      "description": "Registry public state variable holding the address of the external attribute registry contract.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "IS_DEPOSIT_ADDRESS",
+      "description": "Constant bytes32 attribute key 'isDepositAddress' used to mark addresses as deposit addresses.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "constructor",
+      "description": "Constructor taking _registry and casting/storing it into the registry state variable.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "registerDepositAddress",
+      "description": "Public function that derives a shifted address from msg.sender, checks the registry attribute and writes the attribute via an external call.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "fallback",
+      "description": "Payable fallback function that calls registerDepositAddress() and then forwards msg.value to msg.sender.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller-controlled address used both as the source of the shifted deposit address and as the transfer recipient.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "shift_truncate",
+      "description": "Unsafe bit operation address(uint(msg.sender) >> 20) which truncates the address to its high 140 bits, enabling collisions/crafted addresses.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "setAttributeValue_external",
+      "description": "External call registry.setAttributeValue(shiftedAddress, IS_DEPOSIT_ADDRESS, uint(msg.sender)) which mutates external state and may call back into this contract.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "transfer_external",
+      "description": "External value transfer msg.sender.transfer(msg.value) performed in the fallback after the registry external call.",
+      "is_core": true,
+      "node_id": 8,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "_registry",
+      "description": "Constructor parameter holding the registry contract address supplied by the deployer.",
+      "is_core": false,
+      "node_id": 9,
+      "type": "parameter"
+    },
+    {
+      "id": "shiftedAddress",
+      "description": "Local variable in registerDepositAddress storing the truncated high bits of msg.sender.",
+      "is_core": false,
+      "node_id": 10,
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Untrusted msg.sender is cast to uint and right-shifted by 20 bits, a truncating arithmetic operation on caller-controlled input.",
+      "to_id": 6,
+      "vuln_type": "arithmetic",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "registerDepositAddress reads msg.sender as the source of the deposit address derivation.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The fallback sends msg.value back to the caller-controlled msg.sender via transfer (2300 gas stipend limits reentrancy).",
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The truncated address computed by the shift is assigned to the local variable shiftedAddress.",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The attacker-influenceable shiftedAddress (only high 140 bits of msg.sender) is registered/authorised via the external setAttributeValue call, allowing registration for addresses the caller does not control.",
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "from_id": 10,
+      "type": "dataflow"
+    },
+    {
+      "reason": "registerDepositAddress invokes the external registry.setAttributeValue call to persist the attribute.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The external registry contract is invoked before state is finalised; a malicious registry can call back into registerDepositAddress and re-enter the registration logic.",
+      "to_id": 3,
+      "vuln_type": "reentrancy",
+      "from_id": 7,
+      "type": "callback"
+    },
+    {
+      "reason": "The payable fallback calls registerDepositAddress() before transferring the received value.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "registerDepositAddress reads the registry state variable to perform hasAttribute and setAttributeValue calls.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The constant IS_DEPOSIT_ADDRESS is used as the attribute key inside registerDepositAddress.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "IS_DEPOSIT_ADDRESS is passed as the 'what' argument of the external setAttributeValue call.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The constructor parameter _registry is used to initialise the registry state variable.",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The constructor writes the cast _registry address into the registry state variable.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The _registry parameter is only used once, to initialise the registry state variable inside the constructor, so it can be folded into the constructor node.",
+      "normal_node": "_registry",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "The local variable shiftedAddress is a temporary derived solely from msg.sender and is immediately consumed by the external registry.setAttributeValue call, so it can be merged into that unsafe operation node.",
+      "normal_node": "shiftedAddress",
+      "merge_into": "setAttributeValue_external"
+    }
+  ]
+}

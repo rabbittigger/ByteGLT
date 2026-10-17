@@ -1,0 +1,705 @@
+{
+  "nodes": [
+    {
+      "description": "Address with privileged control over queue/cancel/execute transactions.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "admin"
+    },
+    {
+      "description": "Address that may accept the admin role.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "pendingAdmin"
+    },
+    {
+      "description": "Cool-off period applied to queued transactions (eta >= now + delay).",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 2,
+      "id": "delay"
+    },
+    {
+      "description": "Mapping(bytes32 => bool) tracking queued transaction status.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 3,
+      "id": "queuedTransactions"
+    },
+    {
+      "description": "Constant lower bound for the delay (2 days).",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 4,
+      "id": "MIN_DELAY"
+    },
+    {
+      "description": "Constant upper bound for the delay (30 days).",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 5,
+      "id": "MAX_DELAY"
+    },
+    {
+      "description": "Constant window after eta during which execution is allowed (14 days).",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 6,
+      "id": "GRACE_PERIOD"
+    },
+    {
+      "description": "Initializes admin from msg.sender and delay within bounds.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 7,
+      "id": "constructor"
+    },
+    {
+      "description": "Accepts plain ETH transfers so the timelock can be funded.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 8,
+      "id": "receive"
+    },
+    {
+      "description": "onlyAdmin function setting pendingAdmin.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 9,
+      "id": "setPendingAdmin"
+    },
+    {
+      "description": "Promotes msg.sender to admin when it matches pendingAdmin.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 10,
+      "id": "acceptAdmin"
+    },
+    {
+      "description": "onlyTimeLock function updating delay within bounds.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 11,
+      "id": "setDelay"
+    },
+    {
+      "description": "Private pure hashing helper for transaction parameters.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 12,
+      "id": "_getTxHash"
+    },
+    {
+      "description": "External pure wrapper around _getTxHash.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 13,
+      "id": "getTxHash"
+    },
+    {
+      "description": "onlyAdmin function queuing a transaction after the delay has elapsed.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 14,
+      "id": "queueTransaction"
+    },
+    {
+      "description": "onlyAdmin function cancelling a queued transaction.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 15,
+      "id": "cancelTransaction"
+    },
+    {
+      "description": "onlyAdmin payable function performing an arbitrary low-level call after the grace window checks.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 16,
+      "id": "executeTransaction"
+    },
+    {
+      "description": "Caller-controlled address used for every access-control check and admin promotion.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 17,
+      "id": "msg.sender"
+    },
+    {
+      "description": "Miner-influenceable timestamp used for queue and execution window checks.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 18,
+      "id": "block.timestamp"
+    },
+    {
+      "description": "target.call{value: value}(callData) executes arbitrary code on an arbitrary address.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 19,
+      "id": "low_level_call"
+    },
+    {
+      "description": "admin = msg.sender in acceptAdmin hands full control to the caller.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 20,
+      "id": "admin_write_from_caller"
+    },
+    {
+      "description": "require(block.timestamp >= eta && block.timestamp <= eta + GRACE_PERIOD) depends on block.timestamp.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 21,
+      "id": "timestamp_window_check"
+    },
+    {
+      "description": "queuedTransactions[txHash] = false is written before the external call, but the call can still reenter TimeLock.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 22,
+      "id": "state_clear_before_call"
+    },
+    {
+      "description": "Constructor argument _delay.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 23,
+      "id": "param_ctor_delay"
+    },
+    {
+      "description": "Argument _pendingAdmin of setPendingAdmin.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 24,
+      "id": "param_pending_admin"
+    },
+    {
+      "description": "Argument _delay of setDelay.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 25,
+      "id": "param_set_delay"
+    },
+    {
+      "description": "Argument target: address to call.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 26,
+      "id": "param_target"
+    },
+    {
+      "description": "Argument value: ETH amount forwarded.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 27,
+      "id": "param_value"
+    },
+    {
+      "description": "Argument signature: function selector string.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 28,
+      "id": "param_signature"
+    },
+    {
+      "description": "Argument data: calldata payload.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 29,
+      "id": "param_data"
+    },
+    {
+      "description": "Argument eta: timestamp used for the delay and grace window.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 30,
+      "id": "param_eta"
+    },
+    {
+      "description": "Computed transaction hash used as mapping key.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 31,
+      "id": "local_tx_hash"
+    },
+    {
+      "description": "Encoded calldata passed to the low-level call.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 32,
+      "id": "local_call_data"
+    },
+    {
+      "description": "Boolean result of the low-level call.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 33,
+      "id": "local_success"
+    },
+    {
+      "description": "Return bytes of the low-level call forwarded to the caller.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 34,
+      "id": "local_return_data"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is stored into admin during construction.",
+      "from_id": 17,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "onlyAdmin requires msg.sender == admin before setting pendingAdmin.",
+      "from_id": 17,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 9
+    },
+    {
+      "reason": "acceptAdmin requires msg.sender == pendingAdmin and consumes the caller as the new admin.",
+      "from_id": 17,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 10
+    },
+    {
+      "reason": "onlyTimeLock requires msg.sender == address(this) before changing delay.",
+      "from_id": 17,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 11
+    },
+    {
+      "reason": "onlyAdmin gates queueTransaction on msg.sender.",
+      "from_id": 17,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 14
+    },
+    {
+      "reason": "onlyAdmin gates cancelTransaction on msg.sender.",
+      "from_id": 17,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 15
+    },
+    {
+      "reason": "onlyAdmin gates executeTransaction on msg.sender.",
+      "from_id": 17,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 16
+    },
+    {
+      "reason": "admin = msg.sender writes a caller-controlled address into privileged state.",
+      "from_id": 17,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 20
+    },
+    {
+      "reason": "admin state variable is compared against msg.sender in onlyAdmin.",
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 9
+    },
+    {
+      "reason": "admin check authorizes queueing.",
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 14
+    },
+    {
+      "reason": "admin check authorizes cancellation.",
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 15
+    },
+    {
+      "reason": "admin check authorizes execution of arbitrary calls.",
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 16
+    },
+    {
+      "reason": "admin is overwritten with msg.sender inside acceptAdmin.",
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 10
+    },
+    {
+      "reason": "pendingAdmin authorizes the caller in acceptAdmin.",
+      "from_id": 1,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 10
+    },
+    {
+      "reason": "eta >= block.timestamp + delay makes queueing timestamp dependent.",
+      "from_id": 18,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 14
+    },
+    {
+      "reason": "block.timestamp compared against eta and eta + GRACE_PERIOD in executeTransaction.",
+      "from_id": 18,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 16
+    },
+    {
+      "reason": "Execution window check is driven by the miner-influenceable block.timestamp.",
+      "from_id": 18,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 21
+    },
+    {
+      "reason": "delay is added to block.timestamp when validating eta.",
+      "from_id": 2,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 14
+    },
+    {
+      "reason": "setDelay writes the new delay value.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "MIN_DELAY bounds the constructor delay input.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "MIN_DELAY bounds the setDelay input.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "MAX_DELAY bounds the constructor delay input.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "MAX_DELAY bounds the setDelay input.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "GRACE_PERIOD bounds how long after eta a transaction stays executable.",
+      "from_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 16
+    },
+    {
+      "reason": "Constructor initializes admin with msg.sender.",
+      "from_id": 7,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "Constructor initializes delay.",
+      "from_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "setPendingAdmin writes the new pendingAdmin.",
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "acceptAdmin sets admin to the caller.",
+      "from_id": 10,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "acceptAdmin clears pendingAdmin.",
+      "from_id": 10,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "setDelay updates the delay state variable.",
+      "from_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "queueTransaction sets queuedTransactions[txHash] = true.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 14
+    },
+    {
+      "reason": "cancelTransaction sets queuedTransactions[txHash] = false.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 15
+    },
+    {
+      "reason": "executeTransaction reads and clears the queued flag.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 16
+    },
+    {
+      "reason": "getTxHash delegates hashing to _getTxHash.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 12
+    },
+    {
+      "reason": "queueTransaction computes the hash through _getTxHash.",
+      "from_id": 14,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 12
+    },
+    {
+      "reason": "cancelTransaction computes the hash through _getTxHash.",
+      "from_id": 15,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 12
+    },
+    {
+      "reason": "executeTransaction computes the hash through _getTxHash.",
+      "from_id": 16,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 12
+    },
+    {
+      "reason": "Queued status is cleared before the external interaction.",
+      "from_id": 16,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 22
+    },
+    {
+      "reason": "State write precedes the arbitrary external call.",
+      "from_id": 22,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 19
+    },
+    {
+      "reason": "The low-level call to an arbitrary target can reenter executeTransaction or other TimeLock functions.",
+      "from_id": 19,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 16
+    },
+    {
+      "reason": "executeTransaction performs an arbitrary call with value to an attacker-selected target.",
+      "from_id": 16,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 19
+    },
+    {
+      "reason": "Execution is only allowed inside the timestamp-based window.",
+      "from_id": 16,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 21
+    },
+    {
+      "reason": "Constructor parameter _delay initializes delay.",
+      "from_id": 23,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "_pendingAdmin is written into pendingAdmin by the admin only.",
+      "from_id": 24,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 9
+    },
+    {
+      "reason": "setDelay parameter _delay is stored into delay.",
+      "from_id": 25,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "target is hashed inside _getTxHash.",
+      "from_id": 26,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "target is the arbitrary address invoked by the low-level call.",
+      "from_id": 26,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 19
+    },
+    {
+      "reason": "value is forwarded as ETH to the arbitrary target.",
+      "from_id": 27,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 19
+    },
+    {
+      "reason": "signature is hashed inside _getTxHash.",
+      "from_id": 28,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "data is appended to the calldata sent to the arbitrary target.",
+      "from_id": 29,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 19
+    },
+    {
+      "reason": "eta is hashed inside _getTxHash.",
+      "from_id": 30,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "eta is compared against block.timestamp in the execution window checks.",
+      "from_id": 30,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 16
+    },
+    {
+      "reason": "Local txHash keys the queuedTransactions mapping during execution.",
+      "from_id": 31,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 16
+    },
+    {
+      "reason": "callData is the payload passed to the arbitrary external call.",
+      "from_id": 32,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 19
+    },
+    {
+      "reason": "success records the outcome of the low-level call.",
+      "from_id": 33,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 19
+    },
+    {
+      "reason": "returnData is returned to the executeTransaction caller.",
+      "from_id": 34,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 16
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Parameter _delay only feeds the constructor initialization of delay.",
+      "normal_node": "param_ctor_delay",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "Parameter _pendingAdmin is only used to write pendingAdmin under onlyAdmin.",
+      "normal_node": "param_pending_admin",
+      "merge_into": "setPendingAdmin"
+    },
+    {
+      "reason": "Parameter _delay is only used to update the delay state variable under onlyTimeLock.",
+      "normal_node": "param_set_delay",
+      "merge_into": "setDelay"
+    },
+    {
+      "reason": "target is the arbitrary address invoked by the low-level call.",
+      "normal_node": "param_target",
+      "merge_into": "low_level_call"
+    },
+    {
+      "reason": "value is the ETH amount forwarded in the low-level call.",
+      "normal_node": "param_value",
+      "merge_into": "low_level_call"
+    },
+    {
+      "reason": "signature is decoded into a selector to build callData inside executeTransaction.",
+      "normal_node": "param_signature",
+      "merge_into": "executeTransaction"
+    },
+    {
+      "reason": "data is the calldata payload forwarded to the arbitrary target.",
+      "normal_node": "param_data",
+      "merge_into": "low_level_call"
+    },
+    {
+      "reason": "eta is compared with block.timestamp in the execution window checks.",
+      "normal_node": "param_eta",
+      "merge_into": "executeTransaction"
+    },
+    {
+      "reason": "Computed transaction hash is a temporary used for mapping lookups in executeTransaction.",
+      "normal_node": "local_tx_hash",
+      "merge_into": "executeTransaction"
+    },
+    {
+      "reason": "callData is the encoded payload consumed by the low-level call.",
+      "normal_node": "local_call_data",
+      "merge_into": "low_level_call"
+    },
+    {
+      "reason": "success is the boolean result of the low-level call.",
+      "normal_node": "local_success",
+      "merge_into": "low_level_call"
+    },
+    {
+      "reason": "returnData is forwarded as the return value of executeTransaction.",
+      "normal_node": "local_return_data",
+      "merge_into": "executeTransaction"
+    }
+  ]
+}

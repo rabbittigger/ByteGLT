@@ -1,0 +1,446 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "description": "Public array of GameInfo structs holding funder/winner mappings per game round.",
+      "id": "games",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "description": "Public counter of the current game round index; incremented when a round fills up.",
+      "id": "gameNum",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "description": "Mapping(address => uint) tracking the last game index a user joined.",
+      "id": "lastGame",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "description": "Mapping(address => uint) holding withdrawable ETH credited to winners and referrers.",
+      "id": "funderBalance",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 4,
+      "description": "Mapping(address => address) referral graph used to distribute multi-level commissions.",
+      "id": "referrer",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "description": "Address of the contract deployer/manager receiving fees and default referral.",
+      "id": "manager",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 6,
+      "description": "Base prize unit (10000000000000000 / 5) used to size payments and entry value.",
+      "id": "count",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "description": "Constructor; sets manager = msg.sender, self-references referrer and pushes the first GameInfo.",
+      "id": "constructor",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 8,
+      "description": "Payable entry function: registers funder, updates referral, resolves winners and credits balances.",
+      "id": "addIn",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 9,
+      "description": "Withdraws the caller's funderBalance after a checked subtraction and an external transfer.",
+      "id": "withdraw",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 10,
+      "description": "View helper returning the caller's last game, funder count, winner and balance.",
+      "id": "getLastGame",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 11,
+      "description": "View helper returning the current game number, funder count and winner.",
+      "id": "getNewGame",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 12,
+      "description": "Caller-controlled address used as player identity, balance key, referral key and payout recipient.",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 13,
+      "description": "now; miner-influenced timestamp used to derive the random winner index.",
+      "id": "block.timestamp",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 14,
+      "description": "msg.sender.transfer(amount) external ETH send performed inside withdraw.",
+      "id": "unsafe_transfer",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 15,
+      "description": "funderBalance[msg.sender] += -amount unchecked-style uint arithmetic on withdrawable balance.",
+      "id": "unsafe_balance_update",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 16,
+      "description": "uint winNum = (now + gameNum) % 3; winner chosen from a timestamp-derived index (weak randomness).",
+      "id": "unsafe_timestamp_winner",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 17,
+      "description": "Batch credits of 285*count / 3*count / count / count/2 to winner, manager and up to six referrer levels.",
+      "id": "unsafe_fund_credit",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 18,
+      "description": "games[gameNum].funderNum += 1 and gameNum += 1 unbounded counter arithmetic.",
+      "id": "unsafe_counter_increment",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 19,
+      "description": "Referrer address supplied by the caller of addIn and written into the referrer mapping.",
+      "id": "referr",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 20,
+      "description": "Withdrawal amount supplied to withdraw, checked against and subtracted from funderBalance.",
+      "id": "amount",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 21,
+      "description": "Local index computed from now and gameNum that selects the round winner.",
+      "id": "winNum",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 22,
+      "description": "Loop index (uint8) iterating over the three funders during reward distribution.",
+      "id": "i",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 23,
+      "description": "Local address loaded from referrer[funder[i]] used to walk the referral chain.",
+      "id": "addr",
+      "type": "local_var",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The constructor writes msg.sender into the manager state variable.",
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "controlflow",
+      "from_id": 7
+    },
+    {
+      "reason": "The constructor sets referrer[manager] = manager, seeding the referral graph.",
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "controlflow",
+      "from_id": 7
+    },
+    {
+      "reason": "msg.sender becomes the privileged manager with no access restriction.",
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "reason": "msg.sender is used as the funder identity, lastGame key and referrer key in addIn.",
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "reason": "msg.sender selects the balance checked and is the recipient of the ETH transfer.",
+      "vuln_type": "reentrancy",
+      "to_id": 9,
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "reason": "lastGame is written and read using the caller-controlled msg.sender key.",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "reason": "funderBalance entries are keyed by the caller-controlled msg.sender address.",
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "reason": "referrer mapping is indexed by msg.sender when a user joins for the first time.",
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "reason": "The ETH transfer target is the attacker-controlled msg.sender address.",
+      "vuln_type": "reentrancy",
+      "to_id": 14,
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "reason": "winNum is derived from block.timestamp (now), a miner-influenceable value.",
+      "vuln_type": "access_control",
+      "to_id": 21,
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "reason": "The timestamp-derived winNum selects the winner inside the game resolution logic.",
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "dataflow",
+      "from_id": 21
+    },
+    {
+      "reason": "The referr parameter flows into addIn's first-join referral branch.",
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "from_id": 19
+    },
+    {
+      "reason": "The attacker-supplied referr address is stored in the referrer mapping.",
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "from_id": 19
+    },
+    {
+      "reason": "The amount parameter drives the require check and the withdrawal transfer.",
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "from_id": 20
+    },
+    {
+      "reason": "amount is subtracted from funderBalance using += (-amount) uint arithmetic.",
+      "vuln_type": "arithmetic",
+      "to_id": 15,
+      "type": "dataflow",
+      "from_id": 20
+    },
+    {
+      "reason": "addIn executes the timestamp-based winner selection when funderNum reaches 3.",
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "controlflow",
+      "from_id": 8
+    },
+    {
+      "reason": "addIn executes the multi-level commission credit block on round completion.",
+      "vuln_type": "arithmetic",
+      "to_id": 17,
+      "type": "controlflow",
+      "from_id": 8
+    },
+    {
+      "reason": "addIn increments funderNum and gameNum without any cap or overflow guard.",
+      "vuln_type": "arithmetic",
+      "to_id": 18,
+      "type": "controlflow",
+      "from_id": 8
+    },
+    {
+      "reason": "addIn records the caller's referrer on first join.",
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "reason": "addIn writes the current gameNum into lastGame[msg.sender].",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "reason": "addIn reads count to validate msg.value and to size all prize credits.",
+      "vuln_type": "arithmetic",
+      "to_id": 6,
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "reason": "withdraw performs an external ETH transfer after updating state.",
+      "vuln_type": "reentrancy",
+      "to_id": 14,
+      "type": "controlflow",
+      "from_id": 9
+    },
+    {
+      "reason": "withdraw mutates funderBalance[msg.sender] with uint negation arithmetic.",
+      "vuln_type": "arithmetic",
+      "to_id": 15,
+      "type": "controlflow",
+      "from_id": 9
+    },
+    {
+      "reason": "The unsafe balance update writes the funderBalance state mapping.",
+      "vuln_type": "arithmetic",
+      "to_id": 3,
+      "type": "dataflow",
+      "from_id": 15
+    },
+    {
+      "reason": "The external transfer can hand control to the recipient, which may re-enter withdraw/contract logic.",
+      "vuln_type": "reentrancy",
+      "to_id": 9,
+      "type": "callback",
+      "from_id": 14
+    },
+    {
+      "reason": "Commission credits write into the funderBalance mapping for winner, manager and referrers.",
+      "vuln_type": "arithmetic",
+      "to_id": 3,
+      "type": "dataflow",
+      "from_id": 17
+    },
+    {
+      "reason": "On round completion gameNum is incremented and never bounded.",
+      "vuln_type": "arithmetic",
+      "to_id": 1,
+      "type": "dataflow",
+      "from_id": 18
+    },
+    {
+      "reason": "The timestamp-derived winNum determines which address receives the 285*count credit.",
+      "vuln_type": "access_control",
+      "to_id": 17,
+      "type": "dataflow",
+      "from_id": 21
+    },
+    {
+      "reason": "getLastGame reads lastGame[msg.sender] to locate the caller's game.",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "reason": "getLastGame reads funderBalance[msg.sender] to report the caller's balance.",
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "reason": "getNewGame reads gameNum to report the current game index.",
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "from_id": 11
+    },
+    {
+      "reason": "The timestamp-selected winner is written into funderBalance via the winner mapping.",
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "dataflow",
+      "from_id": 16
+    },
+    {
+      "reason": "addIn runs a fixed three-iteration loop over the funders using index i.",
+      "vuln_type": "arithmetic",
+      "to_id": 22,
+      "type": "controlflow",
+      "from_id": 8
+    },
+    {
+      "reason": "The loop index i selects funder[i] whose referrer is loaded into addr.",
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "dataflow",
+      "from_id": 22
+    },
+    {
+      "reason": "The walked referral addresses from addr drive successive funderBalance credits.",
+      "vuln_type": "arithmetic",
+      "to_id": 17,
+      "type": "dataflow",
+      "from_id": 23
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The referr parameter is only used inside addIn to populate the referrer mapping, so it should be collapsed into the addIn function node.",
+      "merge_into": "addIn",
+      "normal_node": "referr"
+    },
+    {
+      "reason": "The amount parameter exists solely to drive the balance check, the uint subtraction and the transfer inside withdraw.",
+      "merge_into": "withdraw",
+      "normal_node": "amount"
+    },
+    {
+      "reason": "winNum is the intermediate local produced by the (now + gameNum) % 3 expression and should be folded into that unsafe timestamp operation.",
+      "merge_into": "unsafe_timestamp_winner",
+      "normal_node": "winNum"
+    },
+    {
+      "reason": "The loop index i exists only to drive the reward distribution loop, so it merges into the fund credit unsafe operation.",
+      "merge_into": "unsafe_fund_credit",
+      "normal_node": "i"
+    },
+    {
+      "reason": "addr is a temporary address fetched from the referral chain during reward distribution and belongs to the same unsafe credit operation.",
+      "merge_into": "unsafe_fund_credit",
+      "normal_node": "addr"
+    }
+  ]
+}

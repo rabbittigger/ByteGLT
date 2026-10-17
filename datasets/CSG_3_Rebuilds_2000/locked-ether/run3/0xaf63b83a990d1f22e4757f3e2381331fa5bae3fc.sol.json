@@ -1,0 +1,193 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "state_baseAddr",
+      "description": "Public state variable baseAddr holding the hard-coded address 0x500Df47E1dF0ef06039218dCF0960253D89D6658 used as the target token contract.",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "state_bcontract",
+      "description": "State variable bcontract of interface type TokenERC20, initialized from baseAddr and used as the external call target.",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "state_distributedAmount",
+      "description": "Public state variable distributedAmount (initialized to 2001200) tracking how many tokens the airdrop has distributed.",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn_sendOutToken",
+      "description": "Public sendOutToken(address[] addrs) function that loops over the supplied addresses and performs the airdrop; it has no access control and no reentrancy guard.",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn_fallback",
+      "description": "Payable fallback function that unconditionally reverts, rejecting all plain ether transfers.",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "type": "untrusted_input",
+      "id": "untrusted_msg_sender",
+      "description": "msg.sender, the caller-supplied address used as the _from argument of the external transferFrom call.",
+      "node_id": 5
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param_addrs",
+      "description": "Parameter addrs: caller-supplied dynamic array of recipient addresses iterated over in the airdrop loop.",
+      "node_id": 6
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_i",
+      "description": "Local loop counter i controlling the iteration over the addrs array.",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "unsafe_transferFrom",
+      "description": "External call bcontract.transferFrom(msg.sender, addrs[i], 100 * 10**18) executed inside the loop with unbounded loop length and before any bookkeeping update.",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "unsafe_distributedAmount_add",
+      "description": "Unchecked arithmetic update distributedAmount += 100 executed after the external token transfer (Solidity 0.5.x has no overflow protection).",
+      "node_id": 9
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "unsafe_balanceOf",
+      "description": "External calls bcontract.balanceOf(addrs[i]) (twice) plus addrs[i].balance used as airdrop eligibility checks and as event arguments.",
+      "node_id": 10
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 1,
+      "reason": "baseAddr is used as the constructor argument to instantiate the TokenERC20 interface instance bcontract."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 5,
+      "to_id": 8,
+      "reason": "msg.sender is passed directly as the _from argument of the external transferFrom call."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 6,
+      "to_id": 8,
+      "reason": "Elements of the addrs parameter are passed as the _to argument of transferFrom inside the loop."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 6,
+      "to_id": 9,
+      "reason": "The length of the addrs parameter determines the loop iteration count and therefore how many times distributedAmount is incremented by 100 without overflow checks."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 6,
+      "to_id": 10,
+      "reason": "Elements of addrs are passed to bcontract.balanceOf and to the addrs[i].balance eligibility check."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 7,
+      "to_id": 8,
+      "reason": "The loop counter i indexes addrs[i] used as the recipient of the external transferFrom call."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 1,
+      "to_id": 8,
+      "reason": "bcontract is the storage reference on which the external transferFrom call is invoked."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 1,
+      "to_id": 10,
+      "reason": "bcontract is the storage reference on which the external balanceOf calls are invoked."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 8,
+      "reason": "sendOutToken controls execution of the external transferFrom call inside the else branch of the loop."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 9,
+      "reason": "sendOutToken controls execution of the distributedAmount += 100 state update that follows the transfer."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 10,
+      "reason": "sendOutToken controls execution of the balanceOf checks and the cannotAirdrop event emission."
+    },
+    {
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 8,
+      "to_id": 9,
+      "reason": "The external token transfer to an attacker-controlled/loop-supplied address occurs before the distributedAmount state update, allowing reentrant re-entry of sendOutToken before accounting is finalized."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 9,
+      "to_id": 2,
+      "reason": "The unchecked increment mutates the distributedAmount state variable."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 5,
+      "to_id": 3,
+      "reason": "Any externally supplied msg.sender can invoke the unguarded sendOutToken function."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param_addrs",
+      "merge_into": "fn_sendOutToken",
+      "reason": "The addrs parameter is a non-core input local to sendOutToken; it should be absorbed into the enclosing core function node for graph normalization."
+    },
+    {
+      "normal_node": "local_i",
+      "merge_into": "fn_sendOutToken",
+      "reason": "The loop counter i is a non-core local variable whose only role is to drive iteration inside the core function sendOutToken."
+    }
+  ]
+}

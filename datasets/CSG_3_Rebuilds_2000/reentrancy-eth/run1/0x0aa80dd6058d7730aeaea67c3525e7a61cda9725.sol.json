@@ -1,0 +1,137 @@
+{
+  "nodes": [
+    {
+      "description": "MANAGER_ROLE: bytes32 public constant role identifier (keccak256 of MANAGER_ROLE) used by the onlyRole modifier to guard withdraw.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "state_manager_role"
+    },
+    {
+      "description": "DinoEggs constructor: mints 3,000,000 ether of tokens to the contract itself and grants DEFAULT_ADMIN_ROLE to _msgSender().",
+      "is_core": true,
+      "type": "function",
+      "node_id": 1,
+      "id": "func_constructor"
+    },
+    {
+      "description": "withdraw(address,uint256) external, restricted by onlyRole(MANAGER_ROLE); checks the contract balance and transfers eggs to the recipient.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 2,
+      "id": "func_withdraw"
+    },
+    {
+      "description": "msg.sender accessed via _msgSender(): used as the DEFAULT_ADMIN_ROLE grantee in the constructor and as the caller checked by onlyRole in withdraw.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 3,
+      "id": "untrusted_msg_sender"
+    },
+    {
+      "description": "_transfer(address(this), _address, _amount): internal token balance mutation and Transfer event emitted from the withdraw path.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 4,
+      "id": "unsafe_transfer"
+    },
+    {
+      "description": "_mint(address(this), 3000000 ether): initial supply creation performed inside the constructor.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 5,
+      "id": "unsafe_mint"
+    },
+    {
+      "description": "_grantRole(DEFAULT_ADMIN_ROLE, _msgSender()): privileged role assignment performed inside the constructor.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 6,
+      "id": "unsafe_grant_role"
+    },
+    {
+      "description": "_address: recipient parameter of withdraw, forwarded to _transfer.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 7,
+      "id": "param_withdraw_address"
+    },
+    {
+      "description": "_amount: amount parameter of withdraw, validated against the contract balance and forwarded to _transfer.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 8,
+      "id": "param_withdraw_amount"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "withdraw is gated by the onlyRole(MANAGER_ROLE) modifier, so the MANAGER_ROLE state variable controls access to the function.",
+      "from_id": 2,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 0
+    },
+    {
+      "reason": "The caller (msg.sender via _msgSender) is the account whose role membership is verified by the access-control modifier before withdraw executes.",
+      "from_id": 3,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "The constructor grants DEFAULT_ADMIN_ROLE to _msgSender(), delegating privileged authority to the deployer address.",
+      "from_id": 3,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "The constructor invokes _mint to create the initial token supply for the contract itself.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 5
+    },
+    {
+      "reason": "The constructor invokes _grantRole to assign the default admin role.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 6
+    },
+    {
+      "reason": "The _address parameter flows into the _transfer recipient argument of the withdraw path.",
+      "from_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "The _amount parameter flows into the _transfer value argument of the withdraw path.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "withdraw calls _transfer after the balance requirement check, executing the state-mutating token transfer.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 4
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The _address parameter has no independent behavior; it only supplies the recipient argument to the internal _transfer call in withdraw.",
+      "normal_node": "param_withdraw_address",
+      "merge_into": "unsafe_transfer"
+    },
+    {
+      "reason": "The _amount parameter has no independent behavior; it is bounds-checked against balanceOf(address(this)) and then supplies the value argument to _transfer.",
+      "normal_node": "param_withdraw_amount",
+      "merge_into": "unsafe_transfer"
+    }
+  ]
+}

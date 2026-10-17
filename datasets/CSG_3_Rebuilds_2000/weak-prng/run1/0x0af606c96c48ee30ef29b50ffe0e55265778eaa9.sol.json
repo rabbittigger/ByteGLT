@@ -1,0 +1,177 @@
+{
+  "nodes": [
+    {
+      "description": "State variable holding the hard-coded WhaleSharkContract address used for external balance lookups",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "whaleSharkContract"
+    },
+    {
+      "description": "State variable holding the hard-coded StakingContract address used for external staking lookups",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "stakingContract"
+    },
+    {
+      "description": "Public view function that sums the number of sharks held and the number of sharks staked for a given address",
+      "is_core": true,
+      "type": "function",
+      "node_id": 2,
+      "id": "balanceOf"
+    },
+    {
+      "description": "Address parameter forwarded to both external contract calls",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 3,
+      "id": "owner"
+    },
+    {
+      "description": "Local variable storing the return value of whaleSharkContract.balanceOf(owner)",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 4,
+      "id": "numHoldingSharks"
+    },
+    {
+      "description": "Local variable storing the length of stakingContract.getTokensStaked(owner)",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 5,
+      "id": "numStaked"
+    },
+    {
+      "description": "External call to the untrusted whaleSharkContract.balanceOf(owner) whose return value is trusted unconditionally",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 6,
+      "id": "external_call_balanceOf"
+    },
+    {
+      "description": "External call to the untrusted stakingContract.getTokensStaked(owner) whose array length is trusted unconditionally",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 7,
+      "id": "external_call_getTokensStaked"
+    },
+    {
+      "description": "Arithmetic combination numHoldingSharks + numStaked that produces the value returned by balanceOf (checked arithmetic in Solidity 0.8.10)",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 8,
+      "id": "addition_numHoldingSharks_numStaked"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "owner parameter is forwarded as the argument of the external whaleSharkContract.balanceOf call",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "whaleSharkContract state variable supplies the target address for the external balance lookup",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "return value of the external balance lookup is assigned to numHoldingSharks",
+      "from_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "owner parameter is forwarded as the argument of the external stakingContract.getTokensStaked call",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "stakingContract state variable supplies the target address for the external staking lookup",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "array length of the external staking lookup result is assigned to numStaked",
+      "from_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "numHoldingSharks is an operand of the final addition",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "numStaked is an operand of the final addition",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "addition result is returned by balanceOf",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "balanceOf execution reaches the external balance lookup call",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 6
+    },
+    {
+      "reason": "balanceOf execution reaches the external staking lookup call",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 7
+    },
+    {
+      "reason": "the untrusted whaleSharkContract could re-enter balanceOf while the external balance lookup is in flight",
+      "from_id": 6,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 2
+    },
+    {
+      "reason": "the untrusted stakingContract could re-enter balanceOf while the external staking lookup is in flight",
+      "from_id": 7,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 2
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "owner is only a transient argument that is immediately consumed by the external whaleSharkContract.balanceOf call, so it carries no independent state and folds into that core unsafe_operation",
+      "normal_node": "owner",
+      "merge_into": "external_call_balanceOf"
+    },
+    {
+      "reason": "numHoldingSharks exists solely to hold the return value of the external balance lookup, so it folds into the producing core unsafe_operation",
+      "normal_node": "numHoldingSharks",
+      "merge_into": "external_call_balanceOf"
+    },
+    {
+      "reason": "numStaked exists solely to hold the length of the result of the external staking lookup, so it folds into the producing core unsafe_operation",
+      "normal_node": "numStaked",
+      "merge_into": "external_call_getTokensStaked"
+    }
+  ]
+}

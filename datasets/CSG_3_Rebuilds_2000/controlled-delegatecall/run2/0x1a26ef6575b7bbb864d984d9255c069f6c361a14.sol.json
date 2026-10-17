@@ -1,0 +1,219 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Public mapping(string => address) storing proxyTarget and proxyOwner configuration.",
+      "is_core": true,
+      "id": "addressManager"
+    },
+    {
+      "node_id": 1,
+      "type": "function",
+      "description": "Constructor taking _proxyTarget, sets proxyTarget and proxyOwner (msg.sender) in addressManager.",
+      "is_core": true,
+      "id": "constructor"
+    },
+    {
+      "node_id": 2,
+      "type": "function",
+      "description": "External function guarded by proxyCallIfNotOwner that updates addressManager[\"proxyTarget\"].",
+      "is_core": true,
+      "id": "setTargetContract"
+    },
+    {
+      "node_id": 3,
+      "type": "function",
+      "description": "External function guarded by proxyCallIfNotOwner that sets addressManager[\"proxyOwner\"] to msg.sender.",
+      "is_core": true,
+      "id": "transferProxyOwnership"
+    },
+    {
+      "node_id": 4,
+      "type": "function",
+      "description": "Internal function performing delegatecall to addressManager[\"proxyTarget\"] with msg.data and returning/reverting using assembly.",
+      "is_core": true,
+      "id": "_doProxyCall"
+    },
+    {
+      "node_id": 5,
+      "type": "function",
+      "description": "Payable fallback that forwards every call to _doProxyCall, i.e. a delegatecall proxy.",
+      "is_core": true,
+      "id": "fallback"
+    },
+    {
+      "node_id": 6,
+      "type": "untrusted_input",
+      "description": "Caller address used for ownership assignment and modifier authorization checks.",
+      "is_core": true,
+      "id": "msg.sender"
+    },
+    {
+      "node_id": 7,
+      "type": "unsafe_operation",
+      "description": "delegatecall to a user-configurable target executing arbitrary code in this contract's storage context.",
+      "is_core": true,
+      "id": "delegatecall"
+    },
+    {
+      "node_id": 8,
+      "type": "parameter",
+      "description": "Constructor parameter _proxyTarget written into addressManager.",
+      "is_core": false,
+      "id": "param__proxyTarget__constructor"
+    },
+    {
+      "node_id": 9,
+      "type": "parameter",
+      "description": "setTargetContract parameter _proxyTarget written into addressManager.",
+      "is_core": false,
+      "id": "param__proxyTarget__setTargetContract"
+    },
+    {
+      "node_id": 10,
+      "type": "local_var",
+      "description": "Local variables success and returndata holding the result of the delegatecall.",
+      "is_core": false,
+      "id": "local__success__returndata"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "constructor parameter _proxyTarget is written into addressManager[\"proxyTarget\"]",
+      "from_id": 8
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "msg.sender is stored as proxyOwner, making ownership depend directly on the untrusted caller",
+      "from_id": 6
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "proxyCallIfNotOwner gates setTargetContract on msg.sender == proxyOwner",
+      "from_id": 6
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "proxyCallIfNotOwner gates transferProxyOwnership on msg.sender == proxyOwner",
+      "from_id": 6
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "modifier routes non-owner callers into _doProxyCall instead of executing the guarded body",
+      "from_id": 6
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "transferProxyOwnership writes the untrusted msg.sender into addressManager[\"proxyOwner\"]",
+      "from_id": 3
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "setTargetContract writes the new target parameter into addressManager",
+      "from_id": 9
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "setTargetContract updates the proxyTarget state variable in addressManager",
+      "from_id": 2
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "proxyCallIfNotOwner modifier causes non-owner calls of setTargetContract to reach _doProxyCall",
+      "from_id": 2
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "proxyCallIfNotOwner modifier causes non-owner calls of transferProxyOwnership to reach _doProxyCall",
+      "from_id": 3
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "fallback forwards all incoming calls to _doProxyCall",
+      "from_id": 5
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "_doProxyCall performs delegatecall to addressManager[\"proxyTarget\"] with msg.data, invoking arbitrary external code in this contract's context",
+      "from_id": 4
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "the delegatecall target executes in this storage context and can re-enter _doProxyCall or the fallback before state settles",
+      "from_id": 7
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_doProxyCall reads proxyOwner and proxyTarget from addressManager",
+      "from_id": 4
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "constructor initializes addressManager entries proxyTarget and proxyOwner",
+      "from_id": 1
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_doProxyCall stores the delegatecall result in the success and returndata locals",
+      "from_id": 4
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "constructor consumes the untrusted msg.sender to set the initial proxyOwner",
+      "from_id": 1
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "constructor",
+      "normal_node": "param__proxyTarget__constructor",
+      "reason": "Parameter _proxyTarget exists only to initialize addressManager inside the constructor and has no independent semantics."
+    },
+    {
+      "merge_into": "setTargetContract",
+      "normal_node": "param__proxyTarget__setTargetContract",
+      "reason": "Parameter _proxyTarget is only used to overwrite addressManager[\"proxyTarget\"] within setTargetContract."
+    },
+    {
+      "merge_into": "_doProxyCall",
+      "normal_node": "local__success__returndata",
+      "reason": "Locals success and returndata are temporary delegatecall results fully contained in _doProxyCall and carry no separate state."
+    }
+  ]
+}

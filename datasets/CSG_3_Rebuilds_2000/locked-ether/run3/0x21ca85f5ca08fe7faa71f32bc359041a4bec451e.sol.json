@@ -1,0 +1,186 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "state_governance",
+      "description": "address governance storage variable holding privileged minter address, assigned from tx.origin in constructor",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "state_transferEnabled",
+      "description": "bool _transferEnabled gating transfers, default true",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "func_constructor",
+      "description": "ERC20/TekkenFinance constructor that sets name, symbol, decimals, cap and governance = tx.origin",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "func_transferFromAndCall",
+      "description": "public function that requires msg.sender == governance and then calls _mint, allowing privileged minting",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "func_checkAndCallTransfer",
+      "description": "internal function performing external callback IERC1363Receiver.onTransferReceived on recipient after token transfer",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "func_transferAndCallData",
+      "description": "public function transferring tokens then invoking _checkAndCallTransfer on the recipient contract",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "type": "untrusted_input",
+      "id": "untrusted_tx_origin",
+      "description": "tx.origin used to initialize governance in constructor, vulnerable to phishing/access control bypass",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "type": "untrusted_input",
+      "id": "untrusted_msg_sender",
+      "description": "msg.sender used in the governance comparison inside transferFromAndCall",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "unsafe_external_call_onTransferReceived",
+      "description": "external call to IERC1363Receiver.onTransferReceived executed before state finalization, enabling reentrancy",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "unsafe_mint",
+      "description": "_mint invoked in transferFromAndCall guarded only by msg.sender == governance derived from tx.origin",
+      "node_id": 9
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param_fromAddress",
+      "description": "fromAddress parameter of transferFromAndCall, recipient of freshly minted tokens",
+      "node_id": 10
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param_SubstractedValue",
+      "description": "SubstractedValue parameter of transferFromAndCall, amount of tokens minted",
+      "node_id": 11
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 6,
+      "to_id": 0,
+      "reason": "governance is initialized directly from tx.origin, making the privileged role dependent on an untrusted origin that can be spoofed via phishing contracts"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 6,
+      "to_id": 2,
+      "reason": "constructor writes tx.origin into governance, establishing tx.origin based authorization"
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 2,
+      "to_id": 0,
+      "reason": "constructor control flow sets the governance state variable that later gates minting"
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "to_id": 3,
+      "reason": "transferFromAndCall reads governance to authorize the minting operation"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 7,
+      "to_id": 3,
+      "reason": "msg.sender is compared against governance inside transferFromAndCall, so authorization depends on an untrusted caller identity"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 3,
+      "to_id": 9,
+      "reason": "transferFromAndCall passes user-controlled fromAddress and SubstractedValue into _mint after the weak governance check, allowing unauthorized minting"
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "reentrancy",
+      "from_id": 5,
+      "to_id": 4,
+      "reason": "transferAndCallData transfers tokens and then calls into _checkAndCallTransfer, which performs an external callback"
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "reentrancy",
+      "from_id": 4,
+      "to_id": 8,
+      "reason": "_checkAndCallTransfer invokes the recipient contract callback onTransferReceived after balances are moved, exposing the contract to reentrancy"
+    },
+    {
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 8,
+      "to_id": 5,
+      "reason": "the external onTransferReceived callback can re-enter transferAndCallData or other token functions before the original call finishes"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 7,
+      "to_id": 4,
+      "reason": "_msgSender passed as the operator argument into the external callback is untrusted and can be leveraged during reentrant calls"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 10,
+      "to_id": 3,
+      "reason": "fromAddress parameter supplies the mint recipient for transferFromAndCall"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 11,
+      "to_id": 3,
+      "reason": "SubstractedValue parameter is the minted amount processed by _mint and SafeMath addition"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param_fromAddress",
+      "merge_into": "func_transferFromAndCall",
+      "reason": "fromAddress is a parameter whose only use is as the mint recipient inside transferFromAndCall, so it is collapsed into that core function node"
+    },
+    {
+      "normal_node": "param_SubstractedValue",
+      "merge_into": "func_transferFromAndCall",
+      "reason": "SubstractedValue is a parameter consumed by the _mint call within transferFromAndCall, so it is merged into that core function node"
+    }
+  ]
+}

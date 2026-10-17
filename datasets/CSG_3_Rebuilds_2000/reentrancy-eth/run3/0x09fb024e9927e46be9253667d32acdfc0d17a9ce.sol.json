@@ -1,0 +1,346 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Public string state variable holding the current riddle question.",
+      "id": "question",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Address that set the current question; acts as the owner used for access control in StopGame, NewQuestion and newQuestioner.",
+      "id": "questionSender",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "keccak256 hash of the expected answer; writable only once in set_game but overwritable by the owner in NewQuestion.",
+      "id": "responseHash",
+      "type": "state_var",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "External payable function that checks the answer against responseHash, verifies msg.sender == tx.origin and msg.value > 3 ether, then transfers the whole balance.",
+      "id": "Try",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "Payable initializer that sets responseHash, question and questionSender only when responseHash is still zero.",
+      "id": "set_game",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "Payable owner-only function that sends this.balance to msg.sender.",
+      "id": "StopGame",
+      "type": "function",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "Payable owner-only function that replaces question and responseHash.",
+      "id": "NewQuestion",
+      "type": "function",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "Owner-only function that transfers the questionSender role to a new address.",
+      "id": "newQuestioner",
+      "type": "function",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "Fallback payable function that lets the contract receive ether from any caller.",
+      "id": "fallback",
+      "type": "function",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "description": "Caller address used for access control checks and as the recipient of balance transfers.",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "node_id": 9
+    },
+    {
+      "is_core": true,
+      "description": "Transaction origin compared with msg.sender inside Try, making the guard bypassable by a malicious intermediary contract.",
+      "id": "tx.origin",
+      "type": "untrusted_input",
+      "node_id": 10
+    },
+    {
+      "is_core": true,
+      "description": "msg.sender.transfer(this.balance) inside Try drains the entire contract balance to the untrusted caller.",
+      "id": "transfer_Try",
+      "type": "unsafe_operation",
+      "node_id": 11
+    },
+    {
+      "is_core": true,
+      "description": "msg.sender.transfer(this.balance) inside StopGame drains the entire contract balance to the owner.",
+      "id": "transfer_StopGame",
+      "type": "unsafe_operation",
+      "node_id": 12
+    },
+    {
+      "is_core": false,
+      "description": "Answer string supplied to Try, hashed and compared against responseHash.",
+      "id": "_response_Try",
+      "type": "parameter",
+      "node_id": 13
+    },
+    {
+      "is_core": false,
+      "description": "Question string supplied to set_game and stored in question.",
+      "id": "_question_set_game",
+      "type": "parameter",
+      "node_id": 14
+    },
+    {
+      "is_core": false,
+      "description": "Answer string supplied to set_game whose hash becomes responseHash.",
+      "id": "_response_set_game",
+      "type": "parameter",
+      "node_id": 15
+    },
+    {
+      "is_core": false,
+      "description": "Question string supplied to NewQuestion and written to question.",
+      "id": "_question_NewQuestion",
+      "type": "parameter",
+      "node_id": 16
+    },
+    {
+      "is_core": false,
+      "description": "New response hash supplied to NewQuestion and written to responseHash.",
+      "id": "_responseHash_NewQuestion",
+      "type": "parameter",
+      "node_id": 17
+    },
+    {
+      "is_core": false,
+      "description": "New owner address supplied to newQuestioner and assigned to questionSender.",
+      "id": "newAddress",
+      "type": "parameter",
+      "node_id": 18
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "require(msg.sender == tx.origin) makes Try's entry guard depend on the untrusted tx.origin and is bypassable through an intermediary contract.",
+      "type": "controlflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "msg.sender is compared with tx.origin to gate execution of Try.",
+      "type": "controlflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "_response is hashed with keccak256 and compared against responseHash inside Try.",
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "responseHash is read to validate the supplied answer in Try.",
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "reason": "Try executes the full-balance transfer when the hash matches and msg.value > 3 ether.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "reason": "The whole contract balance is sent to the untrusted msg.sender before state is finalized.",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "reason": "set_game records msg.sender as questionSender, granting ownership of the game to the first caller.",
+      "type": "controlflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "_response is hashed and written into responseHash inside set_game.",
+      "type": "dataflow",
+      "from_id": 15
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "_question is stored into the question state variable inside set_game.",
+      "type": "dataflow",
+      "from_id": 14
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "set_game writes the responseHash state variable.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "set_game writes the questionSender state variable.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "reason": "StopGame reads questionSender to verify msg.sender is the owner.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "reason": "msg.sender must equal questionSender for StopGame to proceed.",
+      "type": "controlflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "reentrancy",
+      "reason": "StopGame transfers the entire balance to msg.sender.",
+      "type": "controlflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "reentrancy",
+      "reason": "Untrusted msg.sender receives this.balance in StopGame.",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "reason": "NewQuestion compares msg.sender against questionSender before modifying the game.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "reason": "msg.sender authorization gates the state updates in NewQuestion.",
+      "type": "controlflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "_responseHash parameter is written into the responseHash state variable.",
+      "type": "dataflow",
+      "from_id": 17
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "_question parameter is written into the question state variable.",
+      "type": "dataflow",
+      "from_id": 16
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "NewQuestion overwrites responseHash with an owner-chosen value.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "reason": "newQuestioner reads questionSender to check the caller is the current owner.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "reason": "msg.sender must equal questionSender for the ownership transfer to execute.",
+      "type": "controlflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "reason": "newAddress parameter becomes the new owner address.",
+      "type": "dataflow",
+      "from_id": 18
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "access_control",
+      "reason": "newQuestioner writes the questionSender state variable, transferring ownership.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "Fallback function accepts ether from any caller without restriction.",
+      "type": "controlflow",
+      "from_id": 9
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "Try",
+      "reason": "Parameter _response is only used to compute the hash checked inside Try.",
+      "normal_node": "_response_Try"
+    },
+    {
+      "merge_into": "set_game",
+      "reason": "Parameter _question is only stored in the question state variable by set_game.",
+      "normal_node": "_question_set_game"
+    },
+    {
+      "merge_into": "set_game",
+      "reason": "Parameter _response is only hashed into responseHash by set_game.",
+      "normal_node": "_response_set_game"
+    },
+    {
+      "merge_into": "NewQuestion",
+      "reason": "Parameter _question is only written to the question state variable by NewQuestion.",
+      "normal_node": "_question_NewQuestion"
+    },
+    {
+      "merge_into": "NewQuestion",
+      "reason": "Parameter _responseHash is only written to responseHash by NewQuestion.",
+      "normal_node": "_responseHash_NewQuestion"
+    },
+    {
+      "merge_into": "newQuestioner",
+      "reason": "Parameter newAddress is only assigned to questionSender by newQuestioner.",
+      "normal_node": "newAddress"
+    }
+  ]
+}

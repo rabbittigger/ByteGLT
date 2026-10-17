@@ -1,0 +1,470 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Private address state variable holding the exhibition organizer, set once in the constructor from msg.sender and used as the authorization anchor.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "organizer"
+    },
+    {
+      "type": "state_var",
+      "description": "Private address state variable holding the selected winner; written by pickWinner and used as the ether payout destination in transferAmount.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "winnerAddress"
+    },
+    {
+      "type": "state_var",
+      "description": "Private bool state variable gating registration, payout and winner-name readout; set to true inside pickWinner.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "isWinnerSelected"
+    },
+    {
+      "type": "state_var",
+      "description": "Private mapping(address => Participant) storing name/phone/email records keyed by participant address.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "participants"
+    },
+    {
+      "type": "state_var",
+      "description": "Private address[] array of all registered participant addresses; its length drives the winner index computation.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "participantList"
+    },
+    {
+      "type": "function",
+      "description": "Constructor that sets organizer = msg.sender, establishing the privileged role at deployment time.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "Exhibition"
+    },
+    {
+      "type": "function",
+      "description": "Payable public registration function: charges an entry fee, writes the caller's Participant record, appends the caller to participantList and forwards the fee to the organizer.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "registration"
+    },
+    {
+      "type": "function",
+      "description": "Organizer-only function that computes a pseudo-random index, assigns winnerAddress from participantList and flips isWinnerSelected.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "pickWinner"
+    },
+    {
+      "type": "function",
+      "description": "Payable organizer-only function that forwards ether to winnerAddress once a winner has been selected.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "transferAmount"
+    },
+    {
+      "type": "function",
+      "description": "View getter returning the isWinnerSelected flag.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "getIsWinnerSelected"
+    },
+    {
+      "type": "function",
+      "description": "View getter returning the full participantList array.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "getParticipants"
+    },
+    {
+      "type": "function",
+      "description": "View getter returning the winner's name from participants[winnerAddress], guarded by isWinnerSelected.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "getWinner"
+    },
+    {
+      "type": "function",
+      "description": "View getter returning the organizer address.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "getOrganizer"
+    },
+    {
+      "type": "function",
+      "description": "Private helper performing the actual ether value transfer to a target account.",
+      "is_core": true,
+      "node_id": 13,
+      "id": "sendAmount"
+    },
+    {
+      "type": "function",
+      "description": "Private view function producing a pseudo-random number from keccak256(block.difficulty, now, participantList).",
+      "is_core": true,
+      "node_id": 14,
+      "id": "random"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used as owner, mapping key, array element and authorization subject throughout the contract.",
+      "is_core": true,
+      "node_id": 15,
+      "id": "msg.sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Block timestamp (now) consumed by random(), making the winner selection miner-influenceable.",
+      "is_core": true,
+      "node_id": 16,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External ether value transfer _account.transfer(_amount) executed inside sendAmount.",
+      "is_core": true,
+      "node_id": 17,
+      "id": "sendAmount_transfer"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Predictable randomness construction keccak256(block.difficulty, now, participantList) used to pick the winner.",
+      "is_core": true,
+      "node_id": 18,
+      "id": "randomness_keccak"
+    },
+    {
+      "type": "parameter",
+      "description": "Registration parameter holding the participant name string.",
+      "is_core": false,
+      "node_id": 19,
+      "id": "_name"
+    },
+    {
+      "type": "parameter",
+      "description": "Registration parameter holding the participant phone string.",
+      "is_core": false,
+      "node_id": 20,
+      "id": "_phone"
+    },
+    {
+      "type": "parameter",
+      "description": "Registration parameter holding the participant email string.",
+      "is_core": false,
+      "node_id": 21,
+      "id": "_email"
+    },
+    {
+      "type": "parameter",
+      "description": "sendAmount parameter carrying the wei amount to transfer.",
+      "is_core": false,
+      "node_id": 22,
+      "id": "_amount"
+    },
+    {
+      "type": "parameter",
+      "description": "sendAmount parameter carrying the recipient address of the transfer.",
+      "is_core": false,
+      "node_id": 23,
+      "id": "_account"
+    },
+    {
+      "type": "local_var",
+      "description": "Storage pointer local aliasing participants[msg.sender] inside registration.",
+      "is_core": false,
+      "node_id": 24,
+      "id": "participant"
+    },
+    {
+      "type": "local_var",
+      "description": "Local uint index computed as random() % participantList.length inside pickWinner.",
+      "is_core": false,
+      "node_id": 25,
+      "id": "index"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "Constructor assigns the untrusted msg.sender to organizer, creating the single privileged role of the contract.",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "Registration parameter _name is written into the caller's Participant record.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "Registration parameter _phone is written into the caller's Participant record.",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "Registration parameter _email is written into the caller's Participant record.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "The storage pointer participant is derived from participants[msg.sender], an untrusted caller-controlled mapping key.",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "Writes through the participant storage pointer mutate the participants mapping.",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "participantList.push(msg.sender) lets any untrusted caller append to and grow the participant array.",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "registration calls sendAmount(msg.value, organizer) to forward the entry fee.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "registration updates the participants mapping state.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "registration updates the participantList array state.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "pickWinner enforces require(msg.sender == organizer), so the untrusted caller must equal the privileged organizer.",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "pickWinner reads the organizer state variable for its authorization check.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "Local index is computed with participantList.length as the modulo bound.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "The value returned by random() determines the winner index in pickWinner.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "block.timestamp (now) is fed into random(), giving miners influence over the outcome.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 18,
+      "type": "controlflow",
+      "reason": "random() builds its entropy from block.difficulty and block.timestamp, a predictable unsafe randomness source.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "block.timestamp is an operand of the unsafe keccak256 randomness construction.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "winnerAddress is assigned from participantList[index] using the locally computed index.",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "pickWinner writes the selected winner into winnerAddress.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "pickWinner sets isWinnerSelected to true after choosing a winner.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "transferAmount gates payout on require(msg.sender == organizer), making the untrusted caller part of the authorization path.",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "transferAmount reads the organizer state variable for its authorization check.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "transferAmount requires isWinnerSelected to be true before paying out.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "winnerAddress is read as the payout destination in transferAmount.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "transferAmount delegates the actual payment to sendAmount(msg.value, winnerAddress).",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "The _amount parameter determines the wei value moved by the external transfer.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "The _account parameter is the recipient of the external transfer operation.",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "controlflow",
+      "reason": "sendAmount executes the external value transfer _account.transfer(_amount).",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 8,
+      "type": "callback",
+      "reason": "The external ether transfer performed by sendAmount hands control to the recipient on the transferAmount payout path.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "getWinner requires isWinnerSelected before revealing the winner name.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "getWinner reads winnerAddress to index the participants mapping.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "getWinner returns participants[winnerAddress].name from the participants mapping.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "controlflow",
+      "reason": "getIsWinnerSelected returns the isWinnerSelected state variable.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "getParticipants returns the participantList array state.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "getOrganizer returns the organizer state variable.",
+      "from_id": 12
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "registration",
+      "reason": "_name is a local registration parameter that only serves as input to the registration function and carries no independent security semantics.",
+      "normal_node": "_name"
+    },
+    {
+      "merge_into": "registration",
+      "reason": "_phone is a local registration parameter consumed only by the registration function.",
+      "normal_node": "_phone"
+    },
+    {
+      "merge_into": "registration",
+      "reason": "_email is a local registration parameter consumed only by the registration function.",
+      "normal_node": "_email"
+    },
+    {
+      "merge_into": "sendAmount",
+      "reason": "_amount is a parameter of the private sendAmount helper and directly feeds the unsafe transfer operation.",
+      "normal_node": "_amount"
+    },
+    {
+      "merge_into": "sendAmount",
+      "reason": "_account is a parameter of the private sendAmount helper and directly supplies the transfer recipient.",
+      "normal_node": "_account"
+    },
+    {
+      "merge_into": "registration",
+      "reason": "participant is a storage pointer local created inside registration to write the caller's record.",
+      "normal_node": "participant"
+    },
+    {
+      "merge_into": "pickWinner",
+      "reason": "index is a computed local within pickWinner used to select the winner address.",
+      "normal_node": "index"
+    }
+  ]
+}

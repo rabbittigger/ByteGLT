@@ -1,0 +1,1198 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "victoryMessages",
+      "is_core": true,
+      "description": "mapping(address => bytes) storing each bettor's victory message"
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "id": "betQueue",
+      "is_core": true,
+      "description": "mapping(uint => Bet) circular queue of placed bets"
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "id": "MAX_SIMULTANEOUS_BETS",
+      "is_core": true,
+      "description": "cap on the number of unresolvable pending bets"
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "id": "index",
+      "is_core": true,
+      "description": "read pointer for bet processing/resolution"
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "id": "indexBetPlace",
+      "is_core": true,
+      "description": "write pointer for placing new bets"
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "id": "vrfAddress",
+      "is_core": true,
+      "description": "hard-coded VRF token address used for authorization"
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "id": "vrfcontract",
+      "is_core": true,
+      "description": "VerifyToken interface instance for the VRF token"
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "id": "exchangecontract",
+      "is_core": true,
+      "description": "AutomatedExchange interface used to buy tokens with ETH"
+    },
+    {
+      "node_id": 8,
+      "type": "function",
+      "id": "receiveApproval",
+      "is_core": true,
+      "description": "public entry that pulls VRF tokens and places a bet"
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "id": "placeBetEth",
+      "is_core": true,
+      "description": "payable entry that swaps ETH for VRF tokens then places a bet"
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "id": "payout",
+      "is_core": true,
+      "description": "private helper that transfers tokens to a winner and emits Payout"
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "id": "_placeBet",
+      "is_core": true,
+      "description": "private helper that resolves prior bets and enqueues a new Bet"
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "id": "resolvePriorBets",
+      "is_core": true,
+      "description": "public loop that pairs, resolves and pays out queued bets"
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "id": "cancelBet",
+      "is_core": true,
+      "description": "public function that lets a lone last bettor skip their bet"
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "id": "canCancelBet",
+      "is_core": true,
+      "description": "view helper telling whether the caller may cancel"
+    },
+    {
+      "node_id": 15,
+      "type": "function",
+      "id": "isEven",
+      "is_core": true,
+      "description": "view helper testing parity of a number"
+    },
+    {
+      "node_id": 16,
+      "type": "function",
+      "id": "maxRandom",
+      "is_core": true,
+      "description": "internal keccak256 over blockhash and entropy address"
+    },
+    {
+      "node_id": 17,
+      "type": "function",
+      "id": "random",
+      "is_core": true,
+      "description": "internal modulo wrapper around maxRandom"
+    },
+    {
+      "node_id": 18,
+      "type": "function",
+      "id": "getBetState",
+      "is_core": true,
+      "description": "view helper returning a bettor's queue state"
+    },
+    {
+      "node_id": 19,
+      "type": "function",
+      "id": "SafeMath.add",
+      "is_core": true,
+      "description": "library checked addition"
+    },
+    {
+      "node_id": 20,
+      "type": "function",
+      "id": "SafeMath.sub",
+      "is_core": true,
+      "description": "library checked subtraction"
+    },
+    {
+      "node_id": 21,
+      "type": "function",
+      "id": "SafeMath.mul",
+      "is_core": true,
+      "description": "library checked multiplication"
+    },
+    {
+      "node_id": 22,
+      "type": "function",
+      "id": "SafeMath.div",
+      "is_core": true,
+      "description": "library checked division"
+    },
+    {
+      "node_id": 23,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "is_core": true,
+      "description": "caller-supplied address used for authorization and bet ownership"
+    },
+    {
+      "node_id": 24,
+      "type": "unsafe_operation",
+      "id": "op_transferFrom",
+      "is_core": true,
+      "description": "external call vrfcontract.transferFrom(from,this,tokens)"
+    },
+    {
+      "node_id": 25,
+      "type": "unsafe_operation",
+      "id": "op_buyTokens",
+      "is_core": true,
+      "description": "external payable call exchangecontract.buyTokens.value(msg.value)()"
+    },
+    {
+      "node_id": 26,
+      "type": "unsafe_operation",
+      "id": "op_payoutTransfer",
+      "is_core": true,
+      "description": "external call vrfcontract.transfer(to,numTokens) inside payout"
+    },
+    {
+      "node_id": 27,
+      "type": "unsafe_operation",
+      "id": "op_weakRandomness",
+      "is_core": true,
+      "description": "keccak256(blockhash(blockn),entropy) used as game randomness"
+    },
+    {
+      "node_id": 28,
+      "type": "unsafe_operation",
+      "id": "op_arith_index",
+      "is_core": true,
+      "description": "unchecked pointer arithmetic on index/indexBetPlace (+=1, +=2)"
+    },
+    {
+      "node_id": 29,
+      "type": "unsafe_operation",
+      "id": "op_unboundedLoop",
+      "is_core": true,
+      "description": "while loop over betQueue with block.number dependent expiry checks"
+    },
+    {
+      "node_id": 30,
+      "type": "parameter",
+      "id": "p_rA_from",
+      "is_core": false,
+      "description": "from address parameter of receiveApproval"
+    },
+    {
+      "node_id": 31,
+      "type": "parameter",
+      "id": "p_rA_tokens",
+      "is_core": false,
+      "description": "tokens amount parameter of receiveApproval"
+    },
+    {
+      "node_id": 32,
+      "type": "parameter",
+      "id": "p_rA_token",
+      "is_core": false,
+      "description": "token address parameter of receiveApproval"
+    },
+    {
+      "node_id": 33,
+      "type": "parameter",
+      "id": "p_rA_data",
+      "is_core": false,
+      "description": "data bytes parameter of receiveApproval"
+    },
+    {
+      "node_id": 34,
+      "type": "parameter",
+      "id": "p_pbE_victoryMessage",
+      "is_core": false,
+      "description": "victoryMessage parameter of placeBetEth"
+    },
+    {
+      "node_id": 35,
+      "type": "local_var",
+      "id": "l_pbE_tokensBefore",
+      "is_core": false,
+      "description": "balance snapshot before swapping ETH in placeBetEth"
+    },
+    {
+      "node_id": 36,
+      "type": "parameter",
+      "id": "p_payout_to",
+      "is_core": false,
+      "description": "to address parameter of payout"
+    },
+    {
+      "node_id": 37,
+      "type": "parameter",
+      "id": "p_payout_numTokens",
+      "is_core": false,
+      "description": "numTokens parameter of payout"
+    },
+    {
+      "node_id": 38,
+      "type": "parameter",
+      "id": "p_pB_numTokens",
+      "is_core": false,
+      "description": "numTokens parameter of _placeBet"
+    },
+    {
+      "node_id": 39,
+      "type": "parameter",
+      "id": "p_pB_from",
+      "is_core": false,
+      "description": "from bettor parameter of _placeBet"
+    },
+    {
+      "node_id": 40,
+      "type": "parameter",
+      "id": "p_pB_victoryMessage",
+      "is_core": false,
+      "description": "victoryMessage parameter of _placeBet"
+    },
+    {
+      "node_id": 41,
+      "type": "local_var",
+      "id": "l_resolve_totalbet",
+      "is_core": false,
+      "description": "sum of the two paired bet amounts"
+    },
+    {
+      "node_id": 42,
+      "type": "local_var",
+      "id": "l_resolve_randval",
+      "is_core": false,
+      "description": "random value deciding the paired bet winner"
+    },
+    {
+      "node_id": 43,
+      "type": "parameter",
+      "id": "p_isEven_num",
+      "is_core": false,
+      "description": "num parameter of isEven"
+    },
+    {
+      "node_id": 44,
+      "type": "parameter",
+      "id": "p_maxRandom_blockn",
+      "is_core": false,
+      "description": "blockn parameter of maxRandom"
+    },
+    {
+      "node_id": 45,
+      "type": "parameter",
+      "id": "p_maxRandom_entropy",
+      "is_core": false,
+      "description": "entropy address parameter of maxRandom"
+    },
+    {
+      "node_id": 46,
+      "type": "local_var",
+      "id": "l_maxRandom_randomNumber",
+      "is_core": false,
+      "description": "keccak256 result in maxRandom"
+    },
+    {
+      "node_id": 47,
+      "type": "parameter",
+      "id": "p_random_upper",
+      "is_core": false,
+      "description": "upper modulo bound parameter of random"
+    },
+    {
+      "node_id": 48,
+      "type": "parameter",
+      "id": "p_random_blockn",
+      "is_core": false,
+      "description": "blockn parameter of random"
+    },
+    {
+      "node_id": 49,
+      "type": "parameter",
+      "id": "p_random_entropy",
+      "is_core": false,
+      "description": "entropy parameter of random"
+    },
+    {
+      "node_id": 50,
+      "type": "local_var",
+      "id": "l_random_randomNumber",
+      "is_core": false,
+      "description": "modulo result returned by random"
+    },
+    {
+      "node_id": 51,
+      "type": "parameter",
+      "id": "p_getBetState_bettor",
+      "is_core": false,
+      "description": "bettor parameter of getBetState"
+    },
+    {
+      "node_id": 52,
+      "type": "local_var",
+      "id": "l_getBetState_i",
+      "is_core": false,
+      "description": "loop counter from index to indexBetPlace in getBetState"
+    },
+    {
+      "node_id": 53,
+      "type": "parameter",
+      "id": "p_add_a",
+      "is_core": false,
+      "description": "a parameter of SafeMath.add"
+    },
+    {
+      "node_id": 54,
+      "type": "parameter",
+      "id": "p_add_b",
+      "is_core": false,
+      "description": "b parameter of SafeMath.add"
+    },
+    {
+      "node_id": 55,
+      "type": "local_var",
+      "id": "l_add_c",
+      "is_core": false,
+      "description": "c result in SafeMath.add"
+    },
+    {
+      "node_id": 56,
+      "type": "parameter",
+      "id": "p_sub_a",
+      "is_core": false,
+      "description": "a parameter of SafeMath.sub"
+    },
+    {
+      "node_id": 57,
+      "type": "parameter",
+      "id": "p_sub_b",
+      "is_core": false,
+      "description": "b parameter of SafeMath.sub"
+    },
+    {
+      "node_id": 58,
+      "type": "local_var",
+      "id": "l_sub_c",
+      "is_core": false,
+      "description": "c result in SafeMath.sub"
+    },
+    {
+      "node_id": 59,
+      "type": "parameter",
+      "id": "p_mul_a",
+      "is_core": false,
+      "description": "a parameter of SafeMath.mul"
+    },
+    {
+      "node_id": 60,
+      "type": "parameter",
+      "id": "p_mul_b",
+      "is_core": false,
+      "description": "b parameter of SafeMath.mul"
+    },
+    {
+      "node_id": 61,
+      "type": "local_var",
+      "id": "l_mul_c",
+      "is_core": false,
+      "description": "c result in SafeMath.mul"
+    },
+    {
+      "node_id": 62,
+      "type": "parameter",
+      "id": "p_div_a",
+      "is_core": false,
+      "description": "a parameter of SafeMath.div"
+    },
+    {
+      "node_id": 63,
+      "type": "parameter",
+      "id": "p_div_b",
+      "is_core": false,
+      "description": "b parameter of SafeMath.div"
+    },
+    {
+      "node_id": 64,
+      "type": "local_var",
+      "id": "l_div_c",
+      "is_core": false,
+      "description": "c result in SafeMath.div"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is required to equal the hard-coded vrfAddress to enter receiveApproval",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 23,
+      "to_id": 8
+    },
+    {
+      "reason": "msg.sender is recorded as the bettor when placing an ETH bet",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 23,
+      "to_id": 9
+    },
+    {
+      "reason": "cancelBet requires betQueue[index].bettor == msg.sender",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 23,
+      "to_id": 13
+    },
+    {
+      "reason": "canCancelBet compares the last bettor with msg.sender",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 23,
+      "to_id": 14
+    },
+    {
+      "reason": "receiveApproval performs the external vrfcontract.transferFrom call",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 8,
+      "to_id": 24
+    },
+    {
+      "reason": "receiveApproval forwards tokens and from into _placeBet",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 8,
+      "to_id": 11
+    },
+    {
+      "reason": "from is never checked against msg.sender, tokens are pulled from an arbitrary address",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 30,
+      "to_id": 8
+    },
+    {
+      "reason": "from is supplied as the source address of transferFrom",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 30,
+      "to_id": 24
+    },
+    {
+      "reason": "tokens is the amount pulled from the caller-specified address",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 31,
+      "to_id": 8
+    },
+    {
+      "reason": "tokens is the transfer amount of the external call",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 31,
+      "to_id": 24
+    },
+    {
+      "reason": "token address parameter is accepted but not validated against vrfAddress",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 32,
+      "to_id": 8
+    },
+    {
+      "reason": "data bytes are forwarded as the user victory message",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 33,
+      "to_id": 8
+    },
+    {
+      "reason": "victoryMessage is forwarded to _placeBet",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 34,
+      "to_id": 9
+    },
+    {
+      "reason": "tokensBefore caches the balance prior to buying tokens",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 35,
+      "to_id": 9
+    },
+    {
+      "reason": "placeBetEth performs the external payable buyTokens call",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 9,
+      "to_id": 25
+    },
+    {
+      "reason": "exchangecontract is the target contract of the payable call",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 25
+    },
+    {
+      "reason": "placeBetEth calls _placeBet with the tokens bought",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 9,
+      "to_id": 11
+    },
+    {
+      "reason": "vrfcontract.balanceOf is used to compute the purchased token amount",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 6
+    },
+    {
+      "reason": "MAX_SIMULTANEOUS_BETS gates the pending bet queue before placing",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 9
+    },
+    {
+      "reason": "indexBetPlace-index must be below MAX_SIMULTANEOUS_BETS",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 9
+    },
+    {
+      "reason": "index participates in the pending bet count check",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 9
+    },
+    {
+      "reason": "_placeBet calls resolvePriorBets before enqueuing the new bet",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 11,
+      "to_id": 12
+    },
+    {
+      "reason": "betQueue[indexBetPlace] is written with the new Bet struct",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 1
+    },
+    {
+      "reason": "victoryMessages[from] is overwritten with the new message",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 0
+    },
+    {
+      "reason": "_placeBet executes indexBetPlace += 1",
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "from_id": 11,
+      "to_id": 28
+    },
+    {
+      "reason": "indexBetPlace is used as the queue write index",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 11
+    },
+    {
+      "reason": "resolvePriorBets runs a while loop whose exit depends on block.number",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 12,
+      "to_id": 29
+    },
+    {
+      "reason": "betQueue entries are read to pair and settle bets",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 12
+    },
+    {
+      "reason": "resolvePriorBets derives the outcome from random() seeded by past blockhash",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 12,
+      "to_id": 17
+    },
+    {
+      "reason": "resolvePriorBets calls payout before advancing index",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 12,
+      "to_id": 10
+    },
+    {
+      "reason": "resolvePriorBets executes index += 2 pointer arithmetic",
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "from_id": 12,
+      "to_id": 28
+    },
+    {
+      "reason": "payout performs an external token transfer before the caller updates state",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 10,
+      "to_id": 26
+    },
+    {
+      "reason": "vrfcontract is the external token contract invoked in payout",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 26
+    },
+    {
+      "reason": "to receives the payout transfer",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 36,
+      "to_id": 10
+    },
+    {
+      "reason": "numTokens is the amount transferred by payout",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 37,
+      "to_id": 10
+    },
+    {
+      "reason": "numTokens flows into the external transfer call",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 37,
+      "to_id": 26
+    },
+    {
+      "reason": "numTokens is stored as the bet amount",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 38,
+      "to_id": 11
+    },
+    {
+      "reason": "from is stored as the bettor of the queued bet",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 39,
+      "to_id": 11
+    },
+    {
+      "reason": "victoryMessage is stored in the victoryMessages mapping",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 40,
+      "to_id": 11
+    },
+    {
+      "reason": "betAmount field of the Bet struct written to betQueue",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 38,
+      "to_id": 1
+    },
+    {
+      "reason": "bettor field of the Bet struct written to betQueue",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 39,
+      "to_id": 1
+    },
+    {
+      "reason": "totalbet sums the two paired bet amounts",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 41,
+      "to_id": 12
+    },
+    {
+      "reason": "randval from blockhash-derived randomness decides the winner",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 42,
+      "to_id": 12
+    },
+    {
+      "reason": "num is tested for evenness",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 43,
+      "to_id": 15
+    },
+    {
+      "reason": "blockn selects which blockhash is used as entropy",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 44,
+      "to_id": 16
+    },
+    {
+      "reason": "entropy address is mixed into the hash as a weak seed",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 45,
+      "to_id": 16
+    },
+    {
+      "reason": "randomNumber holds the keccak256 result",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 46,
+      "to_id": 16
+    },
+    {
+      "reason": "keccak256(blockhash(blockn),entropy) is public, predictable randomness",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 16,
+      "to_id": 27
+    },
+    {
+      "reason": "upper bounds the modulo used to derive the outcome",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 47,
+      "to_id": 17
+    },
+    {
+      "reason": "blockn is forwarded to maxRandom",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 48,
+      "to_id": 17
+    },
+    {
+      "reason": "entropy is forwarded to maxRandom",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 49,
+      "to_id": 17
+    },
+    {
+      "reason": "randomNumber holds the modulo result",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 50,
+      "to_id": 17
+    },
+    {
+      "reason": "random delegates to maxRandom",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 17,
+      "to_id": 16
+    },
+    {
+      "reason": "bettor is searched within the pending queue",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 51,
+      "to_id": 18
+    },
+    {
+      "reason": "i iterates the queue from index to indexBetPlace",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 52,
+      "to_id": 18
+    },
+    {
+      "reason": "canCancelBet uses isEven to detect a lone pending bet",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 14,
+      "to_id": 15
+    },
+    {
+      "reason": "indexBetPlace is used to determine the pending bet count",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 4
+    },
+    {
+      "reason": "index is used to determine the pending bet count",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 3
+    },
+    {
+      "reason": "cancelBet calls resolvePriorBets before cancelling",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 13,
+      "to_id": 12
+    },
+    {
+      "reason": "index += 1 skips the last remaining bet",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 3
+    },
+    {
+      "reason": "betQueue[index].bettor must equal msg.sender to cancel",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 1
+    },
+    {
+      "reason": "loop starts at the current read index",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 3
+    },
+    {
+      "reason": "loop ends at the current write index",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 4
+    },
+    {
+      "reason": "getBetState relies on isEven to report parity state",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 18,
+      "to_id": 15
+    },
+    {
+      "reason": "vrfAddress is used to build the VerifyToken interface instance",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 6
+    },
+    {
+      "reason": "indexBetPlace is the target of pointer incrementation",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 28
+    },
+    {
+      "reason": "index is the target of pointer incrementation",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 28
+    },
+    {
+      "reason": "victoryMessages are read when emitting BetFinalized events",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 12
+    },
+    {
+      "reason": "a operand of SafeMath.add",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 53,
+      "to_id": 19
+    },
+    {
+      "reason": "b operand of SafeMath.add",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 54,
+      "to_id": 19
+    },
+    {
+      "reason": "c result of the checked addition",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 55,
+      "to_id": 19
+    },
+    {
+      "reason": "a operand of SafeMath.sub",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 56,
+      "to_id": 20
+    },
+    {
+      "reason": "b operand of SafeMath.sub",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 57,
+      "to_id": 20
+    },
+    {
+      "reason": "c result of the checked subtraction",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 58,
+      "to_id": 20
+    },
+    {
+      "reason": "a operand of SafeMath.mul",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 59,
+      "to_id": 21
+    },
+    {
+      "reason": "b operand of SafeMath.mul",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 60,
+      "to_id": 21
+    },
+    {
+      "reason": "c result of the checked multiplication",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 61,
+      "to_id": 21
+    },
+    {
+      "reason": "a operand of SafeMath.div",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 62,
+      "to_id": 22
+    },
+    {
+      "reason": "b operand of SafeMath.div",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 63,
+      "to_id": 22
+    },
+    {
+      "reason": "c result of the checked division",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 64,
+      "to_id": 22
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "parameter belongs to receiveApproval and feeds transferFrom/_placeBet",
+      "merge_into": "receiveApproval",
+      "normal_node": "p_rA_from"
+    },
+    {
+      "reason": "parameter scoped to receiveApproval",
+      "merge_into": "receiveApproval",
+      "normal_node": "p_rA_tokens"
+    },
+    {
+      "reason": "parameter scoped to receiveApproval",
+      "merge_into": "receiveApproval",
+      "normal_node": "p_rA_token"
+    },
+    {
+      "reason": "parameter scoped to receiveApproval",
+      "merge_into": "receiveApproval",
+      "normal_node": "p_rA_data"
+    },
+    {
+      "reason": "parameter scoped to placeBetEth",
+      "merge_into": "placeBetEth",
+      "normal_node": "p_pbE_victoryMessage"
+    },
+    {
+      "reason": "local snapshot used only inside placeBetEth",
+      "merge_into": "placeBetEth",
+      "normal_node": "l_pbE_tokensBefore"
+    },
+    {
+      "reason": "parameter scoped to payout",
+      "merge_into": "payout",
+      "normal_node": "p_payout_to"
+    },
+    {
+      "reason": "parameter scoped to payout",
+      "merge_into": "payout",
+      "normal_node": "p_payout_numTokens"
+    },
+    {
+      "reason": "parameter scoped to _placeBet",
+      "merge_into": "_placeBet",
+      "normal_node": "p_pB_numTokens"
+    },
+    {
+      "reason": "parameter scoped to _placeBet",
+      "merge_into": "_placeBet",
+      "normal_node": "p_pB_from"
+    },
+    {
+      "reason": "parameter scoped to _placeBet",
+      "merge_into": "_placeBet",
+      "normal_node": "p_pB_victoryMessage"
+    },
+    {
+      "reason": "local sum computed inside resolvePriorBets",
+      "merge_into": "resolvePriorBets",
+      "normal_node": "l_resolve_totalbet"
+    },
+    {
+      "reason": "local randomness result inside resolvePriorBets",
+      "merge_into": "resolvePriorBets",
+      "normal_node": "l_resolve_randval"
+    },
+    {
+      "reason": "parameter scoped to isEven",
+      "merge_into": "isEven",
+      "normal_node": "p_isEven_num"
+    },
+    {
+      "reason": "parameter scoped to maxRandom",
+      "merge_into": "maxRandom",
+      "normal_node": "p_maxRandom_blockn"
+    },
+    {
+      "reason": "parameter scoped to maxRandom",
+      "merge_into": "maxRandom",
+      "normal_node": "p_maxRandom_entropy"
+    },
+    {
+      "reason": "return value local of maxRandom",
+      "merge_into": "maxRandom",
+      "normal_node": "l_maxRandom_randomNumber"
+    },
+    {
+      "reason": "parameter scoped to random",
+      "merge_into": "random",
+      "normal_node": "p_random_upper"
+    },
+    {
+      "reason": "parameter scoped to random",
+      "merge_into": "random",
+      "normal_node": "p_random_blockn"
+    },
+    {
+      "reason": "parameter scoped to random",
+      "merge_into": "random",
+      "normal_node": "p_random_entropy"
+    },
+    {
+      "reason": "return value local of random",
+      "merge_into": "random",
+      "normal_node": "l_random_randomNumber"
+    },
+    {
+      "reason": "parameter scoped to getBetState",
+      "merge_into": "getBetState",
+      "normal_node": "p_getBetState_bettor"
+    },
+    {
+      "reason": "loop counter local of getBetState",
+      "merge_into": "getBetState",
+      "normal_node": "l_getBetState_i"
+    },
+    {
+      "reason": "parameter scoped to SafeMath.add",
+      "merge_into": "SafeMath.add",
+      "normal_node": "p_add_a"
+    },
+    {
+      "reason": "parameter scoped to SafeMath.add",
+      "merge_into": "SafeMath.add",
+      "normal_node": "p_add_b"
+    },
+    {
+      "reason": "result local of SafeMath.add",
+      "merge_into": "SafeMath.add",
+      "normal_node": "l_add_c"
+    },
+    {
+      "reason": "parameter scoped to SafeMath.sub",
+      "merge_into": "SafeMath.sub",
+      "normal_node": "p_sub_a"
+    },
+    {
+      "reason": "parameter scoped to SafeMath.sub",
+      "merge_into": "SafeMath.sub",
+      "normal_node": "p_sub_b"
+    },
+    {
+      "reason": "result local of SafeMath.sub",
+      "merge_into": "SafeMath.sub",
+      "normal_node": "l_sub_c"
+    },
+    {
+      "reason": "parameter scoped to SafeMath.mul",
+      "merge_into": "SafeMath.mul",
+      "normal_node": "p_mul_a"
+    },
+    {
+      "reason": "parameter scoped to SafeMath.mul",
+      "merge_into": "SafeMath.mul",
+      "normal_node": "p_mul_b"
+    },
+    {
+      "reason": "result local of SafeMath.mul",
+      "merge_into": "SafeMath.mul",
+      "normal_node": "l_mul_c"
+    },
+    {
+      "reason": "parameter scoped to SafeMath.div",
+      "merge_into": "SafeMath.div",
+      "normal_node": "p_div_a"
+    },
+    {
+      "reason": "parameter scoped to SafeMath.div",
+      "merge_into": "SafeMath.div",
+      "normal_node": "p_div_b"
+    },
+    {
+      "reason": "result local of SafeMath.div",
+      "merge_into": "SafeMath.div",
+      "normal_node": "l_div_c"
+    }
+  ]
+}

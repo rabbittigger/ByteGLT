@@ -1,0 +1,388 @@
+{
+  "nodes": [
+    {
+      "id": "balances",
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Mapping address=>uint256 storing user deposits in PERSONAL_BANK.",
+      "is_core": true
+    },
+    {
+      "id": "MinSum",
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Minimum balance threshold (1 ether) required before Collect succeeds.",
+      "is_core": true
+    },
+    {
+      "id": "Log",
+      "node_id": 2,
+      "type": "state_var",
+      "description": "External LogFile contract reference used for event logging; settable by anyone before initialization.",
+      "is_core": true
+    },
+    {
+      "id": "intitalized",
+      "node_id": 3,
+      "type": "state_var",
+      "description": "Boolean initialization latch guarding SetMinSum and SetLogFile.",
+      "is_core": true
+    },
+    {
+      "id": "SetMinSum",
+      "node_id": 4,
+      "type": "function",
+      "description": "Public function that sets MinSum before initialization; unchecked privilege-sensitive setter.",
+      "is_core": true
+    },
+    {
+      "id": "SetLogFile",
+      "node_id": 5,
+      "type": "function",
+      "description": "Public function that sets the external Log contract address before initialization.",
+      "is_core": true
+    },
+    {
+      "id": "Initialized",
+      "node_id": 6,
+      "type": "function",
+      "description": "Public function that flips intitalized to true, locking the configuration setters.",
+      "is_core": true
+    },
+    {
+      "id": "Deposit",
+      "node_id": 7,
+      "type": "function",
+      "description": "Payable function crediting balances[msg.sender] with msg.value and logging via Log.AddMessage.",
+      "is_core": true
+    },
+    {
+      "id": "Collect",
+      "node_id": 8,
+      "type": "function",
+      "description": "Payable withdrawal function that performs an external call to msg.sender before decrementing its balance.",
+      "is_core": true
+    },
+    {
+      "id": "fallback",
+      "node_id": 9,
+      "type": "function",
+      "description": "Payable fallback function that forwards all value transfers to Deposit().",
+      "is_core": true
+    },
+    {
+      "id": "AddMessage",
+      "node_id": 10,
+      "type": "function",
+      "description": "LogFile function writing sender, value, data and timestamp into LastMsg and History.",
+      "is_core": true
+    },
+    {
+      "id": "msg.sender",
+      "node_id": 11,
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used as balance key, call target and log argument.",
+      "is_core": true
+    },
+    {
+      "id": "block.timestamp",
+      "node_id": 12,
+      "type": "untrusted_input",
+      "description": "Block timestamp (now) used as LastMsg.Time, allowing miner influence.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_call_msg_sender",
+      "node_id": 13,
+      "type": "unsafe_operation",
+      "description": "msg.sender.call.value(_am)() low-level value call executed before the caller balance is decremented.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_add_balance",
+      "node_id": 14,
+      "type": "unsafe_operation",
+      "description": "balances[msg.sender]+= msg.value arithmetic update in Deposit.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_sub_balance",
+      "node_id": 15,
+      "type": "unsafe_operation",
+      "description": "balances[msg.sender]-=_am arithmetic update in Collect, performed after the external call.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_log_addmessage",
+      "node_id": 16,
+      "type": "unsafe_operation",
+      "description": "External call Log.AddMessage() to a user-controlled contract address with return value ignored.",
+      "is_core": true
+    },
+    {
+      "id": "param_setMinSum_val",
+      "node_id": 17,
+      "type": "parameter",
+      "description": "Parameter _val of SetMinSum used to overwrite MinSum.",
+      "is_core": false
+    },
+    {
+      "id": "param_setLogFile_log",
+      "node_id": 18,
+      "type": "parameter",
+      "description": "Parameter _log of SetLogFile used to overwrite the external Log pointer.",
+      "is_core": false
+    },
+    {
+      "id": "param_collect_am",
+      "node_id": 19,
+      "type": "parameter",
+      "description": "Parameter _am of Collect controlling the amount sent in the external value call.",
+      "is_core": false
+    },
+    {
+      "id": "param_addMessage_adr",
+      "node_id": 20,
+      "type": "parameter",
+      "description": "Parameter _adr of AddMessage stored as LastMsg.Sender.",
+      "is_core": false
+    },
+    {
+      "id": "param_addMessage_val",
+      "node_id": 21,
+      "type": "parameter",
+      "description": "Parameter _val of AddMessage stored as LastMsg.Val.",
+      "is_core": false
+    },
+    {
+      "id": "param_addMessage_data",
+      "node_id": 22,
+      "type": "parameter",
+      "description": "Parameter _data of AddMessage stored as LastMsg.Data.",
+      "is_core": false
+    },
+    {
+      "id": "History",
+      "node_id": 23,
+      "type": "state_var",
+      "description": "LogFile Message array that accumulates every pushed LastMsg entry.",
+      "is_core": true
+    },
+    {
+      "id": "LastMsg",
+      "node_id": 24,
+      "type": "state_var",
+      "description": "LogFile struct holding the most recent sender, timestamp, value and data.",
+      "is_core": true
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 4,
+      "reason": "The intitalized latch gates SetMinSum, so the first caller can seize configuration.",
+      "type": "controlflow",
+      "from_id": 3,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 5,
+      "reason": "The intitalized latch gates SetLogFile, so the first caller can point Log at an arbitrary contract.",
+      "type": "controlflow",
+      "from_id": 3,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 3,
+      "reason": "Initialized() writes intitalized=true, irreversibly locking the setters.",
+      "type": "dataflow",
+      "from_id": 6,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 7,
+      "reason": "The payable fallback forwards execution to Deposit().",
+      "type": "controlflow",
+      "from_id": 9,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 14,
+      "reason": "Untrusted msg.sender indexes the balance mapping credited with msg.value.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 14,
+      "reason": "Deposit mutates the balances state variable.",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 15,
+      "reason": "Untrusted msg.sender indexes the balance mapping decremented by _am.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 15,
+      "reason": "Collect mutates the balances state variable after the external call.",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 13,
+      "reason": "Untrusted msg.sender is the target of the low-level value call.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 13,
+      "reason": "Caller-supplied _am is forwarded as value in the external call.",
+      "type": "dataflow",
+      "from_id": 19,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 8,
+      "reason": "MinSum is read in the Collect guard condition.",
+      "type": "dataflow",
+      "from_id": 1,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "balances[msg.sender] is read in the Collect guard condition.",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "The external value call can re-enter Collect while the balance is still un-decremented.",
+      "type": "callback",
+      "from_id": 13,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 1,
+      "reason": "_val is written into the MinSum state variable.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 2,
+      "reason": "_log is written into the Log state variable via LogFile(_log).",
+      "type": "dataflow",
+      "from_id": 18,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "Deposit invokes the external Log.AddMessage call.",
+      "type": "dataflow",
+      "from_id": 7,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "Collect invokes the external Log.AddMessage call after withdrawal.",
+      "type": "dataflow",
+      "from_id": 8,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "The user-controlled Log address is the target of the AddMessage external call.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 24,
+      "reason": "_adr is stored into LastMsg.Sender.",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 24,
+      "reason": "_val is stored into LastMsg.Val.",
+      "type": "dataflow",
+      "from_id": 21,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 24,
+      "reason": "_data is stored into LastMsg.Data.",
+      "type": "dataflow",
+      "from_id": 22,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 24,
+      "reason": "Block timestamp is stored into LastMsg.Time, creating a miner-influenceable timestamp dependency.",
+      "type": "dataflow",
+      "from_id": 12,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 23,
+      "reason": "LastMsg is pushed into the History array.",
+      "type": "dataflow",
+      "from_id": 24,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 23,
+      "reason": "AddMessage appends to the History state variable.",
+      "type": "dataflow",
+      "from_id": 10,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 24,
+      "reason": "AddMessage writes the LastMsg state variable.",
+      "type": "dataflow",
+      "from_id": 10,
+      "vuln_type": "none"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "SetMinSum",
+      "reason": "_val exists only to be assigned to MinSum inside SetMinSum.",
+      "normal_node": "param_setMinSum_val"
+    },
+    {
+      "merge_into": "SetLogFile",
+      "reason": "_log exists only to be cast and assigned to Log inside SetLogFile.",
+      "normal_node": "param_setLogFile_log"
+    },
+    {
+      "merge_into": "Collect",
+      "reason": "_am is only used by Collect to gate the guard and size the external value call.",
+      "normal_node": "param_collect_am"
+    },
+    {
+      "merge_into": "AddMessage",
+      "reason": "_adr is only consumed by AddMessage when writing LastMsg.Sender.",
+      "normal_node": "param_addMessage_adr"
+    },
+    {
+      "merge_into": "AddMessage",
+      "reason": "_val is only consumed by AddMessage when writing LastMsg.Val.",
+      "normal_node": "param_addMessage_val"
+    },
+    {
+      "merge_into": "AddMessage",
+      "reason": "_data is only consumed by AddMessage when writing LastMsg.Data.",
+      "normal_node": "param_addMessage_data"
+    }
+  ]
+}

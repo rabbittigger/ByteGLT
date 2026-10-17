@@ -1,0 +1,247 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Contract owner address, set to the deployer (msg.sender) in the constructor; also receives a 5 finney fee on a lost challenge.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "owner"
+    },
+    {
+      "type": "state_var",
+      "description": "Public mapping of player address to withdrawable balance in wei; credited on challenge wins/fees and zeroed on withdrawal.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "balances"
+    },
+    {
+      "type": "state_var",
+      "description": "Current leader/champion address; initialized to owner and replaced by the challenger when the pseudo-random flip is odd.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "leader"
+    },
+    {
+      "type": "function",
+      "description": "Constructor that assigns owner = msg.sender and leader = owner at deployment time.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "constructor"
+    },
+    {
+      "type": "function",
+      "description": "View function returning balances[player] for an arbitrary address.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "publicGetBalance"
+    },
+    {
+      "type": "function",
+      "description": "View function returning the current leader address.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "publicGetState"
+    },
+    {
+      "type": "function",
+      "description": "Withdraw function: requires a positive caller balance, zeroes it (checks-effects-interactions) and then performs msg.sender.transfer(amount).",
+      "is_core": true,
+      "node_id": 6,
+      "id": "userWithdraw"
+    },
+    {
+      "type": "function",
+      "description": "Payable challenge accepting exactly 100 finney; computes a pseudo-random value from blockhash, leader and msg.sender, then updates leader/balances accordingly.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "userChallenge"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Attacker-controllable caller address used as owner, withdrawer, challenge participant, balance key and transfer recipient.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "msg.sender"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "msg.sender.transfer(amount) external value transfer; potential reentrancy/forced-interaction point inside userWithdraw.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "transfer_call"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Pseudo-randomness derived from blockhash(block.number - 1), leader and msg.sender; predictable/miner-influenceable block data driving fund distribution.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "weak_randomness"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Unchecked balance increments (balances[msg.sender] += 100 finney, balances[leader] += 95 finney) with no SafeMath in Solidity 0.4.23.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "balance_increment"
+    },
+    {
+      "type": "parameter",
+      "description": "Address parameter of publicGetBalance used to index the balances mapping.",
+      "is_core": false,
+      "node_id": 12,
+      "id": "player"
+    },
+    {
+      "type": "local_var",
+      "description": "Local variable in userWithdraw holding the caller balance that is transferred out.",
+      "is_core": false,
+      "node_id": 13,
+      "id": "amount"
+    },
+    {
+      "type": "local_var",
+      "description": "Local variable in userChallenge holding the combined blockhash/leader/sender value whose parity decides the winner.",
+      "is_core": false,
+      "node_id": 14,
+      "id": "random"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "msg.sender is written into the owner state variable in the constructor.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "userWithdraw uses msg.sender to look up the caller's balance and to gate the require check.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "msg.sender is the recipient of the external transfer call, so the caller controls the value sink.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "msg.sender is mixed into the pseudo-random value that determines challenge outcome and leader changes.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 9,
+      "type": "controlflow",
+      "reason": "The external transfer is executed as the last statement of userWithdraw, handing control to the recipient.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "The balances mapping is read and zeroed in the same function that performs the external call, coupling state and external interaction.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 10,
+      "type": "controlflow",
+      "reason": "userChallenge builds its outcome from blockhash/block data, executing the weak-randomness operation.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "The parity of the weak random value controls which branch (leader/balance update) executes.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "The caller-controlled address keys the balance that is incremented by 100 finney on a win.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "Unchecked increments mutate the balances mapping without overflow protection.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "The balance increments are performed inside the winner branch of userChallenge.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "userChallenge reassigns the leader state variable when the challenger wins.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "userChallenge credits balances to the players and to owner depending on the random outcome.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "The current leader address is incorporated into the random value used to decide the challenge.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "The player parameter is used as the mapping key returned by publicGetBalance.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "The local amount variable supplies the value sent in the external transfer.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "The local random variable is computed from blockhash and drives the weak-randomness operation.",
+      "from_id": 14
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "publicGetBalance",
+      "reason": "The player parameter has no standalone semantic role; it only indexes balances inside publicGetBalance, so it collapses into that function node.",
+      "normal_node": "player"
+    },
+    {
+      "merge_into": "transfer_call",
+      "reason": "The amount local variable is only an intermediate holder for the transferred value, so it is absorbed into the unsafe transfer operation.",
+      "normal_node": "amount"
+    },
+    {
+      "merge_into": "weak_randomness",
+      "reason": "The random local variable merely stores the blockhash-derived value, so it is absorbed into the weak-randomness unsafe operation.",
+      "normal_node": "random"
+    }
+  ]
+}

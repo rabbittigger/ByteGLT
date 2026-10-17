@@ -1,0 +1,624 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "description": "Caller address; used for vote identity, migration caller gate, and registry registration checks",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "type": "untrusted_input",
+      "id": "block.timestamp",
+      "description": "Block time; used via Testable.getCurrentTime()/Timer for phase, round and deadline logic",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "Voting.migratedAddress",
+      "description": "Address that replaces caller auth after migration; gates retrieveRewards",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "Voting.votingToken",
+      "description": "Voting token used for snapshots, balances and reward minting",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "Voting.snapshotMessageHash",
+      "description": "EIP-191 hash that must be signed by the caller to snapshot a round",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "TokenMigrator.rate",
+      "description": "Old-to-new token conversion rate used to compute migrated balances",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "LiquidationWithdrawer.withdrawLiquidation",
+      "description": "Forwarding function that calls an arbitrary financial contract's withdrawLiquidation",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "Voting.requestPrice",
+      "description": "onlyRegisteredContract price request enqueue; validates time and identifier",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "Voting.commitVote",
+      "description": "Stores msg.sender's commit hash for the active round; requires correct phase",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "Voting.revealVote",
+      "description": "Verifies reveal hash against stored commit and adds the vote to the result computation",
+      "node_id": 9
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "Voting.retrieveRewards",
+      "description": "Computes and mints token rewards to a voter; gated by migratedAddress",
+      "node_id": 10
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "Voting.snapshotCurrentRound",
+      "description": "Validates EOA signature then freezes round variables via an external snapshot",
+      "node_id": 11
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "Voting.setMigrated",
+      "description": "onlyOwner setter that disables the contract in favor of a migrated one",
+      "node_id": 12
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "OptimisticOracle.requestPrice",
+      "description": "nonReentrant request that pulls the reward token via safeTransferFrom",
+      "node_id": 13
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "OptimisticOracle.settle",
+      "description": "nonReentrant settlement that transfers bonds, fees and rewards to winners",
+      "node_id": 14
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "TokenMigrator.migrateTokens",
+      "description": "One-time migration of an old token balance to the new token via mint",
+      "node_id": 15
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "external_call_financialContract",
+      "description": "Call to user-supplied financialContractAddress.withdrawLiquidation with no reentrancy guard or validation",
+      "node_id": 16
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "Voting._freezeRoundVariables.snapshot",
+      "description": "External state-changing votingToken.snapshot() performed inside snapshot logic",
+      "node_id": 17
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "token_mint_call",
+      "description": "External mint call on the token contract (rewards and migration)",
+      "node_id": 18
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "ECDSA.recover",
+      "description": "Signature recovery used to prove the snapshot caller is an EOA",
+      "node_id": 19
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "erc20_safeTransfer",
+      "description": "ERC20 safeTransfer/safeTransferFrom of collateral, rewards and bonds",
+      "node_id": 20
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "FixedPoint.mul",
+      "description": "Fixed point multiplication by the scaling factor; intermediate overflow and truncation risk",
+      "node_id": 21
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "FixedPoint.div",
+      "description": "Fixed point division; division-by-zero and truncation risk",
+      "node_id": 22
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "financialContractAddress",
+      "description": "Unvalidated target contract address for the forwarded call",
+      "node_id": 23
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "liquidationId",
+      "description": "Liquidation index forwarded to the financial contract",
+      "node_id": 24
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "sponsor",
+      "description": "Sponsor address forwarded to the financial contract",
+      "node_id": 25
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "identifier",
+      "description": "Price identifier used in the request key",
+      "node_id": 26
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "time",
+      "description": "Price request timestamp validated against current time",
+      "node_id": 27
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "hash",
+      "description": "Vote commitment hash stored on behalf of msg.sender",
+      "node_id": 28
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "price",
+      "description": "Revealed vote price included in the reveal hash",
+      "node_id": 29
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "salt",
+      "description": "Reveal salt included in the reveal hash",
+      "node_id": 30
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "signature",
+      "description": "EOA signature consumed by ECDSA.recover in snapshotCurrentRound",
+      "node_id": 31
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "voterAddress",
+      "description": "Address used to compute and mint rewards in retrieveRewards",
+      "node_id": 32
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "blockTime",
+      "description": "Local cache of getCurrentTime() used for round and phase computation",
+      "node_id": 33
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "priceRequestId",
+      "description": "Encoded key mapping to the stored PriceRequest",
+      "node_id": 34
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "currentRoundId",
+      "description": "Computed voting round used to index vote instances",
+      "node_id": 35
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "balance",
+      "description": "Snapshotted voter token balance used in reward math",
+      "node_id": 36
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 8,
+      "reason": "msg.sender determines the submission slot used to store the commit hash"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 9,
+      "reason": "msg.sender identifies the voter whose submission is revealed and bound into the reveal hash"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "to_id": 10,
+      "reason": "msg.sender must equal migratedAddress when the contract has been migrated"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "to_id": 11,
+      "reason": "msg.sender must equal ECDSA.recover(snapshotMessageHash, signature)"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "to_id": 7,
+      "reason": "onlyRegisteredContract requires msg.sender to be registered or equal to migratedAddress"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 15,
+      "reason": "tokenHolder argument is unconstrained; hasMigrated guard prevents double claiming"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 1,
+      "to_id": 7,
+      "reason": "current time used to bound the price request via time <= blockTime"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 1,
+      "to_id": 8,
+      "reason": "block time determines the current phase and round for the commit"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 1,
+      "to_id": 9,
+      "reason": "block time determines the reveal phase and round for the reveal"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 1,
+      "to_id": 10,
+      "reason": "block time used for the rewards expiration comparison"
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "reentrancy",
+      "from_id": 6,
+      "to_id": 16,
+      "reason": "withdrawLiquidation directly forwards execution to an untrusted financialContractAddress with no guard"
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 11,
+      "to_id": 19,
+      "reason": "snapshotCurrentRound authorizes the caller through ECDSA.recover before state changes"
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "reentrancy",
+      "from_id": 11,
+      "to_id": 17,
+      "reason": "_freezeRoundVariables performs an external votingToken.snapshot() call"
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "reentrancy",
+      "from_id": 10,
+      "to_id": 18,
+      "reason": "retrieveRewards mints tokens via an external token call while iterating reward state"
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "arithmetic",
+      "from_id": 10,
+      "to_id": 21,
+      "reason": "reward computed with FixedPoint.mul on snapshot balance and rate"
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "arithmetic",
+      "from_id": 10,
+      "to_id": 22,
+      "reason": "reward divided by total correctly voted tokens; division-by-zero and truncation risk"
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "reentrancy",
+      "from_id": 13,
+      "to_id": 20,
+      "reason": "requestPrice pulls the reward with currency.safeTransferFrom into the contract"
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "reentrancy",
+      "from_id": 14,
+      "to_id": 20,
+      "reason": "settle transfers payouts to proposer/disputer via ERC20 transfers"
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "reentrancy",
+      "from_id": 15,
+      "to_id": 18,
+      "reason": "migrateTokens calls newToken.mint after marking the holder migrated"
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "arithmetic",
+      "from_id": 15,
+      "to_id": 22,
+      "reason": "newBalance = oldBalance.div(rate); division and truncation risk"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 23,
+      "to_id": 16,
+      "reason": "financialContractAddress is cast to an interface and called without validation"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 24,
+      "to_id": 16,
+      "reason": "liquidationId is forwarded to the external withdrawLiquidation call"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 25,
+      "to_id": 16,
+      "reason": "sponsor is forwarded to the external withdrawLiquidation call"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 26,
+      "to_id": 7,
+      "reason": "identifier is hashed into the price request key"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 27,
+      "to_id": 7,
+      "reason": "time is compared against the current block time and stored on the request"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 28,
+      "to_id": 8,
+      "reason": "hash is stored as the caller's commit and must be non-zero"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 29,
+      "to_id": 9,
+      "reason": "price is included in the abi.encodePacked reveal hash"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 30,
+      "to_id": 9,
+      "reason": "salt is included in the abi.encodePacked reveal hash"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 31,
+      "to_id": 19,
+      "reason": "signature is passed to ECDSA.recover to authenticate the snapshot caller"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 32,
+      "to_id": 10,
+      "reason": "voterAddress is used to look up balances and mint the accumulated reward"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 1,
+      "to_id": 33,
+      "reason": "blockTime local is derived from the current time source"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 33,
+      "to_id": 7,
+      "reason": "blockTime local is consumed by the round computation inside requestPrice"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 34,
+      "to_id": 7,
+      "reason": "priceRequestId local indexes the priceRequests storage mapping"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 35,
+      "to_id": 8,
+      "reason": "currentRoundId local indexes the voteInstances mapping for the commit"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 36,
+      "reason": "balance local is snapshotted from votingToken.balanceOfAt"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 36,
+      "to_id": 10,
+      "reason": "snapshotBalance local feeds the reward multiplication and division"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 2,
+      "to_id": 10,
+      "reason": "migratedAddress state gates the retrieveRewards caller"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 2,
+      "to_id": 12,
+      "reason": "setMigrated writes the migratedAddress state that later gates access"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "to_id": 19,
+      "reason": "snapshotMessageHash is the signed digest verified by ECDSA.recover"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 5,
+      "to_id": 15,
+      "reason": "rate state is used inside migrateTokens to convert balances"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 5,
+      "to_id": 22,
+      "reason": "rate is the divisor in newBalance = oldBalance.div(rate)"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "financialContractAddress",
+      "merge_into": "external_call_financialContract",
+      "reason": "financialContractAddress is only consumed by the untrusted external call and should fold into it"
+    },
+    {
+      "normal_node": "liquidationId",
+      "merge_into": "external_call_financialContract",
+      "reason": "liquidationId is only forwarded to the external withdrawLiquidation call"
+    },
+    {
+      "normal_node": "sponsor",
+      "merge_into": "external_call_financialContract",
+      "reason": "sponsor is only forwarded to the external withdrawLiquidation call"
+    },
+    {
+      "normal_node": "identifier",
+      "merge_into": "Voting.requestPrice",
+      "reason": "identifier only participates in the requestPrice key construction"
+    },
+    {
+      "normal_node": "time",
+      "merge_into": "Voting.requestPrice",
+      "reason": "time is only validated and stored inside requestPrice"
+    },
+    {
+      "normal_node": "hash",
+      "merge_into": "Voting.commitVote",
+      "reason": "hash is only stored as the caller's commit in commitVote"
+    },
+    {
+      "normal_node": "price",
+      "merge_into": "Voting.revealVote",
+      "reason": "price is only bound into the reveal hash in revealVote"
+    },
+    {
+      "normal_node": "salt",
+      "merge_into": "Voting.revealVote",
+      "reason": "salt is only bound into the reveal hash in revealVote"
+    },
+    {
+      "normal_node": "signature",
+      "merge_into": "ECDSA.recover",
+      "reason": "signature is only consumed by ECDSA.recover for snapshot authorization"
+    },
+    {
+      "normal_node": "voterAddress",
+      "merge_into": "Voting.retrieveRewards",
+      "reason": "voterAddress is only used to compute and mint rewards in retrieveRewards"
+    },
+    {
+      "normal_node": "blockTime",
+      "merge_into": "Voting.requestPrice",
+      "reason": "blockTime local is only used for round computation within requestPrice"
+    },
+    {
+      "normal_node": "priceRequestId",
+      "merge_into": "Voting.requestPrice",
+      "reason": "priceRequestId local is only used as the storage key in requestPrice"
+    },
+    {
+      "normal_node": "currentRoundId",
+      "merge_into": "Voting.commitVote",
+      "reason": "currentRoundId local is only used to index vote instances in commitVote"
+    },
+    {
+      "normal_node": "balance",
+      "merge_into": "Voting.retrieveRewards",
+      "reason": "balance local is only used in the reward arithmetic in retrieveRewards"
+    }
+  ]
+}

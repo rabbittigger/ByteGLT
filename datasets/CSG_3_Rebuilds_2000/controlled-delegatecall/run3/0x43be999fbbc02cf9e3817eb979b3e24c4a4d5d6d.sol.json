@@ -1,0 +1,198 @@
+{
+  "nodes": [
+    {
+      "id": "Bait.me",
+      "is_core": true,
+      "node_id": 0,
+      "description": "Immutable address holding the deployer identity; written once in the constructor from msg.sender and used as the only authorization guard and withdrawal recipient.",
+      "type": "state_var"
+    },
+    {
+      "id": "Bait.weth",
+      "is_core": true,
+      "node_id": 1,
+      "description": "Immutable IERC20 handle hard-coded to the WETH9 mainnet address; carries no logic of its own in this contract.",
+      "type": "state_var"
+    },
+    {
+      "id": "Bait.sneakyAllowance",
+      "is_core": true,
+      "node_id": 2,
+      "description": "Public constant uint256 set to 1000000000 ether; a misleading constant that is never used in any code path.",
+      "type": "state_var"
+    },
+    {
+      "id": "Bait.wallet",
+      "is_core": true,
+      "node_id": 3,
+      "description": "Immutable address hard-coded to an external wallet address; declared but never referenced by any function.",
+      "type": "state_var"
+    },
+    {
+      "id": "Bait.constructor",
+      "is_core": true,
+      "node_id": 4,
+      "description": "Deployment constructor that permanently binds the contract owner by assigning msg.sender to the immutable me variable.",
+      "type": "function"
+    },
+    {
+      "id": "Bait.receive",
+      "is_core": true,
+      "node_id": 5,
+      "description": "Empty payable receive hook that lets any external account push Ether into the contract.",
+      "type": "function"
+    },
+    {
+      "id": "Bait.withdraw",
+      "is_core": true,
+      "node_id": 6,
+      "description": "External withdrawal routine that requires msg.sender == me and then forwards the entire contract balance to me with a low-level call.",
+      "type": "function"
+    },
+    {
+      "id": "Bait.bait",
+      "is_core": true,
+      "node_id": 7,
+      "description": "Public function that delegatecalls an attacker-supplied address using the finesse() selector, granting that address full control over Bait's storage and balance.",
+      "type": "function"
+    },
+    {
+      "id": "msg.sender",
+      "is_core": true,
+      "node_id": 8,
+      "description": "Caller-controlled origin supplied by the transaction; feeds the owner assignment in the constructor and the authorization check in withdraw.",
+      "type": "untrusted_input"
+    },
+    {
+      "id": "delegatecall_bait",
+      "is_core": true,
+      "node_id": 9,
+      "description": "Low-level delegatecall inside bait to a caller-chosen address, executing arbitrary code in Bait's storage context and enabling theft of the whole contract balance.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "lowlevel_call_withdraw",
+      "is_core": true,
+      "node_id": 10,
+      "description": "Low-level call{value: address(this).balance} inside withdraw that transfers the full balance to the me address, executed before/without any state update.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "Bait.bait._pickpocket",
+      "is_core": false,
+      "node_id": 11,
+      "description": "Caller-supplied address parameter of bait that becomes the delegatecall target.",
+      "type": "parameter"
+    },
+    {
+      "id": "Bait.bait.success",
+      "is_core": false,
+      "node_id": 12,
+      "description": "Local boolean holding the success flag returned by the delegatecall in bait.",
+      "type": "local_var"
+    },
+    {
+      "id": "Bait.withdraw.success",
+      "is_core": false,
+      "node_id": 13,
+      "description": "Local boolean holding the success flag returned by the balance transfer call in withdraw.",
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 8,
+      "to_id": 0,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "msg.sender is stored into the immutable state variable me during construction, permanently fixing the owner identity used for all later authorization."
+    },
+    {
+      "from_id": 8,
+      "to_id": 6,
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "reason": "Execution of withdraw is gated by require(msg.sender == me), so the untrusted caller identity decides whether the withdrawal path proceeds."
+    },
+    {
+      "from_id": 0,
+      "to_id": 6,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "me is read inside withdraw both as the authorization predicate and as the destination of the balance transfer."
+    },
+    {
+      "from_id": 11,
+      "to_id": 7,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The external _pickpocket parameter is consumed as the sole argument of bait."
+    },
+    {
+      "from_id": 11,
+      "to_id": 9,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "_pickpocket flows directly into the delegatecall target, letting an arbitrary caller execute code with Bait's storage, ownership and balance."
+    },
+    {
+      "from_id": 7,
+      "to_id": 9,
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "reason": "bait unconditionally performs the delegatecall to the caller-chosen address, so control of the contract is handed to untrusted code."
+    },
+    {
+      "from_id": 12,
+      "to_id": 9,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The success flag returned by the delegatecall is captured in the local success variable and asserted."
+    },
+    {
+      "from_id": 9,
+      "to_id": 6,
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "reason": "delegatecall preserves the original msg.sender, so attacker code running in Bait's context can re-enter withdraw and satisfy the msg.sender == me check to drain the balance."
+    },
+    {
+      "from_id": 6,
+      "to_id": 10,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "withdraw reaches the unsafe low-level value transfer that sends the entire contract balance."
+    },
+    {
+      "from_id": 13,
+      "to_id": 10,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The success flag of the balance transfer is stored in the local success variable and then required."
+    },
+    {
+      "from_id": 0,
+      "to_id": 10,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The immutable me address is the recipient of the Ether forwarded by the low-level call in withdraw."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "Bait.bait._pickpocket",
+      "merge_into": "delegatecall_bait",
+      "reason": "The parameter is only meaningful as the target of the delegatecall unsafe operation; it carries no independent state and should be folded into that unsafe operation node."
+    },
+    {
+      "normal_node": "Bait.bait.success",
+      "merge_into": "delegatecall_bait",
+      "reason": "The local success boolean exists only to record the delegatecall return value, so it is a temporary artifact of that unsafe operation."
+    },
+    {
+      "normal_node": "Bait.withdraw.success",
+      "merge_into": "lowlevel_call_withdraw",
+      "reason": "The local success boolean exists only to record the return value of the low-level balance transfer, so it is a temporary artifact of that unsafe operation."
+    }
+  ]
+}

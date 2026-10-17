@@ -1,0 +1,74 @@
+{
+  "nodes": [
+    {
+      "id": "NanoUniversalDeployer.fallback",
+      "is_core": true,
+      "description": "Public payable fallback that deploys arbitrary bytecode supplied in msg.data via inline assembly create2.",
+      "node_id": 0,
+      "type": "function"
+    },
+    {
+      "id": "fallback.code",
+      "is_core": false,
+      "description": "Local bytes memory variable assigned from msg.data and used as the create2 init code.",
+      "node_id": 1,
+      "type": "local_var"
+    },
+    {
+      "id": "fallback.addr",
+      "is_core": false,
+      "description": "Local address variable that receives the result of the create2 deployment.",
+      "node_id": 2,
+      "type": "local_var"
+    },
+    {
+      "id": "fallback.create2",
+      "is_core": true,
+      "description": "Inline assembly create2 deploys attacker-controlled bytecode with callvalue() and salt 0.",
+      "node_id": 3,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "type": "controlflow",
+      "reason": "The public fallback directly executes the create2 assembly deployment without any caller restriction, allowing arbitrary callers to deploy attacker-controlled bytecode."
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow",
+      "reason": "The fallback assigns msg.data to the local code variable."
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow",
+      "reason": "The local code bytes are passed as the create2 init code."
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow",
+      "reason": "The address returned by create2 is assigned to the local addr variable."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "fallback.code",
+      "merge_into": "fallback.create2",
+      "reason": "Local bytes variable code is only used as the init code for the create2 unsafe operation."
+    },
+    {
+      "normal_node": "fallback.addr",
+      "merge_into": "fallback.create2",
+      "reason": "Local address variable addr only receives and stores the create2 deployment result."
+    }
+  ]
+}

@@ -1,0 +1,208 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Public constant uint256 price multiplier (1e10) used to scale Chainlink's 8-decimal answer to 18 decimals.",
+      "id": "PRICE_MULTIPLIER",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "State variable of type AggregatorInterface holding the address of the adapted Chainlink aggregator contract.",
+      "id": "oracle",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "ChainlinkOracleAdapter constructor; receives the aggregator interface and stores it in the oracle state variable.",
+      "id": "constructor",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "External view function that reads the Chainlink aggregator answer, casts it to uint256 and multiplies it by PRICE_MULTIPLIER.",
+      "id": "read",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "SafeMath internal pure helper performing checked multiplication of two uint256 values (returns 0 when a == 0, requires c / a == b otherwise).",
+      "id": "SafeMath.mul",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "External call to the untrusted aggregator contract oracle.latestAnswer(); its int256 return value is trusted and coerced to uint256.",
+      "id": "oracle.latestAnswer()",
+      "type": "unsafe_operation",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "Arithmetic operation uint256 c = a * b inside SafeMath.mul, with a subsequent division-based overflow check.",
+      "id": "SafeMath.mul_multiplication",
+      "type": "unsafe_operation",
+      "node_id": 6
+    },
+    {
+      "is_core": false,
+      "description": "Constructor parameter of type AggregatorInterface; the aggregator address being adapted.",
+      "id": "_oracle",
+      "type": "parameter",
+      "node_id": 7
+    },
+    {
+      "is_core": false,
+      "description": "Local variable in read() holding the uint256-cast output of the Chainlink aggregator.",
+      "id": "oracleOutput",
+      "type": "local_var",
+      "node_id": 8
+    },
+    {
+      "is_core": false,
+      "description": "First uint256 operand of SafeMath.mul.",
+      "id": "a",
+      "type": "parameter",
+      "node_id": 9
+    },
+    {
+      "is_core": false,
+      "description": "Second uint256 operand of SafeMath.mul.",
+      "id": "b",
+      "type": "parameter",
+      "node_id": 10
+    },
+    {
+      "is_core": false,
+      "description": "Local variable in SafeMath.mul holding the product a * b.",
+      "id": "c",
+      "type": "local_var",
+      "node_id": 11
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "Constructor parameter _oracle is assigned into the oracle state variable.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "Constructor writes the oracle state variable (state initialization by deployment-time input).",
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "read() loads the oracle state variable to invoke the aggregator.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "The oracle state variable is the target of the external latestAnswer() call.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "read() performs the external call oracle.latestAnswer() and uses its result.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "Return value of the external latestAnswer() call is cast to uint256 and stored in oracleOutput.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "oracleOutput is passed as the first argument into SafeMath.mul.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "PRICE_MULTIPLIER is read inside read() as the scaling factor.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "read() invokes the SafeMath.mul library function to apply the price multiplier.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "arithmetic",
+      "reason": "SafeMath.mul executes the multiplication a * b, the arithmetic operation under analysis.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "arithmetic",
+      "reason": "First operand a flows into the multiplication operation.",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "arithmetic",
+      "reason": "Second operand b flows into the multiplication operation.",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "arithmetic",
+      "reason": "Result of a * b is stored in local variable c before the overflow check.",
+      "type": "dataflow",
+      "from_id": 6
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "constructor",
+      "reason": "Constructor parameter _oracle is a non-core input that is only used to initialize the oracle state variable inside the constructor; it can be folded into the constructor core function.",
+      "normal_node": "_oracle"
+    },
+    {
+      "merge_into": "read",
+      "reason": "oracleOutput is a temporary local of read() that merely carries the external call result into the multiplication; it can be merged into the read core function.",
+      "normal_node": "oracleOutput"
+    },
+    {
+      "merge_into": "SafeMath.mul",
+      "reason": "Parameter a is a purely internal operand of the SafeMath.mul core function with no independent identity.",
+      "normal_node": "a"
+    },
+    {
+      "merge_into": "SafeMath.mul",
+      "reason": "Parameter b is a purely internal operand of the SafeMath.mul core function with no independent identity.",
+      "normal_node": "b"
+    },
+    {
+      "merge_into": "SafeMath.mul_multiplication",
+      "reason": "Local variable c is the immediate result holder of the multiplication unsafe_operation and can be merged into that arithmetic node.",
+      "normal_node": "c"
+    }
+  ]
+}

@@ -1,0 +1,299 @@
+{
+  "nodes": [
+    {
+      "id": "ownable.owner",
+      "description": "Owned.owner storage address; the privileged owner of every migratable contract.",
+      "type": "state_var",
+      "node_id": 0,
+      "is_core": true
+    },
+    {
+      "id": "basemigration.deployer",
+      "description": "BaseMigration.deployer, set to msg.sender at construction; gates the migrate() entrypoint.",
+      "type": "state_var",
+      "node_id": 1,
+      "is_core": true
+    },
+    {
+      "id": "basemigration.returnOwnership",
+      "description": "Publicly callable helper that performs abi-encoded low-level calls on an arbitrary contract to nominate its owner.",
+      "type": "function",
+      "node_id": 2,
+      "is_core": true
+    },
+    {
+      "id": "migration_alnitak.migrate",
+      "description": "onlyDeployer migration entrypoint that accepts ownership of 8 legacy contracts and rewires the protocol.",
+      "type": "function",
+      "node_id": 3,
+      "is_core": true
+    },
+    {
+      "id": "rewardescrow.vest",
+      "description": "Iterates the caller vesting schedule, compares entries against now, mutates escrow balances and transfers SNX out.",
+      "type": "function",
+      "node_id": 4,
+      "is_core": true
+    },
+    {
+      "id": "rewardsdistribution.distributeRewards",
+      "description": "Authority-gated loop that transfers SNX to configured destinations and performs an unchecked low-level notifyRewardAmount call on each.",
+      "type": "function",
+      "node_id": 5,
+      "is_core": true
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller-controlled address used for ownership, deployer, onlyFeePool and authority checks.",
+      "type": "untrusted_input",
+      "node_id": 6,
+      "is_core": true
+    },
+    {
+      "id": "block.timestamp",
+      "description": "Block time (now) used to compute vesting unlock times and to decide which escrow entries are claimable.",
+      "type": "untrusted_input",
+      "node_id": 7,
+      "is_core": true
+    },
+    {
+      "id": "call.forContract.call",
+      "description": "Low-level .call() on a caller-supplied forContract with a nominateNewOwner/nominateOwner payload - arbitrary external invocation.",
+      "type": "unsafe_operation",
+      "node_id": 8,
+      "is_core": true
+    },
+    {
+      "id": "call.distribution.destination.call",
+      "description": "Low-level .call() to each reward destination inside distributeRewards; return value ignored, external code runs mid-loop.",
+      "type": "unsafe_operation",
+      "node_id": 9,
+      "is_core": true
+    },
+    {
+      "id": "rewardescrow._appendVestingEntry",
+      "description": "Adds a vesting entry, increments totalEscrowedBalance and derives the unlock time from now + 52 weeks.",
+      "type": "function",
+      "node_id": 10,
+      "is_core": true
+    },
+    {
+      "id": "rewardescrow.totalEscrowedBalance",
+      "description": "Global escrowed SNX accounting variable mutated before and after external SNX transfers.",
+      "type": "state_var",
+      "node_id": 11,
+      "is_core": true
+    },
+    {
+      "id": "proxy.fallback",
+      "description": "Payable fallback that pushes msg.sender into the target and forwards calldata/value via assembly call.",
+      "type": "function",
+      "node_id": 12,
+      "is_core": true
+    },
+    {
+      "id": "assembly.proxy.call",
+      "description": "Assembly-level call() forwarding all calldata and callvalue to the stored target without a success allowlist.",
+      "type": "unsafe_operation",
+      "node_id": 13,
+      "is_core": true
+    },
+    {
+      "id": "local.payload",
+      "description": "abi.encodeWithSignature payload built inside returnOwnership and passed to the low-level call.",
+      "type": "local_var",
+      "node_id": 14,
+      "is_core": false
+    },
+    {
+      "id": "local.success",
+      "description": "Boolean result of the low-level call in returnOwnership; only checked to decide a fallback attempt.",
+      "type": "local_var",
+      "node_id": 15,
+      "is_core": false
+    },
+    {
+      "id": "param.forContract",
+      "description": "Caller-supplied target address for the low-level nomination call in returnOwnership.",
+      "type": "parameter",
+      "node_id": 16,
+      "is_core": false
+    },
+    {
+      "id": "param.currentOwner",
+      "description": "Address passed to migrate() and compared against the stored owner before re-assigning ownership.",
+      "type": "parameter",
+      "node_id": 17,
+      "is_core": false
+    },
+    {
+      "id": "rewardescrow.appendVestingEntry",
+      "description": "onlyFeePool-guarded external wrapper that delegates to _appendVestingEntry.",
+      "type": "function",
+      "node_id": 18,
+      "is_core": true
+    },
+    {
+      "id": "local.total",
+      "description": "Accumulated vested quantity in vest() that is subtracted from escrow accounting before the transfer.",
+      "type": "local_var",
+      "node_id": 19,
+      "is_core": false
+    },
+    {
+      "id": "systemstatus.updateAccessControl",
+      "description": "onlyOwner function that sets suspend/resume rights on a whitelisted section for an arbitrary account.",
+      "type": "function",
+      "node_id": 20,
+      "is_core": true
+    }
+  ],
+  "edges": [
+    {
+      "type": "controlflow",
+      "reason": "migrate() is guarded by onlyDeployer, which requires msg.sender == deployer; the caller controls this gate.",
+      "to_id": 3,
+      "from_id": 6,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The unvalidated forContract parameter is the target of the low-level .call(), letting an arbitrary address execute code in this context.",
+      "to_id": 8,
+      "from_id": 16,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The abi-encoded payload built from owner flows directly into the low-level call calldata.",
+      "to_id": 8,
+      "from_id": 14,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The success flag is consumed after the arbitrary external call, so failure handling depends on attacker-controlled code.",
+      "to_id": 8,
+      "from_id": 15,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "controlflow",
+      "reason": "returnOwnership is unauthenticated and reaches the low-level call directly from any EOA.",
+      "to_id": 8,
+      "from_id": 2,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "dataflow",
+      "reason": "Proxy fallback writes msg.sender into the target before forwarding the call, so the caller fully controls downstream execution.",
+      "to_id": 12,
+      "from_id": 6,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "controlflow",
+      "reason": "The fallback unconditionally performs an assembly call() forwarding calldata and callvalue to the target.",
+      "to_id": 13,
+      "from_id": 12,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "dataflow",
+      "reason": "vest() reads the caller's own vesting schedule keyed by msg.sender.",
+      "to_id": 4,
+      "from_id": 6,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "Timestamp dependency: vest() decides claimability by comparing schedule times against now, so miners can influence which entries vest.",
+      "to_id": 4,
+      "from_id": 7,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "dataflow",
+      "reason": "_appendVestingEntry derives the unlock time as now + 52 weeks, a block-timestamp-dependent value.",
+      "to_id": 10,
+      "from_id": 7,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The accumulated vested total is subtracted from totalEscrowedBalance, an arithmetic mutation of escrow accounting.",
+      "to_id": 11,
+      "from_id": 19,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "type": "dataflow",
+      "reason": "_appendVestingEntry adds quantity to totalEscrowedBalance before checking contract balance.",
+      "to_id": 11,
+      "from_id": 10,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "type": "controlflow",
+      "reason": "appendVestingEntry delegates to _appendVestingEntry after the onlyFeePool check.",
+      "to_id": 10,
+      "from_id": 18,
+      "vuln_type": "none"
+    },
+    {
+      "type": "controlflow",
+      "reason": "distributeRewards performs an unchecked low-level call to each destination inside the distribution loop after transferring tokens.",
+      "to_id": 9,
+      "from_id": 5,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "dataflow",
+      "reason": "msg.sender is compared with authority before the loop, and the ignored-return low-level call is reached only through that check.",
+      "to_id": 9,
+      "from_id": 6,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "controlflow",
+      "reason": "appendVestingEntry relies on the onlyFeePool modifier comparing msg.sender to the feePool address.",
+      "to_id": 18,
+      "from_id": 6,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "controlflow",
+      "reason": "updateAccessControl is onlyOwner-gated, and msg.sender is also the account whose rights are read in suspend/resume checks.",
+      "to_id": 20,
+      "from_id": 6,
+      "vuln_type": "access_control"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The abi-encoded payload is a transient local inside returnOwnership and should be folded into that function.",
+      "normal_node": "local.payload",
+      "merge_into": "basemigration.returnOwnership"
+    },
+    {
+      "reason": "The success flag exists only to guard the arbitrary low-level call site and adds no separate semantics.",
+      "normal_node": "local.success",
+      "merge_into": "call.forContract.call"
+    },
+    {
+      "reason": "The parameter is used solely as the target of the risky low-level call, so it collapses into that unsafe_operation.",
+      "normal_node": "param.forContract",
+      "merge_into": "call.forContract.call"
+    },
+    {
+      "reason": "currentOwner is only compared against the stored owner inside migrate and should merge into that function node.",
+      "normal_node": "param.currentOwner",
+      "merge_into": "migration_alnitak.migrate"
+    },
+    {
+      "reason": "The running vested total is a loop-local accumulator in vest() and is fully absorbed by that function.",
+      "normal_node": "local.total",
+      "merge_into": "rewardescrow.vest"
+    }
+  ]
+}

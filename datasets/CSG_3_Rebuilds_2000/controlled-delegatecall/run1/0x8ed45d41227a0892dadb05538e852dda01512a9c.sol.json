@@ -1,0 +1,196 @@
+{
+  "nodes": [
+    {
+      "id": "HOKKNFT.constructor",
+      "type": "function",
+      "node_id": 0,
+      "is_core": true,
+      "description": "Constructor that stores the logic contract address in a fixed storage slot, delegatecalls the supplied constructData, emits the returned bytes, and requires success."
+    },
+    {
+      "id": "HOKKNFT.fallback",
+      "type": "function",
+      "node_id": 1,
+      "is_core": true,
+      "description": "Payable external fallback that loads the logic address from the fixed storage slot and delegatecalls all calldata to it, copying calldata/returndata manually."
+    },
+    {
+      "id": "logic_slot_0xc5f16f",
+      "type": "state_var",
+      "node_id": 2,
+      "is_core": true,
+      "description": "Storage slot keccak256('PROXIABLE') = 0xc5f16f0fcc639fa48a6947836d9850f504798523bf8c9a3a87d5876cf622bcf7 holding the implementation/logic contract address."
+    },
+    {
+      "id": "asm_sstore_logic",
+      "type": "unsafe_operation",
+      "node_id": 3,
+      "is_core": true,
+      "description": "Inline assembly sstore writing contractLogic into the PROXIABLE storage slot, bypassing Solidity storage layout guarantees."
+    },
+    {
+      "id": "constructor_delegatecall",
+      "type": "unsafe_operation",
+      "node_id": 4,
+      "is_core": true,
+      "description": "delegatecall(constructData) executed by the logic contract inside the constructor context, returning (success, __) and executing arbitrary logic with the proxy's storage."
+    },
+    {
+      "id": "fallback_delegatecall",
+      "type": "unsafe_operation",
+      "node_id": 5,
+      "is_core": true,
+      "description": "Inline assembly delegatecall(gas(), contractLogic, 0x0, calldatasize(), 0, 0) forwarding arbitrary calldata to the stored logic address and bubbling up returndata."
+    },
+    {
+      "id": "fallback_calldata_returndata_copy",
+      "type": "unsafe_operation",
+      "node_id": 6,
+      "is_core": true,
+      "description": "Raw calldatacopy/returndatacopy and switch-based revert/return handling performed in inline assembly without input validation."
+    },
+    {
+      "id": "constructData",
+      "type": "parameter",
+      "node_id": 7,
+      "is_core": false,
+      "description": "bytes memory constructData: arbitrary initialization calldata forwarded to the logic contract via delegatecall."
+    },
+    {
+      "id": "contractLogic",
+      "type": "parameter",
+      "node_id": 8,
+      "is_core": false,
+      "description": "address contractLogic: implementation address controlled at deployment, stored in the PROXIABLE slot and used as delegatecall target."
+    },
+    {
+      "id": "success",
+      "type": "local_var",
+      "node_id": 9,
+      "is_core": false,
+      "description": "bool success: result flag of the constructor delegatecall, checked by require to revert construction on failure."
+    },
+    {
+      "id": "__",
+      "type": "local_var",
+      "node_id": 10,
+      "is_core": false,
+      "description": "bytes memory __: returndata of the constructor delegatecall, emitted through myEvent."
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "constructData is passed straight into delegatecall as the calldata payload, letting deployment-time bytes drive arbitrary code execution in the proxy's context."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "contractLogic parameter is the value written by the sstore assembly instruction into the PROXIABLE storage slot."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "contractLogic is the address whose code is executed by delegatecall in the constructor."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "The assembly sstore writes the logic address into the fixed state variable slot."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "The delegatecall returns the boolean success flag assigned to the local variable success."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "The delegatecall returns the raw __ bytes that are captured and emitted in myEvent."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 9,
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "require(success) inside the constructor reverts deployment when the delegatecall failed, so the local flag controls constructor execution flow."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "The fallback sloads the PROXIABLE slot and uses the retrieved address as the delegatecall target."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "The sloaded logic address is part of the assembly block that also performs calldatacopy/returndatacopy handling."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "The raw calldata copied to memory 0x0 is consumed by the delegatecall as its input and the returndata buffers handle its output."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 0,
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "The constructor invokes the delegatecall, so the deployment transaction controls whether arbitrary logic executes."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "The fallback function body unconditionally forwards execution to the delegatecall, making every unknown call reach the logic contract."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "The fallback executes the inline assembly block containing the calldata/returndata copy and success switch logic."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "constructData",
+      "merge_into": "constructor_delegatecall",
+      "reason": "constructData is a non-core parameter consumed only as the calldata argument of the constructor delegatecall, so it should be absorbed into that unsafe_operation."
+    },
+    {
+      "normal_node": "contractLogic",
+      "merge_into": "constructor_delegatecall",
+      "reason": "contractLogic is a non-core parameter whose only role is to be stored and used as the delegatecall target, so it should be merged into the constructor delegatecall."
+    },
+    {
+      "normal_node": "success",
+      "merge_into": "constructor_delegatecall",
+      "reason": "success is a non-core local variable produced directly by the constructor delegatecall and used only for its require check, so it should be merged into that unsafe_operation."
+    },
+    {
+      "normal_node": "__",
+      "merge_into": "constructor_delegatecall",
+      "reason": "__ is a non-core local variable holding the delegatecall returndata and exists only as that call's output, so it should be merged into the same unsafe_operation."
+    }
+  ]
+}

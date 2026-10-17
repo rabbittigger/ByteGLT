@@ -1,0 +1,254 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "balance",
+      "is_core": true,
+      "description": "mapping(address => uint256) public balance: records the ether balance credited to each investor."
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "id": "atBlock",
+      "is_core": true,
+      "description": "mapping(address => uint256) public atBlock: records the block number of an investor's last transaction, used in profit math."
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "id": "house",
+      "is_core": true,
+      "description": "address public house: casino address that receives a 5% tip of the winnings."
+    },
+    {
+      "node_id": 3,
+      "type": "function",
+      "id": "constructor",
+      "is_core": true,
+      "description": "constructor() public: initializes house = msg.sender."
+    },
+    {
+      "node_id": 4,
+      "type": "function",
+      "id": "fallback",
+      "is_core": true,
+      "description": "function () external payable: main entry point; computes profit, plays the lottery, transfers winnings, and updates balance/atBlock."
+    },
+    {
+      "node_id": 5,
+      "type": "untrusted_input",
+      "id": "msg_sender",
+      "is_core": true,
+      "description": "msg.sender: caller-controlled address used as mapping key, transfer recipient, and constructor-set house."
+    },
+    {
+      "node_id": 6,
+      "type": "untrusted_input",
+      "id": "block_timestamp",
+      "is_core": true,
+      "description": "block.timestamp: used inside blockhash(block.timestamp) as a miner-influenceable randomness source."
+    },
+    {
+      "node_id": 7,
+      "type": "unsafe_operation",
+      "id": "unsafe_transfer_sender",
+      "is_core": true,
+      "description": "msg.sender.transfer(profit * 2): external ether transfer to the caller performed before state updates, enabling reentrancy."
+    },
+    {
+      "node_id": 8,
+      "type": "unsafe_operation",
+      "id": "unsafe_transfer_house",
+      "is_core": true,
+      "description": "house.transfer(winning * 5 / 100): external ether transfer to the house address with no return-value handling."
+    },
+    {
+      "node_id": 9,
+      "type": "unsafe_operation",
+      "id": "unsafe_profit_calc",
+      "is_core": true,
+      "description": "uint256 profit = balance[msg.sender] * 5 / 100 * (block.number - atBlock[msg.sender]) / 5900: unchecked arithmetic, including a block.number - atBlock subtraction."
+    },
+    {
+      "node_id": 10,
+      "type": "local_var",
+      "id": "profit",
+      "is_core": false,
+      "description": "uint256 profit: intermediate local holding the computed daily profit."
+    },
+    {
+      "node_id": 11,
+      "type": "local_var",
+      "id": "toss",
+      "is_core": false,
+      "description": "uint8 toss: branch local holding the pseudo-random lottery outcome derived from blockhash/block.difficulty/block.coinbase."
+    },
+    {
+      "node_id": 12,
+      "type": "local_var",
+      "id": "winning",
+      "is_core": false,
+      "description": "uint256 winning: branch local holding profit * 2, used to compute the house tip."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The caller (msg.sender) triggers the payable fallback function by sending a transaction.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 5,
+      "to_id": 4
+    },
+    {
+      "reason": "balance[msg.sender] is read and written using the caller-supplied address as key.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 0
+    },
+    {
+      "reason": "atBlock[msg.sender] is read and written using the caller-supplied address as key.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 1
+    },
+    {
+      "reason": "Winnings are sent to the caller-controlled recipient address in msg.sender.transfer(profit * 2).",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 7
+    },
+    {
+      "reason": "house is assigned directly from msg.sender in the constructor, giving the deployer privileged tip collection.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 2
+    },
+    {
+      "reason": "block.timestamp feeds blockhash(block.timestamp) as randomness, a miner-manipulable timestamp dependency.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 4
+    },
+    {
+      "reason": "balance[msg.sender] is an operand of the unchecked profit multiplication and division chain.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 9
+    },
+    {
+      "reason": "block.number - atBlock[msg.sender] can underflow if the stored block number exceeds the current block.number.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 9
+    },
+    {
+      "reason": "The fallback function executes the profit arithmetic when the caller has a non-zero stored balance.",
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "from_id": 4,
+      "to_id": 9
+    },
+    {
+      "reason": "The transferred amount profit * 2 is derived from the unchecked profit computation.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 7
+    },
+    {
+      "reason": "The house tip winning * 5 / 100 is derived from the unchecked profit computation.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 8
+    },
+    {
+      "reason": "The stored house address is the recipient of the 5% tip transfer.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 8
+    },
+    {
+      "reason": "transfer to msg.sender can re-enter the payable fallback before balance and atBlock are updated.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 7,
+      "to_id": 4
+    },
+    {
+      "reason": "transfer to house is an external call made before the state updates, allowing re-entry.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 8,
+      "to_id": 4
+    },
+    {
+      "reason": "balance[msg.sender] += msg.value updates the investor balance at the end of the fallback.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 0
+    },
+    {
+      "reason": "atBlock[msg.sender] = block.number records the current block at the end of the fallback.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 1
+    },
+    {
+      "reason": "The constructor writes the privileged house address during deployment.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 2
+    },
+    {
+      "reason": "The local profit value is the base of the doubled amount sent to the caller.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 7
+    },
+    {
+      "reason": "The local winning value is used to compute the 5% house tip that is transferred.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 8
+    },
+    {
+      "reason": "The toss value determines whether the winning branch inside the fallback executes.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 11,
+      "to_id": 4
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "profit is a local intermediate that exists only as the result of the arithmetic unsafe operation balance[msg.sender] * 5 / 100 * (block.number - atBlock[msg.sender]) / 5900, so it folds into that unsafe_operation.",
+      "merge_into": "unsafe_profit_calc",
+      "normal_node": "profit"
+    },
+    {
+      "reason": "toss is a function-local branch condition computed and consumed entirely inside the payable fallback, so it is normalized into the fallback function node.",
+      "merge_into": "fallback",
+      "normal_node": "toss"
+    },
+    {
+      "reason": "winning exists only to size the 5% tip that is paid via house.transfer, so it merges into that unsafe_operation.",
+      "merge_into": "unsafe_transfer_house",
+      "normal_node": "winning"
+    }
+  ]
+}

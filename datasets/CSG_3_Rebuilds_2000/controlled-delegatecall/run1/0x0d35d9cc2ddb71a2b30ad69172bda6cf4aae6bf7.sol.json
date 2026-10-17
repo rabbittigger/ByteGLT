@@ -1,0 +1,121 @@
+{
+  "nodes": [
+    {
+      "description": "Immutable constant reference to the external IMerkleWalletClaimer contract at 0xD8470a6d796d54F13f243A4cf1a890E65bF3670E; used as the target of the external claimFor call.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "_claimer"
+    },
+    {
+      "description": "External function that iterates over an array of ClaimArgs structs and forwards each one to the external claimer contract inside an unchecked loop.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 1,
+      "id": "claimForInBatch"
+    },
+    {
+      "description": "Calldata/memory array of ClaimArgs supplied by the caller; length drives the loop and each element is forwarded to the external claimer.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 2,
+      "id": "claims"
+    },
+    {
+      "description": "Loop counter declared inside an unchecked block; incremented with ++i to iterate over the claims array.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 3,
+      "id": "i"
+    },
+    {
+      "description": "Memory copy of a single ClaimArgs element read from the claims array on each iteration before being forwarded to the external call.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 4,
+      "id": "claim"
+    },
+    {
+      "description": "External call _claimer.claimFor(owner, index, wallet, initialSigningKey, claimantSignature, merkleProof) executed once per array element inside a loop; forwards all caller-supplied claim data to an external contract.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 5,
+      "id": "claimer_claimFor_call"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The function claimForInBatch receives the claims parameter and reads it for iteration.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "The loop counter i is created and incremented inside the claimForInBatch function body.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "The local claim struct is populated from claims[i] inside the claimForInBatch function body.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "Execution of claimForInBatch triggers the external claimer.claimFor call, handing control to an untrusted external contract.",
+      "from_id": 1,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 5
+    },
+    {
+      "reason": "Each element of the caller-supplied claims array is forwarded directly into the external claimFor call arguments.",
+      "from_id": 2,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "The per-iteration claim struct (owner, index, wallet, initialSigningKey, claimantSignature, merkleProof) is passed as arguments to the external call.",
+      "from_id": 4,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "The loop index i controls how many times the external claimFor call is executed.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 5
+    },
+    {
+      "reason": "The constant state variable _claimer provides the callee address used by the external call.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The claims parameter only exists to feed the batch loop of claimForInBatch and carries no independent security semantics.",
+      "normal_node": "claims",
+      "merge_into": "claimForInBatch"
+    },
+    {
+      "reason": "The loop counter i is a temporary index whose only role is to drive repeated invocation of the external claimFor call.",
+      "normal_node": "i",
+      "merge_into": "claimer_claimFor_call"
+    },
+    {
+      "reason": "The local claim struct is a transient copy of claims[i] whose only purpose is to supply arguments to the external claimFor call.",
+      "normal_node": "claim",
+      "merge_into": "claimer_claimFor_call"
+    }
+  ]
+}

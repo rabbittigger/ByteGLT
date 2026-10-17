@@ -1,0 +1,67 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "function_fallback",
+      "description": "fallback() external payable; accepts arbitrary calldata and value, deploys raw bytes as contract code via inline assembly create2.",
+      "node_id": 0
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_var_addr",
+      "description": "address addr; receives the deployed contract address returned by the create2 opcode.",
+      "node_id": 1
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_var_code",
+      "description": "bytes memory code = msg.data; holds the caller-supplied bytecode copied from calldata and used as init code.",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "unsafe_operation_create2",
+      "description": "assembly create2(callvalue(), add(code, 32), mload(code), 0): deploys attacker-controlled bytecode unconditionally with no access control or salt validation.",
+      "node_id": 3
+    }
+  ],
+  "edges": [
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "to_id": 3,
+      "reason": "The public payable fallback executes the create2 deployment for any caller without any owner/role check or validation, allowing arbitrary code deployment by anyone."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 2,
+      "to_id": 3,
+      "reason": "The user-controlled calldata buffer 'code' (msg.data) is passed directly as the init code pointer and length to the create2 opcode."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 1,
+      "reason": "The address returned by the create2 opcode is assigned to the local variable 'addr' and then emitted."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "local_var_addr",
+      "merge_into": "unsafe_operation_create2",
+      "reason": "'addr' exists only to hold the result of the create2 opcode, so it is fully absorbed by the create2 unsafe operation node."
+    },
+    {
+      "normal_node": "local_var_code",
+      "merge_into": "unsafe_operation_create2",
+      "reason": "'code' is a pure copy of msg.data used solely as the init code input to create2, so it is absorbed by the create2 unsafe operation node."
+    }
+  ]
+}

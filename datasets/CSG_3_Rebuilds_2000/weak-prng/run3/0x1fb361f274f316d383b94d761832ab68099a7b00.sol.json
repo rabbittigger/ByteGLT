@@ -1,0 +1,808 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "description": "Governance address controlling all onlyGov functions of YAMRebaser",
+      "id": "gov",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "description": "Pending governance address awaiting _acceptGov",
+      "id": "pendingGov",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "description": "Array of gov-configured Transaction{destination,data} executed after each rebase",
+      "id": "transactions",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "description": "Address of the YAM<>Reserve Uniswap V2 pair used for TWAP and swaps",
+      "id": "uniswap_pair",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 4,
+      "description": "Mutable reserves vault contract address used as YAM source/sink",
+      "id": "reservesContract",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "description": "Flag gating _inRebaseWindow; set by activate_rebasing",
+      "id": "rebasingActive",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 6,
+      "description": "Block timestamp of the last rebase, used for interval checks",
+      "id": "lastRebaseTimestampSec",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "description": "Last TWAP observation timestamp used for cumulative price math",
+      "id": "blockTimestampLast",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 8,
+      "description": "List of Uniswap pairs synced after every rebase",
+      "id": "uniSyncPairs",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 9,
+      "description": "List of Balancer pairs gulped after every rebase",
+      "id": "balGulpPairs",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 10,
+      "description": "YAM token address cast to YAMTokenInterface in external calls",
+      "id": "yamAddress",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 11,
+      "description": "Whether YAM is token0 in the Uniswap pair; selects swap direction",
+      "id": "isToken0",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 12,
+      "description": "Public, EOA-only rebase entrypoint; reads TWAP and mints/reduces supply",
+      "id": "rebase",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 13,
+      "description": "Public Uniswap flash-swap callback that mints YAM and forwards reserve tokens",
+      "id": "uniswapV2Call",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 14,
+      "description": "Internal routine that computes slippage-bounded buy amount and calls pair.swap",
+      "id": "buyReserveAndTransfer",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 15,
+      "description": "Post-rebase routine that syncs pairs and executes arbitrary gov transactions",
+      "id": "afterRebase",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 16,
+      "description": "Internal TWAP computation using cumulative prices and block timestamp deltas",
+      "id": "getTWAP",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 17,
+      "description": "Internal assembly call to arbitrary destination with arbitrary calldata",
+      "id": "externalCall",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 18,
+      "description": "Two-step governance acceptance; msg.sender must equal pendingGov",
+      "id": "_acceptGov",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 19,
+      "description": "One-time TWAP initialization, callable by anyone",
+      "id": "init_twap",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 20,
+      "description": "Anyone can activate rebasing once delay conditions on block.timestamp hold",
+      "id": "activate_rebasing",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 21,
+      "description": "onlyGov token rescue transferring arbitrary ERC20 out of the contract",
+      "id": "rescueTokens",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 22,
+      "description": "Caller identity used for onlyGov, tx.origin and pair checks",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 23,
+      "description": "Block timestamp (now) driving rebase windows and TWAP deltas",
+      "id": "block.timestamp",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 24,
+      "description": "Origin account used as the EOA-only gate in rebase()",
+      "id": "tx.origin",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 25,
+      "description": "Assembly call forwarding gas to a gov-supplied destination with ignored output",
+      "id": "low_level_call",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 26,
+      "description": "Uniswap pair.swap that re-enters uniswapV2Call with attacker-controlled data",
+      "id": "pair_swap",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 27,
+      "description": "SafeERC20 token transfer performing low-level calls to arbitrary token addresses",
+      "id": "safe_transfer",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 28,
+      "description": "External calls into YAM token (rebase/mint/transferFrom) before state finalization",
+      "id": "yam_external_call",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 29,
+      "description": "sender argument of uniswapV2Call, validated against address(this)",
+      "id": "param_sender",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 30,
+      "description": "amount0 received from the Uniswap pair in the callback",
+      "id": "param_amount0",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 31,
+      "description": "amount1 received from the Uniswap pair in the callback",
+      "id": "param_amount1",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 32,
+      "description": "abi-encoded UniVars payload decoded inside uniswapV2Call",
+      "id": "param_data_callback",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 33,
+      "description": "mintAmount passed into buyReserveAndTransfer from the rebase flow",
+      "id": "param_mintAmount",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 34,
+      "description": "offPegPerc percentage driving the slippage heuristic",
+      "id": "param_offPegPerc",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 35,
+      "description": "destination address supplied by governance for externalCall",
+      "id": "param_destination",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 36,
+      "description": "calldata supplied by governance for the low-level externalCall",
+      "id": "param_data_call",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 37,
+      "description": "ERC20 token address passed to rescueTokens",
+      "id": "param_token",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 38,
+      "description": "recipient address passed to rescueTokens",
+      "id": "param_to",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 39,
+      "description": "amount of tokens passed to rescueTokens",
+      "id": "param_amount",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 40,
+      "description": "TWAP-derived exchange rate local in rebase()",
+      "id": "local_exchangeRate",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 41,
+      "description": "Dampened supply delta local in rebase(), reduced by rebaseMintPerc",
+      "id": "local_indexDelta",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 42,
+      "description": "Treasury mint amount local in rebase() forwarded to afterRebase",
+      "id": "local_mintAmount",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 43,
+      "description": "Timestamp delta local in getTWAP where overflow is desired",
+      "id": "local_timeElapsed",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 44,
+      "description": "Average price local in getTWAP derived from cumulative prices",
+      "id": "local_priceAverage",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 45,
+      "description": "UniVars struct (yamsToUni, amountFromReserves, mintToReserves) encoded into swap data",
+      "id": "local_uniVars",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 46,
+      "description": "YAM balance of the reserves contract local in buyReserveAndTransfer",
+      "id": "local_excess",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 47,
+      "description": "Slippage-capped YAM amount local in buyReserveAndTransfer",
+      "id": "local_tokens_to_max_slippage",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 48,
+      "description": "Portion of reserve tokens routed to public goods local in uniswapV2Call",
+      "id": "local_amount_to_public_goods",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 49,
+      "description": "Raw unchecked (tokens_to_max_slippage - excess) subtraction used to size mintToReserves",
+      "id": "unchecked_sub_slippage",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 50,
+      "description": "Deliberate uint32/uint overflow in cumulative price and timeElapsed math in getTWAP",
+      "id": "intentional_overflow_twap",
+      "type": "unsafe_operation",
+      "is_core": true
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is compared against the stored gov address in the onlyGov modifier",
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "from_id": 22
+    },
+    {
+      "reason": "rebase() gates on msg.sender == tx.origin, granting any EOA entry to a supply-changing routine",
+      "vuln_type": "access_control",
+      "to_id": 12,
+      "type": "dataflow",
+      "from_id": 22
+    },
+    {
+      "reason": "tx.origin is used as the only caller filter in rebase(), enabling phishing-style bypass of intended restrictions",
+      "vuln_type": "access_control",
+      "to_id": 12,
+      "type": "dataflow",
+      "from_id": 24
+    },
+    {
+      "reason": "rebase() window and interval checks depend entirely on block.timestamp",
+      "vuln_type": "access_control",
+      "to_id": 12,
+      "type": "dataflow",
+      "from_id": 23
+    },
+    {
+      "reason": "getTWAP derives timeElapsed from the miner-controlled block timestamp, so the oracle price is timestamp dependent",
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "dataflow",
+      "from_id": 23
+    },
+    {
+      "reason": "activate_rebasing uses now against MIN_TIME_FIRST_REBASE and rebaseDelay",
+      "vuln_type": "access_control",
+      "to_id": 20,
+      "type": "dataflow",
+      "from_id": 23
+    },
+    {
+      "reason": "_acceptGov reads pendingGov to authorize the governance transfer",
+      "vuln_type": "access_control",
+      "to_id": 18,
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "reason": "_acceptGov requires msg.sender == pendingGov before promoting gov",
+      "vuln_type": "access_control",
+      "to_id": 18,
+      "type": "dataflow",
+      "from_id": 22
+    },
+    {
+      "reason": "rebase() invokes afterRebase(mintAmount, offPegPerc) after mutating the token supply",
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "controlflow",
+      "from_id": 12
+    },
+    {
+      "reason": "rebase() reads the TWAP exchange rate from getTWAP to size indexDelta",
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "reason": "rebase() calls yam.rebase and yam.yamsScalingFactor on the external token before later actions complete",
+      "vuln_type": "none",
+      "to_id": 28,
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "reason": "afterRebase calls buyReserveAndTransfer when mintAmount > 0",
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "controlflow",
+      "from_id": 15
+    },
+    {
+      "reason": "afterRebase iterates over stored transactions and arbitrary-calls each destination before the rebase state is fully settled",
+      "vuln_type": "reentrancy",
+      "to_id": 17,
+      "type": "controlflow",
+      "from_id": 15
+    },
+    {
+      "reason": "externalCall performs an assembly call forwarding remaining gas to an attacker-influenced destination",
+      "vuln_type": "reentrancy",
+      "to_id": 25,
+      "type": "dataflow",
+      "from_id": 17
+    },
+    {
+      "reason": "buyReserveAndTransfer triggers pair.swap which hands control to the Uniswap pair and back into the callback",
+      "vuln_type": "reentrancy",
+      "to_id": 26,
+      "type": "controlflow",
+      "from_id": 14
+    },
+    {
+      "reason": "The Uniswap pair re-enters the contract through uniswapV2Call with data controlled by the caller",
+      "vuln_type": "reentrancy",
+      "to_id": 13,
+      "type": "callback",
+      "from_id": 26
+    },
+    {
+      "reason": "uniswapV2Call forwards reserve tokens to the reserves contract and public goods address via SafeERC20",
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "reason": "uniswapV2Call mints YAM to the pair and reserves contract through the token interface",
+      "vuln_type": "none",
+      "to_id": 28,
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "reason": "The mintAmount argument determines how much YAM is offered in the swap",
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "from_id": 33
+    },
+    {
+      "reason": "offPegPerc selects the slippage cap path inside buyReserveAndTransfer",
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "from_id": 34
+    },
+    {
+      "reason": "tokens_to_max_slippage, derived from reserves and offPegPerc, drives the swap branch selection",
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "from_id": 47
+    },
+    {
+      "reason": "The encoded UniVars struct is passed as swap data and later decoded in the callback",
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "dataflow",
+      "from_id": 45
+    },
+    {
+      "reason": "afterRebase reads the gov-configured transactions array to execute follow-up calls",
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "reason": "externalCall receives destination and calldata taken from the stored transactions array",
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "reason": "destination parameter flows into the low-level call target",
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "from_id": 35
+    },
+    {
+      "reason": "data parameter flows into the low-level call payload",
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "from_id": 36
+    },
+    {
+      "reason": "afterRebase iterates uniSyncPairs and calls sync on each pair",
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "reason": "afterRebase iterates balGulpPairs and calls gulp on each Balancer pool",
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "reason": "getTWAP queries the stored Uniswap pair for cumulative prices and reserves",
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "reason": "buyReserveAndTransfer instantiates the Uniswap pair to fetch reserves and perform the swap",
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "reason": "uniswapV2Call pulls YAM from and mints YAM to the reserves contract",
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "reason": "uniswapV2Call uses yamAddress to build the YAMTokenInterface for mint/transferFrom",
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "reason": "isToken0 chooses whether amount0 or amount1 is treated as the reserve token proceeds",
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "from_id": 11
+    },
+    {
+      "reason": "_inRebaseWindow requires rebasingActive before rebase() can proceed",
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "reason": "rebase() checks and rewrites lastRebaseTimestampSec against the minimum interval",
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "reason": "getTWAP subtracts the stored blockTimestampLast from the current timestamp",
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "reason": "rescueTokens passes the token parameter into SafeERC20.safeTransfer",
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "from_id": 37
+    },
+    {
+      "reason": "rescueTokens passes the recipient parameter into SafeERC20.safeTransfer",
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "from_id": 38
+    },
+    {
+      "reason": "rescueTokens passes the amount parameter into SafeERC20.safeTransfer",
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "from_id": 39
+    },
+    {
+      "reason": "rescueTokens performs an outbound token transfer that can move any balance held by the contract",
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "from_id": 21
+    },
+    {
+      "reason": "rescueTokens is protected by onlyGov, so msg.sender must equal gov",
+      "vuln_type": "access_control",
+      "to_id": 21,
+      "type": "dataflow",
+      "from_id": 22
+    },
+    {
+      "reason": "buyReserveAndTransfer computes tokens_to_max_slippage - excess with raw unchecked arithmetic",
+      "vuln_type": "arithmetic",
+      "to_id": 49,
+      "type": "dataflow",
+      "from_id": 14
+    },
+    {
+      "reason": "The unchecked subtraction result is written into uniVars.mintToReserves, which can underflow and mint unexpected amounts",
+      "vuln_type": "arithmetic",
+      "to_id": 45,
+      "type": "dataflow",
+      "from_id": 49
+    },
+    {
+      "reason": "getTWAP relies on intentional uint32/uint wrapping for timeElapsed and cumulative price deltas",
+      "vuln_type": "arithmetic",
+      "to_id": 50,
+      "type": "dataflow",
+      "from_id": 16
+    },
+    {
+      "reason": "Wrapped cumulative price values feed priceAverage, which then scales the reported TWAP",
+      "vuln_type": "arithmetic",
+      "to_id": 44,
+      "type": "dataflow",
+      "from_id": 50
+    },
+    {
+      "reason": "uniswapV2Call validates the sender argument against address(this) before proceeding",
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "controlflow",
+      "from_id": 29
+    },
+    {
+      "reason": "uniswapV2Call restricts execution to calls originating from the configured uniswap_pair",
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "from_id": 22
+    },
+    {
+      "reason": "_acceptGov overwrites gov with pendingGov, completing the privilege transfer",
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "controlflow",
+      "from_id": 18
+    },
+    {
+      "reason": "_acceptGov resets pendingGov to address(0) after the handover",
+      "vuln_type": "access_control",
+      "to_id": 1,
+      "type": "dataflow",
+      "from_id": 18
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "sender is only used to validate the caller of the callback, so it collapses into the uniswapV2Call core function",
+      "merge_into": "uniswapV2Call",
+      "normal_node": "param_sender"
+    },
+    {
+      "reason": "amount0 is transient callback bookkeeping used only for the reserve token transfer branch",
+      "merge_into": "uniswapV2Call",
+      "normal_node": "param_amount0"
+    },
+    {
+      "reason": "amount1 is transient callback bookkeeping used only for the reserve token transfer branch",
+      "merge_into": "uniswapV2Call",
+      "normal_node": "param_amount1"
+    },
+    {
+      "reason": "the abi-encoded UniVars payload is decoded immediately and has no meaning outside the callback",
+      "merge_into": "uniswapV2Call",
+      "normal_node": "param_data_callback"
+    },
+    {
+      "reason": "mintAmount only parameterizes the slippage-capped swap sizing logic",
+      "merge_into": "buyReserveAndTransfer",
+      "normal_node": "param_mintAmount"
+    },
+    {
+      "reason": "offPegPerc only selects the slippage heuristic branch in uniswapMaxSlippage",
+      "merge_into": "buyReserveAndTransfer",
+      "normal_node": "param_offPegPerc"
+    },
+    {
+      "reason": "destination is consumed solely as the low-level call target inside externalCall",
+      "merge_into": "externalCall",
+      "normal_node": "param_destination"
+    },
+    {
+      "reason": "calldata is consumed solely as the low-level call payload inside externalCall",
+      "merge_into": "externalCall",
+      "normal_node": "param_data_call"
+    },
+    {
+      "reason": "token only identifies the ERC20 forwarded by the rescue transfer",
+      "merge_into": "rescueTokens",
+      "normal_node": "param_token"
+    },
+    {
+      "reason": "to only identifies the recipient of the rescue transfer",
+      "merge_into": "rescueTokens",
+      "normal_node": "param_to"
+    },
+    {
+      "reason": "amount only sizes the rescue transfer",
+      "merge_into": "rescueTokens",
+      "normal_node": "param_amount"
+    },
+    {
+      "reason": "exchangeRate is a transient TWAP read used only to compute the supply delta inside rebase",
+      "merge_into": "rebase",
+      "normal_node": "local_exchangeRate"
+    },
+    {
+      "reason": "indexDelta is an intermediate dampened delta local to the rebase computation",
+      "merge_into": "rebase",
+      "normal_node": "local_indexDelta"
+    },
+    {
+      "reason": "mintAmount is the local treasury mint figure produced and forwarded by rebase",
+      "merge_into": "rebase",
+      "normal_node": "local_mintAmount"
+    },
+    {
+      "reason": "timeElapsed is an intermediate timestamp delta used only within the TWAP computation",
+      "merge_into": "getTWAP",
+      "normal_node": "local_timeElapsed"
+    },
+    {
+      "reason": "priceAverage is an intermediate value converted into the returned TWAP",
+      "merge_into": "getTWAP",
+      "normal_node": "local_priceAverage"
+    },
+    {
+      "reason": "uniVars is the struct assembled in buyReserveAndTransfer and ABI-encoded into the swap call",
+      "merge_into": "buyReserveAndTransfer",
+      "normal_node": "local_uniVars"
+    },
+    {
+      "reason": "excess is the reserves-contract YAM balance read only to size the swap",
+      "merge_into": "buyReserveAndTransfer",
+      "normal_node": "local_excess"
+    },
+    {
+      "reason": "tokens_to_max_slippage is the slippage-capped amount local to the swap sizing logic",
+      "merge_into": "buyReserveAndTransfer",
+      "normal_node": "local_tokens_to_max_slippage"
+    },
+    {
+      "reason": "amount_to_public_goods is computed and immediately spent inside the callback's transfer branch",
+      "merge_into": "uniswapV2Call",
+      "normal_node": "local_amount_to_public_goods"
+    }
+  ]
+}

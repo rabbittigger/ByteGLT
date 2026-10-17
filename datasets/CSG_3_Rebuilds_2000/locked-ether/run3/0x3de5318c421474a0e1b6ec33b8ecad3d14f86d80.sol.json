@@ -1,0 +1,158 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "state_governance",
+      "description": "ERC20.governance address state variable initialized from tx.origin at deployment and used as privileged mint authority",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "func_transferFromAndCall",
+      "description": "ERC20.transferFromAndCall, a public function that authorizes via msg.sender == governance and then calls _mint",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "type": "untrusted_input",
+      "id": "input_tx_origin",
+      "description": "tx.origin consumed in the ERC20 constructor to set the governance address",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "type": "untrusted_input",
+      "id": "input_msg_sender",
+      "description": "msg.sender used in transferFromAndCall's require check against governance",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "unsafe_mint",
+      "description": "_mint(fromAddress, SubstractedValue) call that grants arbitrary tokens to an arbitrary address",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "func_erc20_constructor",
+      "description": "ERC20 constructor that sets governance = tx.origin",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "state_transferEnabled",
+      "description": "TetrisFinance._transferEnabled boolean flag controlling whether transfers are permitted",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "func_transfer",
+      "description": "TetrisFinance.transfer overridden with canTransfer(_msgSender()) modifier",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "func_transferFrom",
+      "description": "TetrisFinance.transferFrom overridden with canTransfer(from) modifier",
+      "node_id": 8
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param_fromAddress",
+      "description": "fromAddress parameter of transferFromAndCall, used as the mint recipient",
+      "node_id": 9
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param_SubstractedValue",
+      "description": "SubstractedValue parameter of transferFromAndCall, used as the mint amount",
+      "node_id": 10
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 2,
+      "to_id": 0,
+      "reason": "tx.origin is assigned to the governance state variable in the ERC20 constructor, making a controllable origin the privileged authority"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 2,
+      "to_id": 5,
+      "reason": "The constructor reads tx.origin to initialize governance, a tx.origin authorization pattern"
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 3,
+      "to_id": 1,
+      "reason": "transferFromAndCall gates execution on msg.sender == governance"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "to_id": 1,
+      "reason": "governance state variable is read in the require check that guards the minting path"
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 1,
+      "to_id": 4,
+      "reason": "transferFromAndCall invokes the unrestricted _mint unsafe operation after the weak origin-based authorization"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 9,
+      "to_id": 4,
+      "reason": "fromAddress parameter flows into _mint as the recipient of newly minted tokens"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 10,
+      "to_id": 4,
+      "reason": "SubstractedValue parameter flows into _mint as the minted amount"
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 6,
+      "to_id": 7,
+      "reason": "_transferEnabled state variable controls the canTransfer modifier on transfer"
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 6,
+      "to_id": 8,
+      "reason": "_transferEnabled state variable controls the canTransfer modifier on transferFrom"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param_fromAddress",
+      "merge_into": "unsafe_mint",
+      "reason": "fromAddress is only used as the recipient argument of the _mint unsafe operation and carries no independent semantics"
+    },
+    {
+      "normal_node": "param_SubstractedValue",
+      "merge_into": "unsafe_mint",
+      "reason": "SubstractedValue is only used as the amount argument of the _mint unsafe operation and carries no independent semantics"
+    }
+  ]
+}

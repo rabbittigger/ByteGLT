@@ -1,0 +1,74 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "function",
+      "description": "External function delegatecall_selfdestruct(address _target) that performs an unrestricted delegatecall into an attacker-supplied target and returns the success flag.",
+      "is_core": true,
+      "id": "function:delegatecall_selfdestruct"
+    },
+    {
+      "node_id": 1,
+      "type": "parameter",
+      "description": "Function parameter _target: caller-controlled address used as the delegatecall destination.",
+      "is_core": false,
+      "id": "parameter:_target"
+    },
+    {
+      "node_id": 2,
+      "type": "unsafe_operation",
+      "description": "Unsafe low-level delegatecall to the untrusted address _target with selector bytes4(sha3(\"address)\")) and this as argument, enabling arbitrary external code to execute in the contract's storage context (potential selfdestruct / storage corruption).",
+      "is_core": true,
+      "id": "unsafe_operation:delegatecall"
+    },
+    {
+      "node_id": 3,
+      "type": "local_var",
+      "description": "Named return variable _ans holding the boolean success flag produced by the delegatecall.",
+      "is_core": false,
+      "id": "local_var:_ans"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "The function delegatecall_selfdestruct declares and receives the parameter _target in its signature.",
+      "from_id": 0
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "The function body unconditionally executes the unsafe delegatecall operation on entry, with no access control or validation gate.",
+      "from_id": 0
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The caller-supplied parameter _target flows directly into the delegatecall destination, letting the caller choose the code that runs in this contract's context.",
+      "from_id": 1
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The boolean result of the delegatecall is assigned to the local return variable _ans and returned to the caller.",
+      "from_id": 2
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "unsafe_operation:delegatecall",
+      "normal_node": "parameter:_target",
+      "reason": "_target has no standalone semantic value; it is only consumed as the destination of the unsafe delegatecall and should be folded into that unsafe operation."
+    },
+    {
+      "merge_into": "function:delegatecall_selfdestruct",
+      "normal_node": "local_var:_ans",
+      "reason": "_ans is a purely local return slot of the function and does not carry independent security semantics; it should be folded into the enclosing function."
+    }
+  ]
+}

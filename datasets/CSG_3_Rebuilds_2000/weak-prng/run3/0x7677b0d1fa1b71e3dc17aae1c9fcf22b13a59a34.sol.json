@@ -1,0 +1,247 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "description": "mapping(address => uint256) public balance recording each investor's principal",
+      "id": "balance",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "description": "mapping(address => uint256) public atBlock recording block number of last transaction",
+      "id": "atBlock",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "description": "address public house, the casino owner that receives tips",
+      "id": "house",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "description": "constructor() public that sets house = msg.sender",
+      "id": "constructor",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 4,
+      "description": "function () external payable fallback that accrues balance and runs the 50% lottery payout",
+      "id": "fallback",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "description": "msg.sender used as investor key, transfer recipient and deployer of house",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 6,
+      "description": "block.timestamp used inside blockhash() for pseudo-random toss",
+      "id": "block.timestamp",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "description": "arithmetic: balance[msg.sender] * 5 / 100 * (block.number - atBlock[msg.sender]) / 5900, unchecked multiplication/division",
+      "id": "profit_calc",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 8,
+      "description": "weak randomness: uint8(keccak256(abi.encodePacked(blockhash(block.timestamp), block.difficulty, block.coinbase))) % 2, miner/validator manipulable",
+      "id": "randomness",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 9,
+      "description": "external call msg.sender.transfer(profit * 2) executed before state settlement, reentrancy vector",
+      "id": "transfer_player",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 10,
+      "description": "external call house.transfer(winning * 5 / 100) to the privileged house address",
+      "id": "transfer_house",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 11,
+      "description": "arithmetic: balance[msg.sender] += msg.value executed after the external transfer, unchecked increment",
+      "id": "balance_update",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 12,
+      "description": "uint256 profit, accrued 5% per day interest for the caller",
+      "id": "profit",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 13,
+      "description": "uint8 toss, lottery coin flip derived from weak randomness",
+      "id": "toss",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 14,
+      "description": "uint256 winning, doubled profit used to compute the house tip",
+      "id": "winning",
+      "type": "local_var",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "reason": "constructor assigns house from the deployer address",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "reason": "msg.sender of the deployment transaction becomes house",
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "reason": "msg.sender sends a transaction that invokes the fallback entry point",
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "controlflow",
+      "from_id": 5
+    },
+    {
+      "reason": "balance[msg.sender] is read to compute profit",
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "reason": "atBlock[msg.sender] is read to compute elapsed blocks for profit",
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "reason": "msg.sender indexes the balance and atBlock mappings inside the profit arithmetic",
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "reason": "block.timestamp feeds blockhash() used for the pseudo-random toss, making the outcome timestamp/miner dependent",
+      "vuln_type": "access_control",
+      "to_id": 8,
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "reason": "the randomness result modulo 2 produces the toss local variable",
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "reason": "toss == 0 branch drives execution into the player payout transfer",
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "controlflow",
+      "from_id": 13
+    },
+    {
+      "reason": "the profit arithmetic unsafe operation yields the profit local variable",
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "reason": "profit is multiplied by two and passed to msg.sender.transfer",
+      "vuln_type": "reentrancy",
+      "to_id": 9,
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "reason": "winning local variable is computed as profit * 2",
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "reason": "winning is divided by 100 and used as the 5% house tip",
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "from_id": 14
+    },
+    {
+      "reason": "msg.sender is the recipient of the external transfer, enabling a reentrant fallback call",
+      "vuln_type": "reentrancy",
+      "to_id": 9,
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "reason": "house tip transfer executes immediately after the player transfer",
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "controlflow",
+      "from_id": 9
+    },
+    {
+      "reason": "contract state (balance mapping) is updated only after the external transfer to msg.sender, the classic reentrancy ordering",
+      "vuln_type": "reentrancy",
+      "to_id": 11,
+      "type": "controlflow",
+      "from_id": 9
+    },
+    {
+      "reason": "msg.sender indexes the balance mapping for the post-transfer increment",
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 5
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "local variable profit is produced solely by the profit arithmetic unsafe_operation, so merge it into that core node",
+      "merge_into": "profit_calc",
+      "normal_node": "profit"
+    },
+    {
+      "reason": "local variable toss is the modulo-2 result of the weak randomness unsafe_operation and has no independent semantics",
+      "merge_into": "randomness",
+      "normal_node": "toss"
+    },
+    {
+      "reason": "local variable winning exists only to size the house tip accompanying the player transfer, so merge it into the transfer unsafe_operation",
+      "merge_into": "transfer_player",
+      "normal_node": "winning"
+    }
+  ]
+}

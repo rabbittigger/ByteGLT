@@ -1,0 +1,311 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "target_",
+      "description": "Address of the delegatecall implementation target stored in LoanToken",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fallback",
+      "description": "External payable fallback that delegatecalls the stored target with msg.data",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "setTarget",
+      "description": "Owner-only function that updates the delegatecall target",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "_setTarget",
+      "description": "Internal function that validates and writes the new target address",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "delegatecall_target",
+      "description": "Assembly delegatecall in the fallback forwarding full gas to an arbitrary user-influenced target",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "description": "Caller address used for ownership and access control decisions",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "transferOwnership",
+      "description": "Owner-restricted function to transfer contract ownership",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "_transferOwnership",
+      "description": "Internal function that writes the new owner and emits OwnershipTransferred",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "onlyOwner",
+      "description": "Access control modifier requiring the caller to be the current owner",
+      "node_id": 8
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param_newTarget_setTarget",
+      "description": "New target address argument of setTarget",
+      "node_id": 9
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param_newOwner",
+      "description": "Initial owner argument of the LoanToken constructor",
+      "node_id": 10
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param_newTarget_ctor",
+      "description": "Initial target address argument of the LoanToken constructor",
+      "node_id": 11
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_target",
+      "description": "Local copy of target_ used for the delegatecall in the fallback",
+      "node_id": 12
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_data",
+      "description": "Local copy of msg.data forwarded to the delegatecall",
+      "node_id": 13
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_msgSender",
+      "description": "Local variable holding _msgSender() result in the constructor",
+      "node_id": 14
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "_owner",
+      "description": "Current owner address used by onlyOwner authorization checks",
+      "node_id": 15
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "nonReentrant",
+      "description": "Reentrancy guard modifier using the reentrancyLock state variable",
+      "node_id": 16
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_ptr",
+      "description": "Assembly memory pointer used to copy and return delegatecall returndata",
+      "node_id": 17
+    }
+  ],
+  "edges": [
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 2,
+      "to_id": 3,
+      "reason": "setTarget invokes the internal _setTarget helper to apply the new target"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 9,
+      "to_id": 3,
+      "reason": "setTarget parameter _newTarget is forwarded into _setTarget for validation and assignment"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 3,
+      "to_id": 0,
+      "reason": "_setTarget writes the validated address into the target_ state variable ultimately controlling delegatecall destination"
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "reentrancy",
+      "from_id": 1,
+      "to_id": 4,
+      "reason": "fallback unconditionally executes the delegatecall unsafe operation with all remaining gas"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 0,
+      "to_id": 4,
+      "reason": "delegatecall target value originates from the target_ state variable that can point to arbitrary code"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 12,
+      "to_id": 4,
+      "reason": "local copy of target_ is used directly as the delegatecall target allowing attacker-controlled code execution"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 1,
+      "to_id": 12,
+      "reason": "fallback reads target_ into the local target variable"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 1,
+      "to_id": 13,
+      "reason": "fallback copies msg.data into the local data buffer for forwarding"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 13,
+      "to_id": 4,
+      "reason": "raw calldata is forwarded verbatim into the delegatecall payload"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 5,
+      "to_id": 8,
+      "reason": "onlyOwner relies on the caller identity (msg.sender) to authorize functions"
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 8,
+      "to_id": 2,
+      "reason": "setTarget is guarded by the onlyOwner modifier preventing unauthorized target changes"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 15,
+      "to_id": 8,
+      "reason": "onlyOwner compares msg.sender against the _owner state variable for authorization"
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 6,
+      "to_id": 7,
+      "reason": "transferOwnership delegates the actual ownership change to _transferOwnership"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 10,
+      "to_id": 6,
+      "reason": "constructor _newOwner argument is passed into transferOwnership during initialization"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 6,
+      "to_id": 15,
+      "reason": "ownership transfer ultimately updates the privileged _owner state variable"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 7,
+      "to_id": 15,
+      "reason": "_transferOwnership writes the new owner into _owner, controlling access checks"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 11,
+      "to_id": 3,
+      "reason": "constructor _newTarget argument is forwarded into _setTarget during initialization"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 14,
+      "to_id": 15,
+      "reason": "constructor msgSender local is written into the _owner state variable"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 5,
+      "to_id": 14,
+      "reason": "_msgSender returns msg.sender which becomes the initial owner local"
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 5,
+      "to_id": 6,
+      "reason": "caller identity authorizes who may invoke transferOwnership via onlyOwner"
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "reentrancy",
+      "from_id": 16,
+      "to_id": 1,
+      "reason": "reentrancy guard state is relevant to the externally callable fallback entry point"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param_newTarget_setTarget",
+      "merge_into": "_setTarget",
+      "reason": "The setTarget argument is only consumed by _setTarget to update the delegatecall target state variable"
+    },
+    {
+      "normal_node": "param_newOwner",
+      "merge_into": "transferOwnership",
+      "reason": "The constructor owner argument is only used to call transferOwnership during initialization"
+    },
+    {
+      "normal_node": "param_newTarget_ctor",
+      "merge_into": "_setTarget",
+      "reason": "The constructor target argument is only used to call _setTarget during initialization"
+    },
+    {
+      "normal_node": "local_target",
+      "merge_into": "delegatecall_target",
+      "reason": "The local target copy exists solely to supply the delegatecall target operand"
+    },
+    {
+      "normal_node": "local_data",
+      "merge_into": "delegatecall_target",
+      "reason": "The local data buffer exists solely to supply the delegatecall calldata operand"
+    },
+    {
+      "normal_node": "local_ptr",
+      "merge_into": "delegatecall_target",
+      "reason": "The assembly memory pointer only supports returning the delegatecall result"
+    }
+  ]
+}

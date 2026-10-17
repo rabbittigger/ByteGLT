@@ -1,0 +1,194 @@
+{
+  "nodes": [
+    {
+      "id": "logic",
+      "description": "Immutable address of the logic/implementation contract that is delegatecalled from the fallback; initialized in the constructor.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "constructor",
+      "description": "Constructor(address _logic, bytes _initializationCalldata) that stores the logic address and delegatecalls attacker-supplied initialization calldata into it.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "function"
+    },
+    {
+      "id": "fallback",
+      "description": "Payable fallback that assembly-delegatecalls every incoming call to the stored logic implementation, forwarding calldata and returning returndata.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "_logic",
+      "description": "Constructor parameter holding the address of the logic contract to be delegatecalled.",
+      "is_core": false,
+      "node_id": 3,
+      "type": "parameter"
+    },
+    {
+      "id": "_initializationCalldata",
+      "description": "Constructor parameter carrying the raw calldata executed in the logic contract via delegatecall during deployment.",
+      "is_core": false,
+      "node_id": 4,
+      "type": "parameter"
+    },
+    {
+      "id": "delegatecall_constructor",
+      "description": "Raw _logic.delegatecall(_initializationCalldata) executed inside the constructor; arbitrary code runs in the context of this proxy before its state is finalized.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "delegatecall_fallback",
+      "description": "Assembly-level delegatecall(gas(), _impl, ptr, calldatasize(), 0, 0) in the payable fallback; lets any external caller execute arbitrary logic code in the proxy storage context.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "_impl",
+      "description": "Local copy of the immutable logic address used as the delegatecall target inside the fallback.",
+      "is_core": false,
+      "node_id": 7,
+      "type": "local_var"
+    },
+    {
+      "id": "_ok",
+      "description": "Local boolean capturing the success flag returned by the constructor delegatecall.",
+      "is_core": false,
+      "node_id": 8,
+      "type": "local_var"
+    },
+    {
+      "id": "returnData",
+      "description": "Local bytes buffer holding the revert data returned by the constructor delegatecall.",
+      "is_core": false,
+      "node_id": 9,
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor parameter _logic is consumed by the constructor body.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Constructor parameter _initializationCalldata is consumed by the constructor body.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Caller-supplied _logic address is used directly as the delegatecall target during construction.",
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Caller-supplied calldata is executed via delegatecall, allowing arbitrary logic to run in the proxy storage context.",
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Immutable state variable logic is assigned from the constructor parameter _logic.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Success flag _ok is produced by the constructor delegatecall.",
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Revert payload returnData is produced by the constructor delegatecall.",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The constructor executes the delegatecall unsafe operation.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Stored logic address is the delegatecall target used by the fallback unsafe operation.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Fallback local _impl is loaded from the immutable logic state variable.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Local _impl is passed as the target of the fallback delegatecall.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The payable fallback executes the assembly delegatecall unsafe operation.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Delegatecall runs the logic contract code in the proxy context, so that code can call back into the proxy and re-enter the fallback before the current call completes.",
+      "to_id": 2,
+      "vuln_type": "reentrancy",
+      "from_id": 6,
+      "type": "callback"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Parameter _logic only feeds the constructor and is normalized into the constructor core node.",
+      "normal_node": "_logic",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "Parameter _initializationCalldata only feeds the constructor and is normalized into the constructor core node.",
+      "normal_node": "_initializationCalldata",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "Local _impl exists only inside the fallback and is normalized into the fallback core node.",
+      "normal_node": "_impl",
+      "merge_into": "fallback"
+    },
+    {
+      "reason": "Local _ok holds only the delegatecall result in the constructor and is normalized into the constructor core node.",
+      "normal_node": "_ok",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "Local returnData holds only the delegatecall revert payload in the constructor and is normalized into the constructor core node.",
+      "normal_node": "returnData",
+      "merge_into": "constructor"
+    }
+  ]
+}

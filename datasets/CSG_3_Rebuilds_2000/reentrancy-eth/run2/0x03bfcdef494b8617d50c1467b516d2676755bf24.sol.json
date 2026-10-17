@@ -1,0 +1,537 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Public ERC1155 token id (40) of the auctioned asset",
+      "id": "sv_id",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Address of the ERC1155 token contract used for transfers",
+      "id": "sv_token",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "description": "Flag marking whether the auction has been finalised",
+      "id": "sv_ended",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "description": "Timestamp at which bidding opens",
+      "id": "sv_startBidTime",
+      "is_core": true
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "description": "Payable address receiving the protocol fee",
+      "id": "sv_haus",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "description": "Payable address of the seller / NFT owner",
+      "id": "sv_seller",
+      "is_core": true
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "description": "Duration of the extended bidding window (24 hours)",
+      "id": "sv_bidLength",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "description": "Total auction duration from startBidTime (24 hours)",
+      "id": "sv_auctionLength",
+      "is_core": true
+    },
+    {
+      "node_id": 8,
+      "type": "state_var",
+      "description": "Amount of the current highest bid",
+      "id": "sv_lastBid",
+      "is_core": true
+    },
+    {
+      "node_id": 9,
+      "type": "state_var",
+      "description": "Timestamp of the most recent bid",
+      "id": "sv_lastBidTime",
+      "is_core": true
+    },
+    {
+      "node_id": 10,
+      "type": "state_var",
+      "description": "Payable address of the current highest bidder",
+      "id": "sv_winning",
+      "is_core": true
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "description": "Constructor initialising token address, id, start time, seller and haus",
+      "id": "fn_constructor",
+      "is_core": true
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "description": "Payable bid function that refunds the previous bidder and records the new highest bid",
+      "id": "fn_bid",
+      "is_core": true
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "description": "Finalises the auction: sends ERC1155 to winner, splits fee to haus and pays seller",
+      "id": "fn_end",
+      "is_core": true
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "description": "Fallback finalisation that returns the ERC1155 to the seller when no bids were placed",
+      "id": "fn_pull",
+      "is_core": true
+    },
+    {
+      "node_id": 15,
+      "type": "function",
+      "description": "View helper reporting whether the auction is still live",
+      "id": "fn_live",
+      "is_core": true
+    },
+    {
+      "node_id": 16,
+      "type": "function",
+      "description": "ERC1155 receiver hook returning the acceptance selector",
+      "id": "fn_onERC1155Received",
+      "is_core": true
+    },
+    {
+      "node_id": 17,
+      "type": "untrusted_input",
+      "description": "msg.sender: externally controlled bidder address",
+      "id": "ui_msg_sender",
+      "is_core": true
+    },
+    {
+      "node_id": 18,
+      "type": "untrusted_input",
+      "description": "block.timestamp: miner-influenced time used for all auction phase checks",
+      "id": "ui_block_timestamp",
+      "is_core": true
+    },
+    {
+      "node_id": 19,
+      "type": "untrusted_input",
+      "description": "tx.origin: used to block contract bidders",
+      "id": "ui_tx_origin",
+      "is_core": true
+    },
+    {
+      "node_id": 20,
+      "type": "unsafe_operation",
+      "description": "winning.transfer(lastBid): external ETH refund to the previous bidder executed before state update",
+      "id": "uo_transfer_winning",
+      "is_core": true
+    },
+    {
+      "node_id": 21,
+      "type": "unsafe_operation",
+      "description": "haus.transfer(hausFee): external ETH fee payout to the protocol address",
+      "id": "uo_transfer_haus",
+      "is_core": true
+    },
+    {
+      "node_id": 22,
+      "type": "unsafe_operation",
+      "description": "seller.transfer(address(this).balance): external ETH payout of remaining balance",
+      "id": "uo_transfer_seller",
+      "is_core": true
+    },
+    {
+      "node_id": 23,
+      "type": "unsafe_operation",
+      "description": "IERC1155(token).safeTransferFrom(this, winning, id, 1, data) in end(): external token call before balance is read",
+      "id": "uo_safeTransferFrom_end",
+      "is_core": true
+    },
+    {
+      "node_id": 24,
+      "type": "unsafe_operation",
+      "description": "IERC1155(token).safeTransferFrom(this, seller, id, 1, data) in pull(): external token call",
+      "id": "uo_safeTransferFrom_pull",
+      "is_core": true
+    },
+    {
+      "node_id": 25,
+      "type": "parameter",
+      "description": "_start: auction start timestamp passed to the constructor",
+      "id": "param_start",
+      "is_core": false
+    },
+    {
+      "node_id": 26,
+      "type": "parameter",
+      "description": "_seller: payable seller address passed to the constructor",
+      "id": "param_seller",
+      "is_core": false
+    },
+    {
+      "node_id": 27,
+      "type": "parameter",
+      "description": "_haus: payable fee-recipient address passed to the constructor",
+      "id": "param_haus",
+      "is_core": false
+    },
+    {
+      "node_id": 28,
+      "type": "local_var",
+      "description": "balance: snapshot of address(this).balance taken inside end()",
+      "id": "local_balance",
+      "is_core": false
+    },
+    {
+      "node_id": 29,
+      "type": "local_var",
+      "description": "hausFee: 3/20 of the contract balance computed inside end()",
+      "id": "local_hausFee",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "reason": "bid() gates acceptance on block.timestamp relative to startBidTime, auctionLength and lastBidTime",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 18,
+      "to_id": 12
+    },
+    {
+      "reason": "end() checks block.timestamp against lastBidTime+bidLength and startBidTime+auctionLength before payout",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 18,
+      "to_id": 13
+    },
+    {
+      "reason": "pull() requires block.timestamp >= startBidTime+auctionLength to release the NFT",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 18,
+      "to_id": 14
+    },
+    {
+      "reason": "live() compares block.timestamp with bid and auction deadlines",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 18,
+      "to_id": 15
+    },
+    {
+      "reason": "msg.sender becomes the winning bidder and defines the refund target of the next bid",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 17,
+      "to_id": 12
+    },
+    {
+      "reason": "bid() relies on msg.sender == tx.origin as its only anti-contract guard",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 19,
+      "to_id": 12
+    },
+    {
+      "reason": "constructor hard-codes id = 40",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 11,
+      "to_id": 0
+    },
+    {
+      "reason": "constructor hard-codes the ERC1155 token address",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 11,
+      "to_id": 1
+    },
+    {
+      "reason": "constructor writes startBidTime from the _start parameter",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 11,
+      "to_id": 3
+    },
+    {
+      "reason": "constructor writes the seller address",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 11,
+      "to_id": 5
+    },
+    {
+      "reason": "constructor writes the haus fee address",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 11,
+      "to_id": 4
+    },
+    {
+      "reason": "constructor sets the opening lastBid to 0.5 ether",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 11,
+      "to_id": 8
+    },
+    {
+      "reason": "bid() overwrites lastBid with msg.value after the refund",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 12,
+      "to_id": 8
+    },
+    {
+      "reason": "bid() assigns winning = msg.sender",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 12,
+      "to_id": 10
+    },
+    {
+      "reason": "bid() records lastBidTime = block.timestamp",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 12,
+      "to_id": 9
+    },
+    {
+      "reason": "bid() reads bidLength to bound the refund window",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 12,
+      "to_id": 6
+    },
+    {
+      "reason": "bid() reads auctionLength to bound the whole auction",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 12,
+      "to_id": 7
+    },
+    {
+      "reason": "ending the auction flips ended, which stops further bidding state transitions",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 2,
+      "to_id": 12
+    },
+    {
+      "reason": "end() reads lastBidTime to verify at least one bid exists and the window elapsed",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 13,
+      "to_id": 9
+    },
+    {
+      "reason": "end() reads auctionLength for the hard deadline check",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 13,
+      "to_id": 7
+    },
+    {
+      "reason": "end() emits the winning amount from lastBid",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 13,
+      "to_id": 8
+    },
+    {
+      "reason": "end() sets ended = true as the terminal state update",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 13,
+      "to_id": 2
+    },
+    {
+      "reason": "ended flag guards end() against repeated finalisation",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 2,
+      "to_id": 13
+    },
+    {
+      "reason": "ended flag guards pull() against repeated finalisation",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 2,
+      "to_id": 14
+    },
+    {
+      "reason": "pull() reads startBidTime for the deadline check",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 14,
+      "to_id": 3
+    },
+    {
+      "reason": "pull() reads auctionLength for the deadline check",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 14,
+      "to_id": 7
+    },
+    {
+      "reason": "pull() sets ended = true after returning the NFT",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 14,
+      "to_id": 2
+    },
+    {
+      "reason": "live() reads lastBidTime",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 15,
+      "to_id": 9
+    },
+    {
+      "reason": "live() reads bidLength",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 15,
+      "to_id": 6
+    },
+    {
+      "reason": "live() reads startBidTime",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 15,
+      "to_id": 3
+    },
+    {
+      "reason": "live() reads auctionLength",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 15,
+      "to_id": 7
+    },
+    {
+      "reason": "bid() performs an external ETH transfer to the previous winner before updating lastBid/winning/lastBidTime",
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 12,
+      "to_id": 20
+    },
+    {
+      "reason": "the ETH refund re-enters the bidder context with lastBidTime and winning still stale",
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 20,
+      "to_id": 12
+    },
+    {
+      "reason": "end() calls the external ERC1155 contract before computing the ETH payouts and setting ended",
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 13,
+      "to_id": 23
+    },
+    {
+      "reason": "the ERC1155 safeTransferFrom hook can re-enter end() while ended is still false",
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 23,
+      "to_id": 13
+    },
+    {
+      "reason": "end() forwards the 3/20 fee to the external haus address",
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 13,
+      "to_id": 21
+    },
+    {
+      "reason": "end() forwards the remaining balance to the external seller address",
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 13,
+      "to_id": 22
+    },
+    {
+      "reason": "pull() invokes the external ERC1155 contract before setting ended",
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 14,
+      "to_id": 24
+    },
+    {
+      "reason": "end() reads the token state variable as the external call target",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 23,
+      "to_id": 1
+    },
+    {
+      "reason": "end() passes the winning address as the ERC1155 recipient",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 23,
+      "to_id": 10
+    },
+    {
+      "reason": "pull() reads the token state variable as the external call target",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 24,
+      "to_id": 1
+    },
+    {
+      "reason": "pull() passes the seller address as the ERC1155 recipient",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 24,
+      "to_id": 5
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param_start",
+      "reason": "_start is only consumed to initialise the startBidTime state variable inside the constructor",
+      "merge_into": "fn_constructor"
+    },
+    {
+      "normal_node": "param_seller",
+      "reason": "_seller is only consumed to initialise the seller state variable inside the constructor",
+      "merge_into": "fn_constructor"
+    },
+    {
+      "normal_node": "param_haus",
+      "reason": "_haus is only consumed to initialise the haus state variable inside the constructor",
+      "merge_into": "fn_constructor"
+    },
+    {
+      "normal_node": "local_balance",
+      "reason": "balance only exists to size the final seller.transfer payout and can be folded into that unsafe operation",
+      "merge_into": "uo_transfer_seller"
+    },
+    {
+      "normal_node": "local_hausFee",
+      "reason": "hausFee is computed solely to feed haus.transfer(hausFee) and can be folded into that unsafe operation",
+      "merge_into": "uo_transfer_haus"
+    }
+  ]
+}

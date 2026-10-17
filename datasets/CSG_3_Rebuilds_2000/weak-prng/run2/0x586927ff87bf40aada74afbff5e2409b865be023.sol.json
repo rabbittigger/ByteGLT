@@ -1,0 +1,229 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Mapping address => Bet storing each player's bet value and block height; written by makeBet and read/reset by resolveBet.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "bets"
+    },
+    {
+      "type": "function",
+      "description": "Empty public constructor, no state initialization.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "constructor"
+    },
+    {
+      "type": "function",
+      "description": "Payable fallback function that accepts arbitrary ether with no bookkeeping.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "fallback"
+    },
+    {
+      "type": "function",
+      "description": "Payable entry point that validates height == 0 and msg.value > 10000 before recording a bet for msg.sender.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "makeBet"
+    },
+    {
+      "type": "function",
+      "description": "Public payout function that derives a pseudo-random result from block.blockhash and transfers the whole contract balance on a win.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "resolveBet"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used both as the bets mapping key and as the payout recipient.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "msg_sender"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "msg.sender.transfer(address(this).balance) sends the full balance to an untrusted address before the Result event is emitted.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "transfer_external_call"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "uint dist = block.number - bet.height, a block-number dependent subtraction that can underflow if bet.height exceeds block.number.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "blocknumber_sub_underflow"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "uint16((hashVal / FACTOR)) % 1000 truncates a 256-bit hash into 16 bits before the modulo, weakening randomness and losing precision.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "hashval_division_truncation"
+    },
+    {
+      "type": "local_var",
+      "description": "Local Bet copy in makeBet used to set value and height before writing back into the bets mapping.",
+      "is_core": false,
+      "node_id": 9,
+      "id": "newBet"
+    },
+    {
+      "type": "local_var",
+      "description": "Local Bet copy of bets[msg.sender] loaded in resolveBet.",
+      "is_core": false,
+      "node_id": 10,
+      "id": "bet"
+    },
+    {
+      "type": "local_var",
+      "description": "Local block-distance value in resolveBet used in the require check that gates the payout.",
+      "is_core": false,
+      "node_id": 11,
+      "id": "dist"
+    },
+    {
+      "type": "local_var",
+      "description": "Local keccak256-derived 256-bit value used as the dividend for payout randomness.",
+      "is_core": false,
+      "node_id": 12,
+      "id": "hashVal"
+    },
+    {
+      "type": "local_var",
+      "description": "Local uint16 outcome value (0..999) that determines whether the balance transfer executes.",
+      "is_core": false,
+      "node_id": 13,
+      "id": "result"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "msg.sender is used as the bets mapping key and to gate the one-bet-per-address check in makeBet.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "msg.sender selects which stored bet is loaded and reset in resolveBet.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "The untrusted caller address is the direct recipient of the full-contract-balance transfer.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "makeBet writes the new value and height into the bets mapping.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "resolveBet reads bets[msg.sender] and resets bet.height to zero before paying out.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "block.number and the stored bet height feed the subtraction whose result is only loosely bounded by require.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "resolveBet computes hashVal/FACTOR and downcasts with uint16, causing truncation of the randomness input.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 6,
+      "type": "controlflow",
+      "reason": "The win branch in resolveBet executes the full-balance transfer to the caller.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 6,
+      "type": "callback",
+      "reason": "The payable fallback allows an attacker contract to receive the transfer and re-enter resolveBet or makeBet.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "The newBet local struct is populated and then persisted into the bets mapping.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "bet.height read from storage flows into the block.number subtraction.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 6,
+      "type": "controlflow",
+      "reason": "The dist local variable controls the require gate that decides whether the payout branch is reachable.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "hashVal is the dividend in the division and modulo that produce the truncated result.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 6,
+      "type": "controlflow",
+      "reason": "The result local variable decides whether msg.sender.transfer is executed.",
+      "from_id": 13
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "makeBet",
+      "reason": "newBet is a temporary copy of the caller's Bet used only to update state inside makeBet, so it can be folded into the makeBet function node.",
+      "normal_node": "newBet"
+    },
+    {
+      "merge_into": "resolveBet",
+      "reason": "bet is a temporary copy of bets[msg.sender] scoped entirely to resolveBet and can be merged into the resolveBet function node.",
+      "normal_node": "bet"
+    },
+    {
+      "merge_into": "resolveBet",
+      "reason": "dist exists only to hold the result of the block.number subtraction checked in resolveBet's require, so it folds into the resolveBet node.",
+      "normal_node": "dist"
+    },
+    {
+      "merge_into": "hashval_division_truncation",
+      "reason": "hashVal is produced and consumed solely by the truncating division/modulo operation, so it collapses into that unsafe_operation node.",
+      "normal_node": "hashVal"
+    },
+    {
+      "merge_into": "transfer_external_call",
+      "reason": "result is used only as the branch condition determining whether the external balance transfer happens, so it collapses into the transfer unsafe_operation node.",
+      "normal_node": "result"
+    }
+  ]
+}

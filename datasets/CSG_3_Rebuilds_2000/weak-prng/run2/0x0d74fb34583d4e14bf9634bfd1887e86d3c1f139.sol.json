@@ -1,0 +1,290 @@
+{
+  "nodes": [
+    {
+      "id": "question",
+      "description": "Public string state variable holding the riddle question text.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "questionSender",
+      "description": "Address state variable that acts as the owner/authorization anchor.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "responseHash",
+      "description": "Bytes32 state variable storing the keccak256 hash of the expected answer and the prize gate.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "state_var"
+    },
+    {
+      "id": "Try",
+      "description": "External payable function that checks the answer hash and value, then pays out the contract balance.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "set_game",
+      "description": "Payable initializer that sets responseHash, question and questionSender only once (responseHash == 0x0).",
+      "is_core": true,
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "StopGame",
+      "description": "Payable function restricted to questionSender that drains the whole balance via transfer.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "function"
+    },
+    {
+      "id": "NewQuestion",
+      "description": "Payable function letting questionSender replace the question and the response hash.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "function"
+    },
+    {
+      "id": "newQuestioner",
+      "description": "Function letting questionSender transfer ownership to a new address.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "function"
+    },
+    {
+      "id": "fallback",
+      "description": "Payable fallback function that silently accepts Ether into the contract.",
+      "is_core": true,
+      "node_id": 8,
+      "type": "function"
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller address used for authorization and as the payout recipient.",
+      "is_core": true,
+      "node_id": 9,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "tx.origin",
+      "description": "Origin of the transaction used in Try as an anti-contract check, a phishing/phishing-proxy risk surface.",
+      "is_core": true,
+      "node_id": 10,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "transfer_Try",
+      "description": "msg.sender.transfer(this.balance) inside Try, an external value transfer to an attacker-controlled caller.",
+      "is_core": true,
+      "node_id": 11,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "transfer_StopGame",
+      "description": "msg.sender.transfer(this.balance) inside StopGame, an external value transfer that drains the contract.",
+      "is_core": true,
+      "node_id": 12,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "param_Try__response",
+      "description": "User-supplied answer string for Try, hashed and compared against responseHash.",
+      "is_core": false,
+      "node_id": 13,
+      "type": "parameter"
+    },
+    {
+      "id": "param_set_game__question",
+      "description": "Question string supplied to set_game and stored in question.",
+      "is_core": false,
+      "node_id": 14,
+      "type": "parameter"
+    },
+    {
+      "id": "param_set_game__response",
+      "description": "Answer string supplied to set_game and hashed into responseHash.",
+      "is_core": false,
+      "node_id": 15,
+      "type": "parameter"
+    },
+    {
+      "id": "param_NewQuestion__question",
+      "description": "Replacement question string supplied to NewQuestion.",
+      "is_core": false,
+      "node_id": 16,
+      "type": "parameter"
+    },
+    {
+      "id": "param_NewQuestion__responseHash",
+      "description": "Replacement response hash supplied to NewQuestion and written to responseHash.",
+      "is_core": false,
+      "node_id": 17,
+      "type": "parameter"
+    },
+    {
+      "id": "param_newQuestioner__newAddress",
+      "description": "New owner address supplied to newQuestioner and written to questionSender.",
+      "is_core": false,
+      "node_id": 18,
+      "type": "parameter"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is compared against tx.origin inside Try to decide whether the caller may proceed.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "tx.origin gates execution inside Try; origin-based authorization is a phishing/access-control weakness.",
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "from_id": 10,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The user supplied _response is hashed and compared with the stored responseHash.",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 13,
+      "type": "dataflow"
+    },
+    {
+      "reason": "When the hash matches and value > 3 ether, Try executes the balance transfer to msg.sender.",
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The external transfer hands control to msg.sender, which can re-enter Try before state is settled.",
+      "to_id": 3,
+      "vuln_type": "reentrancy",
+      "from_id": 11,
+      "type": "callback"
+    },
+    {
+      "reason": "The first caller of set_game becomes questionSender, taking ownership of the game.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The _response argument of set_game is hashed and written into responseHash.",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 15,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The _question argument of set_game is written into the question state variable.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 14,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender is stored into questionSender during set_game, defining the authorized account.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "StopGame executes a full balance transfer to msg.sender when the caller is questionSender.",
+      "to_id": 12,
+      "vuln_type": "reentrancy",
+      "from_id": 5,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The transfer inside StopGame sends control to msg.sender, allowing re-entrant calls into the contract.",
+      "to_id": 5,
+      "vuln_type": "reentrancy",
+      "from_id": 12,
+      "type": "callback"
+    },
+    {
+      "reason": "StopGame requires msg.sender == questionSender, so the caller value directly controls privileged withdrawal.",
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "NewQuestion only mutates state when msg.sender == questionSender, an owner-gated branch.",
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "from_id": 9,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The _question argument of NewQuestion overwrites the question state variable.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 16,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The _responseHash argument of NewQuestion overwrites the responseHash gate value.",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 17,
+      "type": "dataflow"
+    },
+    {
+      "reason": "newQuestioner only changes ownership when msg.sender == questionSender.",
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "from_id": 9,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The newAddress argument of newQuestioner is written into questionSender, transferring ownership.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 18,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Parameter _response only feeds the hash comparison inside Try, so it is merged into the Try function node.",
+      "normal_node": "param_Try__response",
+      "merge_into": "Try"
+    },
+    {
+      "reason": "Parameter _question is only used to set the question state var inside set_game, so it is merged into set_game.",
+      "normal_node": "param_set_game__question",
+      "merge_into": "set_game"
+    },
+    {
+      "reason": "Parameter _response is only hashed into responseHash inside set_game, so it is merged into set_game.",
+      "normal_node": "param_set_game__response",
+      "merge_into": "set_game"
+    },
+    {
+      "reason": "Parameter _question only updates the question state var inside NewQuestion, so it is merged into NewQuestion.",
+      "normal_node": "param_NewQuestion__question",
+      "merge_into": "NewQuestion"
+    },
+    {
+      "reason": "Parameter _responseHash only updates responseHash inside NewQuestion, so it is merged into NewQuestion.",
+      "normal_node": "param_NewQuestion__responseHash",
+      "merge_into": "NewQuestion"
+    },
+    {
+      "reason": "Parameter newAddress only assigns questionSender inside newQuestioner, so it is merged into newQuestioner.",
+      "normal_node": "param_newQuestioner__newAddress",
+      "merge_into": "newQuestioner"
+    }
+  ]
+}

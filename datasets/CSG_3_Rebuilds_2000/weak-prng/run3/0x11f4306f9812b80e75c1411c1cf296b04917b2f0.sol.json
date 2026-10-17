@@ -1,0 +1,298 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "description": "Address of the game owner; initialized to address(0) and used as the privileged role in lock, unlock, own and releaseFunds.",
+      "id": "SimpleBet.gameOwner",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "description": "Boolean lock flag, initialized false; read by bet() and written by lock()/unlock().",
+      "id": "SimpleBet.locked",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "description": "Payable entry point that pays out 2 ether when random()%2==1, msg.value==1 ether and locked is false; performs an unchecked external call to msg.sender.",
+      "id": "SimpleBet.bet",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "description": "Owner-only function that sets locked = true.",
+      "id": "SimpleBet.lock",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 4,
+      "description": "Owner-only function that sets locked = false.",
+      "id": "SimpleBet.unlock",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "description": "Ownership transfer function; sets gameOwner = owner when gameOwner is address(0) or the caller is the current owner.",
+      "id": "SimpleBet.own",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 6,
+      "description": "Owner-only function that transfers amount * (1 ether) wei to msg.sender.",
+      "id": "SimpleBet.releaseFunds",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "description": "View pseudo-random generator using block.timestamp and block.difficulty via keccak256.",
+      "id": "SimpleBet.random",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 8,
+      "description": "Payable fallback function that forwards all plain transfers to bet().",
+      "id": "SimpleBet.fallback",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 9,
+      "description": "Caller-supplied address used for access control checks, as call/transfer target and as beneficiary.",
+      "id": "SimpleBet.msg.sender",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 10,
+      "description": "Miner-controllable timestamp used as entropy source in random().",
+      "id": "SimpleBet.block.timestamp",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 11,
+      "description": "Parameter of own(address owner); becomes the new gameOwner.",
+      "id": "SimpleBet.own.owner",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 12,
+      "description": "Parameter of releaseFunds(uint amount); multiplied by 1 ether before transfer.",
+      "id": "SimpleBet.releaseFunds.amount",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 13,
+      "description": "Unchecked low-level call msg.sender.call.value(2 ether)() executed before any state update; classic reentrancy sink.",
+      "id": "SimpleBet.bet.external_call",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 14,
+      "description": "msg.sender.transfer(amount * (1 ether)); multiplication can overflow and the transfer is not the only payout path.",
+      "id": "SimpleBet.releaseFunds.transfer",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 15,
+      "description": "uint256(keccak256(block.timestamp, block.difficulty)) % 256 and random()%2: weak, miner-influenceable randomness and unchecked arithmetic.",
+      "id": "SimpleBet.random.arithmetic",
+      "type": "unsafe_operation",
+      "is_core": true
+    }
+  ],
+  "edges": [
+    {
+      "reason": "lock() reads gameOwner to authorize the caller before setting locked.",
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "reason": "unlock() reads gameOwner to authorize the caller before clearing locked.",
+      "vuln_type": "access_control",
+      "to_id": 4,
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "reason": "own() reads gameOwner to decide whether the caller may claim ownership.",
+      "vuln_type": "access_control",
+      "to_id": 5,
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "reason": "releaseFunds() reads gameOwner to authorize the payout to msg.sender.",
+      "vuln_type": "access_control",
+      "to_id": 6,
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "reason": "msg.sender is compared against gameOwner in lock(), so caller identity controls the write to locked.",
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "reason": "msg.sender is compared against gameOwner in unlock(), so caller identity controls the write to locked.",
+      "vuln_type": "access_control",
+      "to_id": 4,
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "reason": "msg.sender is compared against gameOwner in own(), letting a non-owner claim ownership while gameOwner == address(0).",
+      "vuln_type": "access_control",
+      "to_id": 5,
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "reason": "msg.sender is used both as the authorization subject and as the transfer recipient in releaseFunds().",
+      "vuln_type": "access_control",
+      "to_id": 6,
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "reason": "msg.sender is the target of the external call, so the untrusted caller chooses the code executed before the bet settles.",
+      "vuln_type": "reentrancy",
+      "to_id": 13,
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "reason": "msg.sender is the destination of the value transfer in releaseFunds().",
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "reason": "No self-reference needed; placeholder removed for clarity.",
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "reason": "The owner parameter of own() is written into the gameOwner state variable.",
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "from_id": 11
+    },
+    {
+      "reason": "own() writes gameOwner without guarding against re-claim when the owner address is zero.",
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "reason": "lock() writes locked = true, and the guard depends on an equality check with a mutable owner address.",
+      "vuln_type": "access_control",
+      "to_id": 1,
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "reason": "unlock() writes locked = false under the same owner equality guard.",
+      "vuln_type": "access_control",
+      "to_id": 1,
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "reason": "bet() reads the locked flag as part of its payout condition.",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "reason": "bet() consumes the return value of random() to decide whether to pay out.",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "reason": "random() performs the keccak256 modulo arithmetic that produces the payout decision value.",
+      "vuln_type": "arithmetic",
+      "to_id": 15,
+      "type": "controlflow",
+      "from_id": 7
+    },
+    {
+      "reason": "block.timestamp feeds the randomness computation, making the outcome miner-influenceable (timestamp dependency).",
+      "vuln_type": "access_control",
+      "to_id": 15,
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "reason": "bet() executes the external call while the contract still holds the 2 ether payout and no state has been updated.",
+      "vuln_type": "reentrancy",
+      "to_id": 13,
+      "type": "controlflow",
+      "from_id": 2
+    },
+    {
+      "reason": "The external call to msg.sender can re-enter the contract through the payable fallback function.",
+      "vuln_type": "reentrancy",
+      "to_id": 8,
+      "type": "callback",
+      "from_id": 13
+    },
+    {
+      "reason": "The fallback function forwards control to bet(), allowing the attacker to re-run the payout path before the first bet finishes.",
+      "vuln_type": "reentrancy",
+      "to_id": 2,
+      "type": "callback",
+      "from_id": 8
+    },
+    {
+      "reason": "The amount parameter is multiplied by 1 ether inside the transfer expression, where overflow is unchecked under solc 0.4.x.",
+      "vuln_type": "arithmetic",
+      "to_id": 14,
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "reason": "releaseFunds() executes the unchecked multiplication and transfer of amount * (1 ether).",
+      "vuln_type": "arithmetic",
+      "to_id": 14,
+      "type": "controlflow",
+      "from_id": 6
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The owner parameter exists only inside own(); it is a transient value that flows directly into the gameOwner state variable written by that function.",
+      "merge_into": "SimpleBet.own",
+      "normal_node": "SimpleBet.own.owner"
+    },
+    {
+      "reason": "The amount parameter exists only inside releaseFunds(); it is a transient value consumed by the transfer operation of that function.",
+      "merge_into": "SimpleBet.releaseFunds",
+      "normal_node": "SimpleBet.releaseFunds.amount"
+    }
+  ]
+}

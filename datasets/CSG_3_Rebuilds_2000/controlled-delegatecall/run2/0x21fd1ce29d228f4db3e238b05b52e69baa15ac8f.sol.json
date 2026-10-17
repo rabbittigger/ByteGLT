@@ -1,0 +1,757 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "description": "AugustusStorage.tokenTransferProxy - external proxy contract used to pull tokens from msg.sender into the router",
+      "is_core": true,
+      "id": "statevar_tokenTransferProxy"
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "description": "AugustusStorage.feeWallet - payable address receiving paraswap and positive-slippage shares",
+      "is_core": true,
+      "id": "statevar_feeWallet"
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "description": "AugustusStorage.registeredPartners - mapping of partner address to FeeStructure used to compute partner share",
+      "is_core": true,
+      "id": "statevar_registeredPartners"
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "description": "AugustusStorage.WHITELISTED_ROLE - role hash checked before delegating to an adapter",
+      "is_core": true,
+      "id": "statevar_WHITELISTED_ROLE"
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "description": "FeeModel.partnerSharePercent - immutable percentage of the fee given to the partner",
+      "is_core": true,
+      "id": "statevar_partnerSharePercent"
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "description": "FeeModel.maxFeePercent - immutable cap applied to the caller-supplied feePercent",
+      "is_core": true,
+      "id": "statevar_maxFeePercent"
+    },
+    {
+      "node_id": 6,
+      "type": "function",
+      "description": "ProtectedMultiPath.protectedMultiSwap(Utils.SellData) payable - executes a multi-path swap, checks deadline, pulls funds, performs swap, takes fee and transfers remainder",
+      "is_core": true,
+      "id": "func_protectedMultiSwap"
+    },
+    {
+      "node_id": 7,
+      "type": "function",
+      "description": "ProtectedMultiPath.protectedMegaSwap(Utils.MegaSwapSellData) payable - executes a mega-path swap splitting fromAmount across several paths",
+      "is_core": true,
+      "id": "func_protectedMegaSwap"
+    },
+    {
+      "node_id": 8,
+      "type": "function",
+      "description": "ProtectedMultiPath.performSwap - loops over paths/adapters, verifies whitelist role and delegatecalls each adapter to swap tokens",
+      "is_core": true,
+      "id": "func_performSwap"
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "description": "ProtectedMultiPath.transferTokensFromProxy - applies optional permit and pulls the source tokens via tokenTransferProxy.transferFrom",
+      "is_core": true,
+      "id": "func_transferTokensFromProxy"
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "description": "ProtectedMultiPath.retrieveEth - forwards the whole contract ETH balance to msg.sender with a low-level call",
+      "is_core": true,
+      "id": "func_retrieveEth"
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "description": "FeeModel.takeFeeAndTransferTokens - computes fee/positive slippage and pushes tokens to partner, feeWallet and beneficiary",
+      "is_core": true,
+      "id": "func_takeFeeAndTransferTokens"
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "description": "FeeModel._takeFee - computes fee, partnerShare and paraswapShare and transfers both shares",
+      "is_core": true,
+      "id": "func__takeFee"
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "description": "ProtectedMultiPath.initialize - always reverts, method not implemented",
+      "is_core": true,
+      "id": "func_initialize"
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "description": "ProtectedMultiPath.getKey - pure function returning the router identifier hash",
+      "is_core": true,
+      "id": "func_getKey"
+    },
+    {
+      "node_id": 15,
+      "type": "untrusted_input",
+      "description": "msg.sender - caller of the swap, default beneficiary, source of funds and recipient of leftover ETH",
+      "is_core": true,
+      "id": "untrusted_msg_sender"
+    },
+    {
+      "node_id": 16,
+      "type": "untrusted_input",
+      "description": "block.timestamp - compared against data.deadline inside both swap entrypoints",
+      "is_core": true,
+      "id": "untrusted_block_timestamp"
+    },
+    {
+      "node_id": 17,
+      "type": "unsafe_operation",
+      "description": "adapter.adapter.delegatecall(IAdapter.swap.selector, ...) - delegatecall into a whitelisted adapter, executes in router storage context",
+      "is_core": true,
+      "id": "unsafe_delegatecall_adapter"
+    },
+    {
+      "node_id": 18,
+      "type": "unsafe_operation",
+      "description": "msg.sender.call{value: balance, gas: 10000}(\"\") - low-level ETH transfer to the caller at the end of the swap",
+      "is_core": true,
+      "id": "unsafe_call_retrieveEth"
+    },
+    {
+      "node_id": 19,
+      "type": "unsafe_operation",
+      "description": "Utils.transferTokens - performs destination.call{value: amount, gas: 10000} or IERC20.safeTransfer when distributing funds",
+      "is_core": true,
+      "id": "unsafe_transferTokens"
+    },
+    {
+      "node_id": 20,
+      "type": "unsafe_operation",
+      "description": "Utils.permit - arbitrary token.call(abi.encodePacked(IERC20Permit.permit.selector, permit)) with user-supplied payload",
+      "is_core": true,
+      "id": "unsafe_permit_call"
+    },
+    {
+      "node_id": 21,
+      "type": "parameter",
+      "description": "data (Utils.SellData) parameter of protectedMultiSwap, fully attacker controlled",
+      "is_core": false,
+      "id": "param_data_multiswap"
+    },
+    {
+      "node_id": 22,
+      "type": "local_var",
+      "description": "fromToken - source token resolved from data.fromToken in protectedMultiSwap/protectedMegaSwap",
+      "is_core": false,
+      "id": "local_fromToken"
+    },
+    {
+      "node_id": 23,
+      "type": "local_var",
+      "description": "beneficiary - data.beneficiary or msg.sender when zero, receives the swapped amount",
+      "is_core": false,
+      "id": "local_beneficiary"
+    },
+    {
+      "node_id": 24,
+      "type": "local_var",
+      "description": "receivedAmount - token balance of the router after the swap, used for slippage checks",
+      "is_core": false,
+      "id": "local_receivedAmount"
+    },
+    {
+      "node_id": 25,
+      "type": "local_var",
+      "description": "toToken - destination token derived from the last path element",
+      "is_core": false,
+      "id": "local_toToken"
+    },
+    {
+      "node_id": 26,
+      "type": "parameter",
+      "description": "token parameter of transferTokensFromProxy",
+      "is_core": false,
+      "id": "param_token_proxy"
+    },
+    {
+      "node_id": 27,
+      "type": "parameter",
+      "description": "amount parameter of transferTokensFromProxy",
+      "is_core": false,
+      "id": "param_amount_proxy"
+    },
+    {
+      "node_id": 28,
+      "type": "parameter",
+      "description": "permit bytes parameter of transferTokensFromProxy forwarded to Utils.permit",
+      "is_core": false,
+      "id": "param_permit_proxy"
+    },
+    {
+      "node_id": 29,
+      "type": "parameter",
+      "description": "path (Utils.Path[]) parameter of performSwap",
+      "is_core": false,
+      "id": "param_path_performSwap"
+    },
+    {
+      "node_id": 30,
+      "type": "parameter",
+      "description": "fromAmount parameter of performSwap",
+      "is_core": false,
+      "id": "param_fromAmount_performSwap"
+    },
+    {
+      "node_id": 31,
+      "type": "local_var",
+      "description": "_fromToken - token of the current hop inside performSwap",
+      "is_core": false,
+      "id": "local_fromToken_performSwap"
+    },
+    {
+      "node_id": 32,
+      "type": "local_var",
+      "description": "fromAmountSlice - amount forwarded to the adapter, computed from adapter.percent",
+      "is_core": false,
+      "id": "local_fromAmountSlice"
+    },
+    {
+      "node_id": 33,
+      "type": "local_var",
+      "description": "value - adapter.networkFee passed to the delegatecall",
+      "is_core": false,
+      "id": "local_value_performSwap"
+    },
+    {
+      "node_id": 34,
+      "type": "parameter",
+      "description": "toToken parameter of takeFeeAndTransferTokens",
+      "is_core": false,
+      "id": "param_toToken_fee"
+    },
+    {
+      "node_id": 35,
+      "type": "parameter",
+      "description": "receivedAmount parameter of takeFeeAndTransferTokens",
+      "is_core": false,
+      "id": "param_receivedAmount_fee"
+    },
+    {
+      "node_id": 36,
+      "type": "parameter",
+      "description": "beneficiary parameter of takeFeeAndTransferTokens",
+      "is_core": false,
+      "id": "param_beneficiary_fee"
+    },
+    {
+      "node_id": 37,
+      "type": "parameter",
+      "description": "user-supplied feePercent parameter of takeFeeAndTransferTokens",
+      "is_core": false,
+      "id": "param_feePercent_fee"
+    },
+    {
+      "node_id": 38,
+      "type": "local_var",
+      "description": "fee - total fee computed in takeFeeAndTransferTokens/_takeFee",
+      "is_core": false,
+      "id": "local_fee"
+    },
+    {
+      "node_id": 39,
+      "type": "local_var",
+      "description": "remainingAmount - amount left for the beneficiary after fees/positive slippage",
+      "is_core": false,
+      "id": "local_remainingAmount"
+    },
+    {
+      "node_id": 40,
+      "type": "local_var",
+      "description": "partnerShare - share of the fee transferred to the partner",
+      "is_core": false,
+      "id": "local_partnerShare"
+    },
+    {
+      "node_id": 41,
+      "type": "local_var",
+      "description": "paraswapShare - share of the fee transferred to feeWallet",
+      "is_core": false,
+      "id": "local_paraswapShare"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "msg.sender is used as the default beneficiary when data.beneficiary is address(0)",
+      "from_id": 15
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "protectedMultiSwap compares data.deadline against block.timestamp, making execution timestamp dependent",
+      "from_id": 16
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "protectedMultiSwap calls transferTokensFromProxy to pull the source tokens",
+      "from_id": 6
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "protectedMultiSwap calls performSwap to execute the route",
+      "from_id": 6
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "protectedMultiSwap calls takeFeeAndTransferTokens to distribute output",
+      "from_id": 6
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "protectedMultiSwap calls retrieveEth at the end of the flow",
+      "from_id": 6
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "protectedMegaSwap compares data.deadline against block.timestamp, making execution timestamp dependent",
+      "from_id": 16
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "protectedMegaSwap calls transferTokensFromProxy to pull the source tokens",
+      "from_id": 7
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "protectedMegaSwap calls performSwap once per mega path",
+      "from_id": 7
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "protectedMegaSwap calls takeFeeAndTransferTokens to distribute output",
+      "from_id": 7
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "protectedMegaSwap calls retrieveEth at the end of the flow",
+      "from_id": 7
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "msg.sender is used as the default beneficiary in protectedMegaSwap",
+      "from_id": 15
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "transferTokensFromProxy invokes tokenTransferProxy.transferFrom with the stored proxy address",
+      "from_id": 9
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "msg.sender is passed as the 'from' address of tokenTransferProxy.transferFrom",
+      "from_id": 15
+    },
+    {
+      "to_id": 20,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "transferTokensFromProxy forwards the user-supplied permit blob to Utils.permit which performs a raw call",
+      "from_id": 9
+    },
+    {
+      "to_id": 17,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "performSwap delegatecalls an externally supplied adapter, giving it control in the router storage context",
+      "from_id": 8
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "performSwap requires hasRole(WHITELISTED_ROLE, adapter.adapter) before delegating, gating the access",
+      "from_id": 3
+    },
+    {
+      "to_id": 18,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "retrieveEth transfers the full ETH balance to msg.sender via a low-level call, enabling a callback into the router",
+      "from_id": 10
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "reason": "msg.sender is the recipient of the ETH drained by retrieveEth",
+      "from_id": 15
+    },
+    {
+      "to_id": 18,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "reason": "msg.sender controls the receiving address of the low-level ETH transfer in retrieveEth",
+      "from_id": 15
+    },
+    {
+      "to_id": 19,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "takeFeeAndTransferTokens pushes fee shares and the remainder through Utils.transferTokens",
+      "from_id": 11
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "feeWallet receives the positive slippage share when no partner fee applies",
+      "from_id": 1
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "registeredPartners[partner] provides partnerShare, noPositiveSlippage and positiveSlippageToUser",
+      "from_id": 2
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "maxFeePercent caps the caller supplied feePercent before fee computation",
+      "from_id": 5
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "partnerSharePercent is used inside _takeFee to split the fee between partner and paraswap",
+      "from_id": 4
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "takeFeeAndTransferTokens delegates the actual fee split to _takeFee",
+      "from_id": 11
+    },
+    {
+      "to_id": 19,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "_takeFee transfers partnerShare and paraswapShare using Utils.transferTokens",
+      "from_id": 12
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "msg.sender is emitted as initiator in the Swapped event of protectedMultiSwap",
+      "from_id": 6
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "msg.sender is emitted as initiator in the Swapped event of protectedMegaSwap",
+      "from_id": 7
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "the SellData parameter supplies deadline, tokens, path and feePercent used by protectedMultiSwap",
+      "from_id": 21
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "fromToken is forwarded to transferTokensFromProxy",
+      "from_id": 22
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "toToken is forwarded to takeFeeAndTransferTokens",
+      "from_id": 25
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "beneficiary is forwarded to takeFeeAndTransferTokens",
+      "from_id": 23
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "receivedAmount is forwarded to takeFeeAndTransferTokens",
+      "from_id": 24
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "path array drives the loop and adapter selection in performSwap",
+      "from_id": 29
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "fromAmount is the initial amount processed by performSwap",
+      "from_id": 30
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_fromToken determines the token balance and network fee handling inside performSwap",
+      "from_id": 31
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "fromAmountSlice is the computed amount passed to the adapter delegatecall",
+      "from_id": 32
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "networkFee value is forwarded to the adapter delegatecall",
+      "from_id": 33
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "token parameter selects the asset pulled through the token transfer proxy",
+      "from_id": 26
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "amount parameter is the quantity pulled from msg.sender",
+      "from_id": 27
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "permit parameter is the attacker-supplied payload forwarded to Utils.permit",
+      "from_id": 28
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "toToken parameter of takeFeeAndTransferTokens selects the distributed asset",
+      "from_id": 34
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "receivedAmount parameter of takeFeeAndTransferTokens is the fee base",
+      "from_id": 35
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "beneficiary parameter of takeFeeAndTransferTokens receives the remainder",
+      "from_id": 36
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "feePercent parameter of takeFeeAndTransferTokens is user supplied and capped by maxFeePercent",
+      "from_id": 37
+    },
+    {
+      "to_id": 19,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "computed fee reduces the amount eventually transferred via Utils.transferTokens",
+      "from_id": 38
+    },
+    {
+      "to_id": 19,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "remainingAmount is the value transferred to the beneficiary through Utils.transferTokens",
+      "from_id": 39
+    },
+    {
+      "to_id": 19,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "partnerShare is transferred to the partner by Utils.transferTokens",
+      "from_id": 40
+    },
+    {
+      "to_id": 19,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "paraswapShare is transferred to feeWallet by Utils.transferTokens",
+      "from_id": 41
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "func_protectedMultiSwap",
+      "normal_node": "param_data_multiswap",
+      "reason": "SellData parameter is the sole input of protectedMultiSwap and carries deadline, path and feePercent"
+    },
+    {
+      "merge_into": "func_protectedMultiSwap",
+      "normal_node": "local_fromToken",
+      "reason": "fromToken local is derived from the caller data inside protectedMultiSwap and pushed to the proxy"
+    },
+    {
+      "merge_into": "func_takeFeeAndTransferTokens",
+      "normal_node": "local_beneficiary",
+      "reason": "beneficiary local is the payout target consumed by takeFeeAndTransferTokens"
+    },
+    {
+      "merge_into": "func_takeFeeAndTransferTokens",
+      "normal_node": "local_receivedAmount",
+      "reason": "receivedAmount local is the fee base consumed by takeFeeAndTransferTokens"
+    },
+    {
+      "merge_into": "func_takeFeeAndTransferTokens",
+      "normal_node": "local_toToken",
+      "reason": "toToken local is the distributed asset consumed by takeFeeAndTransferTokens"
+    },
+    {
+      "merge_into": "func_transferTokensFromProxy",
+      "normal_node": "param_token_proxy",
+      "reason": "token parameter is only used by transferTokensFromProxy to select the pulled asset"
+    },
+    {
+      "merge_into": "func_transferTokensFromProxy",
+      "normal_node": "param_amount_proxy",
+      "reason": "amount parameter is only used by transferTokensFromProxy as the pulled quantity"
+    },
+    {
+      "merge_into": "func_transferTokensFromProxy",
+      "normal_node": "param_permit_proxy",
+      "reason": "permit parameter is only used by transferTokensFromProxy and forwarded to Utils.permit"
+    },
+    {
+      "merge_into": "func_performSwap",
+      "normal_node": "param_path_performSwap",
+      "reason": "path parameter drives the loop and adapter iteration of performSwap"
+    },
+    {
+      "merge_into": "func_performSwap",
+      "normal_node": "param_fromAmount_performSwap",
+      "reason": "fromAmount parameter is the initial amount handled by performSwap"
+    },
+    {
+      "merge_into": "func_performSwap",
+      "normal_node": "local_fromToken_performSwap",
+      "reason": "_fromToken local only exists to select balances inside performSwap"
+    },
+    {
+      "merge_into": "func_performSwap",
+      "normal_node": "local_fromAmountSlice",
+      "reason": "fromAmountSlice local is computed and consumed inside performSwap"
+    },
+    {
+      "merge_into": "func_performSwap",
+      "normal_node": "local_value_performSwap",
+      "reason": "value local only carries the adapter network fee into the performSwap delegatecall"
+    },
+    {
+      "merge_into": "func_takeFeeAndTransferTokens",
+      "normal_node": "param_toToken_fee",
+      "reason": "toToken parameter belongs entirely to takeFeeAndTransferTokens"
+    },
+    {
+      "merge_into": "func_takeFeeAndTransferTokens",
+      "normal_node": "param_receivedAmount_fee",
+      "reason": "receivedAmount parameter belongs entirely to takeFeeAndTransferTokens"
+    },
+    {
+      "merge_into": "func_takeFeeAndTransferTokens",
+      "normal_node": "param_beneficiary_fee",
+      "reason": "beneficiary parameter belongs entirely to takeFeeAndTransferTokens"
+    },
+    {
+      "merge_into": "func_takeFeeAndTransferTokens",
+      "normal_node": "param_feePercent_fee",
+      "reason": "feePercent parameter belongs entirely to takeFeeAndTransferTokens"
+    },
+    {
+      "merge_into": "unsafe_transferTokens",
+      "normal_node": "local_fee",
+      "reason": "fee local directly determines the amounts moved by Utils.transferTokens"
+    },
+    {
+      "merge_into": "unsafe_transferTokens",
+      "normal_node": "local_remainingAmount",
+      "reason": "remainingAmount local directly determines the amount moved by Utils.transferTokens"
+    },
+    {
+      "merge_into": "unsafe_transferTokens",
+      "normal_node": "local_partnerShare",
+      "reason": "partnerShare local directly determines the amount moved by Utils.transferTokens"
+    },
+    {
+      "merge_into": "unsafe_transferTokens",
+      "normal_node": "local_paraswapShare",
+      "reason": "paraswapShare local directly determines the amount moved by Utils.transferTokens"
+    }
+  ]
+}

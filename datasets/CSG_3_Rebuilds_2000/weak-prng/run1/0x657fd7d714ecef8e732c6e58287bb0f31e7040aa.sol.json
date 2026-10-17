@@ -1,0 +1,114 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "function",
+      "id": "function_randomMod",
+      "is_core": true,
+      "description": "External view function randomMod(uint256 seed, uint256 nonce, uint256 mod) returning a keccak256-derived value modulo mod."
+    },
+    {
+      "node_id": 1,
+      "type": "untrusted_input",
+      "id": "untrusted_input_tx_origin",
+      "is_core": true,
+      "description": "tx.origin used as entropy source inside abi.encodePacked; attacker-influenced and controllable."
+    },
+    {
+      "node_id": 2,
+      "type": "untrusted_input",
+      "id": "untrusted_input_block_timestamp",
+      "is_core": true,
+      "description": "block.timestamp used as entropy source inside abi.encodePacked; miner/validator influenced."
+    },
+    {
+      "node_id": 3,
+      "type": "unsafe_operation",
+      "id": "unsafe_operation_weak_randomness",
+      "is_core": true,
+      "description": "keccak256(abi.encodePacked(tx.origin, nonce, blockhash(block.number-1), block.timestamp, seed)) % mod: pseudo-randomness derived from predictable/attacker-influenceable on-chain values, and modulo bias."
+    },
+    {
+      "node_id": 4,
+      "type": "parameter",
+      "id": "parameter_seed",
+      "is_core": false,
+      "description": "Input parameter seed, fed into the encoding for the randomness computation."
+    },
+    {
+      "node_id": 5,
+      "type": "parameter",
+      "id": "parameter_nonce",
+      "is_core": false,
+      "description": "Input parameter nonce, fed into the encoding for the randomness computation."
+    },
+    {
+      "node_id": 6,
+      "type": "parameter",
+      "id": "parameter_mod",
+      "is_core": false,
+      "description": "Input parameter mod, modulus applied to the hash result."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The randomMod function body executes the keccak256-based modulo computation.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 0,
+      "to_id": 3
+    },
+    {
+      "reason": "tx.origin is packed into the hash feeding the randomness result, making the output depend on an attacker-controllable origin.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 3
+    },
+    {
+      "reason": "block.timestamp is packed into the hash feeding the randomness result, creating timestamp dependence.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 3
+    },
+    {
+      "reason": "seed parameter flows into the keccak256 preimage of the random value.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 3
+    },
+    {
+      "reason": "nonce parameter flows into the keccak256 preimage of the random value.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 3
+    },
+    {
+      "reason": "mod parameter is used as the divisor of the modulo operation, which can cause modulo bias/revert.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 3
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "seed is only a function parameter consumed by randomMod and carries no independent state; merge into the core function node.",
+      "merge_into": "function_randomMod",
+      "normal_node": "parameter_seed"
+    },
+    {
+      "reason": "nonce is only a function parameter consumed by randomMod and carries no independent state; merge into the core function node.",
+      "merge_into": "function_randomMod",
+      "normal_node": "parameter_nonce"
+    },
+    {
+      "reason": "mod is only a function parameter consumed by randomMod and carries no independent state; merge into the core function node.",
+      "merge_into": "function_randomMod",
+      "normal_node": "parameter_mod"
+    }
+  ]
+}

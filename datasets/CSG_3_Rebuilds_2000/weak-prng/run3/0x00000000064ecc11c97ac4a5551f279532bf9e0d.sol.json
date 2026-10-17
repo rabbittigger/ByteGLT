@@ -1,0 +1,147 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Public state variable holding the UniswapV2 factory interface, fixed to an externally deployed contract address",
+      "id": "univ2Factory",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Public view function that returns an array of Uniswap pair addresses by looping over univ2Factory.allPairs",
+      "id": "getPairs",
+      "type": "function",
+      "node_id": 1
+    },
+    {
+      "is_core": false,
+      "description": "uint256 parameter giving the starting index for the allPairs lookup",
+      "id": "start",
+      "type": "parameter",
+      "node_id": 2
+    },
+    {
+      "is_core": false,
+      "description": "uint256 parameter giving the number of pairs to fetch and the length of the returned array",
+      "id": "cnt",
+      "type": "parameter",
+      "node_id": 3
+    },
+    {
+      "is_core": false,
+      "description": "address[] memory output array allocated with length cnt and filled inside the loop",
+      "id": "out",
+      "type": "local_var",
+      "node_id": 4
+    },
+    {
+      "is_core": false,
+      "description": "uint256 loop counter bounded by cnt",
+      "id": "i",
+      "type": "local_var",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "External low-level call to univ2Factory.allPairs(i+start) on a state-variable-controlled contract address",
+      "id": "call_allPairs",
+      "type": "unsafe_operation",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "Unchecked unsigned addition i + start compiled with Solidity ^0.6.0, allowing silent integer overflow",
+      "id": "add_i_start",
+      "type": "unsafe_operation",
+      "node_id": 7
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "State variable univ2Factory supplies the target contract for the external allPairs call",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "arithmetic",
+      "reason": "Parameter start flows into the unchecked addition i + start",
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "arithmetic",
+      "reason": "Loop counter i flows into the unchecked addition i + start",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "arithmetic",
+      "reason": "Overflowed index result of i + start is consumed as the allPairs argument",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "arithmetic",
+      "reason": "Function body evaluates the i + start addition on every loop iteration",
+      "type": "controlflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "Function body executes the external allPairs call inside the loop",
+      "type": "controlflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "Parameter cnt determines the allocated length of the out array",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "Return value of the allPairs external call is written into out[i]",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "The function's for loop initializes and increments the counter i",
+      "type": "controlflow",
+      "from_id": 1
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "add_i_start",
+      "reason": "Parameter start is only consumed by the unchecked addition, so it should be folded into the arithmetic unsafe operation node",
+      "normal_node": "start"
+    },
+    {
+      "merge_into": "add_i_start",
+      "reason": "Loop counter i is only consumed by the unchecked addition i + start and should be folded into that unsafe operation node",
+      "normal_node": "i"
+    },
+    {
+      "merge_into": "getPairs",
+      "reason": "Parameter cnt only sizes the output array and bounds the loop, so it merges into the enclosing core function",
+      "normal_node": "cnt"
+    },
+    {
+      "merge_into": "getPairs",
+      "reason": "Local array out is a transient buffer returned by the function and merges into getPairs",
+      "normal_node": "out"
+    }
+  ]
+}

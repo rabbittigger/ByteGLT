@@ -1,0 +1,158 @@
+{
+  "nodes": [
+    {
+      "description": "Immutable IERC20 collateral asset address held in custody; target of external token calls.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "CollateralLocker.collateralAsset"
+    },
+    {
+      "description": "Immutable Loan contract address authorized to pull collateral.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "CollateralLocker.loan"
+    },
+    {
+      "description": "Constructor initializing collateralAsset and loan immutables from arguments.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 2,
+      "id": "CollateralLocker.constructor"
+    },
+    {
+      "description": "Modifier enforcing msg.sender == loan; access-control guard for pull.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "CollateralLocker.isLoan"
+    },
+    {
+      "description": "External isLoan-gated function transferring collateral asset to dst.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 4,
+      "id": "CollateralLocker.pull"
+    },
+    {
+      "description": "Untrusted caller address checked against loan in the isLoan modifier.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 5,
+      "id": "msg.sender"
+    },
+    {
+      "description": "Destination address parameter for the collateral transfer.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 6,
+      "id": "CollateralLocker.pull.dst"
+    },
+    {
+      "description": "Amount parameter for the collateral transfer.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 7,
+      "id": "CollateralLocker.pull.amt"
+    },
+    {
+      "description": "External call collateralAsset.safeTransfer(dst, amt) transferring tokens out.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 8,
+      "id": "CollateralLocker.pull.safeTransfer"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor assigns collateralAsset from the _collateralAsset argument.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "Constructor assigns the loan address from the _loan argument.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "Untrusted msg.sender is compared to the loan state variable in the isLoan require.",
+      "from_id": 5,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "loan state variable is read as the trusted caller identity in the isLoan check.",
+      "from_id": 1,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "isLoan modifier gates execution of the pull function body.",
+      "from_id": 3,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 4
+    },
+    {
+      "reason": "Untrusted msg.sender indirectly authorizes pull through the isLoan modifier.",
+      "from_id": 5,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "dst parameter is passed as the recipient of the safeTransfer external call.",
+      "from_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "amt parameter is passed as the value of the safeTransfer external call.",
+      "from_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "pull executes an external token transfer before completing, enabling reentrancy.",
+      "from_id": 4,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "collateralAsset state variable is the target of the external safeTransfer call.",
+      "from_id": 0,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "A malicious or hook-enabled collateral token can call back into pull during safeTransfer.",
+      "from_id": 8,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 4
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "dst exists only as a pull parameter and flows directly into the function's external transfer.",
+      "normal_node": "CollateralLocker.pull.dst",
+      "merge_into": "CollateralLocker.pull"
+    },
+    {
+      "reason": "amt exists only as a pull parameter and flows directly into the function's external transfer.",
+      "normal_node": "CollateralLocker.pull.amt",
+      "merge_into": "CollateralLocker.pull"
+    }
+  ]
+}

@@ -1,0 +1,320 @@
+{
+  "nodes": [
+    {
+      "id": "buyTokens",
+      "description": "Public payable sale function of AssetBackingCryptoCurrency; validates the sale window with now, computes the token amount and bonus, then mints tokens to the caller.",
+      "type": "function",
+      "node_id": 0,
+      "is_core": true
+    },
+    {
+      "id": "fallback",
+      "description": "Fallback function that accepts ether and forwards execution to buyTokens().",
+      "type": "function",
+      "node_id": 1,
+      "is_core": true
+    },
+    {
+      "id": "mint",
+      "description": "Public mint(to, amount) entry point (CappedToken/MintableToken); enforces the cap and minting permission before creating tokens.",
+      "type": "function",
+      "node_id": 2,
+      "is_core": true
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller-controlled address; used as the purchase beneficiary and the receiver of newly minted tokens.",
+      "type": "untrusted_input",
+      "node_id": 3,
+      "is_core": true
+    },
+    {
+      "id": "block.timestamp",
+      "description": "Block timestamp referenced as now in the sale window checks and bonus condition; miner-influenceable.",
+      "type": "untrusted_input",
+      "node_id": 4,
+      "is_core": true
+    },
+    {
+      "id": "op_mul_div_amount",
+      "description": "Arithmetic expression msg.value * 1000000000000000000 / tokenPrice used to derive the token amount; unchecked raw multiplication/division.",
+      "type": "unsafe_operation",
+      "node_id": 5,
+      "is_core": true
+    },
+    {
+      "id": "op_add_amount_bonus",
+      "description": "Arithmetic expression amount + bonus used as the minted quantity; unchecked raw addition.",
+      "type": "unsafe_operation",
+      "node_id": 6,
+      "is_core": true
+    },
+    {
+      "id": "tokenPrice",
+      "description": "uint256 tokenPrice = 0.01 ether; used as the divisor when converting ether into tokens.",
+      "type": "state_var",
+      "node_id": 7,
+      "is_core": true
+    },
+    {
+      "id": "startDate",
+      "description": "uint256 startDate = 1530518400; lower bound of the token sale window.",
+      "type": "state_var",
+      "node_id": 8,
+      "is_core": true
+    },
+    {
+      "id": "endDate",
+      "description": "uint256 endDate = 1533024000; upper bound of the token sale window.",
+      "type": "state_var",
+      "node_id": 9,
+      "is_core": true
+    },
+    {
+      "id": "cap",
+      "description": "uint256 public cap = 30000000000000000000000000; maximum total supply enforced by mint.",
+      "type": "state_var",
+      "node_id": 10,
+      "is_core": true
+    },
+    {
+      "id": "owner",
+      "description": "address public owner inherited from Ownable; gate for minting permission and administrative functions.",
+      "type": "state_var",
+      "node_id": 11,
+      "is_core": true
+    },
+    {
+      "id": "balances",
+      "description": "mapping(address => uint256) private balances; token balances updated by _mint.",
+      "type": "state_var",
+      "node_id": 12,
+      "is_core": true
+    },
+    {
+      "id": "totalSupply_",
+      "description": "uint256 private totalSupply_; total token supply increased by _mint and bounded by cap.",
+      "type": "state_var",
+      "node_id": 13,
+      "is_core": true
+    },
+    {
+      "id": "_mint",
+      "description": "Internal _mint(account, amount) from StandardToken; increases totalSupply_ and the recipient balance and emits Transfer.",
+      "type": "function",
+      "node_id": 14,
+      "is_core": true
+    },
+    {
+      "id": "mint._to",
+      "description": "address _to parameter of mint; recipient of newly minted tokens.",
+      "type": "parameter",
+      "node_id": 15,
+      "is_core": false
+    },
+    {
+      "id": "mint._amount",
+      "description": "uint256 _amount parameter of mint; quantity of tokens to create.",
+      "type": "parameter",
+      "node_id": 16,
+      "is_core": false
+    },
+    {
+      "id": "buyTokens.bonusPercentage",
+      "description": "uint256 local bonusPercentage (15, or 0 when now > 1533024000); scales the bonus token amount.",
+      "type": "local_var",
+      "node_id": 17,
+      "is_core": false
+    },
+    {
+      "id": "buyTokens.amount",
+      "description": "uint256 local amount derived from msg.value * 1e18 / tokenPrice.",
+      "type": "local_var",
+      "node_id": 18,
+      "is_core": false
+    },
+    {
+      "id": "buyTokens.bonus",
+      "description": "uint256 local bonus = amount * bonusPercentage / 100.",
+      "type": "local_var",
+      "node_id": 19,
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "type": "controlflow",
+      "reason": "msg.sender is the untrusted caller whose address becomes the sale beneficiary and later the mint receiver.",
+      "to_id": 0,
+      "from_id": 3,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "controlflow",
+      "reason": "Timestamp dependency: require(now >= startDate) and require(now < endDate) gate buyTokens on block.timestamp.",
+      "to_id": 0,
+      "from_id": 4,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The bonus branch condition if (now > 1533024000) makes the bonus amount depend on block.timestamp.",
+      "to_id": 6,
+      "from_id": 4,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "dataflow",
+      "reason": "startDate is compared against block.timestamp to decide whether the sale is open.",
+      "to_id": 0,
+      "from_id": 8,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "dataflow",
+      "reason": "endDate is compared against block.timestamp to decide whether the sale is still open.",
+      "to_id": 0,
+      "from_id": 9,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "dataflow",
+      "reason": "tokenPrice is the divisor of the token amount computation msg.value * 1e18 / tokenPrice.",
+      "to_id": 5,
+      "from_id": 7,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "type": "dataflow",
+      "reason": "Result of the unchecked multiplication/division is assigned to the local variable amount.",
+      "to_id": 18,
+      "from_id": 5,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "type": "dataflow",
+      "reason": "Local amount is an operand of the unchecked addition amount + bonus.",
+      "to_id": 6,
+      "from_id": 18,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "type": "dataflow",
+      "reason": "Local bonusPercentage feeds the bonus computation that is added to amount.",
+      "to_id": 6,
+      "from_id": 17,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "type": "dataflow",
+      "reason": "Local bonus contributes to the unchecked addition amount + bonus.",
+      "to_id": 6,
+      "from_id": 19,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The unchecked sum amount + bonus is forwarded as the mint quantity.",
+      "to_id": 2,
+      "from_id": 6,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "type": "controlflow",
+      "reason": "buyTokens calls mint(msg.sender, amount + bonus) after emitting TokenPurchase.",
+      "to_id": 2,
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "msg.sender is passed as the mint recipient, allowing the caller to obtain tokens without owner permission checks in the derived path.",
+      "to_id": 2,
+      "from_id": 3,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "dataflow",
+      "reason": "cap is compared with totalSupply().add(_amount) to bound the minted amount.",
+      "to_id": 2,
+      "from_id": 10,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "type": "controlflow",
+      "reason": "owner is checked against msg.sender by hasMintPermission before minting.",
+      "to_id": 2,
+      "from_id": 11,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "controlflow",
+      "reason": "mint delegates to the internal _mint implementation after the cap check.",
+      "to_id": 14,
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "_mint increases totalSupply_ by the minted amount.",
+      "to_id": 13,
+      "from_id": 14,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "type": "dataflow",
+      "reason": "_mint credits the recipient entry in the balances mapping.",
+      "to_id": 12,
+      "from_id": 14,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "Parameter _to flows into mint as the token recipient.",
+      "to_id": 2,
+      "from_id": 15,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "Parameter _amount flows into mint as the token quantity.",
+      "to_id": 2,
+      "from_id": 16,
+      "vuln_type": "none"
+    },
+    {
+      "type": "controlflow",
+      "reason": "The payable fallback function unconditionally forwards to buyTokens().",
+      "to_id": 0,
+      "from_id": 1,
+      "vuln_type": "none"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The _to parameter only carries the recipient address into the mint function and has no independent security meaning.",
+      "normal_node": "mint._to",
+      "merge_into": "mint"
+    },
+    {
+      "reason": "The _amount parameter only carries the mint quantity into the mint function and is bounded by cap inside it.",
+      "normal_node": "mint._amount",
+      "merge_into": "mint"
+    },
+    {
+      "reason": "bonusPercentage is a temporary local of buyTokens selected by the timestamp condition before scaling the bonus.",
+      "normal_node": "buyTokens.bonusPercentage",
+      "merge_into": "buyTokens"
+    },
+    {
+      "reason": "amount is the direct result of the unchecked expression msg.value * 1000000000000000000 / tokenPrice.",
+      "normal_node": "buyTokens.amount",
+      "merge_into": "op_mul_div_amount"
+    },
+    {
+      "reason": "bonus is a transient intermediate that only feeds the unchecked sum amount + bonus.",
+      "normal_node": "buyTokens.bonus",
+      "merge_into": "op_add_amount_bonus"
+    }
+  ]
+}

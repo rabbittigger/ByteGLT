@@ -1,0 +1,308 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "players",
+      "is_core": true,
+      "description": "address payable[] players; array holding the two participants of the current round"
+    },
+    {
+      "node_id": 1,
+      "type": "function",
+      "id": "receive",
+      "is_core": true,
+      "description": "receive() payable external: accepts 0.01 ether minimum, pushes msg.sender as player, starts play() when 2 players"
+    },
+    {
+      "node_id": 2,
+      "type": "function",
+      "id": "play",
+      "is_core": true,
+      "description": "internal play(): picks winner via flipTheCoin(), clears players and pays out the whole balance"
+    },
+    {
+      "node_id": 3,
+      "type": "function",
+      "id": "getBalance",
+      "is_core": true,
+      "description": "public view getBalance(): returns address(this).balance"
+    },
+    {
+      "node_id": 4,
+      "type": "function",
+      "id": "payOut",
+      "is_core": true,
+      "description": "private payOut(address payable _to, uint _amount): performs low-level call transferring value"
+    },
+    {
+      "node_id": 5,
+      "type": "function",
+      "id": "clearPlayers",
+      "is_core": true,
+      "description": "internal clearPlayers(): delete players"
+    },
+    {
+      "node_id": 6,
+      "type": "function",
+      "id": "getPlayerCount",
+      "is_core": true,
+      "description": "public view getPlayerCount(): returns players.length"
+    },
+    {
+      "node_id": 7,
+      "type": "function",
+      "id": "flipTheCoin",
+      "is_core": true,
+      "description": "private view flipTheCoin(): returns random() % 2 used as winner index"
+    },
+    {
+      "node_id": 8,
+      "type": "function",
+      "id": "random",
+      "is_core": true,
+      "description": "public view random(): keccak256(block.difficulty, block.timestamp, players.length)"
+    },
+    {
+      "node_id": 9,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "is_core": true,
+      "description": "msg.sender used in receive() as the paying player address"
+    },
+    {
+      "node_id": 10,
+      "type": "untrusted_input",
+      "id": "block.timestamp",
+      "is_core": true,
+      "description": "block.timestamp used inside random() as entropy source"
+    },
+    {
+      "node_id": 11,
+      "type": "unsafe_operation",
+      "id": "payOut_lowlevel_call",
+      "is_core": true,
+      "description": "_to.call{value:_amount}(\"\") low-level external value transfer in payOut"
+    },
+    {
+      "node_id": 12,
+      "type": "unsafe_operation",
+      "id": "weak_randomness_modulo",
+      "is_core": true,
+      "description": "random() % 2 winner selection based on miner-influenceable block data"
+    },
+    {
+      "node_id": 13,
+      "type": "parameter",
+      "id": "_to",
+      "is_core": false,
+      "description": "address payable _to parameter of payOut"
+    },
+    {
+      "node_id": 14,
+      "type": "parameter",
+      "id": "_amount",
+      "is_core": false,
+      "description": "uint _amount parameter of payOut"
+    },
+    {
+      "node_id": 15,
+      "type": "local_var",
+      "id": "winner",
+      "is_core": false,
+      "description": "local address payable winner selected in play()"
+    },
+    {
+      "node_id": 16,
+      "type": "local_var",
+      "id": "sent",
+      "is_core": false,
+      "description": "local bool sent holding the success flag of the low-level call"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is consumed by receive() as the address of the paying player",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 1
+    },
+    {
+      "reason": "receive() writes msg.sender into the players state array",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 0
+    },
+    {
+      "reason": "getPlayerCount reads players.length",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 6
+    },
+    {
+      "reason": "receive() checks getPlayerCount() == 2 before starting a round",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 6
+    },
+    {
+      "reason": "receive() calls play() once two players have paid",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 2
+    },
+    {
+      "reason": "play() indexes players[flipTheCoin()] to obtain the winner",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 2
+    },
+    {
+      "reason": "play() calls flipTheCoin() to choose the index",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 2,
+      "to_id": 7
+    },
+    {
+      "reason": "flipTheCoin() calls random() before applying modulo 2",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 7,
+      "to_id": 8
+    },
+    {
+      "reason": "random() entropy depends on block.timestamp, making the draw miner/timestamp dependent",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 8
+    },
+    {
+      "reason": "the pseudo-random value is reduced by modulo 2 to select a winner",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 12
+    },
+    {
+      "reason": "weak randomness determines which player receives the whole contract balance in play()",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 2
+    },
+    {
+      "reason": "play() assigns players index to the local winner variable",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 15
+    },
+    {
+      "reason": "play() calls clearPlayers() before payment",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 2,
+      "to_id": 5
+    },
+    {
+      "reason": "clearPlayers() deletes the players state array",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 5
+    },
+    {
+      "reason": "play() calls getBalance() to compute the payout amount",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 2,
+      "to_id": 3
+    },
+    {
+      "reason": "the returned balance is used as the payout value",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 2
+    },
+    {
+      "reason": "play() calls payOut(winner, getBalance())",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 2,
+      "to_id": 4
+    },
+    {
+      "reason": "the winner address becomes the _to argument of payOut",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 4
+    },
+    {
+      "reason": "_to is the target of the low-level value call",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 11
+    },
+    {
+      "reason": "_amount is the value forwarded by the low-level call",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 11
+    },
+    {
+      "reason": "payOut() executes the low-level call transferring ether",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 4,
+      "to_id": 11
+    },
+    {
+      "reason": "the low-level call result is stored in the local bool sent",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 16
+    },
+    {
+      "reason": "the winner contract can re-enter receive() during the external call and trigger another payout",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 11,
+      "to_id": 1
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "parameter _to only exists to address the payout transfer performed by payOut and has no independent meaning",
+      "merge_into": "payOut",
+      "normal_node": "_to"
+    },
+    {
+      "reason": "parameter _amount is solely the value forwarded by the unsafe low-level call",
+      "merge_into": "payOut_lowlevel_call",
+      "normal_node": "_amount"
+    },
+    {
+      "reason": "local winner is derived from players inside play() and is immediately passed to payOut",
+      "merge_into": "play",
+      "normal_node": "winner"
+    },
+    {
+      "reason": "local sent only captures the success flag returned by the unsafe low-level call",
+      "merge_into": "payOut_lowlevel_call",
+      "normal_node": "sent"
+    }
+  ]
+}

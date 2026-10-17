@@ -1,0 +1,252 @@
+{
+  "nodes": [
+    {
+      "id": "addressManager",
+      "is_core": true,
+      "node_id": 0,
+      "description": "Public mapping(string => address) storing proxyTarget and proxyOwner used for ownership checks and delegatecall target.",
+      "type": "state_var"
+    },
+    {
+      "id": "constructor",
+      "is_core": true,
+      "node_id": 1,
+      "description": "Constructor receiving _proxyTarget; initializes addressManager[\"proxyTarget\"] and sets proxyOwner to msg.sender.",
+      "type": "function"
+    },
+    {
+      "id": "proxyCallIfNotOwner",
+      "is_core": true,
+      "node_id": 2,
+      "description": "Modifier that lets the owner execute the guarded body, otherwise forwards the call to _doProxyCall via _doProxyCall/_doProxyCall path.",
+      "type": "function"
+    },
+    {
+      "id": "fallback",
+      "is_core": true,
+      "node_id": 3,
+      "description": "External payable fallback that unconditionally proxy-calls through _doProxyCall for any caller.",
+      "type": "function"
+    },
+    {
+      "id": "setTargetContract",
+      "is_core": true,
+      "node_id": 4,
+      "description": "External owner-guarded function updating addressManager[\"proxyTarget\"] with the supplied _proxyTarget.",
+      "type": "function"
+    },
+    {
+      "id": "transferProxyOwnership",
+      "is_core": true,
+      "node_id": 5,
+      "description": "External owner-guarded function setting addressManager[\"proxyOwner\"] to msg.sender.",
+      "type": "function"
+    },
+    {
+      "id": "_doProxyCall",
+      "is_core": true,
+      "node_id": 6,
+      "description": "Internal function performing delegatecall(msg.data) to addressManager[\"proxyTarget\"] and returning/reverting raw returndata.",
+      "type": "function"
+    },
+    {
+      "id": "msg.sender",
+      "is_core": true,
+      "node_id": 7,
+      "description": "Untrusted caller address used for ownership assignment, ownership transfer and modifier access checks.",
+      "type": "untrusted_input"
+    },
+    {
+      "id": "delegatecall_proxy_target",
+      "is_core": true,
+      "node_id": 8,
+      "description": "Low-level delegatecall to a mutable, owner-updatable target with attacker-controlled msg.data, executed in the proxy storage context.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "assembly_return_revert",
+      "is_core": true,
+      "node_id": 9,
+      "description": "Inline assembly that returns or reverts propagating raw returndata bytes to the caller.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "_proxyTarget_ctor",
+      "is_core": false,
+      "node_id": 10,
+      "description": "Constructor parameter address _proxyTarget stored as the initial proxy target.",
+      "type": "parameter"
+    },
+    {
+      "id": "_proxyTarget_setTarget",
+      "is_core": false,
+      "node_id": 11,
+      "description": "Address parameter _proxyTarget used to overwrite the proxy target entry.",
+      "type": "parameter"
+    },
+    {
+      "id": "success",
+      "is_core": false,
+      "node_id": 12,
+      "description": "Local bool capturing the success flag returned by the delegatecall.",
+      "type": "local_var"
+    },
+    {
+      "id": "returndata",
+      "is_core": false,
+      "node_id": 13,
+      "description": "Local bytes holding the raw data returned by the delegatecall.",
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 7,
+      "to_id": 1,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "msg.sender is written into addressManager[\"proxyOwner\"] during construction, establishing the privileged owner."
+    },
+    {
+      "from_id": 10,
+      "to_id": 0,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "Constructor parameter _proxyTarget is stored in the mutable addressManager mapping slot \"proxyTarget\"."
+    },
+    {
+      "from_id": 7,
+      "to_id": 2,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "The modifier compares msg.sender against addressManager[\"proxyOwner\"] to decide whether the guarded body executes."
+    },
+    {
+      "from_id": 4,
+      "to_id": 2,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "setTargetContract is wrapped by the proxyCallIfNotOwner modifier, so the modifier gates entry to the body."
+    },
+    {
+      "from_id": 5,
+      "to_id": 2,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "transferProxyOwnership is wrapped by the proxyCallIfNotOwner modifier, so the modifier gates entry to the body."
+    },
+    {
+      "from_id": 2,
+      "to_id": 6,
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "reason": "When the caller is not the owner the modifier forwards execution into _doProxyCall, an arbitrary external delegatecall."
+    },
+    {
+      "from_id": 11,
+      "to_id": 0,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "_proxyTarget parameter overwrites the addressManager[\"proxyTarget\"] entry used as the delegatecall destination."
+    },
+    {
+      "from_id": 0,
+      "to_id": 5,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "transferProxyOwnership mutates the addressManager[\"proxyOwner\"] entry that controls all guarded functions."
+    },
+    {
+      "from_id": 7,
+      "to_id": 5,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "msg.sender becomes the new proxyOwner, granting full control over the proxy target."
+    },
+    {
+      "from_id": 3,
+      "to_id": 6,
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "reason": "The payable fallback unconditionally forwards the call to _doProxyCall, enabling arbitrary delegatecall entry."
+    },
+    {
+      "from_id": 7,
+      "to_id": 3,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "Any external msg.sender can reach the fallback and thereby trigger the delegatecall proxy path."
+    },
+    {
+      "from_id": 6,
+      "to_id": 8,
+      "type": "controlflow",
+      "vuln_type": "reentrancy",
+      "reason": "_doProxyCall executes the low-level delegatecall to the stored proxy target with msg.data."
+    },
+    {
+      "from_id": 0,
+      "to_id": 8,
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "reason": "The delegatecall destination is read from the mutable addressManager[\"proxyTarget\"] mapping entry."
+    },
+    {
+      "from_id": 8,
+      "to_id": 12,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The success boolean is the value returned by the delegatecall."
+    },
+    {
+      "from_id": 8,
+      "to_id": 13,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "returndata holds the raw bytes returned by the delegatecall."
+    },
+    {
+      "from_id": 6,
+      "to_id": 9,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "_doProxyCall branches into the inline assembly block that returns or reverts with the raw returndata."
+    },
+    {
+      "from_id": 13,
+      "to_id": 9,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The returndata pointer is passed into the assembly return/revert, propagating unvalidated bytes."
+    },
+    {
+      "from_id": 12,
+      "to_id": 9,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The success flag selects whether the assembly return or the assembly revert branch is executed."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "_proxyTarget_ctor",
+      "merge_into": "constructor",
+      "reason": "Constructor parameter _proxyTarget only feeds the owner-controlled proxy target slot and carries no independent semantics beyond the constructor."
+    },
+    {
+      "normal_node": "_proxyTarget_setTarget",
+      "merge_into": "setTargetContract",
+      "reason": "Address parameter _proxyTarget is used solely inside setTargetContract to overwrite the delegatecall target entry."
+    },
+    {
+      "normal_node": "success",
+      "merge_into": "_doProxyCall",
+      "reason": "Local success is just the delegatecall outcome inside _doProxyCall and adds no separate dataflow node."
+    },
+    {
+      "normal_node": "returndata",
+      "merge_into": "delegatecall_proxy_target",
+      "reason": "Local returndata is produced by the delegatecall unsafe operation and should be folded into that operation."
+    }
+  ]
+}

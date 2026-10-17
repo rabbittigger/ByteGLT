@@ -1,0 +1,939 @@
+{
+  "nodes": [
+    {
+      "id": "sv_max_owner_count",
+      "is_core": true,
+      "description": "Public constant MAX_OWNER_COUNT = 50, upper bound on owner count",
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "sv_transactions",
+      "is_core": true,
+      "description": "mapping(uint => Transaction) public transactions; holds destination, value, data, executed, declined",
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "sv_confirmations",
+      "is_core": true,
+      "description": "mapping(uint => mapping(address => bool)) public confirmations; per-owner confirmation flags",
+      "node_id": 2,
+      "type": "state_var"
+    },
+    {
+      "id": "sv_isOwner",
+      "is_core": true,
+      "description": "mapping(address => bool) public isOwner; access-control whitelist",
+      "node_id": 3,
+      "type": "state_var"
+    },
+    {
+      "id": "sv_owners",
+      "is_core": true,
+      "description": "address[] public owners; list of wallet owners",
+      "node_id": 4,
+      "type": "state_var"
+    },
+    {
+      "id": "sv_required",
+      "is_core": true,
+      "description": "uint public required; number of confirmations needed to execute",
+      "node_id": 5,
+      "type": "state_var"
+    },
+    {
+      "id": "sv_transaction_count",
+      "is_core": true,
+      "description": "uint public transactionCount; monotonically incremented transaction counter",
+      "node_id": 6,
+      "type": "state_var"
+    },
+    {
+      "id": "fn_fallback",
+      "is_core": true,
+      "description": "Payable fallback function accepting ether and emitting Deposit(msg.sender, msg.value)",
+      "node_id": 7,
+      "type": "function"
+    },
+    {
+      "id": "fn_constructor",
+      "is_core": true,
+      "description": "MultiSigWallet constructor validating requirement and initialising owners/required",
+      "node_id": 8,
+      "type": "function"
+    },
+    {
+      "id": "fn_submit_transaction",
+      "is_core": true,
+      "description": "submitTransaction(address,uint,bytes): adds a transaction and immediately confirms it",
+      "node_id": 9,
+      "type": "function"
+    },
+    {
+      "id": "fn_confirm_transaction",
+      "is_core": true,
+      "description": "confirmTransaction(uint): ownerExists/transactionExists/notConfirmed guarded confirmation then execution",
+      "node_id": 10,
+      "type": "function"
+    },
+    {
+      "id": "fn_revoke_confirmation",
+      "is_core": true,
+      "description": "revokeConfirmation(uint): ownerExists/confirmed/notExecuted guarded revocation",
+      "node_id": 11,
+      "type": "function"
+    },
+    {
+      "id": "fn_execute_transaction",
+      "is_core": true,
+      "description": "executeTransaction(uint): ownerExists/confirmed/notExecuted guarded execution performing an external call",
+      "node_id": 12,
+      "type": "function"
+    },
+    {
+      "id": "fn_external_call",
+      "is_core": true,
+      "description": "external_call(address,uint,uint,bytes) internal: inline-assembly low-level call with gas - 34710",
+      "node_id": 13,
+      "type": "function"
+    },
+    {
+      "id": "fn_is_confirmed",
+      "is_core": true,
+      "description": "isConfirmed(uint) constant: counts confirmations against required and checks declined flag",
+      "node_id": 14,
+      "type": "function"
+    },
+    {
+      "id": "fn_add_transaction",
+      "is_core": true,
+      "description": "addTransaction(address,uint,bytes) internal notNull: stores a new Transaction and increments transactionCount",
+      "node_id": 15,
+      "type": "function"
+    },
+    {
+      "id": "fn_get_confirmation_count",
+      "is_core": true,
+      "description": "getConfirmationCount(uint) constant read-only view over confirmations",
+      "node_id": 16,
+      "type": "function"
+    },
+    {
+      "id": "fn_get_transaction_count",
+      "is_core": true,
+      "description": "getTransactionCount(bool,bool) constant read-only view over transactions",
+      "node_id": 17,
+      "type": "function"
+    },
+    {
+      "id": "fn_get_owners",
+      "is_core": true,
+      "description": "getOwners() constant returning the owners array",
+      "node_id": 18,
+      "type": "function"
+    },
+    {
+      "id": "fn_get_confirmations",
+      "is_core": true,
+      "description": "getConfirmations(uint) constant returning addresses that confirmed a transaction",
+      "node_id": 19,
+      "type": "function"
+    },
+    {
+      "id": "fn_get_transaction_ids",
+      "is_core": true,
+      "description": "getTransactionIds(uint,uint,bool,bool) constant returning a slice of transaction ids",
+      "node_id": 20,
+      "type": "function"
+    },
+    {
+      "id": "in_msg_sender",
+      "is_core": true,
+      "description": "msg.sender: external caller used for owner checks, confirmation keys and deposit events",
+      "node_id": 21,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "uo_low_level_call",
+      "is_core": true,
+      "description": "Low-level assembly call() forwarding value and arbitrary data to an attacker-chosen destination before state finalisation",
+      "node_id": 22,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "uo_transaction_count_increment",
+      "is_core": true,
+      "description": "transactionCount += 1 unchecked integer addition (arithmetic)",
+      "node_id": 23,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "p_owners_ctor",
+      "is_core": false,
+      "description": "address[] _owners constructor parameter",
+      "node_id": 24,
+      "type": "parameter"
+    },
+    {
+      "id": "p_required_ctor",
+      "is_core": false,
+      "description": "uint _required constructor parameter",
+      "node_id": 25,
+      "type": "parameter"
+    },
+    {
+      "id": "p_destination_submit",
+      "is_core": false,
+      "description": "address destination parameter of submitTransaction",
+      "node_id": 26,
+      "type": "parameter"
+    },
+    {
+      "id": "p_value_submit",
+      "is_core": false,
+      "description": "uint value parameter of submitTransaction",
+      "node_id": 27,
+      "type": "parameter"
+    },
+    {
+      "id": "p_data_submit",
+      "is_core": false,
+      "description": "bytes data parameter of submitTransaction",
+      "node_id": 28,
+      "type": "parameter"
+    },
+    {
+      "id": "l_transaction_id_submit",
+      "is_core": false,
+      "description": "uint transactionId returned by addTransaction inside submitTransaction",
+      "node_id": 29,
+      "type": "local_var"
+    },
+    {
+      "id": "p_transaction_id_confirm",
+      "is_core": false,
+      "description": "uint transactionId parameter of confirmTransaction",
+      "node_id": 30,
+      "type": "parameter"
+    },
+    {
+      "id": "p_transaction_id_revoke",
+      "is_core": false,
+      "description": "uint transactionId parameter of revokeConfirmation",
+      "node_id": 31,
+      "type": "parameter"
+    },
+    {
+      "id": "p_transaction_id_execute",
+      "is_core": false,
+      "description": "uint transactionId parameter of executeTransaction",
+      "node_id": 32,
+      "type": "parameter"
+    },
+    {
+      "id": "l_txn_execute",
+      "is_core": false,
+      "description": "Transaction storage txn aliasing transactions[transactionId] in executeTransaction",
+      "node_id": 33,
+      "type": "local_var"
+    },
+    {
+      "id": "p_destination_extcall",
+      "is_core": false,
+      "description": "address destination parameter of external_call",
+      "node_id": 34,
+      "type": "parameter"
+    },
+    {
+      "id": "p_value_extcall",
+      "is_core": false,
+      "description": "uint value parameter of external_call",
+      "node_id": 35,
+      "type": "parameter"
+    },
+    {
+      "id": "p_data_length_extcall",
+      "is_core": false,
+      "description": "uint dataLength parameter of external_call",
+      "node_id": 36,
+      "type": "parameter"
+    },
+    {
+      "id": "p_data_extcall",
+      "is_core": false,
+      "description": "bytes data parameter of external_call",
+      "node_id": 37,
+      "type": "parameter"
+    },
+    {
+      "id": "l_result_extcall",
+      "is_core": false,
+      "description": "bool result returned by the assembly call in external_call",
+      "node_id": 38,
+      "type": "local_var"
+    },
+    {
+      "id": "p_transaction_id_is_confirmed",
+      "is_core": false,
+      "description": "uint transactionId parameter of isConfirmed",
+      "node_id": 39,
+      "type": "parameter"
+    },
+    {
+      "id": "l_count_is_confirmed",
+      "is_core": false,
+      "description": "uint count accumulator in isConfirmed",
+      "node_id": 40,
+      "type": "local_var"
+    },
+    {
+      "id": "l_i_is_confirmed",
+      "is_core": false,
+      "description": "uint loop index i in isConfirmed",
+      "node_id": 41,
+      "type": "local_var"
+    },
+    {
+      "id": "p_destination_add",
+      "is_core": false,
+      "description": "address destination parameter of addTransaction",
+      "node_id": 42,
+      "type": "parameter"
+    },
+    {
+      "id": "p_value_add",
+      "is_core": false,
+      "description": "uint value parameter of addTransaction",
+      "node_id": 43,
+      "type": "parameter"
+    },
+    {
+      "id": "p_data_add",
+      "is_core": false,
+      "description": "bytes data parameter of addTransaction",
+      "node_id": 44,
+      "type": "parameter"
+    },
+    {
+      "id": "l_transaction_id_add",
+      "is_core": false,
+      "description": "uint transactionId assigned from transactionCount in addTransaction",
+      "node_id": 45,
+      "type": "local_var"
+    },
+    {
+      "id": "p_transaction_id_get_conf_count",
+      "is_core": false,
+      "description": "uint transactionId parameter of getConfirmationCount",
+      "node_id": 46,
+      "type": "parameter"
+    },
+    {
+      "id": "l_count_get_conf_count",
+      "is_core": false,
+      "description": "uint count return value of getConfirmationCount",
+      "node_id": 47,
+      "type": "local_var"
+    },
+    {
+      "id": "l_i_get_conf_count",
+      "is_core": false,
+      "description": "uint loop index i in getConfirmationCount",
+      "node_id": 48,
+      "type": "local_var"
+    },
+    {
+      "id": "p_pending_get_tx_count",
+      "is_core": false,
+      "description": "bool pending parameter of getTransactionCount",
+      "node_id": 49,
+      "type": "parameter"
+    },
+    {
+      "id": "p_executed_get_tx_count",
+      "is_core": false,
+      "description": "bool executed parameter of getTransactionCount",
+      "node_id": 50,
+      "type": "parameter"
+    },
+    {
+      "id": "l_count_get_tx_count",
+      "is_core": false,
+      "description": "uint count return value of getTransactionCount",
+      "node_id": 51,
+      "type": "local_var"
+    },
+    {
+      "id": "l_i_get_tx_count",
+      "is_core": false,
+      "description": "uint loop index i in getTransactionCount",
+      "node_id": 52,
+      "type": "local_var"
+    },
+    {
+      "id": "p_transaction_id_get_confs",
+      "is_core": false,
+      "description": "uint transactionId parameter of getConfirmations",
+      "node_id": 53,
+      "type": "parameter"
+    },
+    {
+      "id": "l_confirmations_temp",
+      "is_core": false,
+      "description": "address[] memory confirmationsTemp scratch array in getConfirmations",
+      "node_id": 54,
+      "type": "local_var"
+    },
+    {
+      "id": "l_count_get_confs",
+      "is_core": false,
+      "description": "uint count accumulator in getConfirmations",
+      "node_id": 55,
+      "type": "local_var"
+    },
+    {
+      "id": "l_i_get_confs",
+      "is_core": false,
+      "description": "uint loop index i in getConfirmations",
+      "node_id": 56,
+      "type": "local_var"
+    },
+    {
+      "id": "l_confirmations_out",
+      "is_core": false,
+      "description": "address[] _confirmations return array of getConfirmations",
+      "node_id": 57,
+      "type": "local_var"
+    },
+    {
+      "id": "p_from_get_tx_ids",
+      "is_core": false,
+      "description": "uint from parameter of getTransactionIds",
+      "node_id": 58,
+      "type": "parameter"
+    },
+    {
+      "id": "p_to_get_tx_ids",
+      "is_core": false,
+      "description": "uint to parameter of getTransactionIds",
+      "node_id": 59,
+      "type": "parameter"
+    },
+    {
+      "id": "p_pending_get_tx_ids",
+      "is_core": false,
+      "description": "bool pending parameter of getTransactionIds",
+      "node_id": 60,
+      "type": "parameter"
+    },
+    {
+      "id": "p_executed_get_tx_ids",
+      "is_core": false,
+      "description": "bool executed parameter of getTransactionIds",
+      "node_id": 61,
+      "type": "parameter"
+    },
+    {
+      "id": "l_transaction_ids_out",
+      "is_core": false,
+      "description": "uint[] _transactionIds return array of getTransactionIds",
+      "node_id": 62,
+      "type": "local_var"
+    },
+    {
+      "id": "l_transaction_ids_temp",
+      "is_core": false,
+      "description": "uint[] memory transactionIdsTemp scratch array in getTransactionIds",
+      "node_id": 63,
+      "type": "local_var"
+    },
+    {
+      "id": "l_count_get_tx_ids",
+      "is_core": false,
+      "description": "uint count accumulator in getTransactionIds",
+      "node_id": 64,
+      "type": "local_var"
+    },
+    {
+      "id": "l_i_get_tx_ids",
+      "is_core": false,
+      "description": "uint loop index i in getTransactionIds",
+      "node_id": 65,
+      "type": "local_var"
+    },
+    {
+      "id": "l_i_get_tx_ids__node66",
+      "is_core": false,
+      "description": "uint from and to index parameters drive the unchecked to - from array sizing in getTransactionIds",
+      "node_id": 66,
+      "type": "parameter"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 21,
+      "type": "dataflow",
+      "reason": "msg.sender is emitted as the sender of the Deposit event in the payable fallback"
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "access_control",
+      "from_id": 21,
+      "type": "dataflow",
+      "reason": "msg.sender flows into submitTransaction which implicitly confirms via confirmTransaction using msg.sender"
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "access_control",
+      "from_id": 21,
+      "type": "dataflow",
+      "reason": "msg.sender is checked by ownerExists and used as the confirmations mapping key"
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "access_control",
+      "from_id": 21,
+      "type": "dataflow",
+      "reason": "msg.sender is checked by ownerExists/confirmed and used to revoke confirmation state"
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "access_control",
+      "from_id": 21,
+      "type": "dataflow",
+      "reason": "msg.sender must satisfy ownerExists and confirmed before any external call is executed"
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "controlflow",
+      "reason": "submitTransaction calls addTransaction and uses its returned id"
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "controlflow",
+      "reason": "submitTransaction calls confirmTransaction(transactionId) after adding"
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "from_id": 10,
+      "type": "controlflow",
+      "reason": "confirmTransaction calls executeTransaction(transactionId)"
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "none",
+      "from_id": 12,
+      "type": "controlflow",
+      "reason": "executeTransaction gates the call on isConfirmed(transactionId)"
+    },
+    {
+      "to_id": 22,
+      "vuln_type": "reentrancy",
+      "from_id": 12,
+      "type": "controlflow",
+      "reason": "executeTransaction performs the low-level external call unsafe operation"
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "reentrancy",
+      "from_id": 22,
+      "type": "dataflow",
+      "reason": "the unsafe low-level call is implemented inside external_call"
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "reentrancy",
+      "from_id": 13,
+      "type": "callback",
+      "reason": "the external callee re-enters executeTransaction while the executed flag is still being finalised"
+    },
+    {
+      "to_id": 23,
+      "vuln_type": "arithmetic",
+      "from_id": 15,
+      "type": "controlflow",
+      "reason": "addTransaction performs the transactionCount += 1 increment operation"
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "arithmetic",
+      "from_id": 23,
+      "type": "dataflow",
+      "reason": "the unchecked increment writes the transactionCount state variable"
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "arithmetic",
+      "from_id": 15,
+      "type": "dataflow",
+      "reason": "addTransaction reads transactionCount to derive the new transaction id"
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 15,
+      "type": "dataflow",
+      "reason": "addTransaction stores a new Transaction struct into the transactions mapping"
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "from_id": 8,
+      "type": "dataflow",
+      "reason": "constructor writes isOwner for each initial owner"
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "dataflow",
+      "reason": "constructor assigns the owners array"
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "from_id": 8,
+      "type": "dataflow",
+      "reason": "constructor assigns required, the confirmation threshold"
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "dataflow",
+      "reason": "constructor enforces ownerCount <= MAX_OWNER_COUNT via validRequirement"
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "from_id": 10,
+      "type": "dataflow",
+      "reason": "confirmTransaction sets confirmations[transactionId][msg.sender] = true"
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "from_id": 11,
+      "type": "dataflow",
+      "reason": "revokeConfirmation clears confirmations[transactionId][msg.sender]"
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 11,
+      "type": "dataflow",
+      "reason": "revokeConfirmation sets transactions[transactionId].declined = true"
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "reentrancy",
+      "from_id": 12,
+      "type": "dataflow",
+      "reason": "executeTransaction sets txn.executed = true before the external call and resets it on failure"
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 14,
+      "type": "dataflow",
+      "reason": "isConfirmed reads the confirmations mapping while counting"
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 14,
+      "type": "dataflow",
+      "reason": "isConfirmed compares the running count against required"
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 14,
+      "type": "dataflow",
+      "reason": "isConfirmed iterates over the owners array"
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 14,
+      "type": "dataflow",
+      "reason": "isConfirmed reads the declined flag of the transaction"
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 16,
+      "type": "dataflow",
+      "reason": "getConfirmationCount reads the confirmations mapping"
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 16,
+      "type": "dataflow",
+      "reason": "getConfirmationCount iterates over owners"
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 17,
+      "type": "dataflow",
+      "reason": "getTransactionCount reads executed flags from transactions"
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 18,
+      "type": "dataflow",
+      "reason": "getOwners returns the owners state variable"
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 19,
+      "type": "dataflow",
+      "reason": "getConfirmations reads the confirmations mapping"
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 19,
+      "type": "dataflow",
+      "reason": "getConfirmations iterates the owners array"
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 20,
+      "type": "dataflow",
+      "reason": "getTransactionIds reads executed/declined flags from transactions"
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "arithmetic",
+      "from_id": 20,
+      "type": "dataflow",
+      "reason": "getTransactionIds sizes and iterates arrays using transactionCount and to - from"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "p_owners_ctor",
+      "merge_into": "fn_constructor",
+      "reason": "constructor parameter only meaningful inside the constructor's owner initialisation"
+    },
+    {
+      "normal_node": "p_required_ctor",
+      "merge_into": "fn_constructor",
+      "reason": "constructor parameter only meaningful inside the constructor's threshold assignment"
+    },
+    {
+      "normal_node": "p_destination_submit",
+      "merge_into": "fn_submit_transaction",
+      "reason": "transient input forwarded to addTransaction and absorbable into submitTransaction"
+    },
+    {
+      "normal_node": "p_value_submit",
+      "merge_into": "fn_submit_transaction",
+      "reason": "transient value argument of submitTransaction"
+    },
+    {
+      "normal_node": "p_data_submit",
+      "merge_into": "fn_submit_transaction",
+      "reason": "transient payload argument of submitTransaction"
+    },
+    {
+      "normal_node": "l_transaction_id_submit",
+      "merge_into": "fn_submit_transaction",
+      "reason": "intermediate return value binding only relevant to submitTransaction's flows"
+    },
+    {
+      "normal_node": "p_transaction_id_confirm",
+      "merge_into": "fn_confirm_transaction",
+      "reason": "index argument fully captured by confirmTransaction state updates"
+    },
+    {
+      "normal_node": "p_transaction_id_revoke",
+      "merge_into": "fn_revoke_confirmation",
+      "reason": "index argument fully captured by revokeConfirmation state updates"
+    },
+    {
+      "normal_node": "p_transaction_id_execute",
+      "merge_into": "fn_execute_transaction",
+      "reason": "index argument driving executeTransaction's external call"
+    },
+    {
+      "normal_node": "l_txn_execute",
+      "merge_into": "fn_execute_transaction",
+      "reason": "storage alias of transactions[transactionId] used inside executeTransaction"
+    },
+    {
+      "normal_node": "p_destination_extcall",
+      "merge_into": "uo_low_level_call",
+      "reason": "call target argument of the unsafe low-level call"
+    },
+    {
+      "normal_node": "p_value_extcall",
+      "merge_into": "uo_low_level_call",
+      "reason": "value forwarded by the unsafe low-level call"
+    },
+    {
+      "normal_node": "p_data_length_extcall",
+      "merge_into": "uo_low_level_call",
+      "reason": "input length controlling the unsafe low-level call"
+    },
+    {
+      "normal_node": "p_data_extcall",
+      "merge_into": "uo_low_level_call",
+      "reason": "calldata pointer used by the unsafe low-level call"
+    },
+    {
+      "normal_node": "l_result_extcall",
+      "merge_into": "uo_low_level_call",
+      "reason": "success flag returned by the unsafe low-level call"
+    },
+    {
+      "normal_node": "p_transaction_id_is_confirmed",
+      "merge_into": "fn_is_confirmed",
+      "reason": "index argument consumed by the isConfirmed counting loop"
+    },
+    {
+      "normal_node": "l_count_is_confirmed",
+      "merge_into": "fn_is_confirmed",
+      "reason": "accumulator local of isConfirmed's confirmation scan"
+    },
+    {
+      "normal_node": "l_i_is_confirmed",
+      "merge_into": "fn_is_confirmed",
+      "reason": "loop counter local of isConfirmed"
+    },
+    {
+      "normal_node": "p_destination_add",
+      "merge_into": "fn_add_transaction",
+      "reason": "destination argument stored by addTransaction and later used for the call"
+    },
+    {
+      "normal_node": "p_value_add",
+      "merge_into": "fn_add_transaction",
+      "reason": "value argument stored by addTransaction"
+    },
+    {
+      "normal_node": "p_data_add",
+      "merge_into": "fn_add_transaction",
+      "reason": "data argument stored by addTransaction"
+    },
+    {
+      "normal_node": "l_transaction_id_add",
+      "merge_into": "fn_add_transaction",
+      "reason": "new id derived from transactionCount inside addTransaction"
+    },
+    {
+      "normal_node": "p_transaction_id_get_conf_count",
+      "merge_into": "fn_get_confirmation_count",
+      "reason": "read-only index argument of getConfirmationCount"
+    },
+    {
+      "normal_node": "l_count_get_conf_count",
+      "merge_into": "fn_get_confirmation_count",
+      "reason": "return accumulator of getConfirmationCount"
+    },
+    {
+      "normal_node": "l_i_get_conf_count",
+      "merge_into": "fn_get_confirmation_count",
+      "reason": "loop counter of getConfirmationCount"
+    },
+    {
+      "normal_node": "p_pending_get_tx_count",
+      "merge_into": "fn_get_transaction_count",
+      "reason": "filter flag argument of getTransactionCount"
+    },
+    {
+      "normal_node": "p_executed_get_tx_count",
+      "merge_into": "fn_get_transaction_count",
+      "reason": "filter flag argument of getTransactionCount"
+    },
+    {
+      "normal_node": "l_count_get_tx_count",
+      "merge_into": "fn_get_transaction_count",
+      "reason": "return accumulator of getTransactionCount"
+    },
+    {
+      "normal_node": "l_i_get_tx_count",
+      "merge_into": "fn_get_transaction_count",
+      "reason": "loop counter of getTransactionCount"
+    },
+    {
+      "normal_node": "p_transaction_id_get_confs",
+      "merge_into": "fn_get_confirmations",
+      "reason": "read-only index argument of getConfirmations"
+    },
+    {
+      "normal_node": "l_confirmations_temp",
+      "merge_into": "fn_get_confirmations",
+      "reason": "memory scratch array used only inside getConfirmations"
+    },
+    {
+      "normal_node": "l_count_get_confs",
+      "merge_into": "fn_get_confirmations",
+      "reason": "accumulator local of getConfirmations"
+    },
+    {
+      "normal_node": "l_i_get_confs",
+      "merge_into": "fn_get_confirmations",
+      "reason": "loop counter of getConfirmations"
+    },
+    {
+      "normal_node": "l_confirmations_out",
+      "merge_into": "fn_get_confirmations",
+      "reason": "return array local of getConfirmations"
+    },
+    {
+      "normal_node": "p_from_get_tx_ids",
+      "merge_into": "fn_get_transaction_ids",
+      "reason": "slice start index argument of getTransactionIds"
+    },
+    {
+      "normal_node": "p_to_get_tx_ids",
+      "merge_into": "fn_get_transaction_ids",
+      "reason": "slice end index argument of getTransactionIds"
+    },
+    {
+      "normal_node": "p_pending_get_tx_ids",
+      "merge_into": "fn_get_transaction_ids",
+      "reason": "filter flag argument of getTransactionIds"
+    },
+    {
+      "normal_node": "p_executed_get_tx_ids",
+      "merge_into": "fn_get_transaction_ids",
+      "reason": "filter flag argument of getTransactionIds"
+    },
+    {
+      "normal_node": "l_transaction_ids_out",
+      "merge_into": "fn_get_transaction_ids",
+      "reason": "return array local of getTransactionIds"
+    },
+    {
+      "normal_node": "l_transaction_ids_temp",
+      "merge_into": "fn_get_transaction_ids",
+      "reason": "memory scratch array used only inside getTransactionIds"
+    },
+    {
+      "normal_node": "l_count_get_tx_ids",
+      "merge_into": "fn_get_transaction_ids",
+      "reason": "accumulator local of getTransactionIds"
+    },
+    {
+      "normal_node": "l_i_get_tx_ids",
+      "merge_into": "fn_get_transaction_ids",
+      "reason": "loop counter of getTransactionIds"
+    }
+  ]
+}

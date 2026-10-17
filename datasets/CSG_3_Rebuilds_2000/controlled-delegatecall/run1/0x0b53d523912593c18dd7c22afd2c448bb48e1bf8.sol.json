@@ -1,0 +1,598 @@
+{
+  "nodes": [
+    {
+      "description": "MirrorENSRegistrar.register(string,address): external registration entrypoint gated by onlyWriteToken; writes ENS records and reverse records.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 0,
+      "id": "fn_register"
+    },
+    {
+      "description": "MirrorENSRegistrar.changeRootNodeOwner(address): onlyOwner function that transfers the ENS root node ownership via the registry.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 1,
+      "id": "fn_changeRootNodeOwner"
+    },
+    {
+      "description": "MirrorENSRegistrar.updateENSReverseRegistrar(): onlyOwner function that caches the reverse registrar address read from the ENS registry.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 2,
+      "id": "fn_updateENSReverseRegistrar"
+    },
+    {
+      "description": "MirrorENSRegistrar constructor: sets rootName, rootNode, writeToken and instantiates ensRegistry/ensResolver; also Ownable constructor sets _owner.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "fn_constructor"
+    },
+    {
+      "description": "Ownable.owner(): view accessor returning the stored _owner address.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 4,
+      "id": "fn_owner"
+    },
+    {
+      "description": "Ownable.renounceOwnership(): onlyOwner function that sets _owner to address(0).",
+      "is_core": true,
+      "type": "function",
+      "node_id": 5,
+      "id": "fn_renounceOwnership"
+    },
+    {
+      "description": "Ownable.transferOwnership(address): onlyOwner function that assigns a new owner to _owner.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 6,
+      "id": "fn_transferOwnership"
+    },
+    {
+      "description": "Context._msgSender(): returns msg.sender, the source of the caller identity used for all authorization checks.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 7,
+      "id": "fn_msgSender"
+    },
+    {
+      "description": "Context._msgData(): returns msg.data payload of the current call.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 8,
+      "id": "fn_msgData"
+    },
+    {
+      "description": "string public rootName: human-readable ENS root name (e.g. mirror.xyz) written in the constructor and read during reverse-name composition.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 9,
+      "id": "sv_rootName"
+    },
+    {
+      "description": "bytes32 public immutable rootNode: namehash of the managed root, used as the parent node for registrations and ownership changes.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 10,
+      "id": "sv_rootNode"
+    },
+    {
+      "description": "IENS public immutable ensRegistry: address of the ENS registry contract used for owner lookups and record writes.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 11,
+      "id": "sv_ensRegistry"
+    },
+    {
+      "description": "address public immutable writeToken: the only address authorized to call register (checked against msg.sender).",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 12,
+      "id": "sv_writeToken"
+    },
+    {
+      "description": "IENSResolver public immutable ensResolver: trusted resolver contract used to set addr and name records.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 13,
+      "id": "sv_ensResolver"
+    },
+    {
+      "description": "IENSReverseRegistrar public reverseRegistrar: mutable cache of the reverse registrar, set by updateENSReverseRegistrar and read in register.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 14,
+      "id": "sv_reverseRegistrar"
+    },
+    {
+      "description": "bytes32 public constant ADDR_REVERSE_NODE: namehash('addr.reverse') used to look up the reverse registrar owner.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 15,
+      "id": "sv_addr_reverse_node"
+    },
+    {
+      "description": "address private _owner: Ownable storage holding the privileged owner address that guards onlyOwner functions.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 16,
+      "id": "sv_owner"
+    },
+    {
+      "description": "msg.sender: attacker-controllable caller identity used to gate register (onlyWriteToken) and the onlyOwner administrative functions.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 17,
+      "id": "input_msg_sender"
+    },
+    {
+      "description": "External call ensRegistry.setSubnodeRecord(rootNode, labelNode, owner_, resolver, 0) inside register: writes ENS ownership to an externally supplied account.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 18,
+      "id": "unsafe_set_subnode_record"
+    },
+    {
+      "description": "External calls ensResolver.setAddr(node, owner_) and ensResolver.setName(reverseNode, name) inside register: forward and reverse record writes to the resolver.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 19,
+      "id": "unsafe_resolver_writes"
+    },
+    {
+      "description": "External call ensRegistry.setOwner(rootNode, _newOwner) inside changeRootNodeOwner: hands root-node control to a new address.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 20,
+      "id": "unsafe_set_owner"
+    },
+    {
+      "description": "External call ensRegistry.owner(ADDR_REVERSE_NODE) inside updateENSReverseRegistrar: uncached external dependency used to populate reverseRegistrar.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 21,
+      "id": "unsafe_registry_owner_lookup"
+    },
+    {
+      "description": "string calldata label_: attacker-influenced subdomain label passed into register.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 22,
+      "id": "param_label"
+    },
+    {
+      "description": "address owner_: destination owner of the registered subdomain in register.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 23,
+      "id": "param_owner"
+    },
+    {
+      "description": "address _newOwner: new root node owner supplied to changeRootNodeOwner.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 24,
+      "id": "param_new_owner"
+    },
+    {
+      "description": "string rootName_: constructor input stored into rootName.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 25,
+      "id": "param_root_name"
+    },
+    {
+      "description": "bytes32 rootNode_: constructor input stored into the immutable rootNode.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 26,
+      "id": "param_root_node"
+    },
+    {
+      "description": "address ensRegistry_: constructor input cast to IENS and stored into ensRegistry.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 27,
+      "id": "param_ens_registry"
+    },
+    {
+      "description": "address ensResolver_: constructor input cast to IENSResolver and stored into ensResolver.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 28,
+      "id": "param_ens_resolver"
+    },
+    {
+      "description": "address writeToken_: constructor input stored into the immutable writeToken authorization gate.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 29,
+      "id": "param_write_token"
+    },
+    {
+      "description": "bytes32 labelNode: keccak256(abi.encodePacked(label_)) used as the ENS subnode label.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 30,
+      "id": "local_label_node"
+    },
+    {
+      "description": "bytes32 node: keccak256(abi.encodePacked(rootNode, labelNode)), the derived full node of the subdomain.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 31,
+      "id": "local_node"
+    },
+    {
+      "description": "string name: reverse record name composed from label_ and rootName.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 32,
+      "id": "local_name"
+    },
+    {
+      "description": "bytes32 reverseNode: result of reverseRegistrar.node(owner_) used as the reverse record key.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 33,
+      "id": "local_reverse_node"
+    },
+    {
+      "description": "address msgSender: constructor local holding _msgSender() before assigning it to _owner.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 34,
+      "id": "local_msg_sender"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "register is guarded by onlyWriteToken, which compares msg.sender against writeToken; caller identity therefore controls execution.",
+      "from_id": 17,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 0
+    },
+    {
+      "reason": "changeRootNodeOwner is guarded by onlyOwner, which requires _owner == _msgSender().",
+      "from_id": 17,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 1
+    },
+    {
+      "reason": "updateENSReverseRegistrar is guarded by onlyOwner, which requires _owner == _msgSender().",
+      "from_id": 17,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 2
+    },
+    {
+      "reason": "renounceOwnership is guarded by onlyOwner and can irreversibly remove the owner.",
+      "from_id": 17,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 5
+    },
+    {
+      "reason": "transferOwnership is guarded by onlyOwner and reassigns privileged control.",
+      "from_id": 17,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 6
+    },
+    {
+      "reason": "_msgSender() simply returns msg.sender, propagating the untrusted caller identity.",
+      "from_id": 17,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 7
+    },
+    {
+      "reason": "writeToken state variable is read in the onlyWriteToken check that authorizes register.",
+      "from_id": 12,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "register invokes the external registry write ensRegistry.setSubnodeRecord.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 18
+    },
+    {
+      "reason": "register invokes the external resolver writes setAddr and setName.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 19
+    },
+    {
+      "reason": "changeRootNodeOwner invokes the external registry write ensRegistry.setOwner.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 20
+    },
+    {
+      "reason": "updateENSReverseRegistrar performs the external read ensRegistry.owner(ADDR_REVERSE_NODE).",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 21
+    },
+    {
+      "reason": "The external setSubnodeRecord call executes untrusted external code before register completes, enabling reentrant invocation of register.",
+      "from_id": 18,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 0
+    },
+    {
+      "reason": "The external setAddr/setName calls execute untrusted external code while register is mid-execution, enabling reentrancy.",
+      "from_id": 19,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 0
+    },
+    {
+      "reason": "label_ is hashed into the local labelNode.",
+      "from_id": 22,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 30
+    },
+    {
+      "reason": "labelNode is passed as the subnode label to ensRegistry.setSubnodeRecord.",
+      "from_id": 30,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 18
+    },
+    {
+      "reason": "rootNode is passed as the parent node to ensRegistry.setSubnodeRecord.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 18
+    },
+    {
+      "reason": "owner_ is passed as the owner argument to ensRegistry.setSubnodeRecord.",
+      "from_id": 23,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 18
+    },
+    {
+      "reason": "ensResolver is the target contract of the setAddr and setName calls.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 19
+    },
+    {
+      "reason": "owner_ is written into the forward resolver record via setAddr.",
+      "from_id": 23,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 19
+    },
+    {
+      "reason": "the derived node is used as the record key for setAddr.",
+      "from_id": 31,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 19
+    },
+    {
+      "reason": "the composed name is written into the reverse record via setName.",
+      "from_id": 32,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 19
+    },
+    {
+      "reason": "reverseNode is used as the reverse record key for setName.",
+      "from_id": 33,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 19
+    },
+    {
+      "reason": "rootNode is concatenated with labelNode to derive the full node.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 31
+    },
+    {
+      "reason": "labelNode is concatenated with rootNode to derive the full node.",
+      "from_id": 30,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 31
+    },
+    {
+      "reason": "label_ is concatenated into the reverse record name.",
+      "from_id": 22,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 32
+    },
+    {
+      "reason": "rootName is concatenated into the reverse record name.",
+      "from_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 32
+    },
+    {
+      "reason": "reverseRegistrar is called to compute reverseNode for the owner.",
+      "from_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 33
+    },
+    {
+      "reason": "_newOwner is passed as the new owner to ensRegistry.setOwner.",
+      "from_id": 24,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 20
+    },
+    {
+      "reason": "rootNode identifies which ENS node has its owner changed.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 20
+    },
+    {
+      "reason": "ADDR_REVERSE_NODE is the lookup key passed to ensRegistry.owner.",
+      "from_id": 15,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 21
+    },
+    {
+      "reason": "ensRegistry is the contract queried for the reverse registrar owner.",
+      "from_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 21
+    },
+    {
+      "reason": "updateENSReverseRegistrar writes the reverseRegistrar state variable.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 14
+    },
+    {
+      "reason": "The owner address returned by the external registry read is stored into reverseRegistrar.",
+      "from_id": 21,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 14
+    },
+    {
+      "reason": "The constructor local msgSender is assigned to the _owner state variable.",
+      "from_id": 34,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 16
+    },
+    {
+      "reason": "_msgSender() supplies the value stored in the msgSender local.",
+      "from_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 34
+    },
+    {
+      "reason": "constructor parameter rootName_ initializes the rootName state variable.",
+      "from_id": 25,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 9
+    },
+    {
+      "reason": "constructor parameter rootNode_ initializes the immutable rootNode.",
+      "from_id": 26,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 10
+    },
+    {
+      "reason": "constructor parameter ensRegistry_ initializes the immutable ensRegistry.",
+      "from_id": 27,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "constructor parameter ensResolver_ initializes the immutable ensResolver.",
+      "from_id": 28,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 13
+    },
+    {
+      "reason": "constructor parameter writeToken_ initializes the immutable writeToken authorization gate.",
+      "from_id": 29,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 12
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Parameter label_ only exists to build the labelNode used by register; merge it into the register function node.",
+      "normal_node": "param_label",
+      "merge_into": "fn_register"
+    },
+    {
+      "reason": "Parameter owner_ is consumed solely by the register flow; merge it into the register function node.",
+      "normal_node": "param_owner",
+      "merge_into": "fn_register"
+    },
+    {
+      "reason": "Parameter _newOwner is used only by changeRootNodeOwner; merge it into that function node.",
+      "normal_node": "param_new_owner",
+      "merge_into": "fn_changeRootNodeOwner"
+    },
+    {
+      "reason": "Constructor parameter rootName_ is a transient initializer; merge it into the constructor node.",
+      "normal_node": "param_root_name",
+      "merge_into": "fn_constructor"
+    },
+    {
+      "reason": "Constructor parameter rootNode_ is a transient initializer; merge it into the constructor node.",
+      "normal_node": "param_root_node",
+      "merge_into": "fn_constructor"
+    },
+    {
+      "reason": "Constructor parameter ensRegistry_ is a transient initializer; merge it into the constructor node.",
+      "normal_node": "param_ens_registry",
+      "merge_into": "fn_constructor"
+    },
+    {
+      "reason": "Constructor parameter ensResolver_ is a transient initializer; merge it into the constructor node.",
+      "normal_node": "param_ens_resolver",
+      "merge_into": "fn_constructor"
+    },
+    {
+      "reason": "Constructor parameter writeToken_ is a transient initializer; merge it into the constructor node.",
+      "normal_node": "param_write_token",
+      "merge_into": "fn_constructor"
+    },
+    {
+      "reason": "Local labelNode is derived and immediately forwarded to the setSubnodeRecord external call; merge it into that unsafe operation.",
+      "normal_node": "local_label_node",
+      "merge_into": "unsafe_set_subnode_record"
+    },
+    {
+      "reason": "Local node is derived and consumed by the resolver setAddr write; merge it into that unsafe operation.",
+      "normal_node": "local_node",
+      "merge_into": "unsafe_resolver_writes"
+    },
+    {
+      "reason": "Local name is composed only to be passed to setName; merge it into the resolver unsafe operation.",
+      "normal_node": "local_name",
+      "merge_into": "unsafe_resolver_writes"
+    },
+    {
+      "reason": "Local reverseNode is produced by the registrar and consumed by setName; merge it into the resolver unsafe operation.",
+      "normal_node": "local_reverse_node",
+      "merge_into": "unsafe_resolver_writes"
+    },
+    {
+      "reason": "Local msgSender merely captures the return of _msgSender() before storing it in _owner; merge it into the _msgSender function node.",
+      "normal_node": "local_msg_sender",
+      "merge_into": "fn_msgSender"
+    }
+  ]
+}

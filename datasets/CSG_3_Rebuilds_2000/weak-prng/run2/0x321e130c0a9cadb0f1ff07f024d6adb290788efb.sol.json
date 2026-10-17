@@ -1,0 +1,601 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Constant address of the vault contract that is called with allocate() in performUpkeep.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "vault"
+    },
+    {
+      "type": "state_var",
+      "description": "Constant address of the dripper contract that is called with collectAndRebase() in performUpkeep.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "dripper"
+    },
+    {
+      "type": "state_var",
+      "description": "Constant address allowed to update the keeper configuration.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "owner"
+    },
+    {
+      "type": "state_var",
+      "description": "Immutable start of the daily execution window in seconds after start of day.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "windowStart"
+    },
+    {
+      "type": "state_var",
+      "description": "Immutable end of the daily execution window in seconds after start of day.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "windowEnd"
+    },
+    {
+      "type": "state_var",
+      "description": "Day number (block.timestamp / 86400) of the last successful upkeep run; used as one-run-per-day guard.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "lastRunDay"
+    },
+    {
+      "type": "state_var",
+      "description": "Public packed configuration: byte 0 holds rebase weekday bits, byte 1 holds allocate weekday bits.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "config"
+    },
+    {
+      "type": "function",
+      "description": "Constructor initialising windowStart, windowEnd and config; no access control (deployment only).",
+      "is_core": true,
+      "node_id": 7,
+      "id": "constructor"
+    },
+    {
+      "type": "function",
+      "description": "External owner-only function that overwrites the config state variable.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "setConfig"
+    },
+    {
+      "type": "function",
+      "description": "Keeper-compatible view entry point returning whether rebase/allocate should run and echoing checkData as performData.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "checkUpkeep"
+    },
+    {
+      "type": "function",
+      "description": "Permissionless entry point that writes lastRunDay and performs low-level calls to dripper and vault.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "performUpkeep"
+    },
+    {
+      "type": "function",
+      "description": "Internal view helper that decides runRebase/runAllocate from lastRunDay, block.timestamp window and weekday config bits.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "_shouldRun"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller-controlled address, compared against owner in setConfig and uncontrolled in performUpkeep.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "msg.sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Miner/validator-influenced timestamp used for the day counter, the execution window check and the lastRunDay write.",
+      "is_core": true,
+      "node_id": 13,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Low-level dripper.call(abi.encodeWithSignature(\"collectAndRebase()\")) whose success value and return data are ignored.",
+      "is_core": true,
+      "node_id": 14,
+      "id": "external_call_dripper"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Low-level vault.call(abi.encodeWithSignature(\"allocate()\")) whose success value and return data are ignored.",
+      "is_core": true,
+      "node_id": 15,
+      "id": "external_call_vault"
+    },
+    {
+      "type": "parameter",
+      "description": "Constructor parameter assigned to the windowStart immutable state variable.",
+      "is_core": false,
+      "node_id": 16,
+      "id": "windowStart_"
+    },
+    {
+      "type": "parameter",
+      "description": "Constructor parameter assigned to the windowEnd immutable state variable.",
+      "is_core": false,
+      "node_id": 17,
+      "id": "windowEnd_"
+    },
+    {
+      "type": "parameter",
+      "description": "Constructor bytes32 parameter written into the config state variable.",
+      "is_core": false,
+      "node_id": 18,
+      "id": "config_ctor"
+    },
+    {
+      "type": "parameter",
+      "description": "setConfig bytes32 parameter written into the config state variable after the owner check.",
+      "is_core": false,
+      "node_id": 19,
+      "id": "config_setter"
+    },
+    {
+      "type": "parameter",
+      "description": "Calldata bytes passed to checkUpkeep and returned unchanged as performData.",
+      "is_core": false,
+      "node_id": 20,
+      "id": "checkData"
+    },
+    {
+      "type": "parameter",
+      "description": "Calldata bytes passed to performUpkeep, a public entry point supplied by any caller.",
+      "is_core": false,
+      "node_id": 21,
+      "id": "performData"
+    },
+    {
+      "type": "local_var",
+      "description": "Local return value of _shouldRun indicating the dripper rebase should be executed.",
+      "is_core": false,
+      "node_id": 22,
+      "id": "runRebase"
+    },
+    {
+      "type": "local_var",
+      "description": "Local return value of _shouldRun indicating the vault allocate should be executed.",
+      "is_core": false,
+      "node_id": 23,
+      "id": "runAllocate"
+    },
+    {
+      "type": "local_var",
+      "description": "Local day counter computed as block.timestamp / 86400.",
+      "is_core": false,
+      "node_id": 24,
+      "id": "day"
+    },
+    {
+      "type": "local_var",
+      "description": "Local seconds-after-start-of-day computed as block.timestamp % 86400.",
+      "is_core": false,
+      "node_id": 25,
+      "id": "daySeconds"
+    },
+    {
+      "type": "local_var",
+      "description": "Local weekday bitmask taken from config byte 0.",
+      "is_core": false,
+      "node_id": 26,
+      "id": "rebaseDays"
+    },
+    {
+      "type": "local_var",
+      "description": "Local weekday bitmask taken from config byte 1.",
+      "is_core": false,
+      "node_id": 27,
+      "id": "allocateDays"
+    },
+    {
+      "type": "local_var",
+      "description": "Local weekday index derived from day as (day + 4) % 7.",
+      "is_core": false,
+      "node_id": 28,
+      "id": "weekday"
+    },
+    {
+      "type": "local_var",
+      "description": "Local copy of the config state variable used for gas savings inside _shouldRun.",
+      "is_core": false,
+      "node_id": 29,
+      "id": "_config"
+    },
+    {
+      "type": "local_var",
+      "description": "Local return flag of checkUpkeep = runRebase || runAllocate.",
+      "is_core": false,
+      "node_id": 30,
+      "id": "upkeepNeeded"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "constructor writes its windowStart_ argument into the windowStart immutable.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "constructor writes its windowEnd_ argument into the windowEnd immutable.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "constructor writes its config_ argument into the config state variable.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "Parameter windowStart_ flows into the windowStart state variable.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "Parameter windowEnd_ flows into the windowEnd state variable.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "Constructor parameter config_ctor flows into the config state variable.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "msg.sender is compared to the owner constant to gate the privileged setConfig function.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "The owner constant is the reference address used in the setConfig authorization check.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "Parameter config_setter flows into the config state variable.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "setConfig performs the state write that overwrites config.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "checkData calldata is consumed by checkUpkeep and echoed in performData.",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "performData calldata is supplied by the caller of the permissionless performUpkeep.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "checkUpkeep calls the internal _shouldRun helper to evaluate the run flags.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "performUpkeep calls the internal _shouldRun helper to evaluate the run flags.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "block.timestamp is used inside _shouldRun to derive day and daySeconds, making the run decision timestamp dependent.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "performUpkeep writes lastRunDay using block.timestamp / 86400, so the once-per-day guard depends on the miner-controlled timestamp.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "lastRunDay is read in _shouldRun to enforce a single run per day.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "performUpkeep writes the current day into lastRunDay before performing external calls.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "windowStart is compared with daySeconds to decide whether the window is open.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "windowEnd is compared with daySeconds to decide whether the window is open.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "_shouldRun reads the config state variable to load the weekly schedule.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "config is copied into the local _config variable for gas savings.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "Local day is derived from block.timestamp / 86400.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "Local daySeconds is derived from block.timestamp % 86400.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 28,
+      "type": "dataflow",
+      "reason": "Local weekday is derived from the timestamp-dependent day value.",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "Timestamp-derived day feeds the lastRunDay comparison that gates execution.",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "Timestamp-derived daySeconds feeds the window check that gates execution.",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "dataflow",
+      "reason": "rebaseDays is extracted from byte 0 of _config.",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "allocateDays is extracted from byte 1 of _config.",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "The rebaseDays bit for the current weekday sets runRebase.",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "The allocateDays bit for the current weekday sets runAllocate.",
+      "from_id": 27
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "The computed weekday indexes the schedule bitmasks inside _shouldRun.",
+      "from_id": 28
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "_shouldRun produces the runRebase return value.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "_shouldRun produces the runAllocate return value.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "runRebase/runAllocate are returned to checkUpkeep which ORs them into upkeepNeeded.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "runRebase/runAllocate are returned to performUpkeep and drive the external calls.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "Perform data / upkeep flag produced by checkUpkeep is the keeper-facing result.",
+      "from_id": 30
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "The dripper constant address is the target of the low-level call.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "The vault constant address is the target of the low-level call.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "controlflow",
+      "reason": "performUpkeep executes dripper.call(collectAndRebase()) when runRebase is true, ignoring the result.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "controlflow",
+      "reason": "performUpkeep executes vault.call(allocate()) when runAllocate is true, ignoring the result.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 10,
+      "type": "callback",
+      "reason": "The unchecked low-level call into dripper hands control to external code that can re-enter performUpkeep/checkUpkeep.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 10,
+      "type": "callback",
+      "reason": "The unchecked low-level call into vault hands control to external code that can re-enter performUpkeep/checkUpkeep.",
+      "from_id": 15
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "constructor",
+      "reason": "Constructor-only parameter; it is fully absorbed by the constructor's write to windowStart.",
+      "normal_node": "windowStart_"
+    },
+    {
+      "merge_into": "constructor",
+      "reason": "Constructor-only parameter; it is fully absorbed by the constructor's write to windowEnd.",
+      "normal_node": "windowEnd_"
+    },
+    {
+      "merge_into": "constructor",
+      "reason": "Constructor-only parameter; it is fully absorbed by the constructor's write to config.",
+      "normal_node": "config_ctor"
+    },
+    {
+      "merge_into": "setConfig",
+      "reason": "Parameter of setConfig; it only exists to be written into config after the owner check.",
+      "normal_node": "config_setter"
+    },
+    {
+      "merge_into": "checkUpkeep",
+      "reason": "Calldata parameter of checkUpkeep; its only use is to be echoed as performData.",
+      "normal_node": "checkData"
+    },
+    {
+      "merge_into": "performUpkeep",
+      "reason": "Calldata parameter of performUpkeep; it is unused inside the body and can be folded into the entry point.",
+      "normal_node": "performData"
+    },
+    {
+      "merge_into": "checkUpkeep",
+      "reason": "Return local of _shouldRun; it is consumed as the || condition of checkUpkeep's upkeepNeeded.",
+      "normal_node": "runRebase"
+    },
+    {
+      "merge_into": "checkUpkeep",
+      "reason": "Return local of _shouldRun; it is consumed as the || condition of checkUpkeep's upkeepNeeded.",
+      "normal_node": "runAllocate"
+    },
+    {
+      "merge_into": "_shouldRun",
+      "reason": "Temporary timestamp-derived value local to _shouldRun.",
+      "normal_node": "day"
+    },
+    {
+      "merge_into": "_shouldRun",
+      "reason": "Temporary timestamp-derived value local to _shouldRun.",
+      "normal_node": "daySeconds"
+    },
+    {
+      "merge_into": "_shouldRun",
+      "reason": "Temporary schedule bitmask local to _shouldRun.",
+      "normal_node": "rebaseDays"
+    },
+    {
+      "merge_into": "_shouldRun",
+      "reason": "Temporary schedule bitmask local to _shouldRun.",
+      "normal_node": "allocateDays"
+    },
+    {
+      "merge_into": "_shouldRun",
+      "reason": "Temporary weekday index local to _shouldRun.",
+      "normal_node": "weekday"
+    },
+    {
+      "merge_into": "_shouldRun",
+      "reason": "Gas-saving local copy of the config state variable inside _shouldRun.",
+      "normal_node": "_config"
+    },
+    {
+      "merge_into": "checkUpkeep",
+      "reason": "Return local computed inside checkUpkeep from the _shouldRun flags.",
+      "normal_node": "upkeepNeeded"
+    }
+  ]
+}

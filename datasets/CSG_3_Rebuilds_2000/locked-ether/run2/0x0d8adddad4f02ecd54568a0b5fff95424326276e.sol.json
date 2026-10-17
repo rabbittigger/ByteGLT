@@ -1,0 +1,97 @@
+{
+  "nodes": [
+    {
+      "id": "owner",
+      "description": "Public address state variable that records the contract owner; initialized at deployment with msg.sender and used as the authority for the restricted modifier.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "last_completed_migration",
+      "description": "Public uint state variable that stores the highest migration index recorded as completed.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "msg.sender",
+      "description": "Untrusted caller address; used to initialize owner and compared against owner inside the restricted modifier.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "setCompleted",
+      "description": "Public function protected by the restricted modifier that writes the supplied migration index into last_completed_migration.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "completed",
+      "description": "uint parameter of setCompleted carrying the migration index supplied by the caller.",
+      "is_core": false,
+      "node_id": 4,
+      "type": "parameter"
+    },
+    {
+      "id": "last_completed_migration = completed",
+      "description": "State-modifying write of caller-supplied data to the last_completed_migration storage slot, permitted only when the restricted modifier authorizes msg.sender.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The untrusted caller address msg.sender is stored into the owner state variable during construction, fixing the privileged identity of the contract.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender flows into the restricted modifier where it is compared with owner; the comparison determines whether setCompleted may execute, so caller identity governs the authorization decision.",
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Execution of setCompleted reaches the storage write operation that updates last_completed_migration after the restricted modifier check succeeds.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The completed parameter value flows directly into the store operation on last_completed_migration without arithmetic, so no overflow or underflow is possible for the raw assignment.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The write operation mutates the last_completed_migration state variable, linking the unsafe operation to the affected storage slot.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Because the restricted modifier gates the enclosing function on msg.sender == owner, caller identity controls whether the state write to last_completed_migration can be reached.",
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "from_id": 2,
+      "type": "controlflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The parameter completed is a transient non-core value with no independent identity; it exists only to be stored, so it is merged into the directly related unsafe write operation on last_completed_migration.",
+      "normal_node": "completed",
+      "merge_into": "last_completed_migration = completed"
+    }
+  ]
+}

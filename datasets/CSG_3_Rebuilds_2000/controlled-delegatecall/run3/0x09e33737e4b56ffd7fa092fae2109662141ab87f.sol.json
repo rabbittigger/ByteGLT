@@ -1,0 +1,257 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Owner address state variable of Ownable; source of privileged authorization.",
+      "id": "state_var_owner",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Ownable constructor; assigns owner = msg.sender at deployment.",
+      "id": "func_Ownable_constructor",
+      "type": "function",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "onlyOwner modifier; requires msg.sender to equal the stored owner.",
+      "id": "func_onlyOwner_modifier",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "transferOwnership(address newOwner) guarded by onlyOwner; updates owner.",
+      "id": "func_transferOwnership",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": false,
+      "description": "New owner address supplied to transferOwnership.",
+      "id": "param_newOwner",
+      "type": "parameter",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "msg.sender used for ownership assignment and authorization checks.",
+      "id": "untrusted_msg_sender",
+      "type": "untrusted_input",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "Indorser.multisend; batch-transfers tokens via an external Token contract call in a loop.",
+      "id": "func_multisend",
+      "type": "function",
+      "node_id": 6
+    },
+    {
+      "is_core": false,
+      "description": "Token contract address argument used as the external call target.",
+      "id": "param_tokenAddr",
+      "type": "parameter",
+      "node_id": 7
+    },
+    {
+      "is_core": false,
+      "description": "Array of recipient addresses passed to the external transfer call.",
+      "id": "param_to",
+      "type": "parameter",
+      "node_id": 8
+    },
+    {
+      "is_core": false,
+      "description": "Array of transfer amounts passed to the external transfer call.",
+      "id": "param_value",
+      "type": "parameter",
+      "node_id": 9
+    },
+    {
+      "is_core": false,
+      "description": "uint8 loop counter indexing the _to and _value arrays.",
+      "id": "local_i",
+      "type": "local_var",
+      "node_id": 10
+    },
+    {
+      "is_core": true,
+      "description": "External call Token(_tokenAddr).transfer(_to[i], _value[i]) executed inside the loop; state/control resumes after untrusted callee returns.",
+      "id": "unsafe_external_transfer_call",
+      "type": "unsafe_operation",
+      "node_id": 11
+    },
+    {
+      "is_core": true,
+      "description": "uint8 loop counter increment i++ (unchecked arithmetic in a tight loop).",
+      "id": "unsafe_arithmetic_i_increment",
+      "type": "unsafe_operation",
+      "node_id": 12
+    },
+    {
+      "is_core": true,
+      "description": "Privileged state write owner = newOwner.",
+      "id": "unsafe_owner_state_change",
+      "type": "unsafe_operation",
+      "node_id": 13
+    },
+    {
+      "is_core": true,
+      "description": "require(msg.sender == owner) authorization gate in onlyOwner.",
+      "id": "unsafe_require_owner_check",
+      "type": "unsafe_operation",
+      "node_id": 14
+    },
+    {
+      "is_core": true,
+      "description": "External Token interface function transfer(address to, uint value) returns (bool).",
+      "id": "func_Token_transfer",
+      "type": "function",
+      "node_id": 15
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "Constructor writes owner from msg.sender, tying ownership to the caller identity.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "access_control",
+      "reason": "msg.sender is compared against stored owner in the require check, controlling privileged access.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "Ownable constructor initializes the owner state variable.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "reason": "newOwner parameter overwrites the privileged owner state variable.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "access_control",
+      "reason": "newOwner flows into the privileged owner = newOwner state change operation.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "onlyOwner modifier gates entry into transferOwnership.",
+      "type": "controlflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "access_control",
+      "reason": "onlyOwner modifier body executes the require(msg.sender == owner) authorization check.",
+      "type": "controlflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "access_control",
+      "reason": "Authorization check must pass before the privileged owner state change executes.",
+      "type": "controlflow",
+      "from_id": 14
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "User-supplied _tokenAddr determines the address of the external contract being called.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "reason": "Recipient list _to flows into the external transfer call, which hands control to an untrusted token contract.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "Amount array _value flows into the external transfer call arguments.",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "Loop counter i indexes _to[i] and _value[i] for each external transfer invocation.",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "arithmetic",
+      "reason": "Loop counter i is incremented by i++ arithmetic each iteration.",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "reason": "multisend loop body executes the external call to the Token contract before the loop completes.",
+      "type": "controlflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "none",
+      "reason": "multisend invokes the external Token.transfer interface function.",
+      "type": "controlflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "reason": "The untrusted token contract called via Token(_tokenAddr).transfer can re-enter multisend while the loop state is incomplete.",
+      "type": "callback",
+      "from_id": 11
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "unsafe_owner_state_change",
+      "reason": "newOwner is a transient argument that is immediately consumed by the privileged owner = newOwner write; it has no independent semantic role beyond that operation.",
+      "normal_node": "param_newOwner"
+    },
+    {
+      "merge_into": "unsafe_external_transfer_call",
+      "reason": "_tokenAddr exists only to designate the callee of the external transfer call and should be folded into that unsafe operation.",
+      "normal_node": "param_tokenAddr"
+    },
+    {
+      "merge_into": "unsafe_external_transfer_call",
+      "reason": "_to is a temporary input array consumed solely as recipients of the external transfer call in each loop iteration.",
+      "normal_node": "param_to"
+    },
+    {
+      "merge_into": "unsafe_external_transfer_call",
+      "reason": "_value is a temporary input array consumed solely as amounts of the external transfer call in each loop iteration.",
+      "normal_node": "param_value"
+    },
+    {
+      "merge_into": "unsafe_arithmetic_i_increment",
+      "reason": "Local loop counter i is a short-lived index whose only algorithmic effect is the i++ increment driving the loop.",
+      "normal_node": "local_i"
+    }
+  ]
+}

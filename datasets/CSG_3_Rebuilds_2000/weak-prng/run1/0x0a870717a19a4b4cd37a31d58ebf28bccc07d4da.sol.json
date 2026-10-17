@@ -1,0 +1,70 @@
+{
+  "nodes": [
+    {
+      "description": "Public immutable-by-assignment address of the Chainlink aggregator (0xDC3EA94CD0AC27d9A86C180091e7f78C683d3699) used as the price source.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "chainlink"
+    },
+    {
+      "description": "External view function getPrice() that returns the Chainlink latestAnswer() divided by 100 to convert SNX-USDC (6 decimals) into a target price.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 1,
+      "id": "getPrice"
+    },
+    {
+      "description": "Untrusted external call IChainlink(chainlink).latestAnswer(); the returned price is consumed directly, so a malicious/incorrect aggregator address would return an attacker-controlled value.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 2,
+      "id": "call_latestAnswer"
+    },
+    {
+      "description": "Arithmetic conversion of the oracle answer by integer division (/ 100), which silently truncates precision and operates on unvalidated external data.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 3,
+      "id": "div_100"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "getPrice() reads the chainlink state variable to determine the oracle contract address.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "Execution of getPrice() directly invokes the external latestAnswer() call on the oracle contract.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 2
+    },
+    {
+      "reason": "The chainlink state variable is used as the target address of the untrusted external call.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "The untrusted return value of latestAnswer() flows into the integer division by 100, causing truncation of unvalidated external data.",
+      "from_id": 2,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "getPrice() performs the /100 arithmetic conversion before returning the price.",
+      "from_id": 1,
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "to_id": 3
+    }
+  ],
+  "normalization_plan": []
+}

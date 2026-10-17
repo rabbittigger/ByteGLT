@@ -1,0 +1,538 @@
+{
+  "nodes": [
+    {
+      "id": "sv_price",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Current sale price of the Canvas NFT, read and mutated in buy() and read in poll().",
+      "node_id": 0
+    },
+    {
+      "id": "sv_pixel",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Immutable Pixel ERC20 token address used for pricing, burning and pool share calculations.",
+      "node_id": 1
+    },
+    {
+      "id": "sv_info",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Arbitrary string metadata written by setInfo() (hodler only) and read by poll().",
+      "node_id": 2
+    },
+    {
+      "id": "sv_hodler",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Current owner of the single NFT; used as payout target in buy(), access check in setInfo() and returned by poll().",
+      "node_id": 3
+    },
+    {
+      "id": "sv_allowed",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Approved spender for the single NFT, set in approve()/_transferBase() and returned by poll().",
+      "node_id": 4
+    },
+    {
+      "id": "sv_operators",
+      "is_core": true,
+      "type": "state_var",
+      "description": "owner => operator => bool approval mapping used by _transfer() and setApprovalForAll().",
+      "node_id": 5
+    },
+    {
+      "id": "fn_constructor",
+      "is_core": true,
+      "type": "function",
+      "description": "Canvas constructor: stores Pixel token, derives initial price from totalSupply and transfers NFT to the Pixel contract.",
+      "node_id": 6
+    },
+    {
+      "id": "fn_buy",
+      "is_core": true,
+      "type": "function",
+      "description": "External payable buy(): validates msg.value == price, refunds hodler share via low-level call, raises price by 50% and transfers the NFT.",
+      "node_id": 7
+    },
+    {
+      "id": "fn_redeem",
+      "is_core": true,
+      "type": "function",
+      "description": "External redeem(amount): pulls Pixel tokens, burns them and refunds ETH share to msg.sender via low-level call.",
+      "node_id": 8
+    },
+    {
+      "id": "fn_setInfo",
+      "is_core": true,
+      "type": "function",
+      "description": "External setInfo(info_): only the current hodler may update the info string.",
+      "node_id": 9
+    },
+    {
+      "id": "fn_poll",
+      "is_core": true,
+      "type": "function",
+      "description": "View helper returning hodler, allowed, price, pool balance, user share and info.",
+      "node_id": 10
+    },
+    {
+      "id": "fn_getCanvasImageCode",
+      "is_core": true,
+      "type": "function",
+      "description": "Pure function returning the off-chain JS renderer source as a constant string.",
+      "node_id": 11
+    },
+    {
+      "id": "fn_transferBase",
+      "is_core": true,
+      "type": "function",
+      "description": "Internal _transferBase(to): emits Transfer, updates hodler and clears allowed.",
+      "node_id": 12
+    },
+    {
+      "id": "fn_transfer",
+      "is_core": true,
+      "type": "function",
+      "description": "Internal _transfer(from,to,tokenId): authorization checks then calls _transferBase.",
+      "node_id": 13
+    },
+    {
+      "id": "fn_transferFrom",
+      "is_core": true,
+      "type": "function",
+      "description": "External transferFrom: delegates authorization to _transfer.",
+      "node_id": 14
+    },
+    {
+      "id": "fn_safeTransferFrom",
+      "is_core": true,
+      "type": "function",
+      "description": "External safeTransferFrom: calls _transfer then invokes ERC721 receiver hook when the target is a contract.",
+      "node_id": 15
+    },
+    {
+      "id": "fn_approve",
+      "is_core": true,
+      "type": "function",
+      "description": "External approve: hodler/operator gated approval of a single token id.",
+      "node_id": 16
+    },
+    {
+      "id": "fn_permit",
+      "is_core": true,
+      "type": "function",
+      "description": "ERC20 permit: timestamp-bounded EIP-2612 signature approval using ecrecover and owner nonce.",
+      "node_id": 17
+    },
+    {
+      "id": "fn_mint",
+      "is_core": true,
+      "type": "function",
+      "description": "Internal _mint: increases totalSupply and recipient balance with an overflow require.",
+      "node_id": 18
+    },
+    {
+      "id": "fn_burn",
+      "is_core": true,
+      "type": "function",
+      "description": "Internal _burn: decreases totalSupply and holder balance with a balance require.",
+      "node_id": 19
+    },
+    {
+      "id": "fn_transferERC20",
+      "is_core": true,
+      "type": "function",
+      "description": "ERC20 transfer(to,amount): moves msg.sender balance to recipient.",
+      "node_id": 20
+    },
+    {
+      "id": "fn_transferFromERC20",
+      "is_core": true,
+      "type": "function",
+      "description": "ERC20 transferFrom(from,to,amount): spends allowance and moves balances.",
+      "node_id": 21
+    },
+    {
+      "id": "in_msg_sender",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "msg.sender controls buy/redeem/setInfo/approve/transferFrom paths and receives ETH refunds.",
+      "node_id": 22
+    },
+    {
+      "id": "in_block_timestamp",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "block.timestamp compared against the permit deadline (timestamp dependency).",
+      "node_id": 23
+    },
+    {
+      "id": "uo_buy_call",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "Low-level call{value: hodler_share, gas: 20000} to hodler inside buy(), executed before state finalization (reentrancy surface).",
+      "node_id": 24
+    },
+    {
+      "id": "uo_redeem_call",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "Low-level call{value: share, gas: 20000} to msg.sender inside redeem() after external token calls (reentrancy surface).",
+      "node_id": 25
+    },
+    {
+      "id": "uo_pixel_external",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "External calls pixel.safeTransferFrom and pixel.burn in redeem(), trusting the token contract.",
+      "node_id": 26
+    },
+    {
+      "id": "param_info",
+      "is_core": false,
+      "type": "parameter",
+      "description": "info_ string parameter of setInfo().",
+      "node_id": 27
+    },
+    {
+      "id": "param_amount",
+      "is_core": false,
+      "type": "parameter",
+      "description": "amount parameter of redeem(), controls ETH share and burn size.",
+      "node_id": 28
+    },
+    {
+      "id": "param_user",
+      "is_core": false,
+      "type": "parameter",
+      "description": "user address parameter of poll(), used for Pixel balanceOf and share math.",
+      "node_id": 29
+    },
+    {
+      "id": "param_approved",
+      "is_core": false,
+      "type": "parameter",
+      "description": "_approved/_operator parameter of approve()/setApprovalForAll().",
+      "node_id": 30
+    },
+    {
+      "id": "lv_hodler_share",
+      "is_core": false,
+      "type": "local_var",
+      "description": "hodler_share local in buy(), the ETH amount forwarded to the previous hodler.",
+      "node_id": 31
+    },
+    {
+      "id": "lv_success_buy",
+      "is_core": false,
+      "type": "local_var",
+      "description": "success flag returned by the low-level call in buy(); deliberately unchecked.",
+      "node_id": 32
+    },
+    {
+      "id": "lv_share",
+      "is_core": false,
+      "type": "local_var",
+      "description": "share local in redeem(), computed from contract balance and Pixel totalSupply.",
+      "node_id": 33
+    },
+    {
+      "id": "lv_success_redeem",
+      "is_core": false,
+      "type": "local_var",
+      "description": "success flag of the low-level call in redeem(), enforced with require.",
+      "node_id": 34
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 22,
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "msg.sender's value is used in buy() as the new hodler and event participant."
+    },
+    {
+      "from_id": 22,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "msg.sender is the payer of Pixel tokens and receiver of ETH in redeem()."
+    },
+    {
+      "from_id": 22,
+      "vuln_type": "access_control",
+      "to_id": 9,
+      "type": "controlflow",
+      "reason": "setInfo() gate require(msg.sender == hodler) authorizes the caller."
+    },
+    {
+      "from_id": 22,
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "transferFrom() authorization depends on msg.sender being hodler, allowed or operator."
+    },
+    {
+      "from_id": 22,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "approve() gate compares msg.sender with hodler/operators."
+    },
+    {
+      "from_id": 23,
+      "vuln_type": "access_control",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "permit() validity is bounded by block.timestamp < deadline, a timestamp dependency."
+    },
+    {
+      "from_id": 7,
+      "vuln_type": "reentrancy",
+      "to_id": 24,
+      "type": "controlflow",
+      "reason": "buy() performs an external low-level ETH call to the untrusted hodler before updating price and hodler."
+    },
+    {
+      "from_id": 8,
+      "vuln_type": "reentrancy",
+      "to_id": 25,
+      "type": "controlflow",
+      "reason": "redeem() performs an external low-level ETH call to msg.sender after token interactions."
+    },
+    {
+      "from_id": 8,
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "controlflow",
+      "reason": "redeem() invokes external Pixel safeTransferFrom and burn on the token contract."
+    },
+    {
+      "from_id": 31,
+      "vuln_type": "reentrancy",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "The computed hodler_share value flows into the low-level call performed in buy()."
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "arithmetic",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "price is read, compared with msg.value and multiplied by 150/100 inside buy()."
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "Price state is part of the contract value accounting touched by redeem()."
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "poll() returns the current price."
+    },
+    {
+      "from_id": 1,
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "The Pixel token address is compared with hodler to decide the payout share in buy()."
+    },
+    {
+      "from_id": 1,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "redeem() uses pixel.totalSupply(), safeTransferFrom and burn."
+    },
+    {
+      "from_id": 1,
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "poll() calls pixel.balanceOf(user) for share computation."
+    },
+    {
+      "from_id": 2,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "setInfo() writes the info state variable."
+    },
+    {
+      "from_id": 2,
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "poll() returns the info string."
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "reentrancy",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "hodler is the external call target and payout recipient inside buy()."
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "redeem() does not use hodler directly but shares the value-accounting state."
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "access_control",
+      "to_id": 9,
+      "type": "controlflow",
+      "reason": "hodler is the authorized caller required by setInfo()."
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "poll() returns the hodler address."
+    },
+    {
+      "from_id": 4,
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "poll() returns the allowed spender address."
+    },
+    {
+      "from_id": 5,
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "_transfer() checks operators[hodler][msg.sender] for transfer authorization."
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "_transfer() calls _transferBase(to) after all checks pass."
+    },
+    {
+      "from_id": 14,
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "transferFrom() delegates to _transfer()."
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "safeTransferFrom() delegates to _transfer() before the receiver hook."
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "callback",
+      "reason": "safeTransferFrom() invokes the ERC721TokenReceiver.onERC721Received hook on the recipient contract."
+    },
+    {
+      "from_id": 28,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "The amount parameter drives the ETH share and token burn inside redeem()."
+    },
+    {
+      "from_id": 28,
+      "vuln_type": "none",
+      "to_id": 33,
+      "type": "dataflow",
+      "reason": "amount is used to compute the share local variable in redeem()."
+    },
+    {
+      "from_id": 29,
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "The user parameter is passed to pixel.balanceOf in poll()."
+    },
+    {
+      "from_id": 27,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "The info_ parameter is stored into the info state variable."
+    },
+    {
+      "from_id": 8,
+      "vuln_type": "arithmetic",
+      "to_id": 19,
+      "type": "controlflow",
+      "reason": "redeem() triggers _burn(amount) which decrements totalSupply and balance."
+    },
+    {
+      "from_id": 7,
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "buy() transfers the NFT to msg.sender via _transferBase()."
+    },
+    {
+      "from_id": 33,
+      "vuln_type": "reentrancy",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "The computed share amount flows into the low-level ETH call in redeem()."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "fn_setInfo",
+      "normal_node": "param_info",
+      "reason": "The info_ parameter only serves as input to setInfo() and should be folded into that function node."
+    },
+    {
+      "merge_into": "fn_redeem",
+      "normal_node": "param_amount",
+      "reason": "The amount parameter exclusively feeds redeem() arithmetic and token burn."
+    },
+    {
+      "merge_into": "fn_poll",
+      "normal_node": "param_user",
+      "reason": "The user parameter is only consumed by poll() for balance and share computation."
+    },
+    {
+      "merge_into": "fn_approve",
+      "normal_node": "param_approved",
+      "reason": "The _approved/_operator parameter only parameterizes the approve/setApprovalForAll operations."
+    },
+    {
+      "merge_into": "fn_buy",
+      "normal_node": "lv_hodler_share",
+      "reason": "hodler_share is a transient intermediate of buy() and is directly consumed by the low-level payout call."
+    },
+    {
+      "merge_into": "fn_buy",
+      "normal_node": "lv_success_buy",
+      "reason": "The unchecked success flag belongs to buy()'s low-level call handling."
+    },
+    {
+      "merge_into": "fn_redeem",
+      "normal_node": "lv_share",
+      "reason": "share is a transient intermediate of redeem() feeding the ETH payout."
+    },
+    {
+      "merge_into": "fn_redeem",
+      "normal_node": "lv_success_redeem",
+      "reason": "The success flag is used only to require() the result of redeem()'s low-level call."
+    }
+  ]
+}

@@ -1,0 +1,300 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "description": "Mapping(address => Bet) storing each player's bet value and the block height at which the bet was placed; keyed by msg.sender.",
+      "id": "bets",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "description": "Empty public constructor of HashBet; performs no initialization.",
+      "id": "constructor",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "description": "Payable fallback function that silently accepts ether without updating any accounting state.",
+      "id": "fallback",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "description": "Payable public function that requires no existing open bet (height == 0) and msg.value > 10000, then records msg.value and block.number for msg.sender in the bets mapping.",
+      "id": "makeBet",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 4,
+      "description": "Public function that computes a pseudo-random result from block.blockhash values, resets the caller's bet height to 0 and transfers the entire contract balance to the winner.",
+      "id": "resolveBet",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "description": "Caller-controlled address used as the key into the bets mapping and as the recipient of the payout transfer.",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 6,
+      "description": "msg.sender.transfer(address(this).balance) inside resolveBet: sends the whole contract balance to an untrusted external address after state reset, a classic reentrancy / force-feed payout surface.",
+      "id": "transfer_balance_to_sender",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "description": "keccak256(block.blockhash(bet.height), block.blockhash(bet.height+3)) used as an on-chain randomness source that is predictable and miner-influenceable.",
+      "id": "blockhash_randomness",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 8,
+      "description": "Storage reference to bets[msg.sender] in makeBet; fields value and height are assigned from msg.value and block.number.",
+      "id": "newBet",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 9,
+      "description": "Reference to bets[msg.sender] in resolveBet, holding the value and height of the caller's bet.",
+      "id": "bet",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 10,
+      "description": "block.number - bet.height in resolveBet; required to be greater than 3 and less than 255.",
+      "id": "dist",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 11,
+      "description": "bytes32 = block.blockhash(bet.height), the first blockhash-derived entropy value in resolveBet.",
+      "id": "h1",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 12,
+      "description": "bytes32 = block.blockhash(bet.height + 3), the second blockhash-derived entropy value in resolveBet.",
+      "id": "h2",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 13,
+      "description": "uint256 = keccak256(h1, h2) in resolveBet; the derived random value fed into the modulo computation.",
+      "id": "hashVal",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 14,
+      "description": "Constant divisor approximating 2^256/1000 used to scale hashVal into a 0..999 range in resolveBet.",
+      "id": "FACTOR",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 15,
+      "description": "uint16 = (hashVal / FACTOR) % 1000; values <= 495 trigger the payout transfer in resolveBet.",
+      "id": "result",
+      "type": "local_var",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is used as the mapping key when reading and writing bets[msg.sender] inside makeBet.",
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "reason": "msg.sender selects the bet record read in resolveBet via bets[msg.sender].",
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "reason": "The untrusted msg.sender address is the recipient of the full contract balance transfer, exposing the payout to attacker-controlled receivers.",
+      "vuln_type": "reentrancy",
+      "to_id": 6,
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "reason": "makeBet authorization is derived solely from msg.sender (bets[msg.sender].height == 0), so the caller identity fully gates bet creation.",
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "controlflow",
+      "from_id": 5
+    },
+    {
+      "reason": "makeBet writes msg.value and block.number into the bets mapping entry for the caller.",
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "reason": "resolveBet reads bet.height and bet.value from the bets mapping and resets bet.height to 0.",
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "reason": "resolveBet can invoke the external value transfer to msg.sender, the classic reentrancy entry point.",
+      "vuln_type": "reentrancy",
+      "to_id": 6,
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "reason": "When result <= 495 resolveBet executes the balance transfer, making the payout branch attacker-reachable.",
+      "vuln_type": "reentrancy",
+      "to_id": 6,
+      "type": "controlflow",
+      "from_id": 15
+    },
+    {
+      "reason": "resolveBet derives its outcome from block.blockhash values, a predictable randomness source manipulable by miners/validators.",
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "reason": "h1 is produced directly from block.blockhash(bet.height), inheriting the weak randomness weakness.",
+      "vuln_type": "access_control",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "reason": "h2 is produced directly from block.blockhash(bet.height + 3), inheriting the weak randomness weakness.",
+      "vuln_type": "access_control",
+      "to_id": 12,
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "reason": "makeBet assigns msg.value and block.number to the newBet storage reference.",
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "reason": "resolveBet loads the caller's stored bet into the local bet reference.",
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "reason": "resolveBet computes dist from block.number minus bet.height and range-checks it.",
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "reason": "h1 is hashed together with h2 to produce hashVal in resolveBet.",
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "from_id": 11
+    },
+    {
+      "reason": "h2 is hashed together with h1 to produce hashVal in resolveBet.",
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "reason": "resolveBet derives hashVal through keccak256 of the blockhash seeds.",
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "reason": "resolveBet defines the FACTOR scaling constant used to reduce hashVal.",
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "reason": "resolveBet computes the uint16 result from hashVal / FACTOR modulo 1000.",
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "reason": "hashVal flows into the modulo computation that yields result.",
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "from_id": 13
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "newBet is a function-local storage reference used only inside makeBet to store the caller's bet value and height; it carries no independent semantics.",
+      "merge_into": "makeBet",
+      "normal_node": "newBet"
+    },
+    {
+      "reason": "bet is a function-local reference to bets[msg.sender] used only inside resolveBet for reading and clearing the caller's bet.",
+      "merge_into": "resolveBet",
+      "normal_node": "bet"
+    },
+    {
+      "reason": "dist is a temporary computed distance used solely for the range require inside resolveBet.",
+      "merge_into": "resolveBet",
+      "normal_node": "dist"
+    },
+    {
+      "reason": "h1 is directly produced by the block.blockhash randomness operation and has no meaning outside that unsafe entropy source.",
+      "merge_into": "blockhash_randomness",
+      "normal_node": "h1"
+    },
+    {
+      "reason": "h2 is directly produced by the block.blockhash randomness operation and has no meaning outside that unsafe entropy source.",
+      "merge_into": "blockhash_randomness",
+      "normal_node": "h2"
+    },
+    {
+      "reason": "hashVal is an intermediate hashed value consumed only by resolveBet's outcome computation.",
+      "merge_into": "resolveBet",
+      "normal_node": "hashVal"
+    },
+    {
+      "reason": "FACTOR is a fixed scaling constant local to resolveBet and not observable elsewhere.",
+      "merge_into": "resolveBet",
+      "normal_node": "FACTOR"
+    },
+    {
+      "reason": "result is the branch condition that directly controls execution of the balance transfer to msg.sender in resolveBet.",
+      "merge_into": "transfer_balance_to_sender",
+      "normal_node": "result"
+    }
+  ]
+}

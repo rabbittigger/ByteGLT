@@ -1,0 +1,732 @@
+{
+  "nodes": [
+    {
+      "id": "state_owner",
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Public owner address of Owned; privileged account controlling onlyOwner gated functions.",
+      "is_core": true
+    },
+    {
+      "id": "state_ownerCandidate",
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Pending owner candidate set by changeOwner and confirmed by acceptOwnership.",
+      "is_core": true
+    },
+    {
+      "id": "func_Owned_constructor",
+      "node_id": 2,
+      "type": "function",
+      "description": "Owned constructor: owner = msg.sender, initial privilege assignment.",
+      "is_core": true
+    },
+    {
+      "id": "func_changeOwner",
+      "node_id": 3,
+      "type": "function",
+      "description": "onlyOwner function that stages a new owner candidate.",
+      "is_core": true
+    },
+    {
+      "id": "func_acceptOwnership",
+      "node_id": 4,
+      "type": "function",
+      "description": "Confirms ownership transfer when msg.sender == ownerCandidate.",
+      "is_core": true
+    },
+    {
+      "id": "modifier_onlyOwner_Owned",
+      "node_id": 5,
+      "type": "function",
+      "description": "Owned modifier onlyOwner: require(msg.sender == owner); acts as access-control gate.",
+      "is_core": true
+    },
+    {
+      "id": "state_multiplier",
+      "node_id": 6,
+      "type": "state_var",
+      "description": "Public multiplier (percent) applied to deposits to compute participant payout.",
+      "is_core": true
+    },
+    {
+      "id": "state_payoutOrder",
+      "node_id": 7,
+      "type": "state_var",
+      "description": "Public cursor into participants array used by payout loop.",
+      "is_core": true
+    },
+    {
+      "id": "state_powh_address",
+      "node_id": 8,
+      "type": "state_var",
+      "description": "Address of the POWH contract used by notPowh and cast to POWH.",
+      "is_core": true
+    },
+    {
+      "id": "state_weak_hands",
+      "node_id": 9,
+      "type": "state_var",
+      "description": "POWH contract instance targeted by buy/withdraw external calls in payout and withdraw.",
+      "is_core": true
+    },
+    {
+      "id": "state_participants",
+      "node_id": 10,
+      "type": "state_var",
+      "description": "Public array of Participant structs (etherAddress, payout) tracking depositors.",
+      "is_core": true
+    },
+    {
+      "id": "func_BoomerangLiquidity_constructor",
+      "node_id": 11,
+      "type": "function",
+      "description": "BoomerangLiquidity constructor: sets multiplier, powh_address and casts POWH instance.",
+      "is_core": true
+    },
+    {
+      "id": "func_fallback",
+      "node_id": 12,
+      "type": "function",
+      "description": "Payable fallback function that silently accepts ether.",
+      "is_core": true
+    },
+    {
+      "id": "func_deposit",
+      "node_id": 13,
+      "type": "function",
+      "description": "Payable deposit: pushes Participant(msg.sender, msg.value*multiplier/100) then calls payout.",
+      "is_core": true
+    },
+    {
+      "id": "func_payout",
+      "node_id": 14,
+      "type": "function",
+      "description": "Public payout loop: forwards half balance to POWH.buy, then sends ether to participants in order.",
+      "is_core": true
+    },
+    {
+      "id": "func_withdraw",
+      "node_id": 15,
+      "type": "function",
+      "description": "Public withdraw: calls weak_hands.withdraw with forwarded gas.",
+      "is_core": true
+    },
+    {
+      "id": "func_donate",
+      "node_id": 16,
+      "type": "function",
+      "description": "Payable donate function that accepts ether without accounting.",
+      "is_core": true
+    },
+    {
+      "id": "func_transferAnyERC20Token",
+      "node_id": 17,
+      "type": "function",
+      "description": "onlyOwner + notPowh function that transfers arbitrary ERC20 tokens to owner.",
+      "is_core": true
+    },
+    {
+      "id": "modifier_onlyOwner_Boomerang",
+      "node_id": 18,
+      "type": "function",
+      "description": "BoomerangLiquidity modifier onlyOwner: require(msg.sender == owner); access-control gate.",
+      "is_core": true
+    },
+    {
+      "id": "modifier_notPowh",
+      "node_id": 19,
+      "type": "function",
+      "description": "Modifier notPowh(address aContract): require(aContract != powh_address) to block the POWH token.",
+      "is_core": true
+    },
+    {
+      "id": "untrusted_msg_sender",
+      "node_id": 20,
+      "type": "untrusted_input",
+      "description": "msg.sender: untrusted caller used for ownership, authorization checks, participant records and POWH.buy recipient.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_powh_buy_value_call",
+      "node_id": 21,
+      "type": "unsafe_operation",
+      "description": "External value call weak_hands.buy.value(investment).gas(1000000)(msg.sender) inside payout; state is not finalized before the call, enabling reentrancy.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_send_ether",
+      "node_id": 22,
+      "type": "unsafe_operation",
+      "description": "participants[payoutOrder].etherAddress.send(payoutToSend) inside payout; external ether transfer with limited gas that can re-enter.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_low_level_call_value",
+      "node_id": 23,
+      "type": "unsafe_operation",
+      "description": "Fallback path address.call.value(payoutToSend).gas(1000000)() inside payout; unchecked low-level call forwarding ether and gas.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_powh_withdraw_call",
+      "node_id": 24,
+      "type": "unsafe_operation",
+      "description": "External call weak_hands.withdraw.gas(1000000)() inside withdraw; no state protection against re-entrancy.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_erc20_transfer_call",
+      "node_id": 25,
+      "type": "unsafe_operation",
+      "description": "ERC20Interface(tokenAddress).transfer(owner, tokens) external call in transferAnyERC20Token; return value used but external call may re-enter.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_arithmetic_deposit_share",
+      "node_id": 26,
+      "type": "unsafe_operation",
+      "description": "Arithmetic (msg.value * multiplier) / 100 in deposit; multiplication can overflow in Solidity 0.4.x.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_arithmetic_balance_minus_investment",
+      "node_id": 27,
+      "type": "unsafe_operation",
+      "description": "Arithmetic balance -= investment in payout; unchecked subtraction on tracked balance.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_arithmetic_payout_sub",
+      "node_id": 28,
+      "type": "unsafe_operation",
+      "description": "Arithmetic participants[payoutOrder].payout -= payoutToSend in payout; unchecked subtraction on participant accounting.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_arithmetic_payoutOrder_increment",
+      "node_id": 29,
+      "type": "unsafe_operation",
+      "description": "Arithmetic payoutOrder += 1 in payout loop; unchecked increment with array bounds check only afterwards.",
+      "is_core": true
+    },
+    {
+      "id": "param_newOwner",
+      "node_id": 30,
+      "type": "parameter",
+      "description": "Parameter _newOwner of changeOwner(address _newOwner).",
+      "is_core": false
+    },
+    {
+      "id": "param_multiplierPercent",
+      "node_id": 31,
+      "type": "parameter",
+      "description": "Parameter multiplierPercent of BoomerangLiquidity(uint multiplierPercent, address powh).",
+      "is_core": false
+    },
+    {
+      "id": "param_powh",
+      "node_id": 32,
+      "type": "parameter",
+      "description": "Parameter powh of BoomerangLiquidity(uint multiplierPercent, address powh).",
+      "is_core": false
+    },
+    {
+      "id": "param_tokenAddress",
+      "node_id": 33,
+      "type": "parameter",
+      "description": "Parameter tokenAddress of transferAnyERC20Token(address tokenAddress, uint tokens).",
+      "is_core": false
+    },
+    {
+      "id": "param_tokens",
+      "node_id": 34,
+      "type": "parameter",
+      "description": "Parameter tokens (amount) of transferAnyERC20Token(address tokenAddress, uint tokens).",
+      "is_core": false
+    },
+    {
+      "id": "param_aContract",
+      "node_id": 35,
+      "type": "parameter",
+      "description": "Parameter aContract of modifier notPowh(address aContract).",
+      "is_core": false
+    },
+    {
+      "id": "local_balance",
+      "node_id": 36,
+      "type": "local_var",
+      "description": "Local variable balance in payout holding address(this).balance.",
+      "is_core": false
+    },
+    {
+      "id": "local_investment",
+      "node_id": 37,
+      "type": "local_var",
+      "description": "Local variable investment = balance / 2 forwarded to POWH.buy in payout.",
+      "is_core": false
+    },
+    {
+      "id": "local_payoutToSend",
+      "node_id": 38,
+      "type": "local_var",
+      "description": "Local variable payoutToSend computed per participant and sent in payout.",
+      "is_core": false
+    },
+    {
+      "id": "func_iface_totalSupply",
+      "node_id": 39,
+      "type": "function",
+      "description": "ERC20Interface.totalSupply declaration (external interface function, no body).",
+      "is_core": true
+    },
+    {
+      "id": "func_iface_balanceOf",
+      "node_id": 40,
+      "type": "function",
+      "description": "ERC20Interface.balanceOf declaration (external interface function, no body).",
+      "is_core": true
+    },
+    {
+      "id": "func_iface_allowance",
+      "node_id": 41,
+      "type": "function",
+      "description": "ERC20Interface.allowance declaration (external interface function, no body).",
+      "is_core": true
+    },
+    {
+      "id": "func_iface_transfer",
+      "node_id": 42,
+      "type": "function",
+      "description": "ERC20Interface.transfer declaration invoked by transferAnyERC20Token.",
+      "is_core": true
+    },
+    {
+      "id": "func_iface_approve",
+      "node_id": 43,
+      "type": "function",
+      "description": "ERC20Interface.approve declaration (external interface function, no body).",
+      "is_core": true
+    },
+    {
+      "id": "func_iface_transferFrom",
+      "node_id": 44,
+      "type": "function",
+      "description": "ERC20Interface.transferFrom declaration (external interface function, no body).",
+      "is_core": true
+    },
+    {
+      "id": "func_POWH_buy",
+      "node_id": 45,
+      "type": "function",
+      "description": "POWH.buy(address) payable declaration targeted by weak_hands.buy.value(...) in payout.",
+      "is_core": true
+    },
+    {
+      "id": "func_POWH_withdraw",
+      "node_id": 46,
+      "type": "function",
+      "description": "POWH.withdraw() declaration targeted by weak_hands.withdraw.gas(...) in withdraw.",
+      "is_core": true
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "reason": "Owned constructor assigns msg.sender (untrusted caller) directly to owner, granting privileges.",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 5,
+      "reason": "onlyOwner modifier evaluates require(msg.sender == owner) on untrusted caller input.",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 18,
+      "reason": "BoomerangLiquidity onlyOwner modifier evaluates require(msg.sender == owner) on untrusted caller input.",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 4,
+      "reason": "acceptOwnership requires msg.sender == ownerCandidate, using untrusted caller for privilege transfer.",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 3,
+      "reason": "onlyOwner guards execution of changeOwner.",
+      "type": "controlflow",
+      "from_id": 5,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 17,
+      "reason": "onlyOwner guards execution of transferAnyERC20Token.",
+      "type": "controlflow",
+      "from_id": 18,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 17,
+      "reason": "notPowh restricts which token addresses transferAnyERC20Token may act on.",
+      "type": "controlflow",
+      "from_id": 19,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 1,
+      "reason": "changeOwner writes the supplied address into ownerCandidate for later privilege escalation.",
+      "type": "dataflow",
+      "from_id": 3,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 0,
+      "reason": "acceptOwnership overwrites owner with ownerCandidate, completing privileged ownership transfer.",
+      "type": "dataflow",
+      "from_id": 4,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 6,
+      "reason": "Constructor writes multiplierPercent into the multiplier state variable.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "Constructor writes powh argument into powh_address state variable.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 9,
+      "reason": "Constructor casts powh_address into the weak_hands POWH instance.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 11,
+      "reason": "multiplierPercent parameter flows into constructor initialization.",
+      "type": "dataflow",
+      "from_id": 31,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 11,
+      "reason": "powh parameter flows into constructor initialization of powh_address and weak_hands.",
+      "type": "dataflow",
+      "from_id": 32,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 3,
+      "reason": "_newOwner parameter flows into changeOwner assignment of ownerCandidate.",
+      "type": "dataflow",
+      "from_id": 30,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "tokenAddress parameter determines the external ERC20 contract called in transferAnyERC20Token.",
+      "type": "dataflow",
+      "from_id": 33,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "tokens parameter is the amount transferred in transferAnyERC20Token.",
+      "type": "dataflow",
+      "from_id": 34,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 19,
+      "reason": "aContract parameter is compared against powh_address in the notPowh modifier.",
+      "type": "dataflow",
+      "from_id": 35,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 13,
+      "reason": "deposit records msg.sender as the Participant etherAddress of the new deposit.",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "deposit pushes a new Participant entry into the participants array.",
+      "type": "dataflow",
+      "from_id": 13,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 26,
+      "reason": "deposit computes (msg.value * multiplier) / 100, an unchecked multiplication that can overflow.",
+      "type": "dataflow",
+      "from_id": 13,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 14,
+      "reason": "deposit calls payout() immediately after recording the participant.",
+      "type": "controlflow",
+      "from_id": 13,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "payout reads and mutates participants[payoutOrder] payout and etherAddress fields.",
+      "type": "dataflow",
+      "from_id": 14,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 21,
+      "reason": "payout transfers half the balance via external POWH.buy value call before finishing account updates.",
+      "type": "controlflow",
+      "from_id": 14,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 21,
+      "reason": "msg.sender is forwarded as the recipient argument of the external POWH.buy call.",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 21,
+      "reason": "local investment (balance/2) is attached as value to the external POWH.buy call in payout.",
+      "type": "dataflow",
+      "from_id": 37,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 22,
+      "reason": "payout sends ether to a participant via send after computing payoutToSend in the loop.",
+      "type": "controlflow",
+      "from_id": 14,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 23,
+      "reason": "payout falls back to low-level call.value inside the loop when send fails.",
+      "type": "controlflow",
+      "from_id": 14,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 23,
+      "reason": "Failed send branch transfers control to the unchecked call.value fallback path in payout.",
+      "type": "controlflow",
+      "from_id": 22,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 22,
+      "reason": "local balance derived from address(this).balance drives the amount sent in the payout loop.",
+      "type": "dataflow",
+      "from_id": 36,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 22,
+      "reason": "local payoutToSend is the amount forwarded via send to participants[payoutOrder].etherAddress.",
+      "type": "dataflow",
+      "from_id": 38,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 23,
+      "reason": "local payoutToSend is forwarded as value in the low-level call.value fallback.",
+      "type": "dataflow",
+      "from_id": 38,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 27,
+      "reason": "payout performs unchecked subtraction balance -= investment.",
+      "type": "dataflow",
+      "from_id": 14,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 28,
+      "reason": "payout performs unchecked subtraction on participant payout accounting.",
+      "type": "dataflow",
+      "from_id": 14,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 29,
+      "reason": "payout increments payoutOrder without overflow checks before validating array bounds.",
+      "type": "dataflow",
+      "from_id": 14,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 14,
+      "reason": "External POWH.buy call can re-enter payout (or deposit) before payout accounting completes.",
+      "type": "callback",
+      "from_id": 21,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 14,
+      "reason": "Participant etherAddress fallback triggered by send can re-enter payout.",
+      "type": "callback",
+      "from_id": 22,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 14,
+      "reason": "Participant fallback triggered by call.value can re-enter payout with supplied gas.",
+      "type": "callback",
+      "from_id": 23,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 24,
+      "reason": "withdraw performs an external call to weak_hands.withdraw with forwarded gas.",
+      "type": "controlflow",
+      "from_id": 15,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 15,
+      "reason": "External POWH.withdraw call can re-enter BoomerangLiquidity.withdraw.",
+      "type": "callback",
+      "from_id": 24,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 25,
+      "reason": "transferAnyERC20Token executes an external ERC20 transfer call.",
+      "type": "controlflow",
+      "from_id": 17,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "Malicious token contract invoked by transferAnyERC20Token can re-enter the function or other contract functions.",
+      "type": "callback",
+      "from_id": 25,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 25,
+      "reason": "owner is used as the recipient of the ERC20 transfer in transferAnyERC20Token.",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 21,
+      "reason": "weak_hands state variable is the target contract of the external buy value call in payout.",
+      "type": "dataflow",
+      "from_id": 9,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 24,
+      "reason": "weak_hands state variable is the target contract of the external withdraw call.",
+      "type": "dataflow",
+      "from_id": 9,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 26,
+      "reason": "multiplier state variable participates in the deposit payout computation that can overflow.",
+      "type": "dataflow",
+      "from_id": 6,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 29,
+      "reason": "payoutOrder state variable is incremented in the payout loop and bounds-checked only afterwards.",
+      "type": "dataflow",
+      "from_id": 7,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 42,
+      "reason": "External ERC20 transfer call resolves to ERC20Interface.transfer on the caller-supplied token contract.",
+      "type": "controlflow",
+      "from_id": 25,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 45,
+      "reason": "Value-bearing external call resolves to POWH.buy on the weak_hands contract.",
+      "type": "controlflow",
+      "from_id": 21,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 46,
+      "reason": "External call resolves to POWH.withdraw on the weak_hands contract.",
+      "type": "controlflow",
+      "from_id": 24,
+      "vuln_type": "reentrancy"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "func_changeOwner",
+      "reason": "_newOwner exists solely to be stored into ownerCandidate inside changeOwner.",
+      "normal_node": "param_newOwner"
+    },
+    {
+      "merge_into": "func_BoomerangLiquidity_constructor",
+      "reason": "multiplierPercent is only used to initialize the multiplier state variable in the constructor.",
+      "normal_node": "param_multiplierPercent"
+    },
+    {
+      "merge_into": "func_BoomerangLiquidity_constructor",
+      "reason": "powh is only used to set powh_address and cast weak_hands in the constructor.",
+      "normal_node": "param_powh"
+    },
+    {
+      "merge_into": "func_transferAnyERC20Token",
+      "reason": "tokenAddress is only used to instantiate ERC20Interface for the external transfer call.",
+      "normal_node": "param_tokenAddress"
+    },
+    {
+      "merge_into": "func_transferAnyERC20Token",
+      "reason": "tokens is only used as the transfer amount argument in transferAnyERC20Token.",
+      "normal_node": "param_tokens"
+    },
+    {
+      "merge_into": "modifier_notPowh",
+      "reason": "aContract is only used in the require comparison against powh_address inside notPowh.",
+      "normal_node": "param_aContract"
+    },
+    {
+      "merge_into": "func_payout",
+      "reason": "local balance is the payout accounting variable read from address(this).balance inside payout.",
+      "normal_node": "local_balance"
+    },
+    {
+      "merge_into": "func_payout",
+      "reason": "local investment is computed and forwarded as value to POWH.buy inside payout.",
+      "normal_node": "local_investment"
+    },
+    {
+      "merge_into": "func_payout",
+      "reason": "local payoutToSend is the per-participant amount sent inside the payout loop.",
+      "normal_node": "local_payoutToSend"
+    }
+  ]
+}

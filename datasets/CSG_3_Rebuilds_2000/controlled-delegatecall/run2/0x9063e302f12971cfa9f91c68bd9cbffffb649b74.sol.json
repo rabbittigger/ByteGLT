@@ -1,0 +1,515 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Enum Turn tracking which party (Asserter/Challenger) must respond next",
+      "is_core": true,
+      "id": "turn"
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Root of the merkle tree describing the current challenged segment state",
+      "is_core": true,
+      "id": "challengeState"
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "description": "Address of the asserter defending the challenged node",
+      "is_core": true,
+      "id": "asserter"
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "description": "Address of the challenger attacking the node",
+      "is_core": true,
+      "id": "challenger"
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "description": "Block number of the most recent valid move, used for deadline accounting",
+      "is_core": true,
+      "id": "lastMoveBlock"
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "description": "Remaining blocks the asserter is allowed to respond within",
+      "is_core": true,
+      "id": "asserterTimeLeft"
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "description": "Remaining blocks the challenger is allowed to respond within",
+      "is_core": true,
+      "id": "challengerTimeLeft"
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "description": "RollupUserFacet that is notified when the challenge completes",
+      "is_core": true,
+      "id": "resultReceiver"
+    },
+    {
+      "node_id": 8,
+      "type": "state_var",
+      "description": "Array of IOneStepProof executors used to prove a single AVM step",
+      "is_core": true,
+      "id": "executors"
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "description": "One-time initializer setting executors, parties, timers and initial challenge state",
+      "is_core": true,
+      "id": "initializeChallenge"
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "description": "Advances the bisection round by objecting to a segment with a different end hash",
+      "is_core": true,
+      "id": "bisectExecution"
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "description": "Asserts the challenged segment continues past its boundary and declares the win",
+      "is_core": true,
+      "id": "proveContinuedExecution"
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "description": "Runs the single step executor to prove the machine transition and resolve the challenge",
+      "is_core": true,
+      "id": "oneStepProveExecution"
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "description": "Awards the win to the current responder's opponent when the deadline has elapsed",
+      "is_core": true,
+      "id": "timeout"
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "description": "Destroys the challenge clone, callable only by the result receiver",
+      "is_core": true,
+      "id": "clearChallenge"
+    },
+    {
+      "node_id": 15,
+      "type": "function",
+      "description": "Notifies the rollup that the asserter won and self-destructs the challenge",
+      "is_core": true,
+      "id": "_asserterWin"
+    },
+    {
+      "node_id": 16,
+      "type": "function",
+      "description": "Notifies the rollup that the challenger won and self-destructs the challenge",
+      "is_core": true,
+      "id": "_challengerWin"
+    },
+    {
+      "node_id": 17,
+      "type": "function",
+      "description": "Dispatches to the winner helper based on the current turn",
+      "is_core": true,
+      "id": "_currentWin"
+    },
+    {
+      "node_id": 18,
+      "type": "function",
+      "description": "Returns the address that is currently required to make a move",
+      "is_core": true,
+      "id": "currentResponder"
+    },
+    {
+      "node_id": 19,
+      "type": "untrusted_input",
+      "description": "Caller address, attacker controlled and used for turn and access checks",
+      "is_core": true,
+      "id": "msg.sender"
+    },
+    {
+      "node_id": 20,
+      "type": "untrusted_input",
+      "description": "Validator influenced time source underlying the move/deadline accounting",
+      "is_core": true,
+      "id": "block.timestamp"
+    },
+    {
+      "node_id": 21,
+      "type": "unsafe_operation",
+      "description": "selfdestruct(dest) executed on a clone once a challenge resolves",
+      "is_core": true,
+      "id": "safeSelfDestruct"
+    },
+    {
+      "node_id": 22,
+      "type": "unsafe_operation",
+      "description": "External call into the rollup facet to settle the challenge and move stakes",
+      "is_core": true,
+      "id": "resultReceiver.completeChallenge"
+    },
+    {
+      "node_id": 23,
+      "type": "unsafe_operation",
+      "description": "External call to a prover selected executor implementing one step proof",
+      "is_core": true,
+      "id": "executors[prover].executeStep"
+    },
+    {
+      "node_id": 24,
+      "type": "parameter",
+      "description": "Initializer parameter assigning the asserter address",
+      "is_core": false,
+      "id": "_asserter"
+    },
+    {
+      "node_id": 25,
+      "type": "parameter",
+      "description": "Initializer parameter assigning the challenger address",
+      "is_core": false,
+      "id": "_challenger"
+    },
+    {
+      "node_id": 26,
+      "type": "parameter",
+      "description": "Initializer parameter used as the initial challengeState root",
+      "is_core": false,
+      "id": "_executionHash"
+    },
+    {
+      "node_id": 27,
+      "type": "parameter",
+      "description": "Length of the segment being bisected in the current round",
+      "is_core": false,
+      "id": "_challengedSegmentLength"
+    },
+    {
+      "node_id": 28,
+      "type": "parameter",
+      "description": "Offset of the challenged segment within the assertion",
+      "is_core": false,
+      "id": "_challengedSegmentStart"
+    },
+    {
+      "node_id": 29,
+      "type": "parameter",
+      "description": "Caller supplied index selecting which executor contract is invoked",
+      "is_core": false,
+      "id": "prover"
+    },
+    {
+      "node_id": 30,
+      "type": "local_var",
+      "description": "Derived challenge root stored back into challengeState after bisection",
+      "is_core": false,
+      "id": "newChallengeState"
+    },
+    {
+      "node_id": 31,
+      "type": "local_var",
+      "description": "Block delta since lastMoveBlock compared against the responder's time left",
+      "is_core": false,
+      "id": "timeSinceLastMove"
+    },
+    {
+      "node_id": 32,
+      "type": "local_var",
+      "description": "Computed bisection chunk hash verified against the challenge state",
+      "is_core": false,
+      "id": "rootHash"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 18,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "onlyOnTurn modifier compares msg.sender to currentResponder() to gate the turn",
+      "from_id": 19
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "clearChallenge requires msg.sender == address(resultReceiver) before destroying the challenge",
+      "from_id": 19
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_asserter parameter is written into the asserter state variable during initialization",
+      "from_id": 24
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_challenger parameter is written into the challenger state variable during initialization",
+      "from_id": 25
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_executionHash parameter initializes the challengeState merkle root",
+      "from_id": 26
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_executionHash becomes the initial challengeState",
+      "from_id": 26
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_challengedSegmentLength drives chunk hash computation and segment bounds checks",
+      "from_id": 27
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_challengedSegmentStart is used to build the bisection hash and new root",
+      "from_id": 28
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "newChallengeState local is assigned into the challengeState state variable",
+      "from_id": 30
+    },
+    {
+      "to_id": 31,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "lastMoveBlock is subtracted from the current block to derive timeSinceLastMove",
+      "from_id": 4
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "timeSinceLastMove is compared against currentResponderTimeLeft to allow timeout",
+      "from_id": 31
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "timeout decision depends on block based timing, a validator influenceable value",
+      "from_id": 20
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "onlyOnTurn deadline enforcement relies on block based timing comparisons",
+      "from_id": 20
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "asserterTimeLeft is read when computing the current responder's deadline",
+      "from_id": 5
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "challengerTimeLeft is read when computing the current responder's deadline",
+      "from_id": 6
+    },
+    {
+      "to_id": 23,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "prover parameter indexes into executors to select the external executor call target",
+      "from_id": 29
+    },
+    {
+      "to_id": 23,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "executors array element is invoked via executeStep external call",
+      "from_id": 8
+    },
+    {
+      "to_id": 22,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "resultReceiver state variable is the target of the completeChallenge external call",
+      "from_id": 7
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "rootHash local is verified against challengeState to gate one step proof completion",
+      "from_id": 32
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "initializeChallenge writes challengeState and locks the initialization guard",
+      "from_id": 9
+    },
+    {
+      "to_id": 23,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "oneStepProveExecution makes an external call to an attacker selected executor",
+      "from_id": 12
+    },
+    {
+      "to_id": 22,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "_asserterWin performs an external call into resultReceiver.completeChallenge",
+      "from_id": 15
+    },
+    {
+      "to_id": 22,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "_challengerWin performs an external call into resultReceiver.completeChallenge",
+      "from_id": 16
+    },
+    {
+      "to_id": 21,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "_asserterWin ends execution through safeSelfDestruct",
+      "from_id": 15
+    },
+    {
+      "to_id": 21,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "_challengerWin ends execution through safeSelfDestruct",
+      "from_id": 16
+    },
+    {
+      "to_id": 21,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "clearChallenge destroys the clone via safeSelfDestruct",
+      "from_id": 14
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "_currentWin calls _asserterWin when turn is Asserter",
+      "from_id": 17
+    },
+    {
+      "to_id": 16,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "_currentWin calls _challengerWin otherwise",
+      "from_id": 17
+    },
+    {
+      "to_id": 17,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "oneStepProveExecution invokes _currentWin after a valid proof",
+      "from_id": 12
+    },
+    {
+      "to_id": 17,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "proveContinuedExecution invokes _currentWin after proving continuation",
+      "from_id": 11
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "timeout calls _asserterWin when the challenger times out",
+      "from_id": 13
+    },
+    {
+      "to_id": 16,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "timeout calls _challengerWin when the asserter times out",
+      "from_id": 13
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_challengedSegmentStart drives bisection hash and bound checks in proveContinuedExecution",
+      "from_id": 28
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "initializeChallenge",
+      "normal_node": "_asserter",
+      "reason": "Constructor style address parameter only flows directly into the initializer assignment"
+    },
+    {
+      "merge_into": "initializeChallenge",
+      "normal_node": "_challenger",
+      "reason": "Constructor style address parameter only flows directly into the initializer assignment"
+    },
+    {
+      "merge_into": "initializeChallenge",
+      "normal_node": "_executionHash",
+      "reason": "Initialization hash parameter is assigned once into challengeState"
+    },
+    {
+      "merge_into": "bisectExecution",
+      "normal_node": "_challengedSegmentLength",
+      "reason": "Segment length parameter is used solely for hashing and bounds checks inside the bisection function"
+    },
+    {
+      "merge_into": "bisectExecution",
+      "normal_node": "_challengedSegmentStart",
+      "reason": "Segment offset parameter is consumed only by the bisection hash and root update"
+    },
+    {
+      "merge_into": "executors[prover].executeStep",
+      "normal_node": "prover",
+      "reason": "Prover index parameter is an immediate argument selecting the external executor call"
+    },
+    {
+      "merge_into": "bisectExecution",
+      "normal_node": "newChallengeState",
+      "reason": "Temporary value is computed and immediately written into challengeState inside bisectExecution"
+    },
+    {
+      "merge_into": "timeout",
+      "normal_node": "timeSinceLastMove",
+      "reason": "Local delta is computed and consumed only for the timeout deadline decision"
+    },
+    {
+      "merge_into": "oneStepProveExecution",
+      "normal_node": "rootHash",
+      "reason": "Local root hash exists solely to verify the proof inside oneStepProveExecution"
+    }
+  ]
+}

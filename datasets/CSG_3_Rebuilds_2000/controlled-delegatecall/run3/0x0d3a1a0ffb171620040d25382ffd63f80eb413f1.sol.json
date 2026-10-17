@@ -1,0 +1,139 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Public uint8 state variable holding the maximum number of whitelisted addresses allowed.",
+      "id": "maxWhitelistedAddresses",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Public mapping(address => bool) recording which addresses have been whitelisted.",
+      "id": "whitelistedAddresses",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Public uint8 counter tracking how many addresses have been whitelisted.",
+      "id": "numAddressesWhitelisted",
+      "type": "state_var",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "Constructor that sets maxWhitelistedAddresses at deployment time.",
+      "id": "constructor",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "Public function that whitelists msg.sender and increments the whitelist counter.",
+      "id": "addAddressToWhitelist",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "Caller-controlled address used as whitelist key and implicit access identity.",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "node_id": 5
+    },
+    {
+      "is_core": false,
+      "description": "Constructor parameter supplying the whitelist cap value.",
+      "id": "_maxWhitelistedAddresses",
+      "type": "parameter",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "numAddressesWhitelisted += 1 arithmetic increment; uint8 counter can overflow.",
+      "id": "numAddressesWhitelisted_increment",
+      "type": "unsafe_operation",
+      "node_id": 7
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "Constructor assigns the cap into the maxWhitelistedAddresses state variable.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "Constructor parameter _maxWhitelistedAddresses is consumed by the constructor body.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "reason": "msg.sender identity decides which caller gets whitelisted, acting as the access-control subject.",
+      "type": "controlflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "msg.sender is used directly as the key into the whitelistedAddresses mapping.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "addAddressToWhitelist writes true into whitelistedAddresses[msg.sender].",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "require check numAddressesWhitelisted < maxWhitelistedAddresses reads the cap state variable.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "addAddressToWhitelist reads and updates the numAddressesWhitelisted counter.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "arithmetic",
+      "reason": "Function body executes the counter increment operation on numAddressesWhitelisted.",
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "arithmetic",
+      "reason": "Current value of numAddressesWhitelisted is read before the increment, risking uint8 overflow.",
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "arithmetic",
+      "reason": "Increment result is written back into the numAddressesWhitelisted state variable.",
+      "type": "dataflow",
+      "from_id": 7
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "constructor",
+      "reason": "The non-core constructor parameter _maxWhitelistedAddresses is only used to initialize maxWhitelistedAddresses and should be normalized into the constructor node.",
+      "normal_node": "_maxWhitelistedAddresses"
+    }
+  ]
+}

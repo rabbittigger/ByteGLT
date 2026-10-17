@@ -1,0 +1,538 @@
+{
+  "nodes": [
+    {
+      "id": "_transfer",
+      "node_id": 0,
+      "type": "function",
+      "description": "Private core transfer routine that validates blacklist/maxTx, computes contract token balance and triggers swapAndLiquify before executing the token transfer.",
+      "is_core": true
+    },
+    {
+      "id": "_tokenTransfer",
+      "node_id": 1,
+      "type": "function",
+      "description": "Private dispatcher that applies/removes fees and routes to the excluded/standard transfer variants.",
+      "is_core": true
+    },
+    {
+      "id": "swapAndLiquify",
+      "node_id": 2,
+      "type": "function",
+      "description": "Private lockTheSwap function that splits contract tokens, swaps for ETH, adds liquidity and forwards ETH to marketing.",
+      "is_core": true
+    },
+    {
+      "id": "swapTokensForEth",
+      "node_id": 3,
+      "type": "function",
+      "description": "Private function approving the router and swapping tokens for ETH via the Uniswap router.",
+      "is_core": true
+    },
+    {
+      "id": "addLiquidity",
+      "node_id": 4,
+      "type": "function",
+      "description": "Private function approving tokens and calling addLiquidityETH on the Uniswap router.",
+      "is_core": true
+    },
+    {
+      "id": "sendETHToMarketing",
+      "node_id": 5,
+      "type": "function",
+      "description": "Private function forwarding ETH to the marketing wallet address.",
+      "is_core": true
+    },
+    {
+      "id": "transfer",
+      "node_id": 6,
+      "type": "function",
+      "description": "Public ERC20 transfer entry point that forwards msg.sender and recipient to _transfer.",
+      "is_core": true
+    },
+    {
+      "id": "transferFrom",
+      "node_id": 7,
+      "type": "function",
+      "description": "Public ERC20 transferFrom that executes _transfer and reduces the caller allowance.",
+      "is_core": true
+    },
+    {
+      "id": "manualSend",
+      "node_id": 8,
+      "type": "function",
+      "description": "Owner-only function that sweeps the contract ETH balance to the marketing wallet.",
+      "is_core": true
+    },
+    {
+      "id": "recoverTokens",
+      "node_id": 9,
+      "type": "function",
+      "description": "Owner-only function approving and transferring tokens held by the contract to the owner.",
+      "is_core": true
+    },
+    {
+      "id": "addBotToBlackList",
+      "node_id": 10,
+      "type": "function",
+      "description": "Owner-only function inserting an address into the blacklist arrays/mapping.",
+      "is_core": true
+    },
+    {
+      "id": "_takeMarketingLiquidity",
+      "node_id": 11,
+      "type": "function",
+      "description": "Private function crediting the marketing/liquidity fee to the contract's reflection and token balances.",
+      "is_core": true
+    },
+    {
+      "id": "_getCurrentSupply",
+      "node_id": 12,
+      "type": "function",
+      "description": "Private view computing reflected and token supply excluding excluded accounts for the rate calculation.",
+      "is_core": true
+    },
+    {
+      "id": "msg.sender",
+      "node_id": 13,
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used as sender, owner and allowance owner across the token flows.",
+      "is_core": true
+    },
+    {
+      "id": "tx.origin",
+      "node_id": 14,
+      "type": "untrusted_input",
+      "description": "Origin address checked against the blacklist inside _transfer (phishing/tx.origin dependency risk).",
+      "is_core": true
+    },
+    {
+      "id": "block.timestamp",
+      "node_id": 15,
+      "type": "untrusted_input",
+      "description": "Miner-influenced deadline passed to Uniswap swap and liquidity calls.",
+      "is_core": true
+    },
+    {
+      "id": "_marketingWalletAddress.transfer",
+      "node_id": 16,
+      "type": "unsafe_operation",
+      "description": "ETH transfer to the marketing wallet address, which can revert and is executed after external swap calls.",
+      "is_core": true
+    },
+    {
+      "id": "uniswapV2Router.swapExactTokensForETHSupportingFeeOnTransferTokens",
+      "node_id": 17,
+      "type": "unsafe_operation",
+      "description": "External router call performing a token swap and transferring ETH; reachable mid-transfer for reentrancy.",
+      "is_core": true
+    },
+    {
+      "id": "uniswapV2Router.addLiquidityETH",
+      "node_id": 18,
+      "type": "unsafe_operation",
+      "description": "External router call adding liquidity with ETH value, executing arbitrary pair logic.",
+      "is_core": true
+    },
+    {
+      "id": "_rOwned",
+      "node_id": 19,
+      "type": "state_var",
+      "description": "Mapping of reflected token balances per address.",
+      "is_core": true
+    },
+    {
+      "id": "_tOwned",
+      "node_id": 20,
+      "type": "state_var",
+      "description": "Mapping of raw token balances for excluded accounts.",
+      "is_core": true
+    },
+    {
+      "id": "_allowances",
+      "node_id": 21,
+      "type": "state_var",
+      "description": "Mapping of ERC20 allowances between owner and spender.",
+      "is_core": true
+    },
+    {
+      "id": "_isBlackListedBot",
+      "node_id": 22,
+      "type": "state_var",
+      "description": "Mapping flagging blacklisted addresses blocked from transferring.",
+      "is_core": true
+    },
+    {
+      "id": "_isExcludedFromFee",
+      "node_id": 23,
+      "type": "state_var",
+      "description": "Mapping flagging accounts exempt from transfer fees.",
+      "is_core": true
+    },
+    {
+      "id": "_isExcluded",
+      "node_id": 24,
+      "type": "state_var",
+      "description": "Mapping flagging accounts excluded from reflection rewards.",
+      "is_core": true
+    },
+    {
+      "id": "_maxTxAmount",
+      "node_id": 25,
+      "type": "state_var",
+      "description": "Maximum transfer amount enforced in _transfer.",
+      "is_core": true
+    },
+    {
+      "id": "inSwapAndLiquify",
+      "node_id": 26,
+      "type": "state_var",
+      "description": "Reentrancy lock flag set during swapAndLiquify.",
+      "is_core": true
+    },
+    {
+      "id": "_taxFee",
+      "node_id": 27,
+      "type": "state_var",
+      "description": "Reflection tax fee percentage used to compute transfer fees.",
+      "is_core": true
+    },
+    {
+      "id": "_rTotal",
+      "node_id": 28,
+      "type": "state_var",
+      "description": "Total reflections used to derive the reflection rate.",
+      "is_core": true
+    },
+    {
+      "id": "sender",
+      "node_id": 29,
+      "type": "parameter",
+      "description": "From address parameter of _transfer and other internal transfer helpers.",
+      "is_core": false
+    },
+    {
+      "id": "recipient",
+      "node_id": 30,
+      "type": "parameter",
+      "description": "To address parameter of _transfer and other internal transfer helpers.",
+      "is_core": false
+    },
+    {
+      "id": "amount",
+      "node_id": 31,
+      "type": "parameter",
+      "description": "Token amount parameter of _transfer and the public ERC20 entry points.",
+      "is_core": false
+    },
+    {
+      "id": "takeFee",
+      "node_id": 32,
+      "type": "local_var",
+      "description": "Local boolean deciding whether fees are applied, passed from _transfer to _tokenTransfer.",
+      "is_core": false
+    },
+    {
+      "id": "contractTokenBalance",
+      "node_id": 33,
+      "type": "local_var",
+      "description": "Local amount of tokens held by the contract and queued for swap and liquidity.",
+      "is_core": false
+    },
+    {
+      "id": "tokenAmount",
+      "node_id": 34,
+      "type": "parameter",
+      "description": "Amount of tokens approved and swapped in swapTokensForEth.",
+      "is_core": false
+    },
+    {
+      "id": "half",
+      "node_id": 35,
+      "type": "local_var",
+      "description": "Local half of the liquidity token amount used to size the ETH swap.",
+      "is_core": false
+    },
+    {
+      "id": "toMarketing",
+      "node_id": 36,
+      "type": "local_var",
+      "description": "Local portion of contract tokens reserved for the marketing wallet.",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "reason": "msg.sender is used as the sender address of the transfer flow in _transfer.",
+      "type": "dataflow",
+      "from_id": 13,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "tx.origin is read inside _transfer for the blacklist check, creating a tx.origin dependency.",
+      "type": "dataflow",
+      "from_id": 14,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 3,
+      "reason": "block.timestamp is passed as the swap deadline in swapTokensForEth.",
+      "type": "dataflow",
+      "from_id": 15,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 4,
+      "reason": "block.timestamp is passed as the liquidity deadline in addLiquidity.",
+      "type": "dataflow",
+      "from_id": 15,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 0,
+      "reason": "transfer invokes _transfer for the token movement.",
+      "type": "controlflow",
+      "from_id": 6,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "transferFrom invokes _transfer before adjusting the allowance.",
+      "type": "controlflow",
+      "from_id": 7,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 13,
+      "reason": "transferFrom uses msg.sender as the spender when reducing the allowance.",
+      "type": "dataflow",
+      "from_id": 7,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 21,
+      "reason": "transferFrom reads and writes the _allowances mapping.",
+      "type": "dataflow",
+      "from_id": 7,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 6,
+      "reason": "transfer uses msg.sender as the origin of the token movement.",
+      "type": "dataflow",
+      "from_id": 13,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 1,
+      "reason": "_transfer delegates the final balance updates to _tokenTransfer.",
+      "type": "controlflow",
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 2,
+      "reason": "_transfer calls swapAndLiquify, which performs external Uniswap calls before the transfer state updates complete.",
+      "type": "controlflow",
+      "from_id": 0,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 22,
+      "reason": "_transfer checks _isBlackListedBot for sender and recipient.",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 25,
+      "reason": "_transfer enforces _maxTxAmount on the transfer amount.",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 26,
+      "reason": "_transfer reads the inSwapAndLiquify reentrancy lock flag.",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 23,
+      "reason": "_transfer consults _isExcludedFromFee to decide whether to take a fee.",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 19,
+      "reason": "_transfer indirectly reads _rOwned through balanceOf for the contract token balance.",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 3,
+      "reason": "swapAndLiquify calls swapTokensForEth to convert tokens into ETH.",
+      "type": "controlflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 4,
+      "reason": "swapAndLiquify calls addLiquidity to pair the remaining tokens with ETH.",
+      "type": "controlflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 5,
+      "reason": "swapAndLiquify forwards the remaining swapped ETH to the marketing wallet.",
+      "type": "controlflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 26,
+      "reason": "swapAndLiquify runs under the lockTheSwap modifier writing inSwapAndLiquify.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "swapTokensForEth performs an external Uniswap router swap that transfers control to the router/pair.",
+      "type": "callback",
+      "from_id": 3,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 18,
+      "reason": "addLiquidity makes an external addLiquidityETH call with ETH value, handing control to the router/pair.",
+      "type": "callback",
+      "from_id": 4,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 16,
+      "reason": "sendETHToMarketing pushes ETH to the marketing wallet address, transferring control/value externally.",
+      "type": "callback",
+      "from_id": 5,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 11,
+      "reason": "_tokenTransfer routes the marketing/liquidity fee to _takeMarketingLiquidity.",
+      "type": "controlflow",
+      "from_id": 1,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 19,
+      "reason": "_takeMarketingLiquidity multiplies fee amounts by the reflection rate and credits _rOwned.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 20,
+      "reason": "_takeMarketingLiquidity adds the fee to _tOwned when the contract is excluded.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 28,
+      "reason": "_getCurrentSupply starts from _rTotal when computing the reflected supply.",
+      "type": "dataflow",
+      "from_id": 12,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 20,
+      "reason": "_getCurrentSupply subtracts excluded _tOwned balances from the token supply, an arithmetic-sensitive loop.",
+      "type": "dataflow",
+      "from_id": 12,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 5,
+      "reason": "manualSend forwards the contract ETH balance through sendETHToMarketing.",
+      "type": "controlflow",
+      "from_id": 8,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "manualSend is gated by onlyOwner, which compares msg.sender to _owner.",
+      "type": "dataflow",
+      "from_id": 13,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 0,
+      "reason": "recoverTokens transfers contract-held tokens back to the owner via _transfer.",
+      "type": "controlflow",
+      "from_id": 9,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "addBotToBlackList is restricted by onlyOwner using msg.sender.",
+      "type": "dataflow",
+      "from_id": 13,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 22,
+      "reason": "addBotToBlackList writes the blacklist mapping _isBlackListedBot for the supplied account.",
+      "type": "dataflow",
+      "from_id": 10,
+      "vuln_type": "access_control"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "_transfer",
+      "reason": "sender is only a parameter name for the from-address already represented by the _transfer core function semantics.",
+      "normal_node": "sender"
+    },
+    {
+      "merge_into": "_transfer",
+      "reason": "recipient is only a parameter name for the to-address of the _transfer core function.",
+      "normal_node": "recipient"
+    },
+    {
+      "merge_into": "_transfer",
+      "reason": "amount is the token quantity handled directly by the _transfer core function.",
+      "normal_node": "amount"
+    },
+    {
+      "merge_into": "_tokenTransfer",
+      "reason": "takeFee is a local decision flag consumed by _tokenTransfer to apply or remove fees.",
+      "normal_node": "takeFee"
+    },
+    {
+      "merge_into": "swapAndLiquify",
+      "reason": "contractTokenBalance is the local amount passed into swapAndLiquify for swapping and liquidity.",
+      "normal_node": "contractTokenBalance"
+    },
+    {
+      "merge_into": "swapTokensForEth",
+      "reason": "tokenAmount is the swap amount parameter belonging to the swapTokensForEth core function.",
+      "normal_node": "tokenAmount"
+    },
+    {
+      "merge_into": "swapAndLiquify",
+      "reason": "half is a local split of the liquidity amount computed inside swapAndLiquify.",
+      "normal_node": "half"
+    },
+    {
+      "merge_into": "swapAndLiquify",
+      "reason": "toMarketing is a local fee split computed inside swapAndLiquify.",
+      "normal_node": "toMarketing"
+    }
+  ]
+}

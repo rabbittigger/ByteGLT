@@ -1,0 +1,259 @@
+{
+  "nodes": [
+    {
+      "description": "Public address state variable `dead` initialized to address(0); it is never used by any function and acts only as a sentinel/placeholder.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "state_dead"
+    },
+    {
+      "description": "Public address state variable `owner`, the privileged account. Set to msg.sender in the constructor and overwritten by transferOwnership; used as recipient of token transfers and as the access-control subject in onlyOwner.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "state_owner"
+    },
+    {
+      "description": "Public IERC20 state variable `dpr`, the token contract instance targeted by safeTransfer calls in to_dead and withdraw.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 2,
+      "id": "state_dpr"
+    },
+    {
+      "description": "Constructor(address _dpr): assigns the token instance to `dpr` and assigns `owner = msg.sender`, establishing the privileged account.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "func_constructor"
+    },
+    {
+      "description": "to_dead(uint256 _amount) external onlyOwner: performs dpr.safeTransfer(owner, _amount), an external token call made by a privileged caller.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 4,
+      "id": "func_to_dead"
+    },
+    {
+      "description": "withdraw(uint256 _amount) external onlyOwner: performs dpr.safeTransfer(owner, _amount), an external token call made by a privileged caller.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 5,
+      "id": "func_withdraw"
+    },
+    {
+      "description": "transferOwnership(address _newOwner) external onlyOwner: overwrites `owner` with the caller-supplied _newOwner, transferring all privileges.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 6,
+      "id": "func_transferOwnership"
+    },
+    {
+      "description": "msg.sender: external caller identity. Used as the initial owner in the constructor and as the authorisation subject in the onlyOwner modifier of every privileged function.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 7,
+      "id": "untrusted_msg_sender"
+    },
+    {
+      "description": "External call dpr.safeTransfer(owner, _amount) inside to_dead: invokes an attacker-influenceable token contract before any state finalisation, enabling re-entrant control flow.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 8,
+      "id": "unsafe_safeTransfer_to_dead"
+    },
+    {
+      "description": "External call dpr.safeTransfer(owner, _amount) inside withdraw: invokes an attacker-influenceable token contract, enabling re-entrant control flow.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 9,
+      "id": "unsafe_safeTransfer_withdraw"
+    },
+    {
+      "description": "Constructor parameter `_dpr` (address of the ERC20 token), cast to IERC20 and stored into state variable `dpr`.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 10,
+      "id": "param_dpr"
+    },
+    {
+      "description": "Parameter `_amount` of to_dead, forwarded verbatim into dpr.safeTransfer(owner, _amount).",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 11,
+      "id": "param_amount_to_dead"
+    },
+    {
+      "description": "Parameter `_amount` of withdraw, forwarded verbatim into dpr.safeTransfer(owner, _amount).",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 12,
+      "id": "param_amount_withdraw"
+    },
+    {
+      "description": "Parameter `_newOwner` of transferOwnership, written directly into the privileged state variable `owner`.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 13,
+      "id": "param_newOwner"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor assigns owner = msg.sender, so the untrusted caller becomes the privileged account whose identity is later compared in onlyOwner.",
+      "from_id": 7,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "onlyOwner requires msg.sender == owner before to_dead executes; msg.sender is the sole authorisation condition for this external token transfer entry point.",
+      "from_id": 7,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 4
+    },
+    {
+      "reason": "onlyOwner requires msg.sender == owner before withdraw executes; msg.sender gates the privileged token transfer.",
+      "from_id": 7,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 5
+    },
+    {
+      "reason": "onlyOwner requires msg.sender == owner before transferOwnership executes, gating ownership handover.",
+      "from_id": 7,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 6
+    },
+    {
+      "reason": "The token instance stored in state variable dpr is the callee of the safeTransfer invocation inside to_dead.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "The token instance stored in state variable dpr is the callee of the safeTransfer invocation inside withdraw.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 9
+    },
+    {
+      "reason": "State variable owner is passed as the recipient argument of dpr.safeTransfer inside to_dead.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "State variable owner is passed as the recipient argument of dpr.safeTransfer inside withdraw.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 9
+    },
+    {
+      "reason": "to_dead transfers control to the external token contract via safeTransfer without any reentrancy guard.",
+      "from_id": 4,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 8
+    },
+    {
+      "reason": "withdraw transfers control to the external token contract via safeTransfer without any reentrancy guard.",
+      "from_id": 5,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 9
+    },
+    {
+      "reason": "The external token call performed by safeTransfer can call back into to_dead before the outer invocation completes, since no state flag or mutex protects the function.",
+      "from_id": 8,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 4
+    },
+    {
+      "reason": "The external token call performed by safeTransfer can call back into withdraw before the outer invocation completes, since no state flag or mutex protects the function.",
+      "from_id": 9,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 5
+    },
+    {
+      "reason": "A malicious token invoked by to_dead's safeTransfer can re-enter withdraw, the sibling privileged token-transfer function, in the same transaction.",
+      "from_id": 8,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 5
+    },
+    {
+      "reason": "Constructor parameter _dpr is cast to IERC20 and written into state variable dpr.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "Constructor function consumes the external _dpr argument and uses it as the token address.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "Parameter _amount of to_dead flows directly into the external safeTransfer call as the transferred value.",
+      "from_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "Parameter _amount of withdraw flows directly into the external safeTransfer call as the transferred value.",
+      "from_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 9
+    },
+    {
+      "reason": "Parameter _newOwner is written into the privileged state variable owner, handing full control of the contract to the supplied address.",
+      "from_id": 13,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "Parameter _newOwner is the sole input consumed by transferOwnership.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The constructor parameter _dpr is a transient local view of the token address whose only semantic effect is initialising state variable dpr (node 2) within the constructor (node 3); it should be normalised into the constructor rather than modelled independently.",
+      "normal_node": "param_dpr",
+      "merge_into": "func_constructor"
+    },
+    {
+      "reason": "The parameter _amount of to_dead carries no independent semantics: it is passed unmodified as the value argument of the unsafe external call dpr.safeTransfer (node 8), so it should be merged into that unsafe_operation.",
+      "normal_node": "param_amount_to_dead",
+      "merge_into": "unsafe_safeTransfer_to_dead"
+    },
+    {
+      "reason": "The parameter _amount of withdraw carries no independent semantics: it is passed unmodified as the value argument of the unsafe external call dpr.safeTransfer (node 9), so it should be merged into that unsafe_operation.",
+      "normal_node": "param_amount_withdraw",
+      "merge_into": "unsafe_safeTransfer_withdraw"
+    },
+    {
+      "reason": "The parameter _newOwner is a transient argument of transferOwnership (node 6) whose only effect is overwriting the privileged owner state variable; it should be normalised into the function that writes it.",
+      "normal_node": "param_newOwner",
+      "merge_into": "func_transferOwnership"
+    }
+  ]
+}

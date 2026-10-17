@@ -1,0 +1,224 @@
+{
+  "nodes": [
+    {
+      "id": "core",
+      "description": "Public address state variable 'core' holding the privileged owner/minter address; single-step ownership without renounce or two-step transfer.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "setCore",
+      "description": "Public function setCore(address _core) guarded by onlyCore; overwrites the privileged 'core' address in a single step, enabling irreversible transfer of all minting power.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "function"
+    },
+    {
+      "id": "mint",
+      "description": "Public function mint(address account, uint256 amount) guarded by onlyCore; invokes internal _mint to create tokens, unbounded inflation surface if core key is compromised.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "burnForSelf",
+      "description": "External function burnForSelf(uint256 amount); burns the caller's own balance via internal _burn with no allowance check.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "constructor",
+      "description": "Constructor initializing ERC20Detailed metadata and assigning core = msg.sender, making the deployer the initial privileged minter.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "onlyCore",
+      "description": "Modifier onlyCore: require(msg.sender == core, 'Not Authorized') — the sole access-control gate for privileged functions.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "function"
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller-controlled address used in the constructor (core initialization), in the onlyCore authorization check, and as the target of burnForSelf.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "core_assign_constructor",
+      "description": "State write core = msg.sender in the constructor; privileged owner is set directly from untrusted caller input.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "core_assign_setCore",
+      "description": "State write core = _core inside setCore; single-step transfer of privileged ownership without two-step confirmation or event-based validation of the new address.",
+      "is_core": true,
+      "node_id": 8,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "mint_internal",
+      "description": "Internal call _mint(account, amount) increasing _totalSupply and _balances; token supply mutation.",
+      "is_core": true,
+      "node_id": 9,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "burn_internal",
+      "description": "Internal call _burn(msg.sender, amount) decreasing caller balance and _totalSupply; state change on caller input.",
+      "is_core": true,
+      "node_id": 10,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "_core_param",
+      "description": "Parameter _core of setCore; user-supplied new privileged address.",
+      "is_core": false,
+      "node_id": 11,
+      "type": "parameter"
+    },
+    {
+      "id": "account_param",
+      "description": "Parameter account of mint; destination address for newly minted tokens.",
+      "is_core": false,
+      "node_id": 12,
+      "type": "parameter"
+    },
+    {
+      "id": "amount_mint_param",
+      "description": "Parameter amount of mint; quantity of tokens to create.",
+      "is_core": false,
+      "node_id": 13,
+      "type": "parameter"
+    },
+    {
+      "id": "amount_burn_param",
+      "description": "Parameter amount of burnForSelf; quantity of caller tokens to destroy.",
+      "is_core": false,
+      "node_id": 14,
+      "type": "parameter"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is assigned directly to the core state variable during construction, establishing the deployer as privileged owner.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender is compared against the stored core value inside the onlyCore modifier, which is the sole authorization gate.",
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The core state variable is read by the onlyCore modifier to validate the caller's privileges.",
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "onlyCore guards setCore, restricting privileged ownership transfer to the current core address.",
+      "to_id": 1,
+      "vuln_type": "access_control",
+      "from_id": 5,
+      "type": "controlflow"
+    },
+    {
+      "reason": "onlyCore guards mint, restricting token creation to the current core address.",
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "from_id": 5,
+      "type": "controlflow"
+    },
+    {
+      "reason": "setCore executes the state write core = _core, replacing the access-control authority in a single unverified step.",
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "from_id": 1,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The _core parameter flows into the core state variable write within setCore.",
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 11,
+      "type": "dataflow"
+    },
+    {
+      "reason": "mint invokes the internal _mint routine to create tokens for the given account.",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The account parameter flows into _mint as the recipient of newly created tokens.",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 12,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The amount parameter flows into _mint as the quantity of tokens created.",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 13,
+      "type": "dataflow"
+    },
+    {
+      "reason": "burnForSelf invokes the internal _burn routine without any allowance or authorization check.",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "msg.sender is passed to _burn as the account whose balance is reduced, so a caller can only burn their own tokens.",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The amount parameter flows into _burn as the quantity of caller tokens destroyed.",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 14,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Parameter _core exists only to supply the core state write in setCore; merge it into the unsafe_operation core = _core.",
+      "normal_node": "_core_param",
+      "merge_into": "core_assign_setCore"
+    },
+    {
+      "reason": "Parameter account exists only to supply the _mint internal call; merge it into the unsafe_operation _mint(account, amount).",
+      "normal_node": "account_param",
+      "merge_into": "mint_internal"
+    },
+    {
+      "reason": "Parameter amount of mint exists only to supply the _mint internal call; merge it into the unsafe_operation _mint(account, amount).",
+      "normal_node": "amount_mint_param",
+      "merge_into": "mint_internal"
+    },
+    {
+      "reason": "Parameter amount of burnForSelf exists only to supply the _burn internal call; merge it into the unsafe_operation _burn(msg.sender, amount).",
+      "normal_node": "amount_burn_param",
+      "merge_into": "burn_internal"
+    }
+  ]
+}

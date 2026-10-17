@@ -1,0 +1,102 @@
+{
+  "nodes": [
+    {
+      "description": "Hardcoded StakingContract instance stored at 0x8D8A...faAD, referenced by balanceOf for external deposit lookups.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "state_var_stakingContract"
+    },
+    {
+      "description": "External view function balanceOf(address owner) that returns the number of deposits held by owner according to the external staking contract.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 1,
+      "id": "function_balanceOf"
+    },
+    {
+      "description": "Address parameter owner supplied by the caller and forwarded to the external call depositsOf.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 2,
+      "id": "param_owner"
+    },
+    {
+      "description": "Named return variable balance holding the length of the deposit array returned by the external call.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 3,
+      "id": "local_balance"
+    },
+    {
+      "description": "External call stakingContract.depositsOf(owner) executed against an external contract address, trusting its return data without validation.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 4,
+      "id": "unsafe_external_call_depositsOf"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Caller-supplied owner address is bound as the input of balanceOf.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "The parameter owner is forwarded directly into the external depositsOf call.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "balanceOf reads the stakingContract state variable to perform the external query.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "State variable stakingContract determines the target of an external call, which is executed before state validation.",
+      "from_id": 0,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "The array length returned by the external call is assigned to the balance local variable.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "balanceOf returns the balance local variable as the function result.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "The external depositsOf call can transfer control back into the contract before balanceOf completes, enabling reentrancy.",
+      "from_id": 4,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 1
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The owner parameter is a non-core data carrier whose only role is to be passed into the external depositsOf call, so it can be normalized into that unsafe operation.",
+      "normal_node": "param_owner",
+      "merge_into": "unsafe_external_call_depositsOf"
+    },
+    {
+      "reason": "The balance local variable exists only to hold the return value of balanceOf and can be normalized into the enclosing function.",
+      "normal_node": "local_balance",
+      "merge_into": "function_balanceOf"
+    }
+  ]
+}

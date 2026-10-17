@@ -1,0 +1,937 @@
+{
+  "nodes": [
+    {
+      "id": "lotteryStage",
+      "is_core": true,
+      "node_id": 0,
+      "description": "Current Lottery stage enum value (INITIAL/ACTIVE/FINISHING/ENDING_MINING/COMPLETION/DISABLED); gates nearly every state-changing function.",
+      "type": "state_var"
+    },
+    {
+      "id": "reEntrancyMutexLocked",
+      "is_core": true,
+      "node_id": 1,
+      "description": "Boolean reentrancy mutex used by mutexLOCKED modifier and inside mine()/claimWinnerPrize().",
+      "type": "state_var"
+    },
+    {
+      "id": "poolAddress",
+      "is_core": true,
+      "node_id": 2,
+      "description": "Payable address of the Main UniLottery Pool; set once on initialize()/construct() and used by poolOnly.",
+      "type": "state_var"
+    },
+    {
+      "id": "randomnessProvider",
+      "is_core": true,
+      "node_id": 3,
+      "description": "Address of the randomness provider allowed to call the finish callback.",
+      "type": "state_var"
+    },
+    {
+      "id": "exchangeAddress",
+      "is_core": true,
+      "node_id": 4,
+      "description": "Uniswap ULT-WETH pair address; presence of this address as sender/receiver distinguishes buys and sells.",
+      "type": "state_var"
+    },
+    {
+      "id": "transferHashValue",
+      "is_core": true,
+      "node_id": 5,
+      "description": "Per-transfer keccak chained hash, used as pseudo-random source for finishing and for the alternative random seed.",
+      "type": "state_var"
+    },
+    {
+      "id": "prizeClaimersAddresses",
+      "is_core": true,
+      "node_id": 6,
+      "description": "Mapping of addresses that already claimed their winner prize; written after the ETH transfer in claimWinnerPrize().",
+      "type": "state_var"
+    },
+    {
+      "id": "ending_profitAmount",
+      "is_core": true,
+      "node_id": 7,
+      "description": "Stores lottery net profit computed at lottery end; basis of miner, owner, pool and winner payouts.",
+      "type": "state_var"
+    },
+    {
+      "id": "minMaxScores",
+      "is_core": true,
+      "node_id": 8,
+      "description": "MinMaxHolderScores storage struct holding min/max int80 holder score factors used for normalization.",
+      "type": "state_var"
+    },
+    {
+      "id": "holderData",
+      "is_core": true,
+      "node_id": 9,
+      "description": "Mapping of HolderData (unchecked int80 score factors, referrer chain, referral id) in LotteryStorage.",
+      "type": "state_var"
+    },
+    {
+      "id": "randomSeed",
+      "is_core": true,
+      "node_id": 10,
+      "description": "uint64 random seed in LotteryStorage, set by callback or by the alternative-seed path in mine().",
+      "type": "state_var"
+    },
+    {
+      "id": "__delegateContract",
+      "is_core": true,
+      "node_id": 11,
+      "description": "Immutable delegate logic contract address used by LotteryStub/LotteryStorageStub delegatecall fallbacks.",
+      "type": "state_var"
+    },
+    {
+      "id": "holders",
+      "is_core": true,
+      "node_id": 12,
+      "description": "Array of holder addresses maintained by addHolder/removeHolder, iterated by the winner selection algorithms.",
+      "type": "state_var"
+    },
+    {
+      "id": "cfg",
+      "is_core": true,
+      "node_id": 13,
+      "description": "LotteryConfig storage struct controlling profit shares, burn rates, finish criteria and prize shares.",
+      "type": "state_var"
+    },
+    {
+      "id": "lotStorage",
+      "is_core": true,
+      "node_id": 14,
+      "description": "Reference to the LotteryStorage contract holding holder scores and the winner selection algorithm.",
+      "type": "state_var"
+    },
+    {
+      "id": "Lottery._transfer",
+      "is_core": true,
+      "node_id": 15,
+      "description": "Core token transfer override: applies burns, updates holder data and scores, updates transferHashValue, checks finishing/ending conditions.",
+      "type": "function"
+    },
+    {
+      "id": "Lottery.initialize",
+      "is_core": true,
+      "node_id": 16,
+      "description": "Payable one-time initializer called by the pool: mints supply, adds Uniswap liquidity, sets pool/exchange addresses and moves to ACTIVE.",
+      "type": "function"
+    },
+    {
+      "id": "Lottery.mine",
+      "is_core": true,
+      "node_id": 17,
+      "description": "Two-step mining function that requests a random seed, removes liquidity, transfers profit shares and pays the miner reward to msg.sender.",
+      "type": "function"
+    },
+    {
+      "id": "Lottery.claimWinnerPrize",
+      "is_core": true,
+      "node_id": 18,
+      "description": "Winner prize claim; verifies winner position, computes prize amount and transfers ETH to msg.sender before marking the claimer.",
+      "type": "function"
+    },
+    {
+      "id": "Lottery.getUnclaimedPrizes",
+      "is_core": true,
+      "node_id": 19,
+      "description": "Pool-only function that transfers the remaining contract balance back to the pool after the claim deadline.",
+      "type": "function"
+    },
+    {
+      "id": "Lottery.finish_randomnessProviderCallback",
+      "is_core": true,
+      "node_id": 20,
+      "description": "Randomness-provider-only callback that stores the random seed and may finalize the lottery.",
+      "type": "function"
+    },
+    {
+      "id": "Lottery.checkForEnding",
+      "is_core": true,
+      "node_id": 21,
+      "description": "Rolls transferHashValue modulo the current finish probability and starts the ending stage when the roll succeeds.",
+      "type": "function"
+    },
+    {
+      "id": "Lottery.checkFinishingStageConditions",
+      "is_core": true,
+      "node_id": 22,
+      "description": "Enables or disables the FINISHING stage based on lifetime, holder count, funds and time criteria.",
+      "type": "function"
+    },
+    {
+      "id": "Lottery.updateHolderData_preTransfer",
+      "is_core": true,
+      "node_id": 23,
+      "description": "Maintains holder array and updates/propagates holder scores before the actual token movement; enforces the sell-blocking fund requirement.",
+      "type": "function"
+    },
+    {
+      "id": "Lottery.mine_removeUniswapLiquidityAndTransferProfits",
+      "is_core": true,
+      "node_id": 24,
+      "description": "Removes all Uniswap liquidity, computes total return and profit, and pushes pool/owner shares out of the contract.",
+      "type": "function"
+    },
+    {
+      "id": "LotteryStorage.executeWinnerSelectionAlgorithm",
+      "is_core": true,
+      "node_id": 25,
+      "description": "Computes randomized final scores for every holder and sorts them with QuickSelect/QuickSort to record winners.",
+      "type": "function"
+    },
+    {
+      "id": "LotteryStorage.updateAndPropagateScoreChanges",
+      "is_core": true,
+      "node_id": 26,
+      "description": "Applies unchecked int80 score deltas to a holder, updates min/max bounds and walks the referrer chain up to depth 10.",
+      "type": "function"
+    },
+    {
+      "id": "LotteryStorage.registerReferral",
+      "is_core": true,
+      "node_id": 27,
+      "description": "Binds a holder to a referrer via a referral ID, grants bonus score and propagates referree counts/scores up the chain.",
+      "type": "function"
+    },
+    {
+      "id": "LotteryStorage.generateReferralID",
+      "is_core": true,
+      "node_id": 28,
+      "description": "Generates a referral ID from keccak(holder, tokenBalance, now) and stores it, blocking later referral registration.",
+      "type": "function"
+    },
+    {
+      "id": "LotteryStub.fallback",
+      "is_core": true,
+      "node_id": 29,
+      "description": "Payable fallback that delegatecalls every call with raw msg.data into the delegate logic contract.",
+      "type": "function"
+    },
+    {
+      "id": "Lottery.construct",
+      "is_core": true,
+      "node_id": 30,
+      "description": "External constructor replacement: validates config ranges, initializes the LotteryStorage and persists the config.",
+      "type": "function"
+    },
+    {
+      "id": "Lottery.getWinnerStatus",
+      "is_core": true,
+      "node_id": 31,
+      "description": "View that returns whether an address is a winner and its ranking position via LotteryStorage.",
+      "type": "function"
+    },
+    {
+      "id": "LotteryStorage.removeHolder",
+      "is_core": true,
+      "node_id": 32,
+      "description": "Removes a holder from the holders array by swapping with the last element and popping; no index validity check.",
+      "type": "function"
+    },
+    {
+      "id": "LotteryStorage.addHolder",
+      "is_core": true,
+      "node_id": 33,
+      "description": "Pushes a new holder address into the holders array and records its index.",
+      "type": "function"
+    },
+    {
+      "id": "LotteryStorage.setRandomSeed",
+      "is_core": true,
+      "node_id": 34,
+      "description": "Lottery-only setter that truncates the supplied seed into uint64 randomSeed.",
+      "type": "function"
+    },
+    {
+      "id": "msg.sender",
+      "is_core": true,
+      "node_id": 35,
+      "description": "Caller-controlled address used for access checks, miner rewards, prize claims and transfer hashing.",
+      "type": "untrusted_input"
+    },
+    {
+      "id": "block.timestamp",
+      "is_core": true,
+      "node_id": 36,
+      "description": "Block timestamp (now) used for lifetime, finishing criteria, seed-request waiting time, deadline checks and referral IDs.",
+      "type": "untrusted_input"
+    },
+    {
+      "id": "tx.origin",
+      "is_core": true,
+      "node_id": 37,
+      "description": "Transaction origin; not referenced by this code (only msg.sender is trusted for access control).",
+      "type": "untrusted_input"
+    },
+    {
+      "id": "transfer_claimWinnerPrize",
+      "is_core": true,
+      "node_id": 38,
+      "description": "msg.sender.transfer(finalPrizeAmount) inside claimWinnerPrize() executed before prizeClaimersAddresses is set.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "transfer_mine",
+      "is_core": true,
+      "node_id": 39,
+      "description": "msg.sender.transfer(currentStepReward) inside mine() after stage/step state changes.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "transfer_getUnclaimedPrizes",
+      "is_core": true,
+      "node_id": 40,
+      "description": "poolAddress.transfer(address(this).balance) inside getUnclaimedPrizes().",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "delegatecall_fallback",
+      "is_core": true,
+      "node_id": 41,
+      "description": "Raw delegatecall of msg.data into __delegateContract from the stub fallback, with assembly return/revert.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "int_score_arithmetic",
+      "is_core": true,
+      "node_id": 42,
+      "description": "Unchecked int80/int score arithmetic (additions, multiplications, truncating divisions) in score computation and propagation.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "keccak_pseudo_random",
+      "is_core": true,
+      "node_id": 43,
+      "description": "keccak256-based pseudo-randomness derived from transferHashValue/randomSeed, holder address and block data.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "param_sender",
+      "is_core": false,
+      "node_id": 44,
+      "description": "sender parameter of _transfer(), the token source used for burn/score accounting.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_receiver",
+      "is_core": false,
+      "node_id": 45,
+      "description": "receiver parameter of _transfer(), the token destination.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_amount",
+      "is_core": false,
+      "node_id": 46,
+      "description": "amount parameter of _transfer(), the pre-burn transfer quantity.",
+      "type": "parameter"
+    },
+    {
+      "id": "local_burnAmount",
+      "is_core": false,
+      "node_id": 47,
+      "description": "Burn amount computed from buyer/default burn rate config in _transfer().",
+      "type": "local_var"
+    },
+    {
+      "id": "local_finalAmount",
+      "is_core": false,
+      "node_id": 48,
+      "description": "Post-burn amount actually credited to the receiver in _transfer().",
+      "type": "local_var"
+    },
+    {
+      "id": "param_config",
+      "is_core": false,
+      "node_id": 49,
+      "description": "LotteryConfig memory argument of construct() carrying all lottery parameters.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_storageAddress",
+      "is_core": false,
+      "node_id": 50,
+      "description": "_storageAddress argument of construct(), the LotteryStorage to bind and initialize.",
+      "type": "parameter"
+    },
+    {
+      "id": "local_buySellValue",
+      "is_core": false,
+      "node_id": 51,
+      "description": "Signed ETH value of a detected buy/sell obtained from Uniswap router quotes.",
+      "type": "local_var"
+    },
+    {
+      "id": "local_timeFactorValue",
+      "is_core": false,
+      "node_id": 52,
+      "description": "Time-weighted score delta computed from now-startDate and the time factor divisor.",
+      "type": "local_var"
+    },
+    {
+      "id": "param_rankingPosition",
+      "is_core": false,
+      "node_id": 53,
+      "description": "rankingPosition argument of claimWinnerPrize(), self-reported winner rank.",
+      "type": "parameter"
+    },
+    {
+      "id": "local_finalPrizeAmount",
+      "is_core": false,
+      "node_id": 54,
+      "description": "Computed prize amount actually transferred to the claiming winner.",
+      "type": "local_var"
+    },
+    {
+      "id": "param_etherContributed_change",
+      "is_core": false,
+      "node_id": 55,
+      "description": "Signed int80 score delta passed into updateAndPropagateScoreChanges().",
+      "type": "parameter"
+    },
+    {
+      "id": "local_currentStepReward",
+      "is_core": false,
+      "node_id": 56,
+      "description": "Miner reward for the executed mining step, derived from ending_profitAmount and minerProfitShare.",
+      "type": "local_var"
+    },
+    {
+      "id": "param_randomSeed",
+      "is_core": false,
+      "node_id": 57,
+      "description": "randomSeed argument supplied by the randomness provider callback.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_holder",
+      "is_core": false,
+      "node_id": 58,
+      "description": "holder address argument whose score is updated (also used as transfer participant in score propagation).",
+      "type": "parameter"
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 35,
+      "to_id": 15,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "msg.sender is mixed into the per-transfer hash and into special-transfer checks during _transfer."
+    },
+    {
+      "from_id": 35,
+      "to_id": 17,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The miner reward is transferred to the arbitrary msg.sender that calls mine()."
+    },
+    {
+      "from_id": 35,
+      "to_id": 18,
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "reason": "msg.sender is the prize claimant; its claim flag is only written after the ETH transfer."
+    },
+    {
+      "from_id": 35,
+      "to_id": 29,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "Any caller reaches the stub fallback which forwards raw msg.data via delegatecall."
+    },
+    {
+      "from_id": 36,
+      "to_id": 21,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "Block timestamp drives the lifetime check and indirect probability-based lottery ending."
+    },
+    {
+      "from_id": 36,
+      "to_id": 22,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "now - startDate controls maxLifetime and finishing-stage min-time criteria."
+    },
+    {
+      "from_id": 36,
+      "to_id": 19,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "now - completionDate gates whether leftover prizes may be pulled back to the pool."
+    },
+    {
+      "from_id": 36,
+      "to_id": 17,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "Elapsed time since the random-seed request decides whether the alternative seed path in mine() is allowed."
+    },
+    {
+      "from_id": 36,
+      "to_id": 28,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "Referral IDs are generated from keccak(holder, tokenBalance, now), making the ID timestamp dependent."
+    },
+    {
+      "from_id": 15,
+      "to_id": 23,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "_transfer calls updateHolderData_preTransfer before burning/transferring tokens."
+    },
+    {
+      "from_id": 15,
+      "to_id": 22,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "After every transfer the finishing-stage conditions are re-evaluated."
+    },
+    {
+      "from_id": 15,
+      "to_id": 21,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "When on FINISHING stage, _transfer calls checkForEnding to roll for lottery end."
+    },
+    {
+      "from_id": 15,
+      "to_id": 5,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_transfer recomputes transferHashValue by hashing itself with transfer fields."
+    },
+    {
+      "from_id": 15,
+      "to_id": 4,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "exchangeAddress is compared with sender/receiver to classify the transfer as buy, sell or plain."
+    },
+    {
+      "from_id": 15,
+      "to_id": 43,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The chained keccak of transferHashValue is reused as a pseudo-random value in the finishing stage."
+    },
+    {
+      "from_id": 21,
+      "to_id": 5,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "transferHashValue modulo the finish probability determines whether the lottery ends."
+    },
+    {
+      "from_id": 22,
+      "to_id": 12,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "Holder count from the holders array is compared against finishCriteria_minNumberOfHolders."
+    },
+    {
+      "from_id": 15,
+      "to_id": 44,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "sender feeds burn classification and score accounting in _transfer."
+    },
+    {
+      "from_id": 15,
+      "to_id": 45,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "receiver is used for max-balance checks and score updates."
+    },
+    {
+      "from_id": 15,
+      "to_id": 46,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "amount is the basis for burn and finalAmount computation."
+    },
+    {
+      "from_id": 15,
+      "to_id": 47,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "burnAmount is derived from amount and the buyer/default burn rate config."
+    },
+    {
+      "from_id": 15,
+      "to_id": 48,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "finalAmount = amount - burnAmount is credited to the receiver."
+    },
+    {
+      "from_id": 23,
+      "to_id": 26,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "updateHolderData_preTransfer forwards score deltas into LotteryStorage.updateAndPropagateScoreChanges."
+    },
+    {
+      "from_id": 23,
+      "to_id": 51,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "buySellValue is computed from router getAmountsIn/getAmountsOut quotes."
+    },
+    {
+      "from_id": 23,
+      "to_id": 52,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "timeFactorValue is computed from now-startDate and the configured time factor divisor."
+    },
+    {
+      "from_id": 23,
+      "to_id": 14,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "Holder array and score updates are delegated to the bound lotStorage contract."
+    },
+    {
+      "from_id": 23,
+      "to_id": 4,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "Buy/sell detection branches on exchangeAddress equality."
+    },
+    {
+      "from_id": 26,
+      "to_id": 9,
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "reason": "holderData int80 score fields are mutated with unchecked signed arithmetic and propagate into referrer entries."
+    },
+    {
+      "from_id": 26,
+      "to_id": 8,
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "reason": "minMaxScores bounds are widened by direct unchecked int80 comparisons and assignments."
+    },
+    {
+      "from_id": 26,
+      "to_id": 42,
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "reason": "Repeated int80 additions along the referrer chain can silently wrap the score factors."
+    },
+    {
+      "from_id": 26,
+      "to_id": 55,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "Score delta parameter is added into the holder and referrer accumulators."
+    },
+    {
+      "from_id": 25,
+      "to_id": 42,
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "reason": "Winner score computation and normalization perform unguarded signed multiplications and divisions."
+    },
+    {
+      "from_id": 25,
+      "to_id": 12,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The algorithm loops over the holders array and writes the sorted winner indexes."
+    },
+    {
+      "from_id": 25,
+      "to_id": 10,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "randomSeed is mixed with each holder address to derive the randomized final score."
+    },
+    {
+      "from_id": 25,
+      "to_id": 43,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "keccak256(randomSeed, holder) modulo RANDOM_MODULO supplies the random score component."
+    },
+    {
+      "from_id": 17,
+      "to_id": 24,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "Mining step 0 invokes liquidity removal and profit transfer."
+    },
+    {
+      "from_id": 17,
+      "to_id": 25,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "Mining step 1 triggers the winner selection algorithm in storage for the mined algorithm type."
+    },
+    {
+      "from_id": 17,
+      "to_id": 39,
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "reason": "The step reward is pushed to an arbitrary msg.sender, re-entering mine() is only prevented by the manual mutex flag."
+    },
+    {
+      "from_id": 39,
+      "to_id": 1,
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "reason": "reEntrancyMutexLocked is checked/set/cleared around the miner ETH transfer."
+    },
+    {
+      "from_id": 24,
+      "to_id": 7,
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "reason": "ending_profitAmount is derived by subtracting initialFunds from the contract balance in uint128 arithmetic."
+    },
+    {
+      "from_id": 24,
+      "to_id": 2,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "Pool profit share plus initial funds is sent to poolAddress via lotteryFinish."
+    },
+    {
+      "from_id": 18,
+      "to_id": 38,
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "reason": "Prize ETH is transferred to msg.sender before the claimer flag is written."
+    },
+    {
+      "from_id": 38,
+      "to_id": 6,
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "reason": "prizeClaimersAddresses[msg.sender] is only set after the external ETH transfer, enabling re-entrant claims if the mutex is bypassed."
+    },
+    {
+      "from_id": 38,
+      "to_id": 1,
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "reason": "The mutex is released after the transfer, so the guard window does not cover state finalization ordering."
+    },
+    {
+      "from_id": 18,
+      "to_id": 53,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The caller-supplied rankingPosition is validated against storage before payout."
+    },
+    {
+      "from_id": 18,
+      "to_id": 54,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "finalPrizeAmount is computed, capped by contract balance, then transferred."
+    },
+    {
+      "from_id": 18,
+      "to_id": 31,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "Non-mined algorithm types re-derive the winner status through getWinnerStatus."
+    },
+    {
+      "from_id": 31,
+      "to_id": 12,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "Winner status resolution reads holder balances and the storage winner structures indirectly."
+    },
+    {
+      "from_id": 19,
+      "to_id": 40,
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "reason": "The whole contract balance is pushed to the pool address in a single external transfer."
+    },
+    {
+      "from_id": 40,
+      "to_id": 2,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "Destination of the leftover-funds transfer is poolAddress."
+    },
+    {
+      "from_id": 29,
+      "to_id": 41,
+      "type": "callback",
+      "vuln_type": "none",
+      "reason": "The stub fallback performs a raw delegatecall with caller-controlled msg.data."
+    },
+    {
+      "from_id": 41,
+      "to_id": 11,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The delegatecall target is the immutable __delegateContract logic address."
+    },
+    {
+      "from_id": 16,
+      "to_id": 2,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "initialize() locks the pool address to msg.sender, giving that caller exclusive pool rights."
+    },
+    {
+      "from_id": 30,
+      "to_id": 2,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "construct() sets poolAddress from an argument after a zero-address one-time lock check."
+    },
+    {
+      "from_id": 30,
+      "to_id": 13,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "Validated LotteryConfig is persisted into cfg."
+    },
+    {
+      "from_id": 20,
+      "to_id": 10,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The randomness provider callback writes the supplied seed into storage."
+    },
+    {
+      "from_id": 34,
+      "to_id": 10,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "setRandomSeed truncates and stores the uint64 random seed."
+    },
+    {
+      "from_id": 28,
+      "to_id": 9,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "generateReferralID writes holderData.referralID and forces a ROOT_REFERRER referrer when none exists."
+    },
+    {
+      "from_id": 27,
+      "to_id": 9,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "registerReferral writes referrer, bonusScore and increments referreeCount/accumulated scores up the chain."
+    },
+    {
+      "from_id": 32,
+      "to_id": 12,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "removeHolder swap-and-pops the holders array without validating the given index mapping."
+    },
+    {
+      "from_id": 33,
+      "to_id": 12,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "addHolder pushes the new holder and stores its index."
+    },
+    {
+      "from_id": 17,
+      "to_id": 7,
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "reason": "Total miner rewards are computed by multiplying ending_profitAmount by the miner share percentage."
+    },
+    {
+      "from_id": 18,
+      "to_id": 7,
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "reason": "Winner prize amount is derived from ending_profitAmount and the configured share percentages."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param_sender",
+      "merge_into": "Lottery._transfer",
+      "reason": "sender is a parameter used only inside _transfer's burn/score logic, so it normalizes into the _transfer node."
+    },
+    {
+      "normal_node": "param_receiver",
+      "merge_into": "Lottery._transfer",
+      "reason": "receiver is a parameter used only inside _transfer for balance checks and score updates."
+    },
+    {
+      "normal_node": "param_amount",
+      "merge_into": "Lottery._transfer",
+      "reason": "amount is a local transfer quantity that directly feeds the _transfer burn and transfer operations."
+    },
+    {
+      "normal_node": "local_burnAmount",
+      "merge_into": "Lottery._transfer",
+      "reason": "burnAmount is a local computation of _transfer with no independent semantic identity."
+    },
+    {
+      "normal_node": "local_finalAmount",
+      "merge_into": "Lottery._transfer",
+      "reason": "finalAmount is a local computation of _transfer consumed by the ERC20 transfer call."
+    },
+    {
+      "normal_node": "param_config",
+      "merge_into": "Lottery.construct",
+      "reason": "config is the construct() parameter that is validated and stored into cfg."
+    },
+    {
+      "normal_node": "param_storageAddress",
+      "merge_into": "Lottery.construct",
+      "reason": "_storageAddress is the construct() parameter used to bind and initialize the LotteryStorage."
+    },
+    {
+      "normal_node": "local_buySellValue",
+      "merge_into": "Lottery.updateHolderData_preTransfer",
+      "reason": "buySellValue is a local of updateHolderData_preTransfer used directly as the score delta."
+    },
+    {
+      "normal_node": "local_timeFactorValue",
+      "merge_into": "Lottery.updateHolderData_preTransfer",
+      "reason": "timeFactorValue is a local of updateHolderData_preTransfer passed into score propagation."
+    },
+    {
+      "normal_node": "param_rankingPosition",
+      "merge_into": "Lottery.claimWinnerPrize",
+      "reason": "rankingPosition is the claimWinnerPrize parameter that selects the prize to pay out."
+    },
+    {
+      "normal_node": "local_finalPrizeAmount",
+      "merge_into": "Lottery.claimWinnerPrize",
+      "reason": "finalPrizeAmount is the local value transferred by claimWinnerPrize."
+    },
+    {
+      "normal_node": "param_etherContributed_change",
+      "merge_into": "LotteryStorage.updateAndPropagateScoreChanges",
+      "reason": "etherContributed_change is a parameter of updateAndPropagateScoreChanges applied to holderData and minMaxScores."
+    },
+    {
+      "normal_node": "local_currentStepReward",
+      "merge_into": "Lottery.mine",
+      "reason": "currentStepReward is the local miner payout computed and transferred inside mine()."
+    },
+    {
+      "normal_node": "param_randomSeed",
+      "merge_into": "Lottery.finish_randomnessProviderCallback",
+      "reason": "randomSeed is the callback parameter written into the storage random seed."
+    },
+    {
+      "normal_node": "param_holder",
+      "merge_into": "LotteryStorage.updateAndPropagateScoreChanges",
+      "reason": "holder is the parameter of updateAndPropagateScoreChanges whose HolderData entry is updated and propagated."
+    }
+  ]
+}

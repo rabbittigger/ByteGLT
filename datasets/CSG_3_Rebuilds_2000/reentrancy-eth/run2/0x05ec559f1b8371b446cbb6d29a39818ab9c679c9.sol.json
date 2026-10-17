@@ -1,0 +1,308 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "description": "payable address payowner that receives mint fees from claim()",
+      "id": "sv_payowner",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "description": "mapping(address => uint256) _claimTimes tracking how many times an address claimed",
+      "id": "sv_claimTimes",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "description": "uint256 _globalTokenId, incrementing global token id starting at 1",
+      "id": "sv_globalTokenId",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "type": "function",
+      "description": "receive() external payable that forwards all plain ETH transfers into claim()",
+      "id": "fn_receive",
+      "is_core": true
+    },
+    {
+      "node_id": 4,
+      "type": "function",
+      "description": "claim() public payable nonReentrant minting entry point; checks msg.value, pays owner, mints and updates counters",
+      "id": "fn_claim",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "type": "function",
+      "description": "_safeMint internal, mints token then performs ERC721 receiver callback check",
+      "id": "fn_safeMint",
+      "is_core": true
+    },
+    {
+      "node_id": 6,
+      "type": "function",
+      "description": "_checkOnERC721Received private, external call to recipient contract if it is a contract",
+      "id": "fn_checkOnERC721Received",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "type": "function",
+      "description": "transferOwnership guarded by onlyOwner access control",
+      "id": "fn_transferOwnership",
+      "is_core": true
+    },
+    {
+      "node_id": 8,
+      "type": "function",
+      "description": "tokenURI override building on-chain SVG + JSON metadata",
+      "id": "fn_tokenURI",
+      "is_core": true
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "description": "pluck internal view deriving loot attributes from pseudo-randomness",
+      "id": "fn_pluck",
+      "is_core": true
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "description": "random internal pure keccak256 based number generator",
+      "id": "fn_random",
+      "is_core": true
+    },
+    {
+      "node_id": 11,
+      "type": "untrusted_input",
+      "description": "msg.sender, caller controlled address used as claim key and mint recipient",
+      "id": "ui_msg_sender",
+      "is_core": true
+    },
+    {
+      "node_id": 12,
+      "type": "unsafe_operation",
+      "description": "payowner.transfer(msg.value) external value transfer executed before mint state updates",
+      "id": "uo_payowner_transfer",
+      "is_core": true
+    },
+    {
+      "node_id": 13,
+      "type": "unsafe_operation",
+      "description": "external call to IERC721Receiver.onERC721Received on an attacker-controlled recipient contract",
+      "id": "uo_onERC721Received",
+      "is_core": true
+    },
+    {
+      "node_id": 14,
+      "type": "unsafe_operation",
+      "description": "_globalTokenId++ arithmetic mutation of mint counter",
+      "id": "uo_globalTokenId_inc",
+      "is_core": true
+    },
+    {
+      "node_id": 15,
+      "type": "unsafe_operation",
+      "description": "_claimTimes[msg.sender] = ++times arithmetic mutation of per-address claim counter",
+      "id": "uo_claimTimes_inc",
+      "is_core": true
+    },
+    {
+      "node_id": 16,
+      "type": "parameter",
+      "description": "uint256 tokenId parameter supplied by caller to tokenURI and pluck",
+      "id": "param_tokenId",
+      "is_core": false
+    },
+    {
+      "node_id": 17,
+      "type": "parameter",
+      "description": "address newOwner parameter of transferOwnership",
+      "id": "param_newOwner",
+      "is_core": false
+    },
+    {
+      "node_id": 18,
+      "type": "local_var",
+      "description": "uint256 times local copy of _claimTimes[msg.sender] inside claim",
+      "id": "local_times",
+      "is_core": false
+    },
+    {
+      "node_id": 19,
+      "type": "local_var",
+      "description": "uint256 rand local pseudo-random value inside pluck",
+      "id": "local_rand",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "reason": "receive() forwards incoming ether directly into claim(), making claim reachable without calldata",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 4
+    },
+    {
+      "reason": "claim() reads msg.sender as the claimer and mint recipient",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 4,
+      "to_id": 11
+    },
+    {
+      "reason": "msg.sender is used as the key into the _claimTimes mapping",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 11,
+      "to_id": 1
+    },
+    {
+      "reason": "claim() pushes msg.value to payowner via transfer before finishing state updates, an external value transfer",
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 4,
+      "to_id": 12
+    },
+    {
+      "reason": "claim() invokes _safeMint which can re-enter through the receiver callback",
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 4,
+      "to_id": 5
+    },
+    {
+      "reason": "_safeMint calls _checkOnERC721Received for the recipient",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 5,
+      "to_id": 6
+    },
+    {
+      "reason": "_checkOnERC721Received performs an untrusted external call to onERC721Received on the recipient contract",
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 6,
+      "to_id": 13
+    },
+    {
+      "reason": "claim() executes _globalTokenId++ to advance the mint counter",
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 4,
+      "to_id": 14
+    },
+    {
+      "reason": "the increment operation writes the new value into state variable _globalTokenId",
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 14,
+      "to_id": 2
+    },
+    {
+      "reason": "claim() executes ++times to update the caller claim count",
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 4,
+      "to_id": 15
+    },
+    {
+      "reason": "the incremented counter is stored back into _claimTimes[msg.sender]",
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 15,
+      "to_id": 1
+    },
+    {
+      "reason": "transferOwnership is guarded by the onlyOwner modifier which compares owner() with _msgSender()",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 7,
+      "to_id": 11
+    },
+    {
+      "reason": "tokenURI calls getWeapon/getChest/getRing which all delegate to pluck",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 8,
+      "to_id": 9
+    },
+    {
+      "reason": "the caller supplied tokenId parameter flows into pluck to derive attributes",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 16,
+      "to_id": 9
+    },
+    {
+      "reason": "pluck calls random() to derive the pseudo-random seed",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 9,
+      "to_id": 10
+    },
+    {
+      "reason": "pluck stores the random() result in the local variable rand",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 9,
+      "to_id": 19
+    },
+    {
+      "reason": "tokenId parameter is used by tokenURI for metadata generation and existence check",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 16,
+      "to_id": 8
+    },
+    {
+      "reason": "newOwner parameter is validated and written by transferOwnership",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 17,
+      "to_id": 7
+    },
+    {
+      "reason": "claim() loads _claimTimes[msg.sender] into the local variable times",
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 4,
+      "to_id": 18
+    },
+    {
+      "reason": "the local variable times is pre-incremented to form the new claim counter value",
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 18,
+      "to_id": 15
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param_tokenId",
+      "reason": "tokenId is only a caller-supplied argument consumed by tokenURI (and its pluck helper) for attribute/metadata derivation; folding it into the tokenURI function node removes a transient parameter node.",
+      "merge_into": "fn_tokenURI"
+    },
+    {
+      "normal_node": "param_newOwner",
+      "reason": "newOwner exists solely as the input of the access-controlled transferOwnership function and has no independent semantic role.",
+      "merge_into": "fn_transferOwnership"
+    },
+    {
+      "normal_node": "local_times",
+      "reason": "the local times variable is a temporary snapshot used only to compute the ++ increment of _claimTimes, so it collapses into the claim-time mutation operation.",
+      "merge_into": "uo_claimTimes_inc"
+    },
+    {
+      "normal_node": "local_rand",
+      "reason": "rand is a transient internal value computed and consumed entirely inside pluck for attribute selection, so it merges into the pluck function node.",
+      "merge_into": "fn_pluck"
+    }
+  ]
+}

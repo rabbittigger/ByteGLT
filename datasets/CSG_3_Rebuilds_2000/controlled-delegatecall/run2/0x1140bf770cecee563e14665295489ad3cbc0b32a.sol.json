@@ -1,0 +1,97 @@
+{
+  "nodes": [
+    {
+      "id": "owner",
+      "description": "Public address state variable initialized with msg.sender, used as the privileged owner in the restricted modifier.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "last_completed_migration",
+      "description": "Public uint state variable that records the last completed migration index; written by setCompleted.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "restricted",
+      "description": "Modifier that requires msg.sender == owner before executing the modified function body.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "setCompleted",
+      "description": "Public function guarded by the restricted modifier that assigns the completed argument to last_completed_migration.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller-controlled address used to initialize owner and compared against owner in the restricted modifier.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "completed",
+      "description": "Non-core uint parameter of setCompleted that is written into last_completed_migration.",
+      "is_core": false,
+      "node_id": 5,
+      "type": "parameter"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is assigned to the owner state variable at construction, making the deployer the privileged owner.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The restricted modifier's require compares the untrusted msg.sender against owner, gating execution on caller identity.",
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The restricted modifier is applied to setCompleted, meaning the caller-identity check governs whether setCompleted can execute.",
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "from_id": 2,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The completed parameter is an argument consumed by the setCompleted function body.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The completed parameter value is assigned directly into the last_completed_migration state variable.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "setCompleted writes the state variable last_completed_migration, mutating contract storage.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The non-core parameter completed only exists inside setCompleted; fold it into the function node to simplify the graph while preserving the dataflow into last_completed_migration.",
+      "normal_node": "completed",
+      "merge_into": "setCompleted"
+    }
+  ]
+}

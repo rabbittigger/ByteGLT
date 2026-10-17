@@ -1,0 +1,119 @@
+{
+  "nodes": [
+    {
+      "id": "Disperse.disperseTokenSimple",
+      "description": "External function that iterates over recipients and calls token.transferFrom(msg.sender, recipients[i], values[i]*10**18) for each entry.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "function"
+    },
+    {
+      "id": "disperseTokenSimple.token",
+      "description": "IERC20 token contract address supplied by the caller; the target of the external transferFrom call.",
+      "is_core": false,
+      "node_id": 1,
+      "type": "parameter"
+    },
+    {
+      "id": "disperseTokenSimple.recipients",
+      "description": "Fixed-size array of three recipient addresses receiving the dispersed tokens.",
+      "is_core": false,
+      "node_id": 2,
+      "type": "parameter"
+    },
+    {
+      "id": "disperseTokenSimple.values",
+      "description": "Fixed-size array of three amounts, each multiplied by 10**18 before being transferred.",
+      "is_core": false,
+      "node_id": 3,
+      "type": "parameter"
+    },
+    {
+      "id": "disperseTokenSimple.i",
+      "description": "Loop counter indexing the recipients and values arrays during the dispersal loop.",
+      "is_core": false,
+      "node_id": 4,
+      "type": "local_var"
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller address used as the `from` argument of transferFrom, so the caller must have approved this contract.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "token.transferFrom",
+      "description": "External call into an arbitrary caller-supplied IERC20 contract for each recipient inside the loop, with the result enforced by require.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The token parameter determines which contract is invoked by the external transferFrom call.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Each recipients[i] element is passed as the `to` argument of transferFrom.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Each values[i]*10**18 amount is passed as the value argument of transferFrom.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender is passed as the `from` argument of transferFrom, tying the transfer to the untrusted caller.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The loop index i selects the array elements that feed the external transferFrom call on each iteration.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Execution of the function body enters the external token.transferFrom call inside the loop.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "controlflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The token parameter exists only to select the target contract of the token.transferFrom external call, so it is normalized into that unsafe_operation node.",
+      "normal_node": "disperseTokenSimple.token",
+      "merge_into": "token.transferFrom"
+    },
+    {
+      "reason": "The recipients parameter is consumed solely as the `to` argument of token.transferFrom, so it is normalized into that unsafe_operation node.",
+      "normal_node": "disperseTokenSimple.recipients",
+      "merge_into": "token.transferFrom"
+    },
+    {
+      "reason": "The values parameter is consumed solely as the amount argument of token.transferFrom, so it is normalized into that unsafe_operation node.",
+      "normal_node": "disperseTokenSimple.values",
+      "merge_into": "token.transferFrom"
+    },
+    {
+      "reason": "The loop counter i is a purely local iteration variable of disperseTokenSimple and carries no independent semantics, so it is normalized into the enclosing function node.",
+      "normal_node": "disperseTokenSimple.i",
+      "merge_into": "Disperse.disperseTokenSimple"
+    }
+  ]
+}

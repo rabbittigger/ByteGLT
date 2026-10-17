@@ -1,0 +1,777 @@
+{
+  "nodes": [
+    {
+      "id": "sv_Owner",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Owner address; gate for onlyOwner modifier",
+      "node_id": 0
+    },
+    {
+      "id": "sv_Pool",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Pool (IPairX) contract address used for depositInfo external calls",
+      "node_id": 1
+    },
+    {
+      "id": "sv_Token0",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Token0 address held by the exchange",
+      "node_id": 2
+    },
+    {
+      "id": "sv_Token1",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Token1 address held by the exchange",
+      "node_id": 3
+    },
+    {
+      "id": "sv_Total0",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Total0 reward accounting base",
+      "node_id": 4
+    },
+    {
+      "id": "sv_Total1",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Total1 reward accounting base",
+      "node_id": 5
+    },
+    {
+      "id": "sv_RewardToken",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Reward token address paid out on claim",
+      "node_id": 6
+    },
+    {
+      "id": "sv_Reward0",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Reward amount used for Token0 calculations",
+      "node_id": 7
+    },
+    {
+      "id": "sv_Reward1",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Reward amount used for Token1 calculations",
+      "node_id": 8
+    },
+    {
+      "id": "sv_DepositGotted",
+      "is_core": true,
+      "type": "state_var",
+      "description": "DepositGotted[sender][token] mapping of already withdrawn deposits",
+      "node_id": 9
+    },
+    {
+      "id": "sv_RewardGotted",
+      "is_core": true,
+      "type": "state_var",
+      "description": "RewardGotted[sender][token] mapping of already paid rewards",
+      "node_id": 10
+    },
+    {
+      "id": "sv_WETH",
+      "is_core": true,
+      "type": "state_var",
+      "description": "WETH address; used to unwrap ETH and as msg.sender check in receive",
+      "node_id": 11
+    },
+    {
+      "id": "fn_constructor",
+      "is_core": true,
+      "type": "function",
+      "description": "constructor sets Owner and calls active()",
+      "node_id": 12
+    },
+    {
+      "id": "fn_token0",
+      "is_core": true,
+      "type": "function",
+      "description": "view getter returning Token0",
+      "node_id": 13
+    },
+    {
+      "id": "fn_token1",
+      "is_core": true,
+      "type": "function",
+      "description": "view getter returning Token1",
+      "node_id": 14
+    },
+    {
+      "id": "fn_active",
+      "is_core": true,
+      "type": "function",
+      "description": "onlyOwner setter that rewrites Pool, Token0/1, WETH, RewardToken, totals and rewards",
+      "node_id": 15
+    },
+    {
+      "id": "fn_info",
+      "is_core": true,
+      "type": "function",
+      "description": "view computation of claimable deposit/reward, calls external pairx.depositInfo",
+      "node_id": 16
+    },
+    {
+      "id": "fn__transfer",
+      "is_core": true,
+      "type": "function",
+      "description": "internal transfer; unwraps WETH and sends ETH or ERC20 via TransferHelper",
+      "node_id": 17
+    },
+    {
+      "id": "fn_claim",
+      "is_core": true,
+      "type": "function",
+      "description": "public claim; updates DepositGotted/RewardGotted then performs external transfers",
+      "node_id": 18
+    },
+    {
+      "id": "fn_superTransfer",
+      "is_core": true,
+      "type": "function",
+      "description": "onlyOwner arbitrary transfer of Token0/Token1/RewardToken to msg.sender",
+      "node_id": 19
+    },
+    {
+      "id": "fn_receive",
+      "is_core": true,
+      "type": "function",
+      "description": "receive fallback asserting msg.sender == WETH",
+      "node_id": 20
+    },
+    {
+      "id": "ui_msg_sender",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "msg.sender: caller of claim/superTransfer and the onlyOwner / receive assertions",
+      "node_id": 21
+    },
+    {
+      "id": "uo_lowlevel_call",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "low-level token.call(...) inside TransferHelper.safeApprove/safeTransfer/safeTransferFrom",
+      "node_id": 22
+    },
+    {
+      "id": "uo_eth_transfer",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "IWETH.withdraw + to.call{value:value}(new bytes(0)) ETH transfer inside _transfer/safeTransferETH",
+      "node_id": 23
+    },
+    {
+      "id": "uo_reentrancy",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "claim writes DepositGotted/RewardGotted before the external _transfer call, enabling reentrancy",
+      "node_id": 24
+    },
+    {
+      "id": "uo_arithmetic",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "deposit.div(1e12).mul(rewardAmount).div(total.div(1e12)) division chain in info; div-by-zero if total < 1e12",
+      "node_id": 25
+    },
+    {
+      "id": "pm_pool",
+      "is_core": false,
+      "type": "parameter",
+      "description": "pool parameter of active/constructor",
+      "node_id": 26
+    },
+    {
+      "id": "pm_token0",
+      "is_core": false,
+      "type": "parameter",
+      "description": "token0 parameter of active/constructor",
+      "node_id": 27
+    },
+    {
+      "id": "pm_token1",
+      "is_core": false,
+      "type": "parameter",
+      "description": "token1 parameter of active/constructor",
+      "node_id": 28
+    },
+    {
+      "id": "pm_weth",
+      "is_core": false,
+      "type": "parameter",
+      "description": "weth parameter of active/constructor",
+      "node_id": 29
+    },
+    {
+      "id": "pm_total0",
+      "is_core": false,
+      "type": "parameter",
+      "description": "total0 parameter of active/constructor",
+      "node_id": 30
+    },
+    {
+      "id": "pm_total1",
+      "is_core": false,
+      "type": "parameter",
+      "description": "total1 parameter of active/constructor",
+      "node_id": 31
+    },
+    {
+      "id": "pm_rewardToken",
+      "is_core": false,
+      "type": "parameter",
+      "description": "rewardToken parameter of active/constructor",
+      "node_id": 32
+    },
+    {
+      "id": "pm_reward0",
+      "is_core": false,
+      "type": "parameter",
+      "description": "reward0 parameter of active/constructor",
+      "node_id": 33
+    },
+    {
+      "id": "pm_reward1",
+      "is_core": false,
+      "type": "parameter",
+      "description": "reward1 parameter of active/constructor",
+      "node_id": 34
+    },
+    {
+      "id": "pm_claim_token",
+      "is_core": false,
+      "type": "parameter",
+      "description": "token argument of claim",
+      "node_id": 35
+    },
+    {
+      "id": "pm_token0Amt",
+      "is_core": false,
+      "type": "parameter",
+      "description": "token0Amt argument of superTransfer",
+      "node_id": 36
+    },
+    {
+      "id": "pm_token1Amt",
+      "is_core": false,
+      "type": "parameter",
+      "description": "token1Amt argument of superTransfer",
+      "node_id": 37
+    },
+    {
+      "id": "pm_rewardAmt",
+      "is_core": false,
+      "type": "parameter",
+      "description": "rewardAmt argument of superTransfer",
+      "node_id": 38
+    },
+    {
+      "id": "pm_to",
+      "is_core": false,
+      "type": "parameter",
+      "description": "to recipient parameter of _transfer",
+      "node_id": 39
+    },
+    {
+      "id": "lv_sender",
+      "is_core": false,
+      "type": "local_var",
+      "description": "local sender = msg.sender inside claim",
+      "node_id": 40
+    },
+    {
+      "id": "lv_avDeposit",
+      "is_core": false,
+      "type": "local_var",
+      "description": "local avDeposit difference in claim",
+      "node_id": 41
+    },
+    {
+      "id": "lv_reward",
+      "is_core": false,
+      "type": "local_var",
+      "description": "local reward returned by info",
+      "node_id": 42
+    },
+    {
+      "id": "lv_deposit",
+      "is_core": false,
+      "type": "local_var",
+      "description": "local deposit returned by info",
+      "node_id": 43
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "controlflow",
+      "reason": "constructor calls active() to initialize configuration"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "controlflow",
+      "reason": "constructor writes Owner state variable"
+    },
+    {
+      "from_id": 21,
+      "vuln_type": "access_control",
+      "to_id": 15,
+      "type": "controlflow",
+      "reason": "onlyOwner modifier requires msg.sender == Owner before active() body runs"
+    },
+    {
+      "from_id": 21,
+      "vuln_type": "access_control",
+      "to_id": 19,
+      "type": "controlflow",
+      "reason": "onlyOwner modifier requires msg.sender == Owner before superTransfer() body runs"
+    },
+    {
+      "from_id": 21,
+      "vuln_type": "access_control",
+      "to_id": 20,
+      "type": "controlflow",
+      "reason": "receive asserts msg.sender == WETH before accepting ETH"
+    },
+    {
+      "from_id": 21,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "claim derives its sender from msg.sender"
+    },
+    {
+      "from_id": 21,
+      "vuln_type": "none",
+      "to_id": 40,
+      "type": "dataflow",
+      "reason": "local sender is assigned from msg.sender in claim"
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "access_control",
+      "to_id": 1,
+      "type": "controlflow",
+      "reason": "owner-controlled active() overwrites the Pool address"
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "access_control",
+      "to_id": 2,
+      "type": "controlflow",
+      "reason": "owner-controlled active() overwrites Token0"
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "controlflow",
+      "reason": "owner-controlled active() overwrites Token1"
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "access_control",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "owner-controlled active() overwrites WETH"
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "access_control",
+      "to_id": 6,
+      "type": "controlflow",
+      "reason": "owner-controlled active() overwrites RewardToken"
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "access_control",
+      "to_id": 4,
+      "type": "controlflow",
+      "reason": "owner-controlled active() overwrites Total0"
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "access_control",
+      "to_id": 5,
+      "type": "controlflow",
+      "reason": "owner-controlled active() overwrites Total1"
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "controlflow",
+      "reason": "owner-controlled active() overwrites Reward0"
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "access_control",
+      "to_id": 8,
+      "type": "controlflow",
+      "reason": "owner-controlled active() overwrites Reward1"
+    },
+    {
+      "from_id": 18,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "claim calls info(msg.sender, token) to compute deposit and reward"
+    },
+    {
+      "from_id": 9,
+      "vuln_type": "reentrancy",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "claim reads and then writes DepositGotted before the external transfer"
+    },
+    {
+      "from_id": 10,
+      "vuln_type": "reentrancy",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "claim reads and then writes RewardGotted before the external transfer"
+    },
+    {
+      "from_id": 6,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "claim uses RewardToken as the token transferred for rewards"
+    },
+    {
+      "from_id": 18,
+      "vuln_type": "reentrancy",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "claim invokes _transfer after mutating accounting state"
+    },
+    {
+      "from_id": 18,
+      "vuln_type": "reentrancy",
+      "to_id": 24,
+      "type": "controlflow",
+      "reason": "claim exhibits the state-update-before-external-call reentrancy pattern"
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "_transfer compares token against WETH to decide unwrap path"
+    },
+    {
+      "from_id": 17,
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "_transfer delegates ERC20 sending to TransferHelper low-level calls"
+    },
+    {
+      "from_id": 17,
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "_transfer unwraps WETH then forwards ETH via safeTransferETH"
+    },
+    {
+      "from_id": 22,
+      "vuln_type": "reentrancy",
+      "to_id": 18,
+      "type": "callback",
+      "reason": "arbitrary token low-level call can re-enter claim before state is consistent"
+    },
+    {
+      "from_id": 23,
+      "vuln_type": "reentrancy",
+      "to_id": 18,
+      "type": "callback",
+      "reason": "ETH sending callback can re-enter claim entry point"
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "arithmetic",
+      "to_id": 25,
+      "type": "controlflow",
+      "reason": "info executes div/mul reward math that can divide by zero"
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "info casts Pool to IPairX and calls depositInfo on it"
+    },
+    {
+      "from_id": 19,
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "superTransfer sends Token0 balance to msg.sender"
+    },
+    {
+      "from_id": 19,
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "superTransfer sends Token1 balance to msg.sender"
+    },
+    {
+      "from_id": 19,
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "superTransfer sends RewardToken balance to msg.sender"
+    },
+    {
+      "from_id": 19,
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "superTransfer performs external transfers via TransferHelper"
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "token0() returns the Token0 state variable"
+    },
+    {
+      "from_id": 14,
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "token1() returns the Token1 state variable"
+    },
+    {
+      "from_id": 26,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "pool parameter is stored into the Pool state variable"
+    },
+    {
+      "from_id": 27,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "token0 parameter is stored into the Token0 state variable"
+    },
+    {
+      "from_id": 28,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "token1 parameter is stored into the Token1 state variable"
+    },
+    {
+      "from_id": 29,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "weth parameter is stored into the WETH state variable"
+    },
+    {
+      "from_id": 30,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "total0 parameter is stored into the Total0 state variable"
+    },
+    {
+      "from_id": 31,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "total1 parameter is stored into the Total1 state variable"
+    },
+    {
+      "from_id": 32,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "rewardToken parameter is stored into the RewardToken state variable"
+    },
+    {
+      "from_id": 33,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "reward0 parameter is stored into the Reward0 state variable"
+    },
+    {
+      "from_id": 34,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "reward1 parameter is stored into the Reward1 state variable"
+    },
+    {
+      "from_id": 35,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "claim token argument selects the token and reward accounting slot"
+    },
+    {
+      "from_id": 36,
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "token0Amt controls the Token0 amount in superTransfer"
+    },
+    {
+      "from_id": 37,
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "token1Amt controls the Token1 amount in superTransfer"
+    },
+    {
+      "from_id": 38,
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "rewardAmt controls the RewardToken amount in superTransfer"
+    },
+    {
+      "from_id": 39,
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "to parameter is the recipient of the _transfer call"
+    },
+    {
+      "from_id": 40,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "local sender indexes DepositGotted/RewardGotted in claim"
+    },
+    {
+      "from_id": 41,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "local avDeposit is added to DepositGotted and transferred in claim"
+    },
+    {
+      "from_id": 42,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "local reward is the computed net reward returned by info"
+    },
+    {
+      "from_id": 43,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "local deposit is the pool deposit value returned by info"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "fn_active",
+      "normal_node": "pm_pool",
+      "reason": "pool is only a transient argument that directly initializes the Pool state variable"
+    },
+    {
+      "merge_into": "fn_active",
+      "normal_node": "pm_token0",
+      "reason": "token0 argument is immediately written into the Token0 state variable"
+    },
+    {
+      "merge_into": "fn_active",
+      "normal_node": "pm_token1",
+      "reason": "token1 argument is immediately written into the Token1 state variable"
+    },
+    {
+      "merge_into": "fn_active",
+      "normal_node": "pm_weth",
+      "reason": "weth argument is immediately written into the WETH state variable"
+    },
+    {
+      "merge_into": "fn_active",
+      "normal_node": "pm_total0",
+      "reason": "total0 argument is immediately written into the Total0 state variable"
+    },
+    {
+      "merge_into": "fn_active",
+      "normal_node": "pm_total1",
+      "reason": "total1 argument is immediately written into the Total1 state variable"
+    },
+    {
+      "merge_into": "fn_active",
+      "normal_node": "pm_rewardToken",
+      "reason": "rewardToken argument is immediately written into the RewardToken state variable"
+    },
+    {
+      "merge_into": "fn_active",
+      "normal_node": "pm_reward0",
+      "reason": "reward0 argument is immediately written into the Reward0 state variable"
+    },
+    {
+      "merge_into": "fn_active",
+      "normal_node": "pm_reward1",
+      "reason": "reward1 argument is immediately written into the Reward1 state variable"
+    },
+    {
+      "merge_into": "fn_claim",
+      "normal_node": "pm_claim_token",
+      "reason": "token argument only selects the accounting slot and transfer asset inside claim"
+    },
+    {
+      "merge_into": "fn_superTransfer",
+      "normal_node": "pm_token0Amt",
+      "reason": "token0Amt only drives the Token0 transfer amount in superTransfer"
+    },
+    {
+      "merge_into": "fn_superTransfer",
+      "normal_node": "pm_token1Amt",
+      "reason": "token1Amt only drives the Token1 transfer amount in superTransfer"
+    },
+    {
+      "merge_into": "fn_superTransfer",
+      "normal_node": "pm_rewardAmt",
+      "reason": "rewardAmt only drives the RewardToken transfer amount in superTransfer"
+    },
+    {
+      "merge_into": "fn__transfer",
+      "normal_node": "pm_to",
+      "reason": "to is the recipient sink of the internal _transfer routine"
+    },
+    {
+      "merge_into": "fn_claim",
+      "normal_node": "lv_sender",
+      "reason": "sender is a local copy of msg.sender used only for claim accounting keys"
+    },
+    {
+      "merge_into": "fn_claim",
+      "normal_node": "lv_avDeposit",
+      "reason": "avDeposit is an intermediate difference computed and consumed solely inside claim"
+    },
+    {
+      "merge_into": "fn_info",
+      "normal_node": "lv_reward",
+      "reason": "reward is the computed return value produced inside info"
+    },
+    {
+      "merge_into": "fn_info",
+      "normal_node": "lv_deposit",
+      "reason": "deposit is the external pool value consumed inside info"
+    }
+  ]
+}

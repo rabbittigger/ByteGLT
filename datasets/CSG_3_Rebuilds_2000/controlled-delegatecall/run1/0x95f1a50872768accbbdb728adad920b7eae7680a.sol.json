@@ -1,0 +1,215 @@
+{
+  "nodes": [
+    {
+      "id": "state_impl_slot",
+      "type": "state_var",
+      "node_id": 0,
+      "is_core": true,
+      "description": "Proxy implementation address persisted at storage slot keccak256(\"PROXIABLE\") = 0xc5f16f0fcc639fa48a6947836d9850f504798523bf8c9a3a87d5876cf622bcf7; written by the constructor sstore and read by the fallback sload."
+    },
+    {
+      "id": "constructor_HOKKDividendTracker",
+      "type": "function",
+      "node_id": 1,
+      "is_core": true,
+      "description": "constructor(bytes constructData, address contractLogic): writes the logic address into the PROXIABLE slot and delegatecalls the supplied initialisation calldata, requiring success."
+    },
+    {
+      "id": "fallback_HOKKDividendTracker",
+      "type": "function",
+      "node_id": 2,
+      "is_core": true,
+      "description": "fallback() external payable: loads the stored implementation, forwards all calldata via delegatecall, and returns/reverts with the raw returndata."
+    },
+    {
+      "id": "unsafe_op_ctor_delegatecall",
+      "type": "unsafe_operation",
+      "node_id": 3,
+      "is_core": true,
+      "description": "delegatecall inside the constructor to an attacker-controllable contractLogic address with attacker-supplied constructData, executing arbitrary code in this contract's storage context."
+    },
+    {
+      "id": "unsafe_op_fallback_delegatecall",
+      "type": "unsafe_operation",
+      "node_id": 4,
+      "is_core": true,
+      "description": "delegatecall inside fallback() forwarding arbitrary calldata to the implementation address read from storage, allowing arbitrary delegatecalls and re-entrant calls back into the proxy."
+    },
+    {
+      "id": "unsafe_op_sstore_impl",
+      "type": "unsafe_operation",
+      "node_id": 5,
+      "is_core": true,
+      "description": "assembly sstore writing the constructor-supplied contractLogic address into the PROXIABLE implementation slot without any validation or access restriction."
+    },
+    {
+      "id": "param_constructData",
+      "type": "parameter",
+      "node_id": 6,
+      "is_core": false,
+      "description": "bytes memory constructData: raw initialisation calldata supplied to the constructor and forwarded verbatim to the delegatecall."
+    },
+    {
+      "id": "param_contractLogic",
+      "type": "parameter",
+      "node_id": 7,
+      "is_core": false,
+      "description": "address contractLogic: caller-supplied implementation address used both as the sstore value and as the delegatecall target."
+    },
+    {
+      "id": "local_success_ctor",
+      "type": "local_var",
+      "node_id": 8,
+      "is_core": false,
+      "description": "bool success: return flag of the constructor delegatecall, checked with require(success, \"Construction failed\")."
+    },
+    {
+      "id": "local_contractLogic_fallback",
+      "type": "local_var",
+      "node_id": 9,
+      "is_core": false,
+      "description": "let contractLogic := sload(PROXIABLE_SLOT): implementation address loaded from storage inside fallback() assembly."
+    },
+    {
+      "id": "local_success_fallback",
+      "type": "local_var",
+      "node_id": 10,
+      "is_core": false,
+      "description": "let success := delegatecall(...): result flag of the fallback delegatecall, driving the switch between revert and return."
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "Attacker-controlled constructData parameter is passed directly as calldata to the constructor delegatecall, letting the caller execute arbitrary logic in the proxy context."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "Attacker-controlled contractLogic parameter is used as the delegatecall target, allowing arbitrary code execution at construction time."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "reason": "The unvalidated contractLogic parameter is written straight into the PROXIABLE implementation slot via assembly sstore, letting the caller set the proxy implementation."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "The constructor executes the delegatecall to the supplied logic contract."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "The constructor executes the assembly sstore that persists the implementation address."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "reason": "The sstore operation writes the caller-influenced logic address into the PROXIABLE state slot."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 9,
+      "vuln_type": "access_control",
+      "reason": "The fallback sload reads the stored implementation address, which was set without validation from the implementation state variable."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "reason": "The address loaded from storage is used as the delegatecall target, so control of the slot means control of all subsequent delegatecalls."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 2,
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "Every call reaching the fallback() body executes the delegatecall forwarding the raw calldata."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "The success flag produced by the constructor delegatecall is stored in the local bool success."
+    },
+    {
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "The success flag produced by the fallback delegatecall is stored in the local variable success."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 8,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "The constructor branches on the delegatecall success flag via require(success, \"Construction failed\")."
+    },
+    {
+      "type": "controlflow",
+      "from_id": 10,
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "The fallback switch on the delegatecall success flag decides between revert and return of the returndata."
+    },
+    {
+      "type": "callback",
+      "from_id": 3,
+      "to_id": 1,
+      "vuln_type": "reentrancy",
+      "reason": "The constructor delegatecall transfers execution to arbitrary logic that can re-enter this contract before initialisation is complete."
+    },
+    {
+      "type": "callback",
+      "from_id": 4,
+      "to_id": 2,
+      "vuln_type": "reentrancy",
+      "reason": "The fallback delegatecall hands full execution to the implementation, which can call back into the proxy fallback and re-enter state-changing logic."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param_constructData",
+      "merge_into": "unsafe_op_ctor_delegatecall",
+      "reason": "The constructData parameter exists only to feed the constructor delegatecall calldata and has no independent meaning."
+    },
+    {
+      "normal_node": "param_contractLogic",
+      "merge_into": "unsafe_op_ctor_delegatecall",
+      "reason": "The contractLogic parameter is the delegatecall target in the constructor and defines the whole unsafe operation."
+    },
+    {
+      "normal_node": "local_success_ctor",
+      "merge_into": "constructor_HOKKDividendTracker",
+      "reason": "The success local is a transient return flag consumed by the constructor's require check."
+    },
+    {
+      "normal_node": "local_contractLogic_fallback",
+      "merge_into": "unsafe_op_fallback_delegatecall",
+      "reason": "The address read by sload in the fallback is only used as the delegatecall target, so it belongs to that unsafe operation."
+    },
+    {
+      "normal_node": "local_success_fallback",
+      "merge_into": "fallback_HOKKDividendTracker",
+      "reason": "The success local is a transient assembly flag consumed by the fallback switch statement."
+    }
+  ]
+}

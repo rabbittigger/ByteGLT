@@ -1,0 +1,391 @@
+{
+  "nodes": [
+    {
+      "id": "PIG_BANK.Acc",
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Public mapping (address => Holder) Acc storing each holder's unlockTime and balance.",
+      "is_core": true
+    },
+    {
+      "id": "PIG_BANK.LogFile",
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Log LogFile reference set in the constructor and used by Put/Collect to record messages.",
+      "is_core": true
+    },
+    {
+      "id": "PIG_BANK.MinSum",
+      "node_id": 2,
+      "type": "state_var",
+      "description": "Public uint MinSum = 1 ether, the minimum balance required to Collect.",
+      "is_core": true
+    },
+    {
+      "id": "Log.History",
+      "node_id": 3,
+      "type": "state_var",
+      "description": "Public Message[] History array in Log contract, appended to by AddMessage.",
+      "is_core": true
+    },
+    {
+      "id": "Log.LastMsg",
+      "node_id": 4,
+      "type": "state_var",
+      "description": "Storage struct LastMsg reused as a temporary buffer before pushing into History.",
+      "is_core": true
+    },
+    {
+      "id": "PIG_BANK.Put",
+      "node_id": 5,
+      "type": "function",
+      "description": "Public payable Put(uint _unlockTime) that credits msg.value to the caller's Holder and sets its unlock time.",
+      "is_core": true
+    },
+    {
+      "id": "PIG_BANK.Collect",
+      "node_id": 6,
+      "type": "function",
+      "description": "Public payable Collect(uint _am) that checks balance/MinSum/unlockTime then performs an unchecked external call before debiting the balance.",
+      "is_core": true
+    },
+    {
+      "id": "PIG_BANK.fallback",
+      "node_id": 7,
+      "type": "function",
+      "description": "Payable fallback function that forwards to Put(0), allowing deposits without an explicit Put call.",
+      "is_core": true
+    },
+    {
+      "id": "PIG_BANK.constructor",
+      "node_id": 8,
+      "type": "function",
+      "description": "PIG_BANK(address log) constructor assigning the external Log contract address to LogFile.",
+      "is_core": true
+    },
+    {
+      "id": "Log.AddMessage",
+      "node_id": 9,
+      "type": "function",
+      "description": "Public AddMessage(address _adr,uint _val,string _data) in Log that writes LastMsg and pushes it into History.",
+      "is_core": true
+    },
+    {
+      "id": "msg.sender",
+      "node_id": 10,
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used as the account key in Acc and as the destination of the value transfer.",
+      "is_core": true
+    },
+    {
+      "id": "block.timestamp",
+      "node_id": 11,
+      "type": "untrusted_input",
+      "description": "now / block.timestamp used as the unlock-time fallback in Put and as the maturity check in Collect.",
+      "is_core": true
+    },
+    {
+      "id": "PIG_BANK.Collect.call.value(_am)()",
+      "node_id": 12,
+      "type": "unsafe_operation",
+      "description": "Low-level external CALL forwarding _am wei to msg.sender before the balance is decremented, enabling reentrancy.",
+      "is_core": true
+    },
+    {
+      "id": "PIG_BANK.Put._unlockTime",
+      "node_id": 13,
+      "type": "parameter",
+      "description": "Caller-supplied unlock time for the holder account.",
+      "is_core": false
+    },
+    {
+      "id": "PIG_BANK.Collect._am",
+      "node_id": 14,
+      "type": "parameter",
+      "description": "Caller-supplied amount to withdraw and to forward in the external call.",
+      "is_core": false
+    },
+    {
+      "id": "PIG_BANK.constructor.log",
+      "node_id": 15,
+      "type": "parameter",
+      "description": "Address of the Log contract supplied at deployment.",
+      "is_core": false
+    },
+    {
+      "id": "PIG_BANK.Put.acc",
+      "node_id": 16,
+      "type": "local_var",
+      "description": "Storage reference to Acc[msg.sender] used to credit balance and set unlockTime in Put.",
+      "is_core": false
+    },
+    {
+      "id": "PIG_BANK.Collect.acc",
+      "node_id": 17,
+      "type": "local_var",
+      "description": "Storage reference to Acc[msg.sender] read for the guards and debited after the external call in Collect.",
+      "is_core": false
+    },
+    {
+      "id": "Log.AddMessage._adr",
+      "node_id": 18,
+      "type": "parameter",
+      "description": "Sender address recorded into LastMsg.Sender.",
+      "is_core": false
+    },
+    {
+      "id": "Log.AddMessage._val",
+      "node_id": 19,
+      "type": "parameter",
+      "description": "Value recorded into LastMsg.Val.",
+      "is_core": false
+    },
+    {
+      "id": "Log.AddMessage._data",
+      "node_id": 20,
+      "type": "parameter",
+      "description": "Message tag recorded into LastMsg.Data.",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 5,
+      "reason": "_unlockTime parameter is consumed by Put to compute the holder unlock time.",
+      "type": "dataflow",
+      "from_id": 13,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 5,
+      "reason": "Put uses now (block.timestamp) as the lower bound of the unlock time, making the lock duration miner-influenceable.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 5,
+      "reason": "msg.sender selects which Holder entry in Acc is credited by Put.",
+      "type": "dataflow",
+      "from_id": 10,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "Put creates the local storage reference acc = Acc[msg.sender].",
+      "type": "controlflow",
+      "from_id": 5,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "The local acc reference writes balance and unlockTime into the Acc mapping.",
+      "type": "dataflow",
+      "from_id": 16,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "Put mutates persistent holder accounting in Acc.",
+      "type": "dataflow",
+      "from_id": 5,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 9,
+      "reason": "Put reports the deposit through LogFile.AddMessage.",
+      "type": "dataflow",
+      "from_id": 5,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 5,
+      "reason": "The payable fallback forwards execution to Put(0), so every plain transfer is a deposit.",
+      "type": "controlflow",
+      "from_id": 7,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 6,
+      "reason": "_am parameter is used for the withdrawal guard and the debit amount in Collect.",
+      "type": "dataflow",
+      "from_id": 14,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 6,
+      "reason": "Collect gates the withdrawal on now > acc.unlockTime, a timestamp dependency.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 6,
+      "reason": "msg.sender determines the account whose funds Collect releases and is the call target.",
+      "type": "dataflow",
+      "from_id": 10,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 6,
+      "reason": "Collect reads MinSum to enforce the minimum balance requirement.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "Collect creates the local storage reference acc = Acc[msg.sender].",
+      "type": "controlflow",
+      "from_id": 6,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "The local acc reference reads balance/unlockTime and writes the reduced balance in Acc.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "_am is subtracted from acc.balance after a successful withdrawal.",
+      "type": "dataflow",
+      "from_id": 14,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 12,
+      "reason": "Collect performs the low-level external call to msg.sender while state has not yet been updated.",
+      "type": "controlflow",
+      "from_id": 6,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 12,
+      "reason": "_am is the wei amount forwarded by the external call, tying the attacker-controlled argument to the vulnerable transfer.",
+      "type": "dataflow",
+      "from_id": 14,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 6,
+      "reason": "The external call re-enters Collect before acc.balance is decremented, allowing repeated withdrawals.",
+      "type": "callback",
+      "from_id": 12,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 7,
+      "reason": "The external call can re-enter the fallback (classic DAO-style attack), which re-deposits via Put and re-triggers Collect.",
+      "type": "callback",
+      "from_id": 12,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 9,
+      "reason": "Collect logs the successful withdrawal through LogFile.AddMessage.",
+      "type": "dataflow",
+      "from_id": 6,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "The log address parameter is used by the constructor to initialise LogFile.",
+      "type": "dataflow",
+      "from_id": 15,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 1,
+      "reason": "The constructor writes the Log contract reference into LogFile.",
+      "type": "dataflow",
+      "from_id": 8,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 9,
+      "reason": "_adr parameter is stored into LastMsg.Sender by AddMessage.",
+      "type": "dataflow",
+      "from_id": 18,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 9,
+      "reason": "_val parameter is stored into LastMsg.Val by AddMessage.",
+      "type": "dataflow",
+      "from_id": 19,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 9,
+      "reason": "_data parameter is stored into LastMsg.Data by AddMessage.",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 4,
+      "reason": "AddMessage writes the reused storage struct LastMsg.",
+      "type": "dataflow",
+      "from_id": 9,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 3,
+      "reason": "AddMessage pushes LastMsg into the History array.",
+      "type": "dataflow",
+      "from_id": 9,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 9,
+      "reason": "AddMessage stamps LastMsg.Time with now (block.timestamp), a timestamp-derived log field.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "access_control"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "PIG_BANK.Put",
+      "reason": "_unlockTime is a call-scoped parameter whose only use is computing the unlock time inside Put.",
+      "normal_node": "PIG_BANK.Put._unlockTime"
+    },
+    {
+      "merge_into": "PIG_BANK.Collect",
+      "reason": "_am is a call-scoped parameter consumed by the balance guard and the external value transfer in Collect.",
+      "normal_node": "PIG_BANK.Collect._am"
+    },
+    {
+      "merge_into": "PIG_BANK.constructor",
+      "reason": "log is a deployment-scoped parameter used only to assign LogFile in the constructor.",
+      "normal_node": "PIG_BANK.constructor.log"
+    },
+    {
+      "merge_into": "PIG_BANK.Put",
+      "reason": "acc is a function-local storage pointer to Acc[msg.sender] created and mutated only within Put.",
+      "normal_node": "PIG_BANK.Put.acc"
+    },
+    {
+      "merge_into": "PIG_BANK.Collect.call.value(_am)()",
+      "reason": "acc is the local storage pointer read by the guards and debited after the unsafe external call in Collect.",
+      "normal_node": "PIG_BANK.Collect.acc"
+    },
+    {
+      "merge_into": "Log.AddMessage",
+      "reason": "_adr is a call-scoped parameter stored into LastMsg.Sender.",
+      "normal_node": "Log.AddMessage._adr"
+    },
+    {
+      "merge_into": "Log.AddMessage",
+      "reason": "_val is a call-scoped parameter stored into LastMsg.Val.",
+      "normal_node": "Log.AddMessage._val"
+    },
+    {
+      "merge_into": "Log.AddMessage",
+      "reason": "_data is a call-scoped parameter stored into LastMsg.Data.",
+      "normal_node": "Log.AddMessage._data"
+    }
+  ]
+}

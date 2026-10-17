@@ -1,0 +1,680 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn_mint",
+      "description": "External payable mint function; validates mintActive, supply cap, ETH payment and per-tx limit, then mints sequentially using _getNextUnusedID.",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn_claim",
+      "description": "External payable claim; verifies caller owns the old token, escrows it via oldContract.safeTransferFrom, then mints the matching token id.",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn_claimAll",
+      "description": "External payable batch claim; reads all old tokens owned by caller and loops transferring each then minting it.",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn_getNextUnusedID",
+      "description": "Internal helper that scans up to 10 candidate ids to find an id unused in both this contract and the old contract.",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn_ownsOldToken",
+      "description": "Internal view helper that calls oldContract.ownerOf in a try/catch to determine ownership of an old token.",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn_withdraw",
+      "description": "External team-only function that forwards the contract ETH balance to the team wallet via SafeTransferLib.safeTransferETH.",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "modifier_onlyTeamWallet",
+      "description": "Modifier requiring msg.sender to equal teamWallet before executing the guarded body.",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn_pauseMint",
+      "description": "Owner-only function that disables minting.",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn_startMint",
+      "description": "Owner-only function that enables minting.",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn_setBaseURI",
+      "description": "Owner-only function that updates the base metadata URI.",
+      "node_id": 9
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn_tokenURI",
+      "description": "View function returning baseURI concatenated with the decimal token id.",
+      "node_id": 10
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn_constructor",
+      "description": "Deployer constructor that stores metadata, sets old contract, and airdrops pre-minted tokens to recipients.",
+      "node_id": 11
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn_transferOwnership",
+      "description": "Owner-only function that transfers the Ownable ownership to a new address.",
+      "node_id": 12
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn_renounceOwnership",
+      "description": "Owner-only function that renounces ownership by setting _owner to the zero address.",
+      "node_id": 13
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn_internal_mint",
+      "description": "Internal _mint that validates recipient and unminted id, increments balanceOf in unchecked math and records ownerOf.",
+      "node_id": 14
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fn_permit",
+      "description": "EIP-2612 permit; checks deadline against block.timestamp then recovers signer with ecrecover inside an unchecked block.",
+      "node_id": 15
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "state_totalSupply",
+      "description": "Counter of tokens tracked by the sale/claim logic.",
+      "node_id": 16
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "state_mintActive",
+      "description": "Boolean flag controlling whether mint is open.",
+      "node_id": 17
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "state_nextMintableId",
+      "description": "Cursor for the next candidate id used by _getNextUnusedID.",
+      "node_id": 18
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "state_oldContract",
+      "description": "Reference to the legacy ERC721 contract that is queried and transferred from.",
+      "node_id": 19
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "state_teamWallet",
+      "description": "Address receiving withdrawn ETH and authorized to call withdraw.",
+      "node_id": 20
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "state_baseURI",
+      "description": "Base metadata URI prefix used by tokenURI.",
+      "node_id": 21
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "state_owner",
+      "description": "Ownable owner address used by all owner-only guards.",
+      "node_id": 22
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "state_ownerOf",
+      "description": "ERC721 mapping of token id to owner.",
+      "node_id": 23
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "state_balanceOf",
+      "description": "ERC721 mapping of address to token balance.",
+      "node_id": 24
+    },
+    {
+      "is_core": true,
+      "type": "untrusted_input",
+      "id": "untrusted_msg_sender",
+      "description": "Caller-controlled msg.sender used for authorization, ownership and minting recipient.",
+      "node_id": 25
+    },
+    {
+      "is_core": true,
+      "type": "untrusted_input",
+      "id": "untrusted_block_timestamp",
+      "description": "Block timestamp used as the permit deadline bound.",
+      "node_id": 26
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "unsafe_safeTransferETH_call",
+      "description": "Low-level call transferring ETH to teamWallet in SafeTransferLib.safeTransferETH.",
+      "node_id": 27
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "unsafe_oldContract_safeTransferFrom",
+      "description": "External call into oldContract.safeTransferFrom performed before state updates in claim and claimAll.",
+      "node_id": 28
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "unsafe_unchecked_math",
+      "description": "Unchecked arithmetic blocks in mint/_mint/permit that bypass overflow checks.",
+      "node_id": 29
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "unsafe_ecrecover",
+      "description": "ecrecover signature recovery that can return the zero address for malformed signatures.",
+      "node_id": 30
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param_mint_amount",
+      "description": "uint16 amount passed to mint controlling how many tokens are issued.",
+      "node_id": 31
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param_claim_tokenId",
+      "description": "tokenId passed to claim identifying the legacy token to migrate.",
+      "node_id": 32
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param_transferFrom_from",
+      "description": "from address argument of ERC721 transferFrom.",
+      "node_id": 33
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param_transferFrom_to",
+      "description": "to address argument of ERC721 transferFrom.",
+      "node_id": 34
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param_transferFrom_id",
+      "description": "id argument of ERC721 transferFrom.",
+      "node_id": 35
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param_approve_spender",
+      "description": "spender address argument of approve.",
+      "node_id": 36
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param_permit_owner",
+      "description": "owner address signed by permit.",
+      "node_id": 37
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param_transferOwnership_newOwner",
+      "description": "_newOwner address argument of transferOwnership.",
+      "node_id": 38
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param_setBaseURI_baseURI",
+      "description": "_baseURI string argument stored by setBaseURI.",
+      "node_id": 39
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_mint_supply",
+      "description": "Local supply counter cached in mint and written back to totalSupply.",
+      "node_id": 40
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_mint_newId",
+      "description": "Local newId obtained from _getNextUnusedID inside the mint loop.",
+      "node_id": 41
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_claimAll_ownedTokens",
+      "description": "Local array of legacy token ids returned by getPhunksBelongingToOwner.",
+      "node_id": 42
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_claimAll_length",
+      "description": "Cached length of the ownedTokens array used to bound the claimAll loop.",
+      "node_id": 43
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_getNextUnusedID_newId",
+      "description": "Candidate id local variable iterated inside _getNextUnusedID.",
+      "node_id": 44
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 25,
+      "to_id": 0,
+      "reason": "msg.sender is passed as the recipient address to _mint inside mint."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 25,
+      "to_id": 1,
+      "reason": "msg.sender is the claimant checked against the legacy token owner in claim."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 25,
+      "to_id": 2,
+      "reason": "msg.sender is passed to getPhunksBelongingToOwner and used as mint recipient in claimAll."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 25,
+      "to_id": 6,
+      "reason": "onlyTeamWallet authorizes by comparing msg.sender with teamWallet."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 6,
+      "to_id": 5,
+      "reason": "withdraw execution is gated by the onlyTeamWallet modifier."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 25,
+      "to_id": 7,
+      "reason": "pauseMint requires msg.sender to equal _owner."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 25,
+      "to_id": 8,
+      "reason": "startMint requires msg.sender to equal _owner."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 25,
+      "to_id": 9,
+      "reason": "setBaseURI requires msg.sender to equal _owner."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 25,
+      "to_id": 12,
+      "reason": "transferOwnership requires msg.sender to equal _owner."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 25,
+      "to_id": 13,
+      "reason": "renounceOwnership requires msg.sender to equal _owner."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 26,
+      "to_id": 15,
+      "reason": "permit enforces deadline >= block.timestamp, making it timestamp dependent."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 15,
+      "to_id": 30,
+      "reason": "permit invokes ecrecover to recover the signing address."
+    },
+    {
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 1,
+      "to_id": 28,
+      "reason": "claim performs external oldContract.safeTransferFrom before minting the new token."
+    },
+    {
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 2,
+      "to_id": 28,
+      "reason": "claimAll performs repeated external safeTransferFrom calls before final state updates."
+    },
+    {
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 5,
+      "to_id": 27,
+      "reason": "withdraw performs a low-level ETH call that can reenter the recipient contract."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 20,
+      "to_id": 27,
+      "reason": "teamWallet is the destination of the ETH transfer in withdraw."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 19,
+      "to_id": 28,
+      "reason": "oldContract state variable is the target of the external safeTransferFrom call."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "arithmetic",
+      "from_id": 0,
+      "to_id": 29,
+      "reason": "mint increments supply inside an unchecked block bypassing overflow checks."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 3,
+      "reason": "mint calls _getNextUnusedID for each token to be minted."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 18,
+      "reason": "_getNextUnusedID reads and updates nextMintableId."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 19,
+      "reason": "_getNextUnusedID queries oldContract.ownerOf to detect used ids."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 23,
+      "reason": "_getNextUnusedID checks the ownerOf mapping for ids already owned here."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 16,
+      "reason": "mint reads and writes totalSupply."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 17,
+      "reason": "mint checks the mintActive flag before selling."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 1,
+      "to_id": 4,
+      "reason": "claim calls _ownsOldToken to verify legacy ownership."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 4,
+      "to_id": 19,
+      "reason": "_ownsOldToken calls oldContract.ownerOf inside try/catch."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 2,
+      "to_id": 19,
+      "reason": "claimAll enumerates legacy tokens via oldContract.getPhunksBelongingToOwner."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 10,
+      "to_id": 21,
+      "reason": "tokenURI reads baseURI when building metadata."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 10,
+      "to_id": 23,
+      "reason": "tokenURI reads ownerOf to ensure the token exists."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 9,
+      "to_id": 21,
+      "reason": "setBaseURI writes the baseURI state variable."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 7,
+      "to_id": 17,
+      "reason": "pauseMint sets mintActive to false."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 8,
+      "to_id": 17,
+      "reason": "startMint sets mintActive to true."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 12,
+      "to_id": 22,
+      "reason": "transferOwnership writes the _owner state variable."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 13,
+      "to_id": 22,
+      "reason": "renounceOwnership zeroes out _owner, permanently dropping privileges."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 14,
+      "reason": "mint calls the internal _mint for each new token."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "arithmetic",
+      "from_id": 14,
+      "to_id": 29,
+      "reason": "_mint increments balanceOf inside an unchecked block."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 14,
+      "to_id": 24,
+      "reason": "_mint updates the balanceOf mapping for the recipient."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 1,
+      "to_id": 14,
+      "reason": "claim mints the migrated token through _mint."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 2,
+      "to_id": 14,
+      "reason": "claimAll mints each unclaimed token through _mint."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "arithmetic",
+      "from_id": 15,
+      "to_id": 29,
+      "reason": "permit increments nonces[owner] inside an unchecked block."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 11,
+      "to_id": 14,
+      "reason": "constructor airdrops tokens by calling _mint for each recipient."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param_mint_amount",
+      "merge_into": "fn_mint",
+      "reason": "amount is only consumed by mint's validation and loop bounds."
+    },
+    {
+      "normal_node": "param_claim_tokenId",
+      "merge_into": "fn_claim",
+      "reason": "tokenId is only used within claim for ownership verification and minting."
+    },
+    {
+      "normal_node": "param_transferFrom_from",
+      "merge_into": "fn_transferOwnership",
+      "reason": "from is a per-call transfer argument with no independent semantic meaning."
+    },
+    {
+      "normal_node": "param_transferFrom_to",
+      "merge_into": "fn_transferOwnership",
+      "reason": "to is a per-call transfer argument bound to the transfer flow."
+    },
+    {
+      "normal_node": "param_transferFrom_id",
+      "merge_into": "fn_transferOwnership",
+      "reason": "id is a per-call token identifier confined to the transfer routine."
+    },
+    {
+      "normal_node": "param_approve_spender",
+      "merge_into": "fn_transferOwnership",
+      "reason": "spender only parameterizes the approval write."
+    },
+    {
+      "normal_node": "param_permit_owner",
+      "merge_into": "fn_permit",
+      "reason": "owner is consumed solely by permit signature recovery."
+    },
+    {
+      "normal_node": "param_transferOwnership_newOwner",
+      "merge_into": "fn_transferOwnership",
+      "reason": "_newOwner is only assigned into the _owner state variable."
+    },
+    {
+      "normal_node": "param_setBaseURI_baseURI",
+      "merge_into": "fn_setBaseURI",
+      "reason": "_baseURI is only stored into the baseURI state variable."
+    },
+    {
+      "normal_node": "local_mint_supply",
+      "merge_into": "fn_mint",
+      "reason": "supply is a temporary accumulator written back into totalSupply."
+    },
+    {
+      "normal_node": "local_mint_newId",
+      "merge_into": "fn_mint",
+      "reason": "newId is a loop-local id consumed by the mint routine."
+    },
+    {
+      "normal_node": "local_claimAll_ownedTokens",
+      "merge_into": "fn_claimAll",
+      "reason": "ownedTokens is a temporary array only used to drive the claimAll loop."
+    },
+    {
+      "normal_node": "local_claimAll_length",
+      "merge_into": "fn_claimAll",
+      "reason": "length is a cached bound for the claimAll loop."
+    },
+    {
+      "normal_node": "local_getNextUnusedID_newId",
+      "merge_into": "fn_getNextUnusedID",
+      "reason": "newId is the scanning cursor internal to _getNextUnusedID."
+    }
+  ]
+}

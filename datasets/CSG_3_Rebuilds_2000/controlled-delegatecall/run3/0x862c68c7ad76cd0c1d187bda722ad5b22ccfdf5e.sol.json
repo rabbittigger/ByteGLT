@@ -1,0 +1,843 @@
+{
+  "nodes": [
+    {
+      "id": "state_rewards",
+      "is_core": true,
+      "node_id": 0,
+      "description": "mapping(address=>mapping(uint256=>uint256)) public rewards; per-user per-collection accrued rewards",
+      "type": "state_var"
+    },
+    {
+      "id": "state_lastUpdate",
+      "is_core": true,
+      "node_id": 1,
+      "description": "mapping(address=>mapping(uint256=>uint256)) public lastUpdate; last timestamp reward was settled for a user/collection",
+      "type": "state_var"
+    },
+    {
+      "id": "state_collectionInfo",
+      "is_core": true,
+      "node_id": 2,
+      "description": "mapping(uint256=>CollectionInfo) public collectionInfo; name/boostCap/hardCap per collection",
+      "type": "state_var"
+    },
+    {
+      "id": "state_totalSupplyByCollection",
+      "is_core": true,
+      "node_id": 3,
+      "description": "mapping(uint256=>uint256) public totalSupplyByCollection; total minted per collection",
+      "type": "state_var"
+    },
+    {
+      "id": "state_remainingBoostByCollection",
+      "is_core": true,
+      "node_id": 4,
+      "description": "mapping(uint256=>uint256) public remainingBoostByCollection; boost budget left per collection",
+      "type": "state_var"
+    },
+    {
+      "id": "state_remainingSupplyByCollection",
+      "is_core": true,
+      "node_id": 5,
+      "description": "mapping(uint256=>uint256) public remainingSupplyByCollection; mintable supply left per collection",
+      "type": "state_var"
+    },
+    {
+      "id": "state_spaceCows",
+      "is_core": true,
+      "node_id": 6,
+      "description": "ISpaceCows public spaceCows; external NFT contract used for minting rate lookups",
+      "type": "state_var"
+    },
+    {
+      "id": "func_initialize",
+      "is_core": true,
+      "node_id": 7,
+      "description": "initialize(string,string) public initializer; sets ERC20 metadata and mints initial liquidity supply to msg.sender",
+      "type": "function"
+    },
+    {
+      "id": "func_updateUserTimeOnMint",
+      "is_core": true,
+      "node_id": 8,
+      "description": "external updateUserTimeOnMint(address,uint256) guarded by isAllowAddress; stores block.timestamp for user/collection",
+      "type": "function"
+    },
+    {
+      "id": "func_updateUserTime",
+      "is_core": true,
+      "node_id": 9,
+      "description": "internal updateUserTime(address,uint256); stores block.timestamp for user/collection",
+      "type": "function"
+    },
+    {
+      "id": "func_calculateRewards",
+      "is_core": true,
+      "node_id": 10,
+      "description": "internal view calculateRewards(uint256,uint256); computes final reward and consumed boost from remaining boost/supply",
+      "type": "function"
+    },
+    {
+      "id": "func_setRewards",
+      "is_core": true,
+      "node_id": 11,
+      "description": "internal setRewards(address,uint256); accrues time-weighted rewards, calls spaceCows.getMintingRate, mutates rewards and remaining supply/boost",
+      "type": "function"
+    },
+    {
+      "id": "func_updateReward",
+      "is_core": true,
+      "node_id": 12,
+      "description": "external updateReward(address,address,uint256) guarded by isAllowAddress; settles rewards for from and to on transfers",
+      "type": "function"
+    },
+    {
+      "id": "func_getReward",
+      "is_core": true,
+      "node_id": 13,
+      "description": "external getReward(address,uint256) guarded by isAllowAddress; zeroes stored reward and mints tokens to the user",
+      "type": "function"
+    },
+    {
+      "id": "func_burn",
+      "is_core": true,
+      "node_id": 14,
+      "description": "external burn(address,uint256,uint256) guarded by isAllowAddress; burns tokens from a user",
+      "type": "function"
+    },
+    {
+      "id": "func_getTotalClaimable",
+      "is_core": true,
+      "node_id": 15,
+      "description": "external view getTotalClaimable(address,uint256); computes pending reward using block.timestamp and spaceCows rate",
+      "type": "function"
+    },
+    {
+      "id": "func_setSpaceCowsAddress",
+      "is_core": true,
+      "node_id": 16,
+      "description": "external onlyOwner setSpaceCowsAddress(address); sets the external SpaceCows contract",
+      "type": "function"
+    },
+    {
+      "id": "func_setCollectionInfo",
+      "is_core": true,
+      "node_id": 17,
+      "description": "external onlyOwner setCollectionInfo(uint256,string,uint256,uint256); initializes caps for a collection",
+      "type": "function"
+    },
+    {
+      "id": "func_authorizeUpgrade",
+      "is_core": true,
+      "node_id": 18,
+      "description": "internal onlyOwner override _authorizeUpgrade(address); guards UUPS upgrade",
+      "type": "function"
+    },
+    {
+      "id": "untrusted_msg_sender",
+      "is_core": true,
+      "node_id": 19,
+      "description": "msg.sender; used by isAllowAddress modifier and onlyOwner checks",
+      "type": "untrusted_input"
+    },
+    {
+      "id": "untrusted_block_timestamp",
+      "is_core": true,
+      "node_id": 20,
+      "description": "block.timestamp; used to accrue time-based rewards and to stamp lastUpdate",
+      "type": "untrusted_input"
+    },
+    {
+      "id": "unsafe_mint_initialize",
+      "is_core": true,
+      "node_id": 21,
+      "description": "_mint(msg.sender, 6182917500000000000000000) inside initialize; privileged supply creation",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_extcall_getMintingRate_setRewards",
+      "is_core": true,
+      "node_id": 22,
+      "description": "external call spaceCows.getMintingRate(_user) inside setRewards before rewards/remaining supply are updated",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_mint_getReward",
+      "is_core": true,
+      "node_id": 23,
+      "description": "_mint(_to, reward) inside getReward; token issuance from stored reward balance",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_burn_burn",
+      "is_core": true,
+      "node_id": 24,
+      "description": "_burn(_from, _amount) inside burn; authorized burn of user tokens",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_extcall_getMintingRate_getTotalClaimable",
+      "is_core": true,
+      "node_id": 25,
+      "description": "external view call spaceCows.getMintingRate(_user) inside getTotalClaimable",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "param_name",
+      "is_core": false,
+      "node_id": 26,
+      "description": "_name string parameter of initialize",
+      "type": "parameter"
+    },
+    {
+      "id": "param_symbol",
+      "is_core": false,
+      "node_id": 27,
+      "description": "_symbol string parameter of initialize",
+      "type": "parameter"
+    },
+    {
+      "id": "param_user",
+      "is_core": false,
+      "node_id": 28,
+      "description": "_user address parameter of updateUserTimeOnMint/updateReward",
+      "type": "parameter"
+    },
+    {
+      "id": "param_collection",
+      "is_core": false,
+      "node_id": 29,
+      "description": "_collection uint256 parameter used as collection index",
+      "type": "parameter"
+    },
+    {
+      "id": "param_mintingAmount",
+      "is_core": false,
+      "node_id": 30,
+      "description": "_mintingAmount uint256 parameter of calculateRewards",
+      "type": "parameter"
+    },
+    {
+      "id": "param_from",
+      "is_core": false,
+      "node_id": 31,
+      "description": "_from address parameter of burn",
+      "type": "parameter"
+    },
+    {
+      "id": "param_to",
+      "is_core": false,
+      "node_id": 32,
+      "description": "_to address parameter of getReward",
+      "type": "parameter"
+    },
+    {
+      "id": "param_amount",
+      "is_core": false,
+      "node_id": 33,
+      "description": "_amount uint256 parameter of burn",
+      "type": "parameter"
+    },
+    {
+      "id": "param_nftContract",
+      "is_core": false,
+      "node_id": 34,
+      "description": "_nftContract address parameter of setSpaceCowsAddress",
+      "type": "parameter"
+    },
+    {
+      "id": "param_collectionIndex",
+      "is_core": false,
+      "node_id": 35,
+      "description": "_collectionIndex uint256 parameter of setCollectionInfo",
+      "type": "parameter"
+    },
+    {
+      "id": "param_boostCap",
+      "is_core": false,
+      "node_id": 36,
+      "description": "_boostCap uint256 parameter of setCollectionInfo",
+      "type": "parameter"
+    },
+    {
+      "id": "param_hardCap",
+      "is_core": false,
+      "node_id": 37,
+      "description": "_hardCap uint256 parameter of setCollectionInfo",
+      "type": "parameter"
+    },
+    {
+      "id": "local_time",
+      "is_core": false,
+      "node_id": 38,
+      "description": "time = block.timestamp local variable in updateUserTimeOnMint/updateUserTime",
+      "type": "local_var"
+    },
+    {
+      "id": "local_mintingReward",
+      "is_core": false,
+      "node_id": 39,
+      "description": "mintingReward computed in setRewards from rate and elapsed time",
+      "type": "local_var"
+    },
+    {
+      "id": "local_finalReward",
+      "is_core": false,
+      "node_id": 40,
+      "description": "finalReward returned by calculateRewards and credited in setRewards",
+      "type": "local_var"
+    },
+    {
+      "id": "local_boostSupply",
+      "is_core": false,
+      "node_id": 41,
+      "description": "boostSupply (removedBoost) returned by calculateRewards and subtracted from remaining boost",
+      "type": "local_var"
+    },
+    {
+      "id": "local_reward",
+      "is_core": false,
+      "node_id": 42,
+      "description": "reward local variable read from rewards[_to][_collection] in getReward",
+      "type": "local_var"
+    },
+    {
+      "id": "local_mintingRate",
+      "is_core": false,
+      "node_id": 43,
+      "description": "mintingRate assigned from spaceCows.getMintingRate(_user) in setRewards",
+      "type": "local_var"
+    },
+    {
+      "id": "local_pendingRewards",
+      "is_core": false,
+      "node_id": 44,
+      "description": "pendingRewards computed in getTotalClaimable",
+      "type": "local_var"
+    },
+    {
+      "id": "local_userTimer",
+      "is_core": false,
+      "node_id": 45,
+      "description": "userTimer = lastUpdate[_user][_collection] in setRewards",
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 19,
+      "to_id": 8,
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "reason": "isAllowAddress requires msg.sender == address(spaceCows) before updateUserTimeOnMint executes"
+    },
+    {
+      "from_id": 19,
+      "to_id": 12,
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "reason": "isAllowAddress requires msg.sender == address(spaceCows) before updateReward executes"
+    },
+    {
+      "from_id": 19,
+      "to_id": 13,
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "reason": "isAllowAddress requires msg.sender == address(spaceCows) before reward minting in getReward"
+    },
+    {
+      "from_id": 19,
+      "to_id": 14,
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "reason": "isAllowAddress requires msg.sender == address(spaceCows) before burn executes"
+    },
+    {
+      "from_id": 19,
+      "to_id": 18,
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "reason": "onlyOwner compares msg.sender/owner() before an upgrade is authorized"
+    },
+    {
+      "from_id": 19,
+      "to_id": 21,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "initial supply of _mint is credited to msg.sender in initialize"
+    },
+    {
+      "from_id": 20,
+      "to_id": 8,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "block.timestamp is stored into lastUpdate[_user][_collection]"
+    },
+    {
+      "from_id": 20,
+      "to_id": 1,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "timestamp value flows directly into the lastUpdate mapping"
+    },
+    {
+      "from_id": 20,
+      "to_id": 11,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "block.timestamp determines elapsed time and therefore the reward amount in setRewards"
+    },
+    {
+      "from_id": 20,
+      "to_id": 15,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "block.timestamp determines pending reward returned by getTotalClaimable"
+    },
+    {
+      "from_id": 8,
+      "to_id": 1,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "updateUserTimeOnMint writes the block.timestamp-derived value to lastUpdate"
+    },
+    {
+      "from_id": 9,
+      "to_id": 1,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "updateUserTime writes the block.timestamp-derived value to lastUpdate"
+    },
+    {
+      "from_id": 12,
+      "to_id": 11,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "updateReward calls setRewards for _from and then for _to"
+    },
+    {
+      "from_id": 11,
+      "to_id": 10,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "setRewards calls calculateRewards to derive final reward and boost consumption"
+    },
+    {
+      "from_id": 11,
+      "to_id": 9,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "setRewards calls updateUserTime to refresh the user timer"
+    },
+    {
+      "from_id": 11,
+      "to_id": 22,
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "reason": "state-mutating setRewards performs an external call to spaceCows.getMintingRate before updating rewards/remaining supply"
+    },
+    {
+      "from_id": 11,
+      "to_id": 0,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "setRewards credits rewards[_user][_collection]"
+    },
+    {
+      "from_id": 11,
+      "to_id": 3,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "setRewards increases totalSupplyByCollection[_collection]"
+    },
+    {
+      "from_id": 11,
+      "to_id": 4,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "setRewards decreases remainingBoostByCollection[_collection]"
+    },
+    {
+      "from_id": 11,
+      "to_id": 5,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "setRewards decreases remainingSupplyByCollection[_collection]"
+    },
+    {
+      "from_id": 13,
+      "to_id": 0,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "getReward reads and zeroes rewards[_to][_collection]"
+    },
+    {
+      "from_id": 13,
+      "to_id": 23,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "getReward mints the claimed reward via _mint"
+    },
+    {
+      "from_id": 14,
+      "to_id": 24,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "burn destroys tokens through _burn"
+    },
+    {
+      "from_id": 15,
+      "to_id": 25,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "getTotalClaimable queries spaceCows.getMintingRate for the pending rate"
+    },
+    {
+      "from_id": 15,
+      "to_id": 1,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "getTotalClaimable reads lastUpdate[_user][_collection] as userTimer"
+    },
+    {
+      "from_id": 15,
+      "to_id": 0,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "getTotalClaimable adds stored rewards[_user][_collection] to the newly computed amount"
+    },
+    {
+      "from_id": 15,
+      "to_id": 5,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "getTotalClaimable requires remainingSupplyByCollection[_collection] > 0"
+    },
+    {
+      "from_id": 10,
+      "to_id": 5,
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "reason": "calculateRewards arithmetic compares remainingSupplyByCollection with the minting amount and boost rewards"
+    },
+    {
+      "from_id": 10,
+      "to_id": 4,
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "reason": "calculateRewards arithmetic derives boostRewards/removedBoost from remainingBoostByCollection"
+    },
+    {
+      "from_id": 10,
+      "to_id": 40,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "calculateRewards produces finalReward"
+    },
+    {
+      "from_id": 10,
+      "to_id": 41,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "calculateRewards produces removedBoost (boostSupply)"
+    },
+    {
+      "from_id": 17,
+      "to_id": 2,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "onlyOwner setCollectionInfo writes collectionInfo[_collectionIndex]"
+    },
+    {
+      "from_id": 17,
+      "to_id": 4,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "onlyOwner setCollectionInfo sets remainingBoostByCollection[_collectionIndex] = _boostCap"
+    },
+    {
+      "from_id": 17,
+      "to_id": 5,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "onlyOwner setCollectionInfo sets remainingSupplyByCollection[_collectionIndex] = _hardCap"
+    },
+    {
+      "from_id": 16,
+      "to_id": 6,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "onlyOwner setSpaceCowsAddress assigns the trusted external contract address"
+    },
+    {
+      "from_id": 6,
+      "to_id": 11,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "setRewards reads spaceCows to obtain the minting rate"
+    },
+    {
+      "from_id": 6,
+      "to_id": 15,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "getTotalClaimable reads spaceCows to obtain the pending minting rate"
+    },
+    {
+      "from_id": 7,
+      "to_id": 21,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "initialize calls _mint for the initial liquidity supply"
+    },
+    {
+      "from_id": 26,
+      "to_id": 7,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_name is passed into __ERC20_init"
+    },
+    {
+      "from_id": 27,
+      "to_id": 7,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_symbol is passed into __ERC20_init"
+    },
+    {
+      "from_id": 28,
+      "to_id": 8,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_user indexes lastUpdate in updateUserTimeOnMint"
+    },
+    {
+      "from_id": 29,
+      "to_id": 8,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_collection indexes lastUpdate in updateUserTimeOnMint"
+    },
+    {
+      "from_id": 30,
+      "to_id": 10,
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "reason": "_mintingAmount is multiplied/doubled in calculateRewards"
+    },
+    {
+      "from_id": 31,
+      "to_id": 14,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_from is the account burned in burn"
+    },
+    {
+      "from_id": 32,
+      "to_id": 13,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_to receives the minted reward in getReward"
+    },
+    {
+      "from_id": 33,
+      "to_id": 14,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_amount is burned in burn"
+    },
+    {
+      "from_id": 34,
+      "to_id": 16,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "_nftContract becomes the spaceCows contract address"
+    },
+    {
+      "from_id": 35,
+      "to_id": 17,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_collectionIndex indexes collectionInfo and remaining supply/boost"
+    },
+    {
+      "from_id": 36,
+      "to_id": 17,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_boostCap initializes the remaining boost budget"
+    },
+    {
+      "from_id": 37,
+      "to_id": 17,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "_hardCap initializes the remaining mintable supply"
+    },
+    {
+      "from_id": 38,
+      "to_id": 8,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "local time (block.timestamp) is written to lastUpdate in updateUserTimeOnMint"
+    },
+    {
+      "from_id": 38,
+      "to_id": 9,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "local time (block.timestamp) is written to lastUpdate in updateUserTime"
+    },
+    {
+      "from_id": 39,
+      "to_id": 10,
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "reason": "mintingReward feeds the boost/supply arithmetic of calculateRewards"
+    },
+    {
+      "from_id": 40,
+      "to_id": 11,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "finalReward returned by calculateRewards is credited in setRewards"
+    },
+    {
+      "from_id": 41,
+      "to_id": 11,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "boostSupply returned by calculateRewards is subtracted from remainingBoostByCollection"
+    },
+    {
+      "from_id": 42,
+      "to_id": 13,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "reward read from rewards[_to][_collection] is minted in getReward"
+    },
+    {
+      "from_id": 43,
+      "to_id": 11,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "mintingRate from spaceCows scales the reward in setRewards"
+    },
+    {
+      "from_id": 44,
+      "to_id": 15,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "pendingRewards is the return value computed in getTotalClaimable"
+    },
+    {
+      "from_id": 45,
+      "to_id": 11,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "userTimer (lastUpdate) determines elapsed time in setRewards"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param_name",
+      "merge_into": "func_initialize",
+      "reason": "_name parameter only feeds ERC20 metadata inside initialize"
+    },
+    {
+      "normal_node": "param_symbol",
+      "merge_into": "func_initialize",
+      "reason": "_symbol parameter only feeds ERC20 metadata inside initialize"
+    },
+    {
+      "normal_node": "param_user",
+      "merge_into": "func_updateUserTimeOnMint",
+      "reason": "_user parameter is only used to index lastUpdate in updateUserTimeOnMint"
+    },
+    {
+      "normal_node": "param_collection",
+      "merge_into": "func_updateUserTimeOnMint",
+      "reason": "_collection parameter is only used to index lastUpdate in updateUserTimeOnMint"
+    },
+    {
+      "normal_node": "param_mintingAmount",
+      "merge_into": "func_calculateRewards",
+      "reason": "_mintingAmount is only used in the reward arithmetic of calculateRewards"
+    },
+    {
+      "normal_node": "param_from",
+      "merge_into": "func_burn",
+      "reason": "_from parameter only identifies the account burned in burn"
+    },
+    {
+      "normal_node": "param_to",
+      "merge_into": "func_getReward",
+      "reason": "_to parameter only identifies the reward recipient in getReward"
+    },
+    {
+      "normal_node": "param_amount",
+      "merge_into": "func_burn",
+      "reason": "_amount parameter only supplies the burn quantity in burn"
+    },
+    {
+      "normal_node": "param_nftContract",
+      "merge_into": "func_setSpaceCowsAddress",
+      "reason": "_nftContract is only assigned to the spaceCows state variable in setSpaceCowsAddress"
+    },
+    {
+      "normal_node": "param_collectionIndex",
+      "merge_into": "func_setCollectionInfo",
+      "reason": "_collectionIndex only indexes storage writes in setCollectionInfo"
+    },
+    {
+      "normal_node": "param_boostCap",
+      "merge_into": "func_setCollectionInfo",
+      "reason": "_boostCap only initializes remainingBoostByCollection in setCollectionInfo"
+    },
+    {
+      "normal_node": "param_hardCap",
+      "merge_into": "func_setCollectionInfo",
+      "reason": "_hardCap only initializes remainingSupplyByCollection in setCollectionInfo"
+    },
+    {
+      "normal_node": "local_time",
+      "merge_into": "func_updateUserTimeOnMint",
+      "reason": "local time derived from block.timestamp is written to lastUpdate in updateUserTimeOnMint"
+    },
+    {
+      "normal_node": "local_mintingReward",
+      "merge_into": "func_calculateRewards",
+      "reason": "mintingReward local is consumed by the arithmetic of calculateRewards"
+    },
+    {
+      "normal_node": "local_finalReward",
+      "merge_into": "func_setRewards",
+      "reason": "finalReward local is credited to the user in setRewards"
+    },
+    {
+      "normal_node": "local_boostSupply",
+      "merge_into": "func_setRewards",
+      "reason": "boostSupply local is subtracted from remaining boost in setRewards"
+    },
+    {
+      "normal_node": "local_reward",
+      "merge_into": "func_getReward",
+      "reason": "reward local is read/zeroed and minted in getReward"
+    },
+    {
+      "normal_node": "local_mintingRate",
+      "merge_into": "func_setRewards",
+      "reason": "mintingRate local comes from the spaceCows external call in setRewards"
+    },
+    {
+      "normal_node": "local_pendingRewards",
+      "merge_into": "func_getTotalClaimable",
+      "reason": "pendingRewards local is the computed view result of getTotalClaimable"
+    },
+    {
+      "normal_node": "local_userTimer",
+      "merge_into": "func_setRewards",
+      "reason": "userTimer local is loaded from lastUpdate and drives reward accrual in setRewards"
+    }
+  ]
+}

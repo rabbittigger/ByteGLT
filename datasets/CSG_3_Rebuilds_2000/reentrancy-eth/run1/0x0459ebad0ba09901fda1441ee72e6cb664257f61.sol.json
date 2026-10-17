@@ -1,0 +1,440 @@
+{
+  "nodes": [
+    {
+      "id": "ALFA_bank.Acc",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Public mapping address=>Holder storing each depositor's unlockTime and balance",
+      "node_id": 0
+    },
+    {
+      "id": "ALFA_bank.LogFile",
+      "is_core": true,
+      "type": "state_var",
+      "description": "External Log contract reference used for event logging",
+      "node_id": 1
+    },
+    {
+      "id": "ALFA_bank.MinSum",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Minimum balance threshold (1 ether) required before Collect succeeds",
+      "node_id": 2
+    },
+    {
+      "id": "ALFA_bank.Put",
+      "is_core": true,
+      "type": "function",
+      "description": "Public payable deposit function that credits msg.value and sets unlockTime",
+      "node_id": 3
+    },
+    {
+      "id": "ALFA_bank.Collect",
+      "is_core": true,
+      "type": "function",
+      "description": "Public payable withdrawal function that performs an external call before updating balance",
+      "node_id": 4
+    },
+    {
+      "id": "ALFA_bank.fallback",
+      "is_core": true,
+      "type": "function",
+      "description": "Fallback function that forwards to Put(0), enabling reentrant deposits",
+      "node_id": 5
+    },
+    {
+      "id": "ALFA_bank.constructor",
+      "is_core": true,
+      "type": "function",
+      "description": "Constructor wiring the Log contract address passed as an argument",
+      "node_id": 6
+    },
+    {
+      "id": "Log.AddMessage",
+      "is_core": true,
+      "type": "function",
+      "description": "Log helper that records sender, value, data and timestamp into History",
+      "node_id": 7
+    },
+    {
+      "id": "Log.History",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Public array of Message structs holding the full log history",
+      "node_id": 8
+    },
+    {
+      "id": "Log.LastMsg",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Storage Message struct reused as a staging buffer before being pushed",
+      "node_id": 9
+    },
+    {
+      "id": "msg.sender",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used as mapping key and external call target",
+      "node_id": 10
+    },
+    {
+      "id": "block.timestamp",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "now, miner-influenced timestamp used for unlock logic and log times",
+      "node_id": 11
+    },
+    {
+      "id": "unsafe.call.value",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "msg.sender.call.value(_am)() low-level external call executed before state update",
+      "node_id": 12
+    },
+    {
+      "id": "unsafe.balance.increment",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "acc.balance += msg.value unchecked arithmetic on stored balance",
+      "node_id": 13
+    },
+    {
+      "id": "unsafe.balance.decrement",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "acc.balance -= _am unchecked arithmetic performed after the external call",
+      "node_id": 14
+    },
+    {
+      "id": "Put._unlockTime",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Caller-supplied unlock time for the deposit",
+      "node_id": 15
+    },
+    {
+      "id": "Collect._am",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Caller-supplied withdrawal amount used both for the check and the call value",
+      "node_id": 16
+    },
+    {
+      "id": "Put.acc",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Storage pointer to Acc[msg.sender] used inside Put",
+      "node_id": 17
+    },
+    {
+      "id": "Collect.acc",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Storage pointer to Acc[msg.sender] used inside Collect",
+      "node_id": 18
+    },
+    {
+      "id": "AddMessage._adr",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Sender address recorded in the log message",
+      "node_id": 19
+    },
+    {
+      "id": "AddMessage._val",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Value recorded in the log message",
+      "node_id": 20
+    },
+    {
+      "id": "AddMessage._data",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Free-text data recorded in the log message",
+      "node_id": 21
+    },
+    {
+      "id": "constructor.log",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Log contract address supplied at deployment",
+      "node_id": 22
+    },
+    {
+      "id": "unsafe.unlockTime.assign",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "acc.unlockTime = _unlockTime>now?_unlockTime:now timestamp-dependent assignment",
+      "node_id": 23
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 10,
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "msg.sender is used as the index key to read the Acc mapping in Put"
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "_unlockTime parameter flows into the Put function body"
+    },
+    {
+      "from_id": 17,
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "Local storage pointer acc aliases the Acc mapping entry"
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "arithmetic",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "Put execution reaches the unchecked acc.balance += msg.value increment"
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "_unlockTime is assigned into acc.unlockTime through the timestamp comparison"
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "access_control",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "block.timestamp (now) determines the stored unlockTime value"
+    },
+    {
+      "from_id": 23,
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "The unlockTime assignment writes back into the Acc mapping entry"
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "_am parameter flows into the Collect function body"
+    },
+    {
+      "from_id": 18,
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "Local storage pointer acc in Collect aliases the Acc mapping entry"
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "access_control",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "now > acc.unlockTime gates withdrawal, making Collect timestamp dependent"
+    },
+    {
+      "from_id": 4,
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "Collect reaches the low-level external call to msg.sender"
+    },
+    {
+      "from_id": 10,
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "The caller address msg.sender is the target of the external call"
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "The user-supplied amount _am is forwarded as the call value"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "reentrancy",
+      "to_id": 14,
+      "type": "controlflow",
+      "reason": "The balance decrement only runs after the external call returns true, leaving state inconsistent during the call"
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "arithmetic",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "_am is subtracted in the unchecked acc.balance -= _am operation"
+    },
+    {
+      "from_id": 14,
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "The decremented balance is written back to the Acc mapping entry"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "reentrancy",
+      "to_id": 5,
+      "type": "callback",
+      "reason": "The external call can re-enter the bank's fallback function"
+    },
+    {
+      "from_id": 5,
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "controlflow",
+      "reason": "Fallback forwards execution into Put(0), allowing reentrant deposits"
+    },
+    {
+      "from_id": 2,
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "controlflow",
+      "reason": "MinSum threshold participates in the Collect precondition check"
+    },
+    {
+      "from_id": 1,
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "controlflow",
+      "reason": "Put invokes LogFile.AddMessage to log the deposit"
+    },
+    {
+      "from_id": 1,
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "controlflow",
+      "reason": "LogFile reference resolves to the external Log.AddMessage call"
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "controlflow",
+      "reason": "Put triggers AddMessage on the Log contract"
+    },
+    {
+      "from_id": 4,
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "controlflow",
+      "reason": "Collect triggers AddMessage on the Log contract after withdrawal"
+    },
+    {
+      "from_id": 22,
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "The log address argument is consumed by the ALFA_bank constructor"
+    },
+    {
+      "from_id": 6,
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "Constructor assigns the provided address into the LogFile state variable"
+    },
+    {
+      "from_id": 19,
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "_adr parameter is stored into LastMsg.Sender by AddMessage"
+    },
+    {
+      "from_id": 20,
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "_val parameter is stored into LastMsg.Val by AddMessage"
+    },
+    {
+      "from_id": 21,
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "_data parameter is stored into LastMsg.Data by AddMessage"
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "AddMessage writes block.timestamp into LastMsg.Time, creating a timestamp dependency"
+    },
+    {
+      "from_id": 7,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "AddMessage mutates the LastMsg staging struct"
+    },
+    {
+      "from_id": 9,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "The staged LastMsg is pushed into the History array"
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "The incremented balance is persisted back into the Acc mapping entry"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "ALFA_bank.Put",
+      "normal_node": "Put._unlockTime",
+      "reason": "The parameter exists only to feed the Put deposit logic and has no independent role"
+    },
+    {
+      "merge_into": "ALFA_bank.Collect",
+      "normal_node": "Collect._am",
+      "reason": "The parameter is only used within Collect for the guard check and call value"
+    },
+    {
+      "merge_into": "ALFA_bank.Put",
+      "normal_node": "Put.acc",
+      "reason": "Local storage alias is fully determined by Put's execution of Acc[msg.sender]"
+    },
+    {
+      "merge_into": "ALFA_bank.Collect",
+      "normal_node": "Collect.acc",
+      "reason": "Local storage alias is fully determined by Collect's execution of Acc[msg.sender]"
+    },
+    {
+      "merge_into": "Log.AddMessage",
+      "normal_node": "AddMessage._adr",
+      "reason": "Parameter is immediately written into the log struct inside AddMessage"
+    },
+    {
+      "merge_into": "Log.AddMessage",
+      "normal_node": "AddMessage._val",
+      "reason": "Parameter is immediately written into the log struct inside AddMessage"
+    },
+    {
+      "merge_into": "Log.AddMessage",
+      "normal_node": "AddMessage._data",
+      "reason": "Parameter is immediately written into the log struct inside AddMessage"
+    },
+    {
+      "merge_into": "ALFA_bank.constructor",
+      "normal_node": "constructor.log",
+      "reason": "Constructor argument is consumed only to initialize the LogFile state variable"
+    }
+  ]
+}

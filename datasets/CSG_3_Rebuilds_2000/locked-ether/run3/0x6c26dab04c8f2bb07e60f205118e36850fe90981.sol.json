@@ -1,0 +1,524 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "isLotteryOpen",
+      "description": "Public boolean flag controlling whether tickets can be bought; gates buyTickets and is mutated by openLottery/closeLotteryAndPickWinner/setMaxTokenBuyin.",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "maths",
+      "description": "POWM token contract instance at fixed address 0xA146...BA2B; all buy/transfer/myTokens calls go through this external contract.",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "owner",
+      "description": "Privileged owner address set to msg.sender in the constructor; anchors the onlyOwner modifier.",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "gamblers",
+      "description": "mapping(uint256 => address) of ticket index to gambler; written in buyTickets and read when picking the winner.",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "token_buyins",
+      "description": "mapping(address => uint256) recording the number of tokens each player bought in the round.",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "last_round_bought",
+      "description": "mapping(address => uint256) storing the round in which an address last bought; prevents repeat buys in the same round.",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "num_tickets_current_round",
+      "description": "Counter of issued tickets for the current round; also used as the modulo divisor in winner selection (can be 0).",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "current_round",
+      "description": "Current round number, incremented by openLottery and copied into last_round_bought.",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "numTokensInLottery",
+      "description": "Cached token balance held by the lottery, refreshed from maths.myTokens() after buys/donations.",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "masternode_referrer",
+      "description": "Referrer address passed to maths.buy; initially msg.sender, later overwritten with the winner.",
+      "node_id": 9
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "MAX_TOKEN_BUYIN",
+      "description": "Upper bound on tokens purchasable per transaction; owner-settable while the lottery is closed.",
+      "node_id": 10
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "constructor_PoWMLottery",
+      "description": "Constructor initializing current_round=1, owner and masternode_referrer to msg.sender.",
+      "node_id": 11
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "donateToLottery",
+      "description": "Payable donation path that forwards msg.value to maths.buy and refreshes numTokensInLottery.",
+      "node_id": 12
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "buyTickets",
+      "description": "Payable ticket purchase: external token buy, SafeMath accounting, ticket loop, and per-address bookkeeping.",
+      "node_id": 13
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "setMaxTokenBuyin",
+      "description": "onlyOwner setter for MAX_TOKEN_BUYIN; only callable while the lottery is closed.",
+      "node_id": 14
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "openLottery",
+      "description": "onlyOwner state transition that increments current_round, opens the lottery and resets the ticket counter.",
+      "node_id": 15
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fallback",
+      "description": "Payable fallback that forwards non-POWM senders into buyTickets, making it reentrant when receiving ETH.",
+      "node_id": 16
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "closeLotteryAndPickWinner",
+      "description": "onlyOwner round settlement: picks a pseudo-random winner, transfers all tokens, and pushes the ETH balance to the winner.",
+      "node_id": 17
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "ext_call_maths_buy",
+      "description": "External payable call maths.buy.value(msg.value)(masternode_referrer) executed before all internal accounting is finalized.",
+      "node_id": 18
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "ext_call_maths_transfer",
+      "description": "External maths.transfer(winner, exact_tokens) whose boolean return value is never checked.",
+      "node_id": 19
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "eth_transfer_winner",
+      "description": "winner.transfer(address(this).balance) sending ETH to an attacker-controlled address before state is fully settled, enabling reentrancy via the fallback.",
+      "node_id": 20
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "blockhash_modulo_randomness",
+      "description": "uint256(keccak256(block.blockhash(block.number - 1))) % num_tickets_current_round: miner-influenced randomness plus potential division by zero.",
+      "node_id": 21
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "safemath_sub_div",
+      "description": "SafeMath.sub(tokens_after, tokens_before).div(1e18) arithmetic used to derive the number of tokens bought.",
+      "node_id": 22
+    },
+    {
+      "is_core": true,
+      "type": "untrusted_input",
+      "id": "msg_sender",
+      "description": "Caller-supplied address used for ownership, ticket assignment, buy-in bookkeeping and modifier checks.",
+      "node_id": 23
+    },
+    {
+      "is_core": true,
+      "type": "untrusted_input",
+      "id": "block_timestamp",
+      "description": "Block-level context (block.number/blockhash) used as the randomness seed for winner selection.",
+      "node_id": 24
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param_tokens",
+      "description": "Input amount passed to setMaxTokenBuyin and assigned to MAX_TOKEN_BUYIN.",
+      "node_id": 25
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_tokens_before",
+      "description": "Cached maths.myTokens() value read before the external buy call.",
+      "node_id": 26
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_tokens_after",
+      "description": "Cached maths.myTokens() value read after the external buy call.",
+      "node_id": 27
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_tokens_bought",
+      "description": "Number of tokens bought, computed with SafeMath.sub/div and bounded by MAX_TOKEN_BUYIN.",
+      "node_id": 28
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_i",
+      "description": "uint8 loop counter used to allocate up to 25 tickets to the buyer.",
+      "node_id": 29
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_winning_number",
+      "description": "Index derived from the block randomness modulo the ticket count, used to look up the winner.",
+      "node_id": 30
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_winner",
+      "description": "Address looked up from the gamblers mapping at winning_number; receives tokens and ETH.",
+      "node_id": 31
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_exact_tokens",
+      "description": "Cached maths.myTokens() balance transferred out to the winner during settlement.",
+      "node_id": 32
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 23,
+      "to_id": 2,
+      "reason": "Constructor assigns owner = msg.sender, establishing the onlyOwner access control anchor from untrusted caller data."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 23,
+      "to_id": 9,
+      "reason": "Constructor sets masternode_referrer = msg.sender, taking the referrer directly from the caller."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 13,
+      "to_id": 18,
+      "reason": "buyTickets forwards msg.value into the external maths.buy call before completing its own accounting."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 12,
+      "to_id": 18,
+      "reason": "donateToLottery forwards msg.value into the external maths.buy call."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 18,
+      "to_id": 8,
+      "reason": "After the external buy, numTokensInLottery is refreshed from maths.myTokens()."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 23,
+      "to_id": 5,
+      "reason": "last_round_bought is keyed by the caller-supplied msg.sender."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 23,
+      "to_id": 3,
+      "reason": "Every allocated ticket in gamblers is written to msg.sender."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 23,
+      "to_id": 4,
+      "reason": "token_buyins is keyed by the caller-supplied msg.sender."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 7,
+      "to_id": 5,
+      "reason": "last_round_bought[msg.sender] is set to the current_round value."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 13,
+      "to_id": 22,
+      "reason": "buyTickets derives the token count using SafeMath.sub(...).div(1e18), a critical arithmetic step."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 22,
+      "to_id": 28,
+      "reason": "The SafeMath subtraction/division result becomes tokens_bought, which bounds the ticket loop."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 6,
+      "to_id": 21,
+      "reason": "num_tickets_current_round is the modulo divisor; zero tickets would cause a division-by-zero revert."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 24,
+      "to_id": 21,
+      "reason": "Winner selection depends on miner-influenceable block data (blockhash/block.number), making the result block-context dependent."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 21,
+      "to_id": 31,
+      "reason": "The computed modulo result indexes gamblers to produce the winner address."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 31,
+      "reason": "gamblers[winning_number] is read from the ticket mapping to select the winner."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 17,
+      "to_id": 19,
+      "reason": "closeLotteryAndPickWinner invokes maths.transfer for the entire token balance without checking the return value."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 32,
+      "to_id": 19,
+      "reason": "The cached exact_tokens balance is the amount passed into maths.transfer."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 17,
+      "to_id": 20,
+      "reason": "Settlement pushes address(this).balance to an attacker-selected winner before the round is fully finalized."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 17,
+      "to_id": 9,
+      "reason": "masternode_referrer is overwritten with the winner address during settlement."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 31,
+      "to_id": 9,
+      "reason": "The winner address flows into the masternode_referrer state variable."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 13,
+      "to_id": 26,
+      "reason": "tokens_before caches maths.myTokens() immediately before the external buy."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 13,
+      "to_id": 27,
+      "reason": "tokens_after caches maths.myTokens() immediately after the external buy."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 17,
+      "to_id": 32,
+      "reason": "exact_tokens caches maths.myTokens() during settlement."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 13,
+      "to_id": 29,
+      "reason": "The ticket loop counter i is driven by tokens_bought inside buyTickets."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 29,
+      "to_id": 6,
+      "reason": "Each loop iteration increments num_tickets_current_round."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 13,
+      "reason": "buyTickets requires isLotteryOpen == true before any purchase logic runs."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 14,
+      "reason": "setMaxTokenBuyin requires isLotteryOpen == false."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 15,
+      "reason": "openLottery requires isLotteryOpen == false before opening."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 17,
+      "reason": "closeLotteryAndPickWinner requires isLotteryOpen == true before settling."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 23,
+      "to_id": 14,
+      "reason": "onlyOwner guard on setMaxTokenBuyin compares msg.sender to owner."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 23,
+      "to_id": 15,
+      "reason": "onlyOwner guard on openLottery compares msg.sender to owner."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 23,
+      "to_id": 17,
+      "reason": "onlyOwner guard on closeLotteryAndPickWinner compares msg.sender to owner."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 10,
+      "to_id": 13,
+      "reason": "MAX_TOKEN_BUYIN bounds the tokens_bought value accepted by buyTickets."
+    },
+    {
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 20,
+      "to_id": 16,
+      "reason": "ETH pushed to the winner runs their receive logic, which can re-enter this contract's payable fallback."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "reentrancy",
+      "from_id": 16,
+      "to_id": 13,
+      "reason": "The fallback forwards non-POWM senders into buyTickets, completing the reentrancy path."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param_tokens",
+      "merge_into": "setMaxTokenBuyin",
+      "reason": "The tokens parameter exists only to write the MAX_TOKEN_BUYIN state variable inside setMaxTokenBuyin."
+    },
+    {
+      "normal_node": "local_tokens_before",
+      "merge_into": "safemath_sub_div",
+      "reason": "tokens_before is a temporary snapshot of maths.myTokens() that feeds the SafeMath subtraction."
+    },
+    {
+      "normal_node": "local_tokens_after",
+      "merge_into": "safemath_sub_div",
+      "reason": "tokens_after is the second operand of the SafeMath subtraction and has no independent role."
+    },
+    {
+      "normal_node": "local_tokens_bought",
+      "merge_into": "safemath_sub_div",
+      "reason": "tokens_bought is the direct result of the SafeMath sub/div expression and drives the guard and loop."
+    },
+    {
+      "normal_node": "local_i",
+      "merge_into": "buyTickets",
+      "reason": "The uint8 loop counter i is purely a loop index local to buyTickets."
+    },
+    {
+      "normal_node": "local_winning_number",
+      "merge_into": "blockhash_modulo_randomness",
+      "reason": "winning_number is the modulo result of the blockhash randomness expression."
+    },
+    {
+      "normal_node": "local_winner",
+      "merge_into": "eth_transfer_winner",
+      "reason": "winner is the address resolved for the ETH payout, so it merges into the winner.transfer operation."
+    },
+    {
+      "normal_node": "local_exact_tokens",
+      "merge_into": "ext_call_maths_transfer",
+      "reason": "exact_tokens is only the amount argument for the external maths.transfer call."
+    }
+  ]
+}

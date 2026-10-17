@@ -1,0 +1,683 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "private mapping(address=>uint) playerKey; accumulates a pseudo-random key per contract address and is reset when a game finishes (used as randomness entropy source)",
+      "is_core": true,
+      "node_id": 0,
+      "id": "playerKey"
+    },
+    {
+      "type": "state_var",
+      "description": "public mapping(address=>uint) playerCount; tracks how many players have joined the current game for the contract address",
+      "is_core": true,
+      "node_id": 1,
+      "id": "playerCount"
+    },
+    {
+      "type": "state_var",
+      "description": "public mapping(address=>uint) currentGame; monotonically increasing game round counter, used to invalidate old registrations",
+      "is_core": true,
+      "node_id": 2,
+      "id": "currentGame"
+    },
+    {
+      "type": "state_var",
+      "description": "public mapping(address=>uint) currentPlayersRequired; number of players needed to close the round (initialized to 100)",
+      "is_core": true,
+      "node_id": 3,
+      "id": "currentPlayersRequired"
+    },
+    {
+      "type": "state_var",
+      "description": "private mapping(address=>uint) playerRegistrationStatus; stores the game id in which an address last registered",
+      "is_core": true,
+      "node_id": 4,
+      "id": "playerRegistrationStatus"
+    },
+    {
+      "type": "state_var",
+      "description": "private mapping(address=>uint) playerNumber; the slot number assigned to a player in the current round",
+      "is_core": true,
+      "node_id": 5,
+      "id": "playerNumber"
+    },
+    {
+      "type": "state_var",
+      "description": "private mapping(uint=>address) numberToAddress; maps slot numbers (1..100) to players, used to resolve the winning address",
+      "is_core": true,
+      "node_id": 6,
+      "id": "numberToAddress"
+    },
+    {
+      "type": "state_var",
+      "description": "public uint currentBet; fixed entry price, initially 0.005 ether, changeable by the owner",
+      "is_core": true,
+      "node_id": 7,
+      "id": "currentBet"
+    },
+    {
+      "type": "state_var",
+      "description": "public address contractAddress; set to this, used as the mapping key for global game state",
+      "is_core": true,
+      "node_id": 8,
+      "id": "contractAddress"
+    },
+    {
+      "type": "state_var",
+      "description": "public address owner; privileged address that can change the bet and transfer ownership",
+      "is_core": true,
+      "node_id": 9,
+      "id": "owner"
+    },
+    {
+      "type": "state_var",
+      "description": "public address lastWinner; address that won the most recent completed round",
+      "is_core": true,
+      "node_id": 10,
+      "id": "lastWinner"
+    },
+    {
+      "type": "function",
+      "description": "public function transferOwnership(address newOwner) guarded by onlyOwner; reassigns the owner and emits OwnershipTransferred",
+      "is_core": true,
+      "node_id": 11,
+      "id": "transferOwnership"
+    },
+    {
+      "type": "function",
+      "description": "public function changeBet(uint _newBet) guarded by noPendingBets and onlyOwner; overwrites currentBet with an arbitrary value",
+      "is_core": true,
+      "node_id": 12,
+      "id": "changeBet"
+    },
+    {
+      "type": "function",
+      "description": "constructor AllForOne(); initializes contractAddress, game round 1, required players 100, currentBet and sets owner/lastWinner to msg.sender",
+      "is_core": true,
+      "node_id": 13,
+      "id": "AllForOne_constructor"
+    },
+    {
+      "type": "function",
+      "description": "public view canBet(); returns registration status of msg.sender, playerCount and lastWinner snapshots",
+      "is_core": true,
+      "node_id": 14,
+      "id": "canBet"
+    },
+    {
+      "type": "function",
+      "description": "public payable placeBet(uint _input) guarded by betCondition; registers a player, accumulates a timestamp-based key and pays out 99%/1% when the round is full",
+      "is_core": true,
+      "node_id": 15,
+      "id": "placeBet"
+    },
+    {
+      "type": "function",
+      "description": "modifier onlyOwner(); require(msg.sender == owner) access gate",
+      "is_core": true,
+      "node_id": 16,
+      "id": "onlyOwner_modifier"
+    },
+    {
+      "type": "function",
+      "description": "modifier noPendingBets(); require(playerCount[contractAddress] == 0) state gate",
+      "is_core": true,
+      "node_id": 17,
+      "id": "noPendingBets_modifier"
+    },
+    {
+      "type": "function",
+      "description": "modifier betCondition(uint _input); validates registration freshness, round capacity, exact msg.value == currentBet and _input > 0",
+      "is_core": true,
+      "node_id": 18,
+      "id": "betCondition_modifier"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "caller-controlled address used as owner, as mapping key and as the account being validated",
+      "is_core": true,
+      "node_id": 19,
+      "id": "msg.sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "now/block.timestamp, used as entropy for the player key and the winning number as well as directly inside placeBet",
+      "is_core": true,
+      "node_id": 20,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "owner = msg.sender inside the constructor; ownership is granted to the deployer/caller without any guard",
+      "is_core": true,
+      "node_id": 21,
+      "id": "unsafe_owner_assignment"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "_winningAddress.transfer(currentBet * 99); external ether transfer to an attacker-selectable address while round/game state is still being mutated",
+      "is_core": true,
+      "node_id": 22,
+      "id": "unsafe_transfer_winner"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "owner.transfer(currentBet * 1); external ether transfer of the 1% house fee",
+      "is_core": true,
+      "node_id": 23,
+      "id": "unsafe_transfer_owner"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "keccak256(_input + now) / now and keccak256(now + playerKey[contractAddress]) % 100 + 1; weak, manipulable on-chain randomness derived from block.timestamp",
+      "is_core": true,
+      "node_id": 24,
+      "id": "unsafe_randomness"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "playerKey[contractAddress] += _playerKey; unguarded accumulation of an attacker-influenced key (overflow/underflow class arithmetic)",
+      "is_core": true,
+      "node_id": 25,
+      "id": "unsafe_arith_playerkey"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "currentBet * 99 and currentBet * 1; unchecked multiplication determining the payout amounts",
+      "is_core": true,
+      "node_id": 26,
+      "id": "unsafe_arith_payout"
+    },
+    {
+      "type": "parameter",
+      "description": "newOwner parameter of transferOwnership; becomes the new privileged owner",
+      "is_core": false,
+      "node_id": 27,
+      "id": "param_newOwner"
+    },
+    {
+      "type": "parameter",
+      "description": "_newBet parameter of changeBet; arbitrary new value written into currentBet",
+      "is_core": false,
+      "node_id": 28,
+      "id": "param__newBet"
+    },
+    {
+      "type": "parameter",
+      "description": "_input parameter of placeBet/betCondition; caller-chosen value mixed into the randomness and validated by betCondition",
+      "is_core": false,
+      "node_id": 29,
+      "id": "param__input"
+    },
+    {
+      "type": "local_var",
+      "description": "_status local in canBet; flag derived from playerRegistrationStatus[msg.sender] comparison",
+      "is_core": false,
+      "node_id": 30,
+      "id": "local__status"
+    },
+    {
+      "type": "local_var",
+      "description": "_playerCount local in canBet; cached playerCount[contractAddress]",
+      "is_core": false,
+      "node_id": 31,
+      "id": "local__playerCount"
+    },
+    {
+      "type": "local_var",
+      "description": "_lastWinner local in canBet; cached lastWinner address",
+      "is_core": false,
+      "node_id": 32,
+      "id": "local__lastWinner"
+    },
+    {
+      "type": "local_var",
+      "description": "_playerKey local in placeBet; result of uint(keccak256(_input + now)) / now added to playerKey[contractAddress]",
+      "is_core": false,
+      "node_id": 33,
+      "id": "local__playerKey"
+    },
+    {
+      "type": "local_var",
+      "description": "_winningNumber local in placeBet; uint(keccak256(now + playerKey[contractAddress])) % 100 + 1 used to pick the winner slot",
+      "is_core": false,
+      "node_id": 34,
+      "id": "local__winningNumber"
+    },
+    {
+      "type": "local_var",
+      "description": "_winningAddress local in placeBet; numberToAddress[_winningNumber], the address receiving the 99% payout",
+      "is_core": false,
+      "node_id": 35,
+      "id": "local__winningAddress"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "msg.sender is compared against owner inside the onlyOwner modifier's require",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "the constructor writes owner = msg.sender, granting all privileges to the caller",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "msg.sender is the value flowing into the unsafe owner assignment",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "canBet reads playerRegistrationStatus[msg.sender] to compute the status flag",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "betCondition requires playerRegistrationStatus[msg.sender] < currentGame[contractAddress]",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "placeBet uses msg.sender as the key for playerNumber, playerRegistrationStatus and numberToAddress",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "block.timestamp (now) is the entropy source feeding the keccak256 key/winner computation",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "now is consumed directly inside placeBet, making the outcome timestamp dependent",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "_input is hashed together with now, so caller input plus timestamp determine the randomness",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 33,
+      "type": "dataflow",
+      "reason": "the timestamp-derived randomness produces the local _playerKey",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 34,
+      "type": "dataflow",
+      "reason": "the timestamp-derived randomness (now + playerKey) produces _winningNumber",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "_playerKey is added into playerKey[contractAddress] in the unsafe accumulation",
+      "from_id": 33
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "playerKey[contractAddress] is the storage slot updated by the += operation",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "playerKey[contractAddress] is read as entropy when computing the winning number",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "_input is passed into the betCondition modifier that requires _input > 0",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "betCondition's require validates msg.sender's registration status",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "_input parameter flows into the placeBet body through the guarded modifier",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "betCondition requires msg.value == currentBet",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 26,
+      "type": "dataflow",
+      "reason": "currentBet is multiplied by 99 and 1 to compute payouts",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "currentBet * 1 is paid out to the owner",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "currentBet * 99 is paid out to the winning address",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "noPendingBets reads playerCount[contractAddress] as its state gate",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "betCondition requires playerCount[contractAddress] < 100",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "placeBet reads and increments playerCount[contractAddress]",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 31,
+      "type": "dataflow",
+      "reason": "canBet caches playerCount[contractAddress] into _playerCount",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "betCondition compares the caller's status against currentGame[contractAddress]",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "placeBet increments currentGame[contractAddress] when the round completes",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "betCondition reads playerRegistrationStatus[msg.sender] against currentGame",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "canBet compares playerRegistrationStatus[msg.sender] with currentGame to set _status",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "canBet returns the computed _status flag",
+      "from_id": 30
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "canBet returns the cached _playerCount snapshot",
+      "from_id": 31
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "canBet returns the cached _lastWinner snapshot",
+      "from_id": 32
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "controlflow",
+      "reason": "the round-completion branch compares playerCount with currentPlayersRequired",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "owner is the recipient of the 1% payout transfer",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "onlyOwner requires equality between msg.sender and owner",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "transferOwnership overwrites the owner state variable",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 35,
+      "type": "dataflow",
+      "reason": "numberToAddress[_winningNumber] resolves the _winningAddress",
+      "from_id": 34
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 35,
+      "type": "dataflow",
+      "reason": "numberToAddress mapping is read to obtain the winning address",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "_winningAddress, derived from attacker-controlled registrations, is the receiver of the external transfer",
+      "from_id": 35
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "newOwner parameter is validated and then assigned to owner",
+      "from_id": 27
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "_newBet parameter is written into currentBet",
+      "from_id": 28
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "canBet returns the lastWinner state variable",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "placeBet updates lastWinner when the round completes",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "playerNumber[msg.sender] is written inside placeBet",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "numberToAddress is written and read inside placeBet to map slots to addresses",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "the constructor initializes contractAddress = this",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "contractAddress is used as the mapping key for all game state inside placeBet",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "controlflow",
+      "reason": "transferOwnership is guarded by the onlyOwner modifier",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "controlflow",
+      "reason": "changeBet is guarded by the onlyOwner modifier",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 17,
+      "type": "controlflow",
+      "reason": "changeBet is guarded by the noPendingBets modifier",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 18,
+      "type": "controlflow",
+      "reason": "placeBet execution is gated by the betCondition modifier requirements",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 22,
+      "type": "controlflow",
+      "reason": "placeBet performs an external ether transfer to the winner inside the round-completion branch",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 21,
+      "type": "controlflow",
+      "reason": "the constructor executes the owner = msg.sender assignment",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 15,
+      "type": "callback",
+      "reason": "the winning address receives ether; if it is a contract its fallback runs before playerCount, playerKey and lastWinner are fully reset",
+      "from_id": 22
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "transferOwnership",
+      "reason": "the newOwner parameter only exists to feed transferOwnership and should be collapsed into that function node",
+      "normal_node": "param_newOwner"
+    },
+    {
+      "merge_into": "changeBet",
+      "reason": "the _newBet parameter only exists to feed changeBet's assignment to currentBet",
+      "normal_node": "param__newBet"
+    },
+    {
+      "merge_into": "placeBet",
+      "reason": "the _input parameter is consumed by placeBet (through betCondition) and can be folded into the function node",
+      "normal_node": "param__input"
+    },
+    {
+      "merge_into": "canBet",
+      "reason": "the _status local is a temporary within canBet and is merged back into that function",
+      "normal_node": "local__status"
+    },
+    {
+      "merge_into": "canBet",
+      "reason": "the _playerCount local is a cached value local to canBet and merges into that function",
+      "normal_node": "local__playerCount"
+    },
+    {
+      "merge_into": "canBet",
+      "reason": "the _lastWinner local is a cached value local to canBet and merges into that function",
+      "normal_node": "local__lastWinner"
+    },
+    {
+      "merge_into": "unsafe_arith_playerkey",
+      "reason": "_playerKey is produced solely to be accumulated into playerKey[contractAddress] and merges into that unsafe arithmetic operation",
+      "normal_node": "local__playerKey"
+    },
+    {
+      "merge_into": "unsafe_randomness",
+      "reason": "_winningNumber is produced solely by the timestamp-based randomness expression and merges into that unsafe operation",
+      "normal_node": "local__winningNumber"
+    },
+    {
+      "merge_into": "unsafe_transfer_winner",
+      "reason": "_winningAddress is derived only to be the receiver of the external payout transfer and merges into that unsafe call operation",
+      "normal_node": "local__winningAddress"
+    }
+  ]
+}

@@ -1,0 +1,840 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Owner address; initialized to 0x0, set to msg.sender in constructor; receives pump payout in gameResult().",
+      "is_core": true,
+      "node_id": 0,
+      "id": "owner"
+    },
+    {
+      "type": "state_var",
+      "description": "uint32 rolling game counter incremented in startNewGame(); publicly readable.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "gameIndex"
+    },
+    {
+      "type": "state_var",
+      "description": "uint256 accumulator of all received msg.value payments; updated in payable fallback.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "totalPrice"
+    },
+    {
+      "type": "state_var",
+      "description": "bool lock flag controlling whether the fallback/join path is open; mutated by updateLock().",
+      "is_core": true,
+      "node_id": 3,
+      "id": "isLock"
+    },
+    {
+      "type": "state_var",
+      "description": "ContractParam pending/setter configuration (totalSize, singlePrice, pumpRate, hasChange).",
+      "is_core": true,
+      "node_id": 4,
+      "id": "setConfig"
+    },
+    {
+      "type": "state_var",
+      "description": "ContractParam currently active configuration used for pricing and payouts.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "curConfig"
+    },
+    {
+      "type": "state_var",
+      "description": "Public dynamic array of participating player addresses; pushed in fallback, emptied in startNewGame.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "addressArray"
+    },
+    {
+      "type": "function",
+      "description": "Deploys contract, sets owner=msg.sender, initializes setConfig/curConfig and starts the first game.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "constructor"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner function toggling isLock; calls stopGame() when locking and startNewGame() when unlocking.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "updateLock"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner private function that evenly refunds the contract balance to all players in a loop.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "stopGame"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner function reassigning the owner state variable to a new non-zero address.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "transferOwnership"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner payable function staging changes into setConfig and flagging curConfig.hasChange.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "changeConfig"
+    },
+    {
+      "type": "function",
+      "description": "Private function that increments gameIndex, promotes setConfig into curConfig and clears addressArray.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "startNewGame"
+    },
+    {
+      "type": "function",
+      "description": "Public view returning gameIndex, curConfig fields, addressArray, totalPrice and isLock.",
+      "is_core": true,
+      "node_id": 13,
+      "id": "getGameInfo"
+    },
+    {
+      "type": "function",
+      "description": "Private function picking a pseudo-random winner from addressArray and distributing the balance to owner and winner.",
+      "is_core": true,
+      "node_id": 14,
+      "id": "gameResult"
+    },
+    {
+      "type": "function",
+      "description": "Private view computing a pseudo-random array index from blockhash/now and player addresses.",
+      "is_core": true,
+      "node_id": 15,
+      "id": "getRamdon"
+    },
+    {
+      "type": "function",
+      "description": "Payable fallback used to join the game; validates origin, price and address code, then pushes sender into addressArray.",
+      "is_core": true,
+      "node_id": 16,
+      "id": "fallback"
+    },
+    {
+      "type": "function",
+      "description": "Private view using inline assembly extcodesize to reject contract callers.",
+      "is_core": true,
+      "node_id": 17,
+      "id": "isNotContract"
+    },
+    {
+      "type": "function",
+      "description": "Access-control modifier requiring msg.sender == owner.",
+      "is_core": true,
+      "node_id": 18,
+      "id": "modifier_onlyOwner"
+    },
+    {
+      "type": "function",
+      "description": "Modifier requiring isLock == false before allowing the fallback join path.",
+      "is_core": true,
+      "node_id": 19,
+      "id": "modifier_notLock"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used for ownership checks, contract-code checks and player registration.",
+      "is_core": true,
+      "node_id": 20,
+      "id": "msg.sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Block timestamp (now) used as randomness entropy in getRamdon and emitted in gameOverEvent.",
+      "is_core": true,
+      "node_id": 21,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Transaction origin compared against msg.sender in the payable fallback (anti-contract guard).",
+      "is_core": true,
+      "node_id": 22,
+      "id": "tx.origin"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "curPlayer.transfer(price) executed inside a loop over addressArray; state cleared only after all transfers.",
+      "is_core": true,
+      "node_id": 23,
+      "id": "op_stopGame_transfer"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "owner.transfer(giveToOwn) external value transfer using owner-derived payout.",
+      "is_core": true,
+      "node_id": 24,
+      "id": "op_gameResult_transfer_owner"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "lastAddress.transfer(giveToActor) external value transfer to the pseudo-randomly selected winner.",
+      "is_core": true,
+      "node_id": 25,
+      "id": "op_gameResult_transfer_last"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "totalPrice = totalPrice + msg.value unchecked uint256 addition (overflow risk).",
+      "is_core": true,
+      "node_id": 26,
+      "id": "op_totalPrice_add"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "uint giveToOwn = totalBalace * curConfig.pumpRate / 100; unchecked multiplication and division.",
+      "is_core": true,
+      "node_id": 27,
+      "id": "op_pumpRate_calc"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "addressArray[index] direct index read derived from weak randomness; can revert or be manipulated.",
+      "is_core": true,
+      "node_id": 28,
+      "id": "op_random_index"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "keccak256(abi.encodePacked(...now, blockhash...)) pseudo-randomness generation, predictable by miners.",
+      "is_core": true,
+      "node_id": 29,
+      "id": "op_keccak_random"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Inline assembly extcodesize(addr) used to detect whether an address is a contract.",
+      "is_core": true,
+      "node_id": 30,
+      "id": "op_assembly_extcodesize"
+    },
+    {
+      "type": "parameter",
+      "description": "Constructor input uint32 _totalSize setting the target participant count.",
+      "is_core": false,
+      "node_id": 31,
+      "id": "param_constructor_totalSize"
+    },
+    {
+      "type": "parameter",
+      "description": "Constructor input uint256 _singlePrice (in finney) setting the entry price.",
+      "is_core": false,
+      "node_id": 32,
+      "id": "param_constructor_singlePrice"
+    },
+    {
+      "type": "parameter",
+      "description": "updateLock input bool b; new desired lock status.",
+      "is_core": false,
+      "node_id": 33,
+      "id": "param_updateLock_b"
+    },
+    {
+      "type": "parameter",
+      "description": "transferOwnership input address newOwner.",
+      "is_core": false,
+      "node_id": 34,
+      "id": "param_transferOwnership_newOwner"
+    },
+    {
+      "type": "parameter",
+      "description": "changeConfig input uint32 _totalSize staged into setConfig.",
+      "is_core": false,
+      "node_id": 35,
+      "id": "param_changeConfig_totalSize"
+    },
+    {
+      "type": "parameter",
+      "description": "changeConfig input uint256 _singlePrice (in finney, multiplied by 1 finney).",
+      "is_core": false,
+      "node_id": 36,
+      "id": "param_changeConfig_singlePrice"
+    },
+    {
+      "type": "parameter",
+      "description": "changeConfig input uint8 _pumpRate owner payout percentage.",
+      "is_core": false,
+      "node_id": 37,
+      "id": "param_changeConfig_pumpRate"
+    },
+    {
+      "type": "local_var",
+      "description": "Local uint totalBalace = address(this).balance inside stopGame.",
+      "is_core": false,
+      "node_id": 38,
+      "id": "local_stopGame_totalBalace"
+    },
+    {
+      "type": "local_var",
+      "description": "Local uint price = totalBalace / addressArray.length inside stopGame.",
+      "is_core": false,
+      "node_id": 39,
+      "id": "local_stopGame_price"
+    },
+    {
+      "type": "local_var",
+      "description": "Loop counter i in stopGame.",
+      "is_core": false,
+      "node_id": 40,
+      "id": "local_stopGame_i"
+    },
+    {
+      "type": "local_var",
+      "description": "Local address curPlayer = addressArray[i] inside stopGame.",
+      "is_core": false,
+      "node_id": 41,
+      "id": "local_stopGame_curPlayer"
+    },
+    {
+      "type": "local_var",
+      "description": "Local uint index returned by getRamdon() inside gameResult.",
+      "is_core": false,
+      "node_id": 42,
+      "id": "local_gameResult_index"
+    },
+    {
+      "type": "local_var",
+      "description": "Local address lastAddress = addressArray[index] inside gameResult.",
+      "is_core": false,
+      "node_id": 43,
+      "id": "local_gameResult_lastAddress"
+    },
+    {
+      "type": "local_var",
+      "description": "Local uint giveToOwn = totalBalace * pumpRate / 100 inside gameResult.",
+      "is_core": false,
+      "node_id": 44,
+      "id": "local_gameResult_giveToOwn"
+    },
+    {
+      "type": "local_var",
+      "description": "Local uint giveToActor = totalBalace - giveToOwn inside gameResult.",
+      "is_core": false,
+      "node_id": 45,
+      "id": "local_gameResult_giveToActor"
+    },
+    {
+      "type": "local_var",
+      "description": "Local bytes32 ramdon seed accumulated in getRamdon.",
+      "is_core": false,
+      "node_id": 46,
+      "id": "local_getRamdon_ramdon"
+    },
+    {
+      "type": "local_var",
+      "description": "Loop counter i in getRamdon.",
+      "is_core": false,
+      "node_id": 47,
+      "id": "local_getRamdon_i"
+    },
+    {
+      "type": "local_var",
+      "description": "Local uint size populated from extcodesize in isNotContract.",
+      "is_core": false,
+      "node_id": 48,
+      "id": "local_isNotContract_size"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "constructor assigns the privileged owner state variable directly from the untrusted msg.sender.",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "constructor invokes startNewGame() to initialize the first round.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "constructor writes the initial ContractParam into setConfig.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "constructor writes the initial ContractParam into curConfig.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 31,
+      "type": "dataflow",
+      "reason": "constructor consumes the _totalSize parameter.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 32,
+      "type": "dataflow",
+      "reason": "constructor consumes the _singlePrice parameter.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 19,
+      "type": "controlflow",
+      "reason": "notLock modifier gates entry to the payable fallback.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "fallback reads the untrusted msg.sender for validation and registration.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "fallback requires msg.sender == tx.origin as an anti-contract guard.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "controlflow",
+      "reason": "fallback calls isNotContract(msg.sender) to reject contract callers.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "fallback reads curConfig.singlePrice and curConfig.totalSize for validation and win threshold.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "fallback executes totalPrice = totalPrice + msg.value with unchecked uint256 addition.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "fallback pushes msg.sender into addressArray.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 14,
+      "type": "controlflow",
+      "reason": "fallback triggers gameResult() which performs external ETH transfers before state is reset.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "fallback calls startNewGame() after gameResult() completes.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 18,
+      "type": "controlflow",
+      "reason": "updateLock is guarded by the onlyOwner modifier.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "updateLock writes the isLock state variable.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 9,
+      "type": "controlflow",
+      "reason": "updateLock calls stopGame() which performs a loop of external ETH transfers.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "updateLock calls startNewGame() when unlocking.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 33,
+      "type": "dataflow",
+      "reason": "updateLock consumes the bool b parameter.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "stopGame reads addressArray.length and each addressArray[i].",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "stopGame performs curPlayer.transfer(price) inside an unbounded loop over untrusted player addresses.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 38,
+      "type": "dataflow",
+      "reason": "stopGame computes totalBalace from address(this).balance.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 39,
+      "type": "dataflow",
+      "reason": "stopGame computes per-player price by dividing the balance by array length.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "controlflow",
+      "reason": "gameResult calls getRamdon() to select the winner index.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "gameResult reads addressArray[index] for the winner.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 28,
+      "type": "dataflow",
+      "reason": "gameResult indexes addressArray with a weakly random index value.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "gameResult computes totalBalace * curConfig.pumpRate / 100 with unchecked arithmetic.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "gameResult performs owner.transfer(giveToOwn), an external value call.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "gameResult performs lastAddress.transfer(giveToActor) to the pseudo-random winner.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "gameResult emits now (block.timestamp) in gameOverEvent, making the outcome timestamp-observable.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "getRamdon seeds its pseudo-randomness with now and blockhash, i.e. block.timestamp dependency.",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "getRamdon iterates over addressArray and uses its length.",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "getRamdon builds its seed via keccak256(abi.encodePacked(..., now, ...)), a predictable randomness source.",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 28,
+      "type": "dataflow",
+      "reason": "getRamdon computes uint(ramdon) % addressArray.length and returns the index; reverts on empty array (divide by zero).",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 18,
+      "type": "controlflow",
+      "reason": "changeConfig is guarded by the onlyOwner modifier.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "changeConfig sets curConfig.hasChange = true.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "changeConfig writes totalSize, pumpRate and singlePrice into setConfig.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 35,
+      "type": "dataflow",
+      "reason": "changeConfig consumes the _totalSize parameter.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 36,
+      "type": "dataflow",
+      "reason": "changeConfig consumes the _singlePrice parameter and multiplies it by 1 finney.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 37,
+      "type": "dataflow",
+      "reason": "changeConfig consumes the _pumpRate parameter.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 18,
+      "type": "controlflow",
+      "reason": "transferOwnership is guarded by the onlyOwner modifier.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "transferOwnership reassigns the privileged owner state variable.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 34,
+      "type": "dataflow",
+      "reason": "transferOwnership consumes the newOwner parameter.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "startNewGame performs gameIndex++ on a uint32 counter (unchecked increment/overflow).",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "startNewGame promotes setConfig values into curConfig.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "startNewGame reads setConfig fields for comparison.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "startNewGame resets addressArray.length to 0.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "getGameInfo returns gameIndex.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "getGameInfo returns curConfig fields.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "getGameInfo returns addressArray.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "getGameInfo returns totalPrice.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "getGameInfo returns isLock.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 30,
+      "type": "dataflow",
+      "reason": "isNotContract uses inline assembly extcodesize on the supplied address.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 48,
+      "type": "dataflow",
+      "reason": "isNotContract stores the extcodesize result in the local size variable.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "onlyOwner compares msg.sender against the stored owner.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "notLock requires isLock == false before executing the guarded function body.",
+      "from_id": 19
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "constructor",
+      "reason": "Constructor-only input controlling the initial round size; folds into the constructor node.",
+      "normal_node": "param_constructor_totalSize"
+    },
+    {
+      "merge_into": "constructor",
+      "reason": "Constructor-only input controlling the initial entry price; folds into the constructor node.",
+      "normal_node": "param_constructor_singlePrice"
+    },
+    {
+      "merge_into": "updateLock",
+      "reason": "Single boolean argument written straight into isLock by updateLock.",
+      "normal_node": "param_updateLock_b"
+    },
+    {
+      "merge_into": "transferOwnership",
+      "reason": "Argument assigned directly to the owner state variable by transferOwnership.",
+      "normal_node": "param_transferOwnership_newOwner"
+    },
+    {
+      "merge_into": "changeConfig",
+      "reason": "Argument copied into setConfig.totalSize by changeConfig.",
+      "normal_node": "param_changeConfig_totalSize"
+    },
+    {
+      "merge_into": "changeConfig",
+      "reason": "Argument scaled by 1 finney and copied into setConfig.singlePrice by changeConfig.",
+      "normal_node": "param_changeConfig_singlePrice"
+    },
+    {
+      "merge_into": "changeConfig",
+      "reason": "Argument copied into setConfig.pumpRate by changeConfig.",
+      "normal_node": "param_changeConfig_pumpRate"
+    },
+    {
+      "merge_into": "stopGame",
+      "reason": "Temporary snapshot of address(this).balance inside stopGame.",
+      "normal_node": "local_stopGame_totalBalace"
+    },
+    {
+      "merge_into": "op_stopGame_transfer",
+      "reason": "Per-player amount computed for the looped transfer call inside stopGame.",
+      "normal_node": "local_stopGame_price"
+    },
+    {
+      "merge_into": "stopGame",
+      "reason": "Loop index used only inside stopGame.",
+      "normal_node": "local_stopGame_i"
+    },
+    {
+      "merge_into": "op_stopGame_transfer",
+      "reason": "Recipient address of the looped transfer call inside stopGame.",
+      "normal_node": "local_stopGame_curPlayer"
+    },
+    {
+      "merge_into": "gameResult",
+      "reason": "Temporary holder for getRamdon()'s return value inside gameResult.",
+      "normal_node": "local_gameResult_index"
+    },
+    {
+      "merge_into": "op_gameResult_transfer_last",
+      "reason": "Recipient of the winner payout transfer inside gameResult.",
+      "normal_node": "local_gameResult_lastAddress"
+    },
+    {
+      "merge_into": "op_gameResult_transfer_owner",
+      "reason": "Amount passed to the owner transfer inside gameResult.",
+      "normal_node": "local_gameResult_giveToOwn"
+    },
+    {
+      "merge_into": "op_gameResult_transfer_last",
+      "reason": "Amount passed to the winner transfer inside gameResult.",
+      "normal_node": "local_gameResult_giveToActor"
+    },
+    {
+      "merge_into": "op_keccak_random",
+      "reason": "Accumulator of the keccak256 pseudo-random seed inside getRamdon.",
+      "normal_node": "local_getRamdon_ramdon"
+    },
+    {
+      "merge_into": "getRamdon",
+      "reason": "Loop index used only inside getRamdon.",
+      "normal_node": "local_getRamdon_i"
+    },
+    {
+      "merge_into": "op_assembly_extcodesize",
+      "reason": "Result of the inline assembly extcodesize call inside isNotContract.",
+      "normal_node": "local_isNotContract_size"
+    }
+  ]
+}

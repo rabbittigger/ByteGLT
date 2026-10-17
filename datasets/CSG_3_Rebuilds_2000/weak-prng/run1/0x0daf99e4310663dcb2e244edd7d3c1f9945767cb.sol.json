@@ -1,0 +1,219 @@
+{
+  "nodes": [
+    {
+      "description": "Constructor of LoveCoin; mints the entire initial supply of 21,000,000 LOV to the deployer (_msgSender).",
+      "is_core": true,
+      "type": "function",
+      "node_id": 0,
+      "id": "LoveCoin.constructor"
+    },
+    {
+      "description": "External batch transfer function; iterates over recipients/values arrays and calls _transfer(_msgSender(), recipients[i], values[i]) for each entry.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 1,
+      "id": "LoveCoin.transferMany"
+    },
+    {
+      "description": "Internal ERC20 transfer routine; decrements sender balance, increments recipient balance via SafeMath and emits Transfer.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 2,
+      "id": "ERC20._transfer"
+    },
+    {
+      "description": "Internal ERC20 mint routine; increases _totalSupply and credits _balances[account] using SafeMath.add.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "ERC20._mint"
+    },
+    {
+      "description": "Private mapping address => uint256 holding token balances; mutated by _transfer, _mint and _burn.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 4,
+      "id": "_balances"
+    },
+    {
+      "description": "Private uint256 tracking the total token supply; increased by _mint and decreased by _burn.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 5,
+      "id": "_totalSupply"
+    },
+    {
+      "description": "Caller-controlled address returned by _msgSender(); used as mint beneficiary in the constructor and as the source of funds in transferMany.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 6,
+      "id": "msg.sender"
+    },
+    {
+      "description": "Calldata array of destination addresses supplied by the caller to transferMany.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 7,
+      "id": "recipients"
+    },
+    {
+      "description": "Calldata array of token amounts supplied by the caller to transferMany, indexed in parallel with recipients.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 8,
+      "id": "values"
+    },
+    {
+      "description": "Loop counter of transferMany, bounded by recipients.length which is fully caller-controlled.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 9,
+      "id": "i"
+    },
+    {
+      "description": "Unbounded loop that repeatedly invokes _transfer; array length is attacker-controlled, enabling gas exhaustion / denial of service and repeated unchecked state writes.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 10,
+      "id": "transferMany.loop_call"
+    },
+    {
+      "description": "Arithmetic mutation of _balances via SafeMath sub/add; the caller-supplied amount is the operands of these state-changing computations.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 11,
+      "id": "_transfer.balance_arithmetic"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "constructor executes _mint(_msgSender(), 21 * 10**6 * 10**18) to create the initial supply.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 3
+    },
+    {
+      "reason": "constructor passes _msgSender() (msg.sender) as the mint beneficiary, so the caller controls the privileged initial allocation.",
+      "from_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "msg.sender flows through _msgSender() into _mint as the account whose balance is credited.",
+      "from_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "_mint increases _totalSupply with SafeMath.add(amount), a state-changing arithmetic operation.",
+      "from_id": 3,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "_mint credits _balances[account] using SafeMath.add(amount).",
+      "from_id": 3,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "transferMany uses _msgSender() as the fixed source address, so the caller determines which balance is debited.",
+      "from_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "transferMany enters an unbounded for-loop over the caller-supplied recipients array.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 10
+    },
+    {
+      "reason": "each loop iteration calls _transfer(_msgSender(), recipients[i], values[i]).",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 2
+    },
+    {
+      "reason": "recipients array length and contents drive the loop bound and destination addresses.",
+      "from_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "values array is validated against recipients.length and drives the loop body.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "loop counter i indexes both calldata arrays on every iteration.",
+      "from_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "recipients[i] is forwarded as the recipient argument of _transfer, crediting attacker-chosen addresses.",
+      "from_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "values[i] is forwarded as the amount argument of _transfer, controlling the transferred quantity.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "_transfer performs sub/add arithmetic on balances with the caller-supplied amount.",
+      "from_id": 2,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "the SafeMath sub/add results are written back into the _balances mapping.",
+      "from_id": 11,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "_transfer reads and writes _balances[sender] and _balances[recipient] for every batch element.",
+      "from_id": 2,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 4
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "recipients is a calldata parameter of transferMany; its length is the loop bound and its elements are forwarded to _transfer, so it should be folded into the enclosing transferMany core function.",
+      "normal_node": "recipients",
+      "merge_into": "LoveCoin.transferMany"
+    },
+    {
+      "reason": "values is a calldata parameter of transferMany validated against recipients.length; it is consumed only inside the transferMany loop and should be folded into that core function.",
+      "normal_node": "values",
+      "merge_into": "LoveCoin.transferMany"
+    },
+    {
+      "reason": "i is the local loop counter of transferMany; it has no independent semantic identity and should be merged into the transferMany core function node.",
+      "normal_node": "i",
+      "merge_into": "LoveCoin.transferMany"
+    }
+  ]
+}

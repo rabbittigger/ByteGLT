@@ -1,0 +1,259 @@
+{
+  "nodes": [
+    {
+      "description": "Public uint256 state variable test1 of contract NFGasNames, unused but part of storage layout.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "state_test1"
+    },
+    {
+      "description": "Public bytes32 state variable test2 of contract NFGasNames, unused but part of storage layout.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "state_test2"
+    },
+    {
+      "description": "Public mapping(uint256 => string) names, the core registry that maps a token id to a name string.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 2,
+      "id": "state_names"
+    },
+    {
+      "description": "Public IERC721 nfgas reference, set in the constructor to the external NFT contract address.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 3,
+      "id": "state_nfgas"
+    },
+    {
+      "description": "Constructor(address a) that assigns the external IERC721 contract reference nfgas.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 4,
+      "id": "fn_constructor"
+    },
+    {
+      "description": "setName(uint256 id, string memory name) public; checks nfgas.ownerOf(id) == msg.sender, verifies keccak256(name) % 1025 == id, then writes names[id] = name.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 5,
+      "id": "fn_setName"
+    },
+    {
+      "description": "msg.sender, the caller-controlled address used as the ownership authorization in setName.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 6,
+      "id": "untrusted_msg_sender"
+    },
+    {
+      "description": "Constructor input address a, used as the external NFT contract reference.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 7,
+      "id": "param_a"
+    },
+    {
+      "description": "setName input uint256 id, the token id / name hash target.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 8,
+      "id": "param_id"
+    },
+    {
+      "description": "setName input string memory name, the human readable name to register.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 9,
+      "id": "param_name"
+    },
+    {
+      "description": "Local uint256 hashValue = uint(keccak256(abi.encodePacked(name))) % 1025 used to bind the name to the id.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 10,
+      "id": "local_hashValue"
+    },
+    {
+      "description": "External call nfgas.ownerOf(id) to an attacker-supplied IERC721 address inside setName, executed before the state write.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 11,
+      "id": "op_ownerOf_call"
+    },
+    {
+      "description": "State write names[id] = name executed after the external ownerOf call, enabling reentrancy-driven registry overwrite.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 12,
+      "id": "op_state_write"
+    },
+    {
+      "description": "Keccak256 hash and modulo 1025 arithmetic used to validate that the name maps to the given id (weak, look-up-able binding).",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 13,
+      "id": "op_mod_hash"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor parameter a is assigned into the nfgas state variable, tainting the external contract reference with a caller-chosen address.",
+      "from_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "The constructor body writes the nfgas state variable.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 3
+    },
+    {
+      "reason": "The nfgas state variable is the receiver/target of the external ownerOf call.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "The id parameter is passed as the argument to nfgas.ownerOf(id).",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "msg.sender is compared against the untrusted external ownerOf result to authorize the call.",
+      "from_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "nfgas is an arbitrary IERC721 supplied at construction time, so ownerOf can execute attacker-controlled code that re-enters setName.",
+      "from_id": 11,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 5
+    },
+    {
+      "reason": "setName executes the external ownerOf call as its first authorization step.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 11
+    },
+    {
+      "reason": "setName performs the keccak256/modulo hash computation and require check.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 13
+    },
+    {
+      "reason": "The name parameter is hashed into the local hashValue variable.",
+      "from_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 10
+    },
+    {
+      "reason": "The name parameter feeds the keccak256 hashing inside the modulo arithmetic operation.",
+      "from_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 13
+    },
+    {
+      "reason": "hashValue is reduced modulo 1025 as part of the id validation arithmetic.",
+      "from_id": 10,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 13
+    },
+    {
+      "reason": "The id parameter is compared against the modulo result inside the hash validation.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 13
+    },
+    {
+      "reason": "The successful hash/id require check gates the names[id] = name state write.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 12
+    },
+    {
+      "reason": "setName writes the names mapping after all checks pass.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 12
+    },
+    {
+      "reason": "The id parameter is used as the mapping key for the names[id] = name write.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "The name parameter is the value stored into the names mapping.",
+      "from_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "The state write mutates the names mapping state variable.",
+      "from_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "msg.sender determines which ownership check must pass before the names[id] write is allowed.",
+      "from_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "msg.sender is the caller identity used for the only access-control check inside setName.",
+      "from_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 5
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Constructor parameter a has no independent security identity; it is a plain input that is immediately stored into the nfgas state variable by the constructor.",
+      "normal_node": "param_a",
+      "merge_into": "fn_constructor"
+    },
+    {
+      "reason": "The id parameter is entirely local to setName, acting only as look-up key and validation operand for the function's logic.",
+      "normal_node": "param_id",
+      "merge_into": "fn_setName"
+    },
+    {
+      "reason": "The name parameter is only consumed inside setName (hashed and stored) and carries no standalone vulnerability semantics.",
+      "normal_node": "param_name",
+      "merge_into": "fn_setName"
+    },
+    {
+      "reason": "The local hashValue temporary exists solely as the intermediate result of the keccak256 modulo 1025 arithmetic operation and should be folded into it.",
+      "normal_node": "local_hashValue",
+      "merge_into": "op_mod_hash"
+    }
+  ]
+}

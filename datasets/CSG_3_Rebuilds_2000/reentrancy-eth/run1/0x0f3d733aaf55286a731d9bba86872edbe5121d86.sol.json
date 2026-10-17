@@ -1,0 +1,144 @@
+{
+  "nodes": [
+    {
+      "description": "Constant address of the Leviathan Whirlpool contract that exposes release().",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "state_var._leviathanWhirlpool"
+    },
+    {
+      "description": "Constant address of the Whirlpool contract queried for user info.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "state_var._whirlpool"
+    },
+    {
+      "description": "External view function that reads the Leviathan Whirlpool info and returns the remaining requirement.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 2,
+      "id": "function.check"
+    },
+    {
+      "description": "External function that triggers release() on the Leviathan Whirlpool contract.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "function.execute"
+    },
+    {
+      "description": "Caller-supplied requirement amount passed to check().",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 4,
+      "id": "parameter._requirement"
+    },
+    {
+      "description": "uint256[12] memory array holding the Whirlpool info returned by getAllInfoFor().",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 5,
+      "id": "local_var.userData"
+    },
+    {
+      "description": "Arithmetic subtraction _requirement - userData[10] performed in check().",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 6,
+      "id": "unsafe_operation.subtraction"
+    },
+    {
+      "description": "External call IRelease(_leviathanWhirlpool).release() made in execute() without reentrancy protection.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 7,
+      "id": "unsafe_operation.external_call_release"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "check() consumes the _requirement parameter supplied by the caller.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "check() stores the external getAllInfoFor() return value in the local userData array.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "The _whirlpool state variable is the target of the call whose result is written into userData.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "_requirement is an operand of the subtraction, so an attacker-controlled value reaches the arithmetic operation.",
+      "from_id": 4,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "userData[10] read from the external contract is an operand of the subtraction.",
+      "from_id": 5,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "check() controls execution of the subtraction on the else branch and its return value.",
+      "from_id": 2,
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "to_id": 6
+    },
+    {
+      "reason": "The subtraction result is returned by check() to the caller.",
+      "from_id": 6,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 2
+    },
+    {
+      "reason": "execute() unconditionally performs the external release() call.",
+      "from_id": 3,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 7
+    },
+    {
+      "reason": "The _leviathanWhirlpool state variable provides the target address of the release() external call.",
+      "from_id": 0,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "release() hands control to an external contract that may re-enter execute() before state settles.",
+      "from_id": 7,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 3
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The _requirement parameter has no independent identity; it belongs to and is only meaningful inside check().",
+      "normal_node": "parameter._requirement",
+      "merge_into": "function.check"
+    },
+    {
+      "reason": "The userData local array exists only to feed userData[10] into the subtraction unsafe operation.",
+      "normal_node": "local_var.userData",
+      "merge_into": "unsafe_operation.subtraction"
+    }
+  ]
+}

@@ -1,0 +1,280 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Public uint256 price, minimum ether required to mint, initialized to 0.05 ether and mutable via set_price.",
+      "id": "state_price",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Public uint256 maxSupply cap (2100) checked in fallback before minting.",
+      "id": "state_maxSupply",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Public uint256 totalSupply counter, incremented in fallback and arbitrarily overwritable by owner via set_total_supply.",
+      "id": "state_totalSupply",
+      "type": "state_var",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "Constant address to (0x4135...CfdE) receiving one sixth of the contract balance in withdraw.",
+      "id": "state_to",
+      "type": "state_var",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "Constant address to1 (0xDfd6...E130) receiving the remaining contract balance in withdraw.",
+      "id": "state_to1",
+      "type": "state_var",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "Payable fallback that requires msg.value >= price and totalSupply < maxSupply, derives amount from exact msg.value values, updates totalSupply and emits Minted.",
+      "id": "func_fallback",
+      "type": "function",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "Owner-only setter that assigns newprice to the price state variable.",
+      "id": "func_set_price",
+      "type": "function",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "Owner-only setter that assigns val to the totalSupply state variable, allowing supply manipulation.",
+      "id": "func_set_total_supply",
+      "type": "function",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "Owner-only function performing two ether transfers (balance/6.0 to 'to' and full balance to 'to1') using transfer.",
+      "id": "func_withdraw",
+      "type": "function",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "description": "Modifier own enforcing msg.sender == hardcoded owner address 0x5e0a...D791; the contract's only access control gate.",
+      "id": "func_own_modifier",
+      "type": "function",
+      "node_id": 9
+    },
+    {
+      "is_core": true,
+      "description": "msg.sender, attacker-controllable caller used in the own modifier owner check and in the Minted event.",
+      "id": "untrusted_msg_sender",
+      "type": "untrusted_input",
+      "node_id": 10
+    },
+    {
+      "is_core": false,
+      "description": "Local uint256 amount in fallback, derived from msg.value and added to totalSupply.",
+      "id": "local_amount",
+      "type": "local_var",
+      "node_id": 11
+    },
+    {
+      "is_core": false,
+      "description": "Parameter newprice of set_price, written into the price state variable.",
+      "id": "param_newprice",
+      "type": "parameter",
+      "node_id": 12
+    },
+    {
+      "is_core": false,
+      "description": "Parameter val of set_total_supply, written into the totalSupply state variable.",
+      "id": "param_val",
+      "type": "parameter",
+      "node_id": 13
+    },
+    {
+      "is_core": true,
+      "description": "totalSupply += amount state mutation inside fallback; unchecked supply accounting relative to minted ether.",
+      "id": "unsafe_totalSupply_add",
+      "type": "unsafe_operation",
+      "node_id": 14
+    },
+    {
+      "is_core": true,
+      "description": "payable(to).transfer(address(this).balance / 6.0); external ether transfer to a constant address with balance-dependent arithmetic.",
+      "id": "unsafe_transfer_to",
+      "type": "unsafe_operation",
+      "node_id": 15
+    },
+    {
+      "is_core": true,
+      "description": "payable(to1).transfer(address(this).balance); external ether transfer of the remaining balance to a constant address.",
+      "id": "unsafe_transfer_to1",
+      "type": "unsafe_operation",
+      "node_id": 16
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 9,
+      "vuln_type": "access_control",
+      "reason": "msg.sender is compared against the hardcoded owner address inside the own modifier, forming the access control check.",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "msg.sender is passed into the Minted event emitted by the fallback.",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "reason": "own modifier guards set_price, restricting the state write to the hardcoded owner.",
+      "type": "controlflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "reason": "own modifier guards set_total_supply, restricting arbitrary supply writes to the hardcoded owner.",
+      "type": "controlflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "reason": "own modifier guards withdraw, restricting ether transfers to the hardcoded owner.",
+      "type": "controlflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "arithmetic",
+      "reason": "Local amount flows into the totalSupply increment operation.",
+      "type": "dataflow",
+      "from_id": 11
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "arithmetic",
+      "reason": "totalSupply += amount writes the totalSupply state variable.",
+      "type": "dataflow",
+      "from_id": 14
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "arithmetic",
+      "reason": "fallback executes the totalSupply increment when amount > 0.",
+      "type": "controlflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "fallback declares and assigns the local amount derived from msg.value.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "fallback reads totalSupply for the totalSupply < maxSupply requirement.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "fallback reads maxSupply as the minting cap.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "fallback reads price in the msg.value >= price requirement.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "reentrancy",
+      "reason": "withdraw triggers an external ether transfer to address to, a state-changing external call.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 16,
+      "vuln_type": "reentrancy",
+      "reason": "withdraw triggers a second external ether transfer sending the whole remaining balance to to1.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "withdraw uses the constant address to as the transfer recipient.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "withdraw uses the constant address to1 as the transfer recipient.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "newprice is the input parameter of set_price.",
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "newprice is assigned to the price state variable.",
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "reason": "set_price writes the price state variable under owner control.",
+      "type": "controlflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "val is the input parameter of set_total_supply.",
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "val is assigned to the totalSupply state variable.",
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "reason": "set_total_supply writes the totalSupply state variable under owner control.",
+      "type": "controlflow",
+      "from_id": 7
+    }
+  ],
+  "normalization_plan": []
+}

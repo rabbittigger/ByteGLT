@@ -1,0 +1,215 @@
+{
+  "nodes": [
+    {
+      "id": "balanceOf",
+      "is_core": true,
+      "description": "Public mapping in TokenERC20 tracking token balances of addresses.",
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "baseAddr",
+      "is_core": true,
+      "description": "Hardcoded address of the deployed TokenERC20 contract (0x500Df47E1dF0ef06039218dCF0960253D89D6658).",
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "bcontract",
+      "is_core": true,
+      "description": "TokenERC20 instance bound to baseAddr, used for balanceOf reads and transferFrom calls.",
+      "node_id": 2,
+      "type": "state_var"
+    },
+    {
+      "id": "distributedAmount",
+      "is_core": true,
+      "description": "Public counter of tokens distributed, incremented by 100 per successful airdrop.",
+      "node_id": 3,
+      "type": "state_var"
+    },
+    {
+      "id": "transferFrom",
+      "is_core": true,
+      "description": "External interface function of TokenERC20 that moves tokens on behalf of _from.",
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "fallback",
+      "is_core": true,
+      "description": "Payable fallback function that unconditionally reverts on any direct ether transfer.",
+      "node_id": 5,
+      "type": "function"
+    },
+    {
+      "id": "sendOutToken",
+      "is_core": true,
+      "description": "Public airdrop function iterating over an address array and calling transferFrom from msg.sender.",
+      "node_id": 6,
+      "type": "function"
+    },
+    {
+      "id": "msg.sender",
+      "is_core": true,
+      "description": "Caller-supplied address used as the token source of the airdrop transfer.",
+      "node_id": 7,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "external_call_transferFrom",
+      "is_core": true,
+      "description": "External call bcontract.transferFrom(msg.sender, addrs[i], 100*10**18) executed inside the loop; state is updated after the call.",
+      "node_id": 8,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "arith_distributedAmount",
+      "is_core": true,
+      "description": "Arithmetic update distributedAmount += 100 performed once per successful airdrop.",
+      "node_id": 9,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "_from",
+      "is_core": false,
+      "description": "Source address parameter of TokenERC20.transferFrom.",
+      "node_id": 10,
+      "type": "parameter"
+    },
+    {
+      "id": "_to",
+      "is_core": false,
+      "description": "Destination address parameter of TokenERC20.transferFrom.",
+      "node_id": 11,
+      "type": "parameter"
+    },
+    {
+      "id": "_value",
+      "is_core": false,
+      "description": "Amount parameter of TokenERC20.transferFrom.",
+      "node_id": 12,
+      "type": "parameter"
+    },
+    {
+      "id": "addrs",
+      "is_core": false,
+      "description": "Memory array of recipient addresses supplied by the caller.",
+      "node_id": 13,
+      "type": "parameter"
+    },
+    {
+      "id": "i",
+      "is_core": false,
+      "description": "Loop index used to iterate over the addrs array.",
+      "node_id": 14,
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 8,
+      "vuln_type": "reentrancy",
+      "from_id": 7,
+      "type": "dataflow",
+      "reason": "msg.sender is passed as the _from argument of the external transferFrom call, letting an untrusted caller control the transfer source before state is settled."
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "arithmetic",
+      "from_id": 9,
+      "type": "dataflow",
+      "reason": "The update operation writes the unguarded increment into the distributedAmount state variable."
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 13,
+      "type": "dataflow",
+      "reason": "The addrs parameter is the data source iterated over by sendOutToken."
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 14,
+      "type": "controlflow",
+      "reason": "The local index i drives the loop bound inside sendOutToken."
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 14,
+      "type": "controlflow",
+      "reason": "The loop index i selects addrs[i], the recipient used in the external transferFrom call."
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow",
+      "reason": "The bcontract state variable supplies the target contract for the external transferFrom call."
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "reentrancy",
+      "from_id": 6,
+      "type": "controlflow",
+      "reason": "sendOutToken performs the external call before distributedAmount is updated, exposing the classic reentrancy ordering."
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "from_id": 6,
+      "type": "controlflow",
+      "reason": "sendOutToken executes the distributedAmount increment only after the external call returns."
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 10,
+      "type": "dataflow",
+      "reason": "_from is the source address consumed by the transferFrom interface function."
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 11,
+      "type": "dataflow",
+      "reason": "_to is the destination address consumed by the transferFrom interface function."
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 12,
+      "type": "dataflow",
+      "reason": "_value is the amount consumed by the transferFrom interface function."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "_from",
+      "merge_into": "transferFrom",
+      "reason": "Parameter _from is only meaningful as the input of the core function transferFrom and carries no independent semantics."
+    },
+    {
+      "normal_node": "_to",
+      "merge_into": "transferFrom",
+      "reason": "Parameter _to is only meaningful as the input of the core function transferFrom and carries no independent semantics."
+    },
+    {
+      "normal_node": "_value",
+      "merge_into": "transferFrom",
+      "reason": "Parameter _value is only meaningful as the input of the core function transferFrom and carries no independent semantics."
+    },
+    {
+      "normal_node": "addrs",
+      "merge_into": "sendOutToken",
+      "reason": "Parameter addrs is the sole input iterated by sendOutToken and should be folded into that core function."
+    },
+    {
+      "normal_node": "i",
+      "merge_into": "external_call_transferFrom",
+      "reason": "Local loop index i only exists to select the recipient of the external transferFrom call and should be folded into that unsafe operation."
+    }
+  ]
+}

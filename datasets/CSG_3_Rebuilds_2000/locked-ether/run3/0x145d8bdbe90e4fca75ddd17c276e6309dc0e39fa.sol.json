@@ -1,0 +1,259 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "state_var.flootPrice",
+      "description": "Public uint256 flootPrice = 0.01 ether, the mint price read by claim().",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "function.claim",
+      "description": "External payable claim(uint256 tokenId) guarded by nonReentrant; requires msg.value >= flootPrice and 0 < tokenId < 7778, then _safeMint(_msgSender(), tokenId).",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "function.ownerClaim",
+      "description": "External ownerClaim(uint256 tokenId) guarded by onlyOwner and nonReentrant; requires 7777 < tokenId < 8001, then _safeMint(owner(), tokenId).",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "function.tokenURI",
+      "description": "Public view tokenURI override that builds an on-chain SVG/base64 metadata string from tokenId.",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "function.toString",
+      "description": "Internal pure helper converting a uint256 to its decimal ASCII string, used by tokenURI.",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "function.constructor",
+      "description": "Constructor initializing ERC721 name/symbol and the Ownable owner.",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "type": "untrusted_input",
+      "id": "untrusted_input.msg_sender",
+      "description": "Caller-controlled address exposed through _msgSender()/msg.sender.",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "unsafe_operation.safeMint_claim",
+      "description": "_safeMint(_msgSender(), tokenId) in claim: external mint that invokes onERC721Received on the recipient, enabling callbacks.",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "unsafe_operation.safeMint_ownerClaim",
+      "description": "_safeMint(owner(), tokenId) in ownerClaim: privileged mint that invokes onERC721Received on the owner.",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "unsafe_operation.ether_payment_check",
+      "description": "Payable value acceptance in claim: require(flootPrice <= msg.value) forwarding ETH sent by the caller.",
+      "node_id": 9
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param.claim.tokenId",
+      "description": "tokenId argument of claim, bounded to 0 < tokenId < 7778 and used as mint id.",
+      "node_id": 10
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param.ownerClaim.tokenId",
+      "description": "tokenId argument of ownerClaim, bounded to 7777 < tokenId < 8001 and used as mint id.",
+      "node_id": 11
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "param.tokenURI.tokenId",
+      "description": "tokenId argument of tokenURI, used for image sizing and string conversion.",
+      "node_id": 12
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local.tokenURI.size",
+      "description": "Local string 'size' in tokenURI derived from tokenId % 3 and embedded into the SVG metadata.",
+      "node_id": 13
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 1,
+      "reason": "claim() reads the flootPrice state variable in its payable requirement."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 9,
+      "reason": "flootPrice is compared with the caller-supplied msg.value inside the payment check."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 1,
+      "to_id": 9,
+      "reason": "claim() executes the require(flootPrice <= msg.value) payment check on the payable path."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 1,
+      "to_id": 7,
+      "reason": "claim() calls _safeMint after validating value and token id."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 6,
+      "to_id": 1,
+      "reason": "claim() uses _msgSender() as the mint recipient."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 6,
+      "to_id": 2,
+      "reason": "ownerClaim() is gated by the onlyOwner modifier comparing owner() with _msgSender()."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 6,
+      "to_id": 5,
+      "reason": "The constructor calls _setOwner(_msgSender()), making the deployer the initial owner."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 6,
+      "to_id": 7,
+      "reason": "The minted token is delivered to the untrusted msg.sender through _safeMint."
+    },
+    {
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 7,
+      "to_id": 6,
+      "reason": "_safeMint invokes onERC721Received on the recipient, which may reenter the contract."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 10,
+      "to_id": 1,
+      "reason": "tokenId is the claim() parameter whose bounds are enforced before minting."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 10,
+      "to_id": 7,
+      "reason": "The validated claim tokenId is passed straight into _safeMint."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 2,
+      "to_id": 8,
+      "reason": "ownerClaim() calls _safeMint(owner(), tokenId) after the range check."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 11,
+      "to_id": 2,
+      "reason": "tokenId is the ownerClaim() parameter validated against the reserved id range."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 11,
+      "to_id": 8,
+      "reason": "The reserved ownerClaim tokenId is forwarded to _safeMint."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 12,
+      "reason": "tokenURI() consumes the tokenId argument it was called with."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 12,
+      "to_id": 13,
+      "reason": "tokenId % 3 selects the 'big'/'medium'/'small' size string."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 12,
+      "to_id": 4,
+      "reason": "tokenId is converted to a decimal string via toString(tokenId)."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 13,
+      "to_id": 3,
+      "reason": "The local size string is packed into the SVG metadata returned by tokenURI."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 4,
+      "reason": "tokenURI() internally calls the toString helper while assembling the JSON output."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param.claim.tokenId",
+      "merge_into": "function.claim",
+      "reason": "The bound-checked tokenId argument only exists to be validated and forwarded to _safeMint inside claim, so it can be folded into claim as a non-core placeholder."
+    },
+    {
+      "normal_node": "param.ownerClaim.tokenId",
+      "merge_into": "function.ownerClaim",
+      "reason": "The tokenId argument of ownerClaim is only range-checked and passed to _safeMint, so it normalizes into ownerClaim."
+    },
+    {
+      "normal_node": "param.tokenURI.tokenId",
+      "merge_into": "function.tokenURI",
+      "reason": "The tokenId argument of tokenURI is only used to compute the size string and decimal suffix, so it can be merged into tokenURI."
+    },
+    {
+      "normal_node": "local.tokenURI.size",
+      "merge_into": "function.tokenURI",
+      "reason": "The 'size' local string is a temporary computed value only used inside tokenURI's metadata assembly, so it normalizes into tokenURI."
+    }
+  ]
+}

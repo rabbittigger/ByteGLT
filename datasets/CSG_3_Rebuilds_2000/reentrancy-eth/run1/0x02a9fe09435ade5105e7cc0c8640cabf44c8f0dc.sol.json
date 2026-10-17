@@ -1,0 +1,725 @@
+{
+  "nodes": [
+    {
+      "id": "sv_swapping",
+      "is_core": true,
+      "type": "state_var",
+      "description": "bool private swapping; reentrancy/skip guard around the swap-and-send block inside _transfer.",
+      "node_id": 0
+    },
+    {
+      "id": "sv_dividendTracker",
+      "is_core": true,
+      "type": "state_var",
+      "description": "PTPDividendTracker public dividendTracker; external contract that receives dividends and tracks holder balances.",
+      "node_id": 1
+    },
+    {
+      "id": "sv_uniswapV2Router",
+      "is_core": true,
+      "type": "state_var",
+      "description": "IUniswapV2Router02 public uniswapV2Router; external DEX router used to swap tokens for ETH.",
+      "node_id": 2
+    },
+    {
+      "id": "sv_liquidityWallet",
+      "is_core": true,
+      "type": "state_var",
+      "description": "address public liquidityWallet; destination of swapped ETH and of the liquidity added by addLiquidity.",
+      "node_id": 3
+    },
+    {
+      "id": "sv_swapTokensAtAmount",
+      "is_core": true,
+      "type": "state_var",
+      "description": "uint256 public swapTokensAtAmount; contract token balance threshold that triggers the swap logic.",
+      "node_id": 4
+    },
+    {
+      "id": "sv_gasForProcessing",
+      "is_core": true,
+      "type": "state_var",
+      "description": "uint256 public gasForProcessing; gas forwarded to dividendTracker.process on every transfer.",
+      "node_id": 5
+    },
+    {
+      "id": "sv_isExcludedFromFees",
+      "is_core": true,
+      "type": "state_var",
+      "description": "mapping(address => bool) private _isExcludedFromFees; accounts exempt from token fees.",
+      "node_id": 6
+    },
+    {
+      "id": "sv_automatedMarketMakerPairs",
+      "is_core": true,
+      "type": "state_var",
+      "description": "mapping(address => bool) public automatedMarketMakerPairs; marks DEX pairs (sell paths) for the increased fee factor.",
+      "node_id": 7
+    },
+    {
+      "id": "sv_totalFees",
+      "is_core": true,
+      "type": "state_var",
+      "description": "uint256 public immutable totalFees; combined ETH rewards + liquidity fee used in the fee formula.",
+      "node_id": 8
+    },
+    {
+      "id": "fn_transfer",
+      "is_core": true,
+      "type": "function",
+      "description": "PlayTimeProfit._transfer: takes fees, performs swaps, updates dividend balances and processes the dividend tracker.",
+      "node_id": 9
+    },
+    {
+      "id": "fn_swapAndSendToOwner",
+      "is_core": true,
+      "type": "function",
+      "description": "PlayTimeProfit.swapAndSendToOwner: swaps tokens for ETH and forwards the delta to owner() via a low-level call.",
+      "node_id": 10
+    },
+    {
+      "id": "fn_swapTokensForEth",
+      "is_core": true,
+      "type": "function",
+      "description": "PlayTimeProfit.swapTokensForEth: approves the router and performs swapExactTokensForETHSupportingFeeOnTransferTokens with block.timestamp as deadline.",
+      "node_id": 11
+    },
+    {
+      "id": "fn_swapAndSendDividends",
+      "is_core": true,
+      "type": "function",
+      "description": "PlayTimeProfit.swapAndSendDividends: swaps tokens for ETH then forwards the whole balance to the dividend tracker via a low-level call.",
+      "node_id": 12
+    },
+    {
+      "id": "fn_processDividendTracker",
+      "is_core": true,
+      "type": "function",
+      "description": "PlayTimeProfit.processDividendTracker: externally callable public processing loop that emits the processor as tx.origin.",
+      "node_id": 13
+    },
+    {
+      "id": "fn_claim",
+      "is_core": true,
+      "type": "function",
+      "description": "PlayTimeProfit.claim: withdraws the caller's dividends through dividendTracker.processAccount.",
+      "node_id": 14
+    },
+    {
+      "id": "fn_updateDividendTracker",
+      "is_core": true,
+      "type": "function",
+      "description": "PlayTimeProfit.updateDividendTracker: onlyOwner replacement of the dividend tracker contract (privileged state change).",
+      "node_id": 15
+    },
+    {
+      "id": "fn_setAutomatedMarketMakerPair",
+      "is_core": true,
+      "type": "function",
+      "description": "PlayTimeProfit.setAutomatedMarketMakerPair: onlyOwner toggling of AMM pair classification and dividend exclusion.",
+      "node_id": 16
+    },
+    {
+      "id": "fn_updateGasForProcessing",
+      "is_core": true,
+      "type": "function",
+      "description": "PlayTimeProfit.updateGasForProcessing: onlyOwner update of the gas budget used for the dividend loop.",
+      "node_id": 17
+    },
+    {
+      "id": "fn_updateLiquidityWallet",
+      "is_core": true,
+      "type": "function",
+      "description": "PlayTimeProfit.updateLiquidityWallet: onlyOwner replacement of the liquidity wallet address.",
+      "node_id": 18
+    },
+    {
+      "id": "fn_distributeDividends",
+      "is_core": true,
+      "type": "function",
+      "description": "DividendPayingToken.distributeDividends: payable entry point (also reachable via receive) that magnifies and credits incoming ETH.",
+      "node_id": 19
+    },
+    {
+      "id": "fn_withdrawDividendOfUser",
+      "is_core": true,
+      "type": "function",
+      "description": "DividendPayingToken._withdrawDividendOfUser: computes the dividend, records the withdrawal and sends ETH with a low-level call.",
+      "node_id": 20
+    },
+    {
+      "id": "fn_withdrawDividend",
+      "is_core": true,
+      "type": "function",
+      "description": "DividendPayingToken.withdrawDividend: public wrapper that forwards payable(msg.sender) to _withdrawDividendOfUser (reverting in PTPDividendTracker).",
+      "node_id": 21
+    },
+    {
+      "id": "fn_processAccount",
+      "is_core": true,
+      "type": "function",
+      "description": "PTPDividendTracker.processAccount: onlyOwner payout that stores block.timestamp as lastClaimTimes for the account.",
+      "node_id": 22
+    },
+    {
+      "id": "fn_process",
+      "is_core": true,
+      "type": "function",
+      "description": "PTPDividendTracker.process: unbounded-iteration, gas-metered loop over token holders that claims dividends.",
+      "node_id": 23
+    },
+    {
+      "id": "fn_setBalance",
+      "is_core": true,
+      "type": "function",
+      "description": "PTPDividendTracker.setBalance: onlyOwner rebalancing via mint/burn that then calls processAccount.",
+      "node_id": 24
+    },
+    {
+      "id": "fn_canAutoClaim",
+      "is_core": true,
+      "type": "function",
+      "description": "PTPDividendTracker.canAutoClaim: block.timestamp based eligibility predicate for automatic claims.",
+      "node_id": 25
+    },
+    {
+      "id": "fn_updateClaimWait",
+      "is_core": true,
+      "type": "function",
+      "description": "PlayTimeProfit.updateClaimWait: onlyOwner forwarded configuration of the tracker claim wait.",
+      "node_id": 26
+    },
+    {
+      "id": "ui_msg_sender",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "msg.sender: caller-controlled address used for dividend accounting, dividend withdrawal target and context.",
+      "node_id": 27
+    },
+    {
+      "id": "ui_block_timestamp",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "block.timestamp: miner-influenceable time used for swap deadlines and claim eligibility.",
+      "node_id": 28
+    },
+    {
+      "id": "ui_tx_origin",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "tx.origin: the EOA origin of the transaction, used as the 'processor' identity in events.",
+      "node_id": 29
+    },
+    {
+      "id": "uo_user_eth_call",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "Low-level ETH transfer user.call{value: _withdrawableDividend, gas: 3000}(\"\") inside _withdrawDividendOfUser, executed after the withdrawnDividends state update.",
+      "node_id": 30
+    },
+    {
+      "id": "uo_owner_eth_call",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "Low-level ETH transfer owner().call{value: newBalance}(\"\") inside swapAndSendToOwner; requires success.",
+      "node_id": 31
+    },
+    {
+      "id": "uo_dividend_tracker_call",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "Low-level ETH transfer address(dividendTracker).call{value: dividends}(\"\") inside swapAndSendDividends: forwards the whole contract balance to an arbitrary tracker.",
+      "node_id": 32
+    },
+    {
+      "id": "uo_router_swap",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "External call into the user-configurable uniswapV2Router (swapExactTokensForETHSupportingFeeOnTransferTokens / addLiquidityETH) with amountOutMin = 0.",
+      "node_id": 33
+    },
+    {
+      "id": "param_from",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Parameter from of PlayTimeProfit._transfer: sender address used for fee checks, dividend rebalancing and swap trigger conditions.",
+      "node_id": 34
+    },
+    {
+      "id": "param_to",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Parameter to of PlayTimeProfit._transfer: recipient address used for AMM sell detection and dividend rebalancing.",
+      "node_id": 35
+    },
+    {
+      "id": "param_amount",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Parameter amount of PlayTimeProfit._transfer: transfer amount from which fees are derived.",
+      "node_id": 36
+    },
+    {
+      "id": "param_newAddress",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Parameter newAddress of updateDividendTracker: attacker-controllable only by owner, becomes the new tracker.",
+      "node_id": 37
+    },
+    {
+      "id": "param_newValue",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Parameter newValue of updateGasForProcessing: new gas budget forwarded to dividend processing.",
+      "node_id": 38
+    },
+    {
+      "id": "param_account",
+      "is_core": false,
+      "type": "parameter",
+      "description": "Parameter account of PTPDividendTracker.processAccount: the holder whose dividend is paid out.",
+      "node_id": 39
+    },
+    {
+      "id": "local_contractTokenBalance",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Local variable contractTokenBalance in _transfer: balanceOf(address(this)) compared against swapTokensAtAmount.",
+      "node_id": 40
+    },
+    {
+      "id": "local_fees",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Local variable fees in _transfer: amount.mul(totalFees).div(100) optionally scaled by sellFeeIncreaseFactor.",
+      "node_id": 41
+    },
+    {
+      "id": "local_gas",
+      "is_core": false,
+      "type": "local_var",
+      "description": "Local variable gas in _transfer: snapshot of gasForProcessing passed to dividendTracker.process.",
+      "node_id": 42
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 27,
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "msg.sender is the distributor recorded in DividendsDistributed and drives the magnified dividend accounting."
+    },
+    {
+      "from_id": 27,
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "withdrawDividend forwards payable(msg.sender) as the withdrawal beneficiary."
+    },
+    {
+      "from_id": 27,
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "The user address that receives the ETH dividend in _withdrawDividendOfUser is derived from msg.sender."
+    },
+    {
+      "from_id": 27,
+      "vuln_type": "reentrancy",
+      "to_id": 30,
+      "type": "dataflow",
+      "reason": "The low-level ETH call target is an address controlled by msg.sender, so the callee code is attacker supplied."
+    },
+    {
+      "from_id": 27,
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "claim() passes msg.sender as the account argument of processAccount."
+    },
+    {
+      "from_id": 28,
+      "vuln_type": "access_control",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "block.timestamp is used as the Uniswap swap deadline, making execution time miner-influenceable."
+    },
+    {
+      "from_id": 28,
+      "vuln_type": "access_control",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "block.timestamp is written into lastClaimTimes to rate-limit dividend claims."
+    },
+    {
+      "from_id": 28,
+      "vuln_type": "access_control",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "canAutoClaim compares block.timestamp with lastClaimTime + claimWait to decide automatic claims."
+    },
+    {
+      "from_id": 29,
+      "vuln_type": "access_control",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "tx.origin is read inside _transfer and emitted as the processor address of ProcessedDividendTracker."
+    },
+    {
+      "from_id": 29,
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "processDividendTracker emits tx.origin as the processor, leaking/trusting the transaction origin."
+    },
+    {
+      "from_id": 5,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "gasForProcessing bounds the dividend tracker processing loop triggered at the end of every transfer."
+    },
+    {
+      "from_id": 1,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "dividendTracker.setBalance(x2) and process(gas) are invoked inside _transfer on every token move."
+    },
+    {
+      "from_id": 1,
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "dividendTracker is the recipient of the swapped ETH in swapAndSendDividends."
+    },
+    {
+      "from_id": 6,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "_isExcludedFromFees[from]/[to] disables fee taking for the transfer participants."
+    },
+    {
+      "from_id": 7,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "automatedMarketMakerPairs[to] selects the increased sell fee factor and pairs are excluded from swap triggering."
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "swapping gates the swap/send block and disables fee taking while swapping."
+    },
+    {
+      "from_id": 8,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "totalFees is the denominator/numerator of the fee split between liquidity and dividends."
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "liquidityWallet is excluded from swap triggering and receives the liquidity portion."
+    },
+    {
+      "from_id": 4,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "swapTokensAtAmount is the contract balance threshold that enables the swap branch."
+    },
+    {
+      "from_id": 40,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "contractTokenBalance is compared to swapTokensAtAmount to decide whether to swap."
+    },
+    {
+      "from_id": 41,
+      "vuln_type": "arithmetic",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "fees = amount.mul(totalFees).div(100) (optionally scaled by sellFeeIncreaseFactor) is the fee arithmetic of _transfer."
+    },
+    {
+      "from_id": 42,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "local gas is loaded from gasForProcessing and used for the dividend processing call."
+    },
+    {
+      "from_id": 36,
+      "vuln_type": "arithmetic",
+      "to_id": 41,
+      "type": "dataflow",
+      "reason": "The local fee value is computed by multiplying the untrusted amount parameter by the fee constants."
+    },
+    {
+      "from_id": 34,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "The from parameter controls exclusion/AMM checks and the dividend balance update of the sender."
+    },
+    {
+      "from_id": 35,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "The to parameter determines sell-fee treatment and the recipient dividend balance update."
+    },
+    {
+      "from_id": 36,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "The amount parameter is the value transferred and the base of the fee computation."
+    },
+    {
+      "from_id": 37,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "newAddress becomes the new dividendTracker after ownership checks."
+    },
+    {
+      "from_id": 38,
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "newValue becomes gasForProcessing within the allowed 200k-500k range."
+    },
+    {
+      "from_id": 39,
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "account is the holder paid by processAccount and whose lastClaimTimes is stamped with block.timestamp."
+    },
+    {
+      "from_id": 2,
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "uniswapV2Router is the external contract approving and executing the token->ETH swap."
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 33,
+      "type": "dataflow",
+      "reason": "swapTokensForEth invokes swapExactTokensForETHSupportingFeeOnTransferTokens on the router with amountOutMin = 0."
+    },
+    {
+      "from_id": 21,
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "controlflow",
+      "reason": "withdrawDividend calls _withdrawDividendOfUser(payable(msg.sender))."
+    },
+    {
+      "from_id": 9,
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "controlflow",
+      "reason": "_transfer calls swapAndSendToOwner(swapTokens) when the balance threshold is reached."
+    },
+    {
+      "from_id": 9,
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "_transfer calls swapAndSendDividends(sellTokens) with the remaining contract balance."
+    },
+    {
+      "from_id": 10,
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "swapAndSendToOwner calls swapTokensForEth(tokens)."
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "swapAndSendDividends calls swapTokensForEth(tokens) before forwarding the ETH."
+    },
+    {
+      "from_id": 9,
+      "vuln_type": "none",
+      "to_id": 24,
+      "type": "controlflow",
+      "reason": "_transfer wraps dividendTracker.setBalance for both from and to in try/catch."
+    },
+    {
+      "from_id": 9,
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "controlflow",
+      "reason": "_transfer calls dividendTracker.process(gas) inside try/catch when not swapping."
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "controlflow",
+      "reason": "processDividendTracker calls dividendTracker.process(gas) and emits the result."
+    },
+    {
+      "from_id": 14,
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "controlflow",
+      "reason": "claim() calls dividendTracker.processAccount(payable(msg.sender), false)."
+    },
+    {
+      "from_id": 22,
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "controlflow",
+      "reason": "processAccount calls _withdrawDividendOfUser(account) to obtain the payout amount."
+    },
+    {
+      "from_id": 23,
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "controlflow",
+      "reason": "The process loop calls processAccount(payable(account), true) for each eligible holder."
+    },
+    {
+      "from_id": 23,
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "controlflow",
+      "reason": "process calls canAutoClaim(lastClaimTimes[account]) before processing an account."
+    },
+    {
+      "from_id": 24,
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "controlflow",
+      "reason": "setBalance finishes by calling processAccount(account, true)."
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "controlflow",
+      "reason": "updateDividendTracker overwrites the dividendTracker state variable."
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "controlflow",
+      "reason": "setAutomatedMarketMakerPair writes automatedMarketMakerPairs via _setAutomatedMarketMakerPair."
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "controlflow",
+      "reason": "_setAutomatedMarketMakerPair calls dividendTracker.excludeFromDividends(pair) when value is true."
+    },
+    {
+      "from_id": 17,
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "controlflow",
+      "reason": "updateGasForProcessing writes gasForProcessing."
+    },
+    {
+      "from_id": 18,
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "controlflow",
+      "reason": "updateLiquidityWallet writes liquidityWallet and excludes the new wallet from fees."
+    },
+    {
+      "from_id": 26,
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "controlflow",
+      "reason": "updateClaimWait forwards the new value to dividendTracker.updateClaimWait."
+    },
+    {
+      "from_id": 20,
+      "vuln_type": "reentrancy",
+      "to_id": 30,
+      "type": "callback",
+      "reason": "_withdrawDividendOfUser performs a low-level ETH call to the user (gas capped at 3000) after crediting withdrawnDividends; the callee can re-enter the token/tracker flow."
+    },
+    {
+      "from_id": 10,
+      "vuln_type": "reentrancy",
+      "to_id": 31,
+      "type": "callback",
+      "reason": "swapAndSendToOwner performs a low-level ETH call to owner() while the caller is still inside _transfer (swapping flag true), an externally controlled callback."
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "reentrancy",
+      "to_id": 32,
+      "type": "callback",
+      "reason": "swapAndSendDividends performs a low-level ETH call to the dividend tracker, forwarding the entire contract balance; a malicious tracker can re-enter."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "fn_transfer",
+      "normal_node": "param_from",
+      "reason": "from is only meaningful as the sender argument of _transfer and should be folded into that function node."
+    },
+    {
+      "merge_into": "fn_transfer",
+      "normal_node": "param_to",
+      "reason": "to is only meaningful as the recipient/AMM-pair argument of _transfer and should be folded into that function node."
+    },
+    {
+      "merge_into": "fn_transfer",
+      "normal_node": "param_amount",
+      "reason": "amount is the transfer value consumed by _transfer's fee and accounting logic."
+    },
+    {
+      "merge_into": "fn_updateDividendTracker",
+      "normal_node": "param_newAddress",
+      "reason": "newAddress is used only to validate and install the new dividend tracker."
+    },
+    {
+      "merge_into": "fn_updateGasForProcessing",
+      "normal_node": "param_newValue",
+      "reason": "newValue is validated and stored into gasForProcessing inside this function."
+    },
+    {
+      "merge_into": "fn_processAccount",
+      "normal_node": "param_account",
+      "reason": "account is the payout target handled entirely inside processAccount."
+    },
+    {
+      "merge_into": "fn_transfer",
+      "normal_node": "local_contractTokenBalance",
+      "reason": "contractTokenBalance is a temporary local computed and consumed only inside _transfer."
+    },
+    {
+      "merge_into": "fn_transfer",
+      "normal_node": "local_fees",
+      "reason": "fees is the temporary fee amount computed and immediately spent inside _transfer."
+    },
+    {
+      "merge_into": "fn_transfer",
+      "normal_node": "local_gas",
+      "reason": "gas is a snapshot of gasForProcessing used only as an argument of dividendTracker.process inside _transfer."
+    }
+  ]
+}

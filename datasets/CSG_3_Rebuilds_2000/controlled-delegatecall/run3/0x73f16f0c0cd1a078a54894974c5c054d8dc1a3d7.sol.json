@@ -1,0 +1,291 @@
+{
+  "nodes": [
+    {
+      "id": "state_admin",
+      "is_core": true,
+      "node_id": 0,
+      "description": "Administrator address of the delegator, set to msg.sender during construction and to admin_ afterwards; guards _setImplementation.",
+      "type": "state_var"
+    },
+    {
+      "id": "state_pendingAdmin",
+      "is_core": true,
+      "node_id": 1,
+      "description": "Pending administrator slot declared in storage but never written in this contract.",
+      "type": "state_var"
+    },
+    {
+      "id": "state_implementation",
+      "is_core": true,
+      "node_id": 2,
+      "description": "Address of the active implementation contract used by the fallback delegatecall and updated by _setImplementation.",
+      "type": "state_var"
+    },
+    {
+      "id": "fn_constructor",
+      "is_core": true,
+      "node_id": 3,
+      "description": "Constructor: sets admin to msg.sender, delegatecalls initialize(address) on implementation_ and calls _setImplementation, then hands admin over to admin_.",
+      "type": "function"
+    },
+    {
+      "id": "fn_setImplementation",
+      "is_core": true,
+      "node_id": 4,
+      "description": "Public admin-only function that validates and stores a new implementation address and emits NewImplementation.",
+      "type": "function"
+    },
+    {
+      "id": "fn_delegateTo",
+      "is_core": true,
+      "node_id": 5,
+      "description": "Internal helper performing an unchecked low-level delegatecall to an arbitrary callee with arbitrary calldata.",
+      "type": "function"
+    },
+    {
+      "id": "fn_fallback",
+      "is_core": true,
+      "node_id": 6,
+      "description": "Payable fallback that delegatecalls msg.data to the stored implementation and forwards the returned data or revert.",
+      "type": "function"
+    },
+    {
+      "id": "input_msg_sender",
+      "is_core": true,
+      "node_id": 7,
+      "description": "Caller-controlled msg.sender used for the initial admin assignment and the admin-only authorization check.",
+      "type": "untrusted_input"
+    },
+    {
+      "id": "unsafe_delegatecall_ctor",
+      "is_core": true,
+      "node_id": 8,
+      "description": "Low-level callee.delegatecall(data) executed inside delegateTo during construction with attacker-independent but arbitrary calldata.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_delegatecall_fallback",
+      "is_core": true,
+      "node_id": 9,
+      "description": "Low-level implementation.delegatecall(msg.data) in the fallback, giving the implementation full control over the delegator storage context.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "param_admin_ctor",
+      "is_core": false,
+      "node_id": 10,
+      "description": "Constructor parameter admin_ that becomes the final administrator address.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_rewardToken",
+      "is_core": false,
+      "node_id": 11,
+      "description": "Constructor parameter rewardToken_ encoded into the initialize(address) delegatecall.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_impl_ctor",
+      "is_core": false,
+      "node_id": 12,
+      "description": "Constructor parameter implementation_ used as the delegatecall target and the initially stored implementation.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_impl_setImpl",
+      "is_core": false,
+      "node_id": 13,
+      "description": "Parameter implementation_ of _setImplementation, validated as non-zero and written to storage.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_callee",
+      "is_core": false,
+      "node_id": 14,
+      "description": "Parameter callee of delegateTo, the arbitrary address receiving the delegatecall.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_data",
+      "is_core": false,
+      "node_id": 15,
+      "description": "Parameter data of delegateTo, the raw calldata passed to the delegatecall.",
+      "type": "parameter"
+    },
+    {
+      "id": "local_oldImplementation",
+      "is_core": false,
+      "node_id": 16,
+      "description": "Local copy of the previous implementation address, only used for the NewImplementation event.",
+      "type": "local_var"
+    },
+    {
+      "id": "local_success",
+      "is_core": false,
+      "node_id": 17,
+      "description": "Boolean success flag returned by the low-level delegatecall.",
+      "type": "local_var"
+    },
+    {
+      "id": "local_returnData",
+      "is_core": false,
+      "node_id": 18,
+      "description": "Bytes returned by the low-level delegatecall, used in the assembly revert path.",
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 7,
+      "to_id": 0,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "msg.sender is assigned to the admin state variable during construction."
+    },
+    {
+      "from_id": 7,
+      "to_id": 4,
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "reason": "msg.sender must equal admin to pass the require gate in _setImplementation."
+    },
+    {
+      "from_id": 0,
+      "to_id": 4,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "_setImplementation reads the admin state variable for its authorization check."
+    },
+    {
+      "from_id": 12,
+      "to_id": 2,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "Constructor parameter implementation_ flows into _setImplementation and is stored as the active implementation."
+    },
+    {
+      "from_id": 13,
+      "to_id": 2,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "_setImplementation parameter implementation_ is written directly to the implementation state variable."
+    },
+    {
+      "from_id": 3,
+      "to_id": 5,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "The constructor invokes delegateTo to run initialize(address) on the implementation."
+    },
+    {
+      "from_id": 3,
+      "to_id": 4,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "The constructor calls _setImplementation to persist the initial implementation."
+    },
+    {
+      "from_id": 5,
+      "to_id": 8,
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "reason": "delegateTo performs an unrestricted delegatecall to the caller-supplied callee address."
+    },
+    {
+      "from_id": 6,
+      "to_id": 9,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "The fallback executes implementation.delegatecall(msg.data) for every unmatched call."
+    },
+    {
+      "from_id": 2,
+      "to_id": 9,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "The fallback reads the implementation state variable and uses it as the delegatecall target."
+    },
+    {
+      "from_id": 14,
+      "to_id": 8,
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "reason": "The callee parameter is the target of the low-level delegatecall, letting the caller choose the code executed."
+    },
+    {
+      "from_id": 15,
+      "to_id": 8,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The data parameter is supplied as calldata to the low-level delegatecall."
+    },
+    {
+      "from_id": 2,
+      "to_id": 16,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The current implementation state variable is copied into the oldImplementation local before being overwritten."
+    },
+    {
+      "from_id": 8,
+      "to_id": 17,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The delegatecall returns the success boolean into the success local variable."
+    },
+    {
+      "from_id": 8,
+      "to_id": 18,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The delegatecall returns raw bytes into returnData, later used by the assembly revert."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param_admin_ctor",
+      "merge_into": "fn_constructor",
+      "reason": "admin_ is only consumed by the constructor assignment admin = admin_, so it is normalized into the constructor node."
+    },
+    {
+      "normal_node": "param_rewardToken",
+      "merge_into": "fn_constructor",
+      "reason": "rewardToken_ exists only to build the initialize(address) calldata inside the constructor."
+    },
+    {
+      "normal_node": "param_impl_ctor",
+      "merge_into": "fn_delegateTo",
+      "reason": "implementation_ is the delegatecall target passed from the constructor into delegateTo."
+    },
+    {
+      "normal_node": "param_impl_setImpl",
+      "merge_into": "fn_setImplementation",
+      "reason": "implementation_ is the sole input of _setImplementation and directly determines the stored implementation."
+    },
+    {
+      "normal_node": "param_callee",
+      "merge_into": "unsafe_delegatecall_ctor",
+      "reason": "callee is the direct target of callee.delegatecall(data) and has no other use."
+    },
+    {
+      "normal_node": "param_data",
+      "merge_into": "unsafe_delegatecall_ctor",
+      "reason": "data is the direct calldata argument of callee.delegatecall(data)."
+    },
+    {
+      "normal_node": "local_oldImplementation",
+      "merge_into": "fn_setImplementation",
+      "reason": "oldImplementation is a transient copy used only for the NewImplementation event inside _setImplementation."
+    },
+    {
+      "normal_node": "local_success",
+      "merge_into": "unsafe_delegatecall_ctor",
+      "reason": "success is the boolean result of the delegatecall and is only inspected by the assembly revert branch."
+    },
+    {
+      "normal_node": "local_returnData",
+      "merge_into": "unsafe_delegatecall_ctor",
+      "reason": "returnData holds the delegatecall return bytes and is only consumed by the assembly revert."
+    }
+  ]
+}

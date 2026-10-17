@@ -1,0 +1,322 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "address payable[] array of current players; written in receive(), read/deleted in play(), clearPlayers(), random(), getPlayerCount().",
+      "is_core": true,
+      "node_id": 0,
+      "id": "players"
+    },
+    {
+      "type": "function",
+      "description": "receive() payable external: validates msg.value >= 0.01 ether, pushes msg.sender into players, triggers play() when two players.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "receive"
+    },
+    {
+      "type": "function",
+      "description": "internal play(): picks winner from players via flipTheCoin(), clears players, and pays out the whole balance.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "play"
+    },
+    {
+      "type": "function",
+      "description": "public view getBalance(): returns address(this).balance, used as payout amount.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "getBalance"
+    },
+    {
+      "type": "function",
+      "description": "private payOut(address,uint): performs a low-level value transfer to a caller/player-controlled address.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "payOut"
+    },
+    {
+      "type": "function",
+      "description": "internal clearPlayers(): deletes the players array (state reset before payout).",
+      "is_core": true,
+      "node_id": 5,
+      "id": "clearPlayers"
+    },
+    {
+      "type": "function",
+      "description": "public view getPlayerCount(): returns players.length.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "getPlayerCount"
+    },
+    {
+      "type": "function",
+      "description": "private view flipTheCoin(): returns random() % 2, i.e. the winner index.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "flipTheCoin"
+    },
+    {
+      "type": "function",
+      "description": "public view random(): derived from block.difficulty, block.timestamp and players.length via keccak256, i.e. predictable/weak randomness.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "random"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller address; attacker-controlled, becomes a player and can later receive the payout.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "msg.sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Miner/validator-influenced timestamp used as entropy in random().",
+      "is_core": true,
+      "node_id": 10,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Low-level _to.call{value:_amount}(\"\") external value transfer to a player-controlled address before the call returns (only the require on the boolean result follows).",
+      "is_core": true,
+      "node_id": 11,
+      "id": "payOut.external_call"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Weak/unpredictable randomness source: keccak256(block.difficulty, block.timestamp, players.length) decides the money winner.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "random.weak_source"
+    },
+    {
+      "type": "parameter",
+      "description": "Recipient parameter of payOut, derived from the winner index into players.",
+      "is_core": false,
+      "node_id": 13,
+      "id": "payOut._to"
+    },
+    {
+      "type": "parameter",
+      "description": "Amount parameter of payOut, equal to the contract balance.",
+      "is_core": false,
+      "node_id": 14,
+      "id": "payOut._amount"
+    },
+    {
+      "type": "local_var",
+      "description": "Local player address selected by flipTheCoin() and passed to payOut.",
+      "is_core": false,
+      "node_id": 15,
+      "id": "play.winner"
+    },
+    {
+      "type": "local_var",
+      "description": "Boolean result of the low-level call in payOut, checked by require(sent).",
+      "is_core": false,
+      "node_id": 16,
+      "id": "payOut.sent"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "msg.sender is the untrusted entry point into receive().",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "msg.sender is pushed into the players state array.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "getPlayerCount reads players.length.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "play() indexes players with the coin flip result to choose the winner.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "players.length is used as part of the randomness seed in random().",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "controlflow",
+      "reason": "receive() calls getPlayerCount() to decide whether to start a round.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "controlflow",
+      "reason": "receive() calls play() when the player count reaches two.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "controlflow",
+      "reason": "play() calls flipTheCoin() to select the winner.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "controlflow",
+      "reason": "play() calls clearPlayers() before paying out.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "controlflow",
+      "reason": "play() calls payOut(winner, getBalance()).",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "controlflow",
+      "reason": "play() calls getBalance() for the payout amount.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "The contract balance is passed as _amount to payOut.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "clearPlayers() deletes the players state array.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 8,
+      "type": "controlflow",
+      "reason": "flipTheCoin() calls random() for its result.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "random() consumes block.timestamp as entropy.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "block.timestamp feeds the weak randomness source.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "random() produces the miner-influenceable randomness value used to pick the winner.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "The coin flip result inherits the weak randomness of random().",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "payOut executes the unchecked-recipient external value call.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 1,
+      "type": "callback",
+      "reason": "The external call can re-enter receive() (the attacker is already a player) while the payout is in flight.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "The selected winner controls the recipient of the external call.",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "payOut._to (the winner) is the target of the external call.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "payOut._amount (contract balance) is the value sent in the external call.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "payOut.sent captures the boolean outcome of the external call.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "play() stores the coin-flip result in the winner local variable.",
+      "from_id": 2
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "payOut.external_call",
+      "reason": "Recipient parameter is only consumed by the low-level value transfer in payOut; fold it into the unsafe_operation node.",
+      "normal_node": "payOut._to"
+    },
+    {
+      "merge_into": "payOut.external_call",
+      "reason": "Amount parameter exists solely to supply the value forwarded by the external call; fold it into the unsafe_operation node.",
+      "normal_node": "payOut._amount"
+    },
+    {
+      "merge_into": "payOut.external_call",
+      "reason": "Local winner variable is only used as the argument to payOut and thus designates the recipient of the external call.",
+      "normal_node": "play.winner"
+    },
+    {
+      "merge_into": "payOut.external_call",
+      "reason": "Local boolean is just the raw outcome of the external call, so it belongs to the unsafe_operation node.",
+      "normal_node": "payOut.sent"
+    }
+  ]
+}

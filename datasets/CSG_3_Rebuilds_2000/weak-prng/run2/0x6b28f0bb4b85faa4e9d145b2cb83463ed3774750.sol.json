@@ -1,0 +1,152 @@
+{
+  "nodes": [
+    {
+      "type": "function",
+      "description": "Library function Random.toKeccak256 that hashes a string input with keccak256 and returns a uint256.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "Random.toKeccak256"
+    },
+    {
+      "type": "function",
+      "description": "Library function Random.randNum that derives a pseudo-random number from a seed, block.difficulty and block.timestamp, then takes modulo length.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "Random.randNum"
+    },
+    {
+      "type": "function",
+      "description": "Library function Random.toHash that hashes a sender address and a secret string with keccak256.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "Random.toHash"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Block timestamp read inside Random.randNum and mixed into the returned pseudo-random value; miner/validator influenceable.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Pseudo-random number generation relying on on-chain values (block.difficulty, block.timestamp) and a caller supplied seed, producing predictable randomness.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "randNum.weak_randomness"
+    },
+    {
+      "type": "parameter",
+      "description": "Input string parameter of Random.toKeccak256, packed and hashed.",
+      "is_core": false,
+      "node_id": 5,
+      "id": "Random.toKeccak256.input"
+    },
+    {
+      "type": "parameter",
+      "description": "Caller supplied seed parameter of Random.randNum, packed into the hash used for the random value.",
+      "is_core": false,
+      "node_id": 6,
+      "id": "Random.randNum.seed"
+    },
+    {
+      "type": "parameter",
+      "description": "Divisor/modulus bound parameter of Random.randNum; zero value causes a revert and its value reveals the range of the random result.",
+      "is_core": false,
+      "node_id": 7,
+      "id": "Random.randNum.length"
+    },
+    {
+      "type": "parameter",
+      "description": "Address parameter of Random.toHash, packed with the secret before hashing.",
+      "is_core": false,
+      "node_id": 8,
+      "id": "Random.toHash.sender"
+    },
+    {
+      "type": "parameter",
+      "description": "Secret string parameter of Random.toHash, packed with the sender address before hashing.",
+      "is_core": false,
+      "node_id": 9,
+      "id": "Random.toHash.secret"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "The input string parameter flows directly into the keccak256 hashing inside toKeccak256.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "The seed parameter is packed into the hash input that determines the returned random value.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "The length parameter is used as the modulus operand; a zero length causes a division-by-zero revert.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "block.timestamp is read inside randNum and mixed into the result, making the output timestamp dependent and miner influenceable.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "randNum produces the predictable pseudo-random output modeled as the weak randomness unsafe operation.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "The sender address parameter is packed into the hash input of toHash.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "The secret string parameter is packed into the hash input of toHash.",
+      "from_id": 9
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "Random.toKeccak256",
+      "reason": "Parameter input only exists to feed Random.toKeccak256 and can be folded into that core function node.",
+      "normal_node": "Random.toKeccak256.input"
+    },
+    {
+      "merge_into": "Random.randNum",
+      "reason": "Parameter seed only exists to feed Random.randNum and can be folded into that core function node.",
+      "normal_node": "Random.randNum.seed"
+    },
+    {
+      "merge_into": "Random.randNum",
+      "reason": "Parameter length only exists to feed the modulus computation in Random.randNum and can be folded into that core function node.",
+      "normal_node": "Random.randNum.length"
+    },
+    {
+      "merge_into": "Random.toHash",
+      "reason": "Parameter sender only exists to feed Random.toHash and can be folded into that core function node.",
+      "normal_node": "Random.toHash.sender"
+    },
+    {
+      "merge_into": "Random.toHash",
+      "reason": "Parameter secret only exists to feed Random.toHash and can be folded into that core function node.",
+      "normal_node": "Random.toHash.secret"
+    }
+  ]
+}

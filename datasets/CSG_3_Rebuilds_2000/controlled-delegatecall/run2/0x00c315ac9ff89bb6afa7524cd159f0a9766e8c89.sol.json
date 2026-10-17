@@ -1,0 +1,987 @@
+{
+  "nodes": [
+    {
+      "id": "owner",
+      "description": "Address of the contract owner; set to msg.sender in the constructor and changed only by IMDEXsetOwner.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "IMDEXtoken",
+      "description": "Hardcoded IMDEX token address stored as a contract-level constant-like state variable.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "invalidOrder",
+      "description": "Mapping user => nonce used to invalidate orders with a nonce lower than the stored threshold.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "state_var"
+    },
+    {
+      "id": "tokens",
+      "description": "Nested mapping token => user => balance holding all exchange custody balances.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "state_var"
+    },
+    {
+      "id": "admins",
+      "description": "Mapping address => bool flagging privileged operators allowed to call onlyAdmin functions.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "state_var"
+    },
+    {
+      "id": "lastActiveTransaction",
+      "description": "Mapping user => block.number of the last activity, used for the inactivity release check.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "state_var"
+    },
+    {
+      "id": "feeAccount",
+      "description": "Address that collects exchange trading and withdrawal fees.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "state_var"
+    },
+    {
+      "id": "inactivityReleasePeriod",
+      "description": "Number of blocks a user must stay inactive before being able to withdraw.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "state_var"
+    },
+    {
+      "id": "IMDEXsetOwner",
+      "description": "Owner-only function that transfers ownership to newOwner and emits SetOwner.",
+      "is_core": true,
+      "node_id": 8,
+      "type": "function"
+    },
+    {
+      "id": "IMDEXinvalidateOrdersBefore",
+      "description": "Admin-only function raising invalidOrder[user] to nonce.",
+      "is_core": true,
+      "node_id": 9,
+      "type": "function"
+    },
+    {
+      "id": "IMDEXsetInactivityReleasePeriod",
+      "description": "Admin-only setter for inactivityReleasePeriod, bounded by require(expiry < 1000000).",
+      "is_core": true,
+      "node_id": 10,
+      "type": "function"
+    },
+    {
+      "id": "constructor",
+      "description": "Constructor setting owner, feeAccount and inactivityReleasePeriod.",
+      "is_core": true,
+      "node_id": 11,
+      "type": "function"
+    },
+    {
+      "id": "IMDEXsetAdmin",
+      "description": "Owner-only function that grants or revokes the admin role.",
+      "is_core": true,
+      "node_id": 12,
+      "type": "function"
+    },
+    {
+      "id": "fallback",
+      "description": "Fallback function that unconditionally reverts.",
+      "is_core": true,
+      "node_id": 13,
+      "type": "function"
+    },
+    {
+      "id": "IMDEXdepositToken",
+      "description": "Credits msg.sender with a token deposit by pulling funds through IMDEX(token).transferFrom.",
+      "is_core": true,
+      "node_id": 14,
+      "type": "function"
+    },
+    {
+      "id": "IMDEXdeposit",
+      "description": "Payable function crediting msg.sender with ether under token address(0).",
+      "is_core": true,
+      "node_id": 15,
+      "type": "function"
+    },
+    {
+      "id": "IMDEXwithdrawToken",
+      "description": "Withdraws tokens or ether to msg.sender after the inactivity period, updating balances and then transferring out.",
+      "is_core": true,
+      "node_id": 16,
+      "type": "function"
+    },
+    {
+      "id": "IMDEXadminWithdraw",
+      "description": "Admin-only withdrawal on behalf of a user with a fee split to feeAccount.",
+      "is_core": true,
+      "node_id": 17,
+      "type": "function"
+    },
+    {
+      "id": "balanceOf",
+      "description": "Constant getter returning tokens[token][user].",
+      "is_core": true,
+      "node_id": 18,
+      "type": "function"
+    },
+    {
+      "id": "IMDEXtrade",
+      "description": "Admin-only settlement of an off-chain matched trade between maker and taker using balance mappings and fees.",
+      "is_core": true,
+      "node_id": 19,
+      "type": "function"
+    },
+    {
+      "id": "safeMul",
+      "description": "Internal multiplication with an implicit-division assertion guard.",
+      "is_core": true,
+      "node_id": 20,
+      "type": "function"
+    },
+    {
+      "id": "safeDiv",
+      "description": "Internal division helper.",
+      "is_core": true,
+      "node_id": 21,
+      "type": "function"
+    },
+    {
+      "id": "safeSub",
+      "description": "Internal subtraction guarded by assert(b <= a).",
+      "is_core": true,
+      "node_id": 22,
+      "type": "function"
+    },
+    {
+      "id": "safeAdd",
+      "description": "Internal addition guarded by assert(c >= a).",
+      "is_core": true,
+      "node_id": 23,
+      "type": "function"
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller-supplied address used for authorization checks, balance crediting and as the recipient of withdrawals.",
+      "is_core": true,
+      "node_id": 24,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "unsafe_ether_transfer_withdraw",
+      "description": "msg.sender.transfer(amount) in IMDEXwithdrawToken; external ether send to an untrusted caller after balance bookkeeping.",
+      "is_core": true,
+      "node_id": 25,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_token_transfer_withdraw",
+      "description": "IMDEX(token).transfer(msg.sender, amount) in IMDEXwithdrawToken; external call to an arbitrary token contract.",
+      "is_core": true,
+      "node_id": 26,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_user_transfer_admin",
+      "description": "user.transfer(amount) in IMDEXadminWithdraw; ether sent to an attacker-controlled address.",
+      "is_core": true,
+      "node_id": 27,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_transferFrom_deposit",
+      "description": "IMDEX(token).transferFrom(msg.sender, this, amount) in IMDEXdepositToken; external call into a caller-chosen token contract after the balance was credited.",
+      "is_core": true,
+      "node_id": 28,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_unchecked_sub_fee",
+      "description": "Raw (1 ether - feeWithdrawal) subtraction in IMDEXadminWithdraw that bypasses SafeMath and can underflow.",
+      "is_core": true,
+      "node_id": 29,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_division_by_X0",
+      "description": "Unchecked division by X[0] (amountBuy) in IMDEXtrade; zero or malformed input reverts or skews fee math.",
+      "is_core": true,
+      "node_id": 30,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_token_transfer_admin",
+      "description": "IMDEX(token).transfer(user, amount) in IMDEXadminWithdraw; external call to an arbitrary token contract.",
+      "is_core": true,
+      "node_id": 31,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "param_newOwner",
+      "description": "newOwner argument of IMDEXsetOwner.",
+      "is_core": false,
+      "node_id": 32,
+      "type": "parameter"
+    },
+    {
+      "id": "param_user_invalidate",
+      "description": "user argument of IMDEXinvalidateOrdersBefore.",
+      "is_core": false,
+      "node_id": 33,
+      "type": "parameter"
+    },
+    {
+      "id": "param_nonce",
+      "description": "nonce argument of IMDEXinvalidateOrdersBefore.",
+      "is_core": false,
+      "node_id": 34,
+      "type": "parameter"
+    },
+    {
+      "id": "param_expiry",
+      "description": "expiry argument of IMDEXsetInactivityReleasePeriod.",
+      "is_core": false,
+      "node_id": 35,
+      "type": "parameter"
+    },
+    {
+      "id": "param_feeAccount_",
+      "description": "feeAccount_ constructor argument.",
+      "is_core": false,
+      "node_id": 36,
+      "type": "parameter"
+    },
+    {
+      "id": "param_admin",
+      "description": "admin argument of IMDEXsetAdmin.",
+      "is_core": false,
+      "node_id": 37,
+      "type": "parameter"
+    },
+    {
+      "id": "param_isAdmin",
+      "description": "isAdmin flag argument of IMDEXsetAdmin.",
+      "is_core": false,
+      "node_id": 38,
+      "type": "parameter"
+    },
+    {
+      "id": "param_token_deposit",
+      "description": "token argument of IMDEXdepositToken.",
+      "is_core": false,
+      "node_id": 39,
+      "type": "parameter"
+    },
+    {
+      "id": "param_amount_deposit",
+      "description": "amount argument of IMDEXdepositToken.",
+      "is_core": false,
+      "node_id": 40,
+      "type": "parameter"
+    },
+    {
+      "id": "param_token_withdraw",
+      "description": "token argument of IMDEXwithdrawToken.",
+      "is_core": false,
+      "node_id": 41,
+      "type": "parameter"
+    },
+    {
+      "id": "param_amount_withdraw",
+      "description": "amount argument of IMDEXwithdrawToken.",
+      "is_core": false,
+      "node_id": 42,
+      "type": "parameter"
+    },
+    {
+      "id": "param_token_adminWithdraw",
+      "description": "token argument of IMDEXadminWithdraw.",
+      "is_core": false,
+      "node_id": 43,
+      "type": "parameter"
+    },
+    {
+      "id": "param_amount_adminWithdraw",
+      "description": "amount argument of IMDEXadminWithdraw.",
+      "is_core": false,
+      "node_id": 44,
+      "type": "parameter"
+    },
+    {
+      "id": "param_user_adminWithdraw",
+      "description": "user argument of IMDEXadminWithdraw; recipient of the payout.",
+      "is_core": false,
+      "node_id": 45,
+      "type": "parameter"
+    },
+    {
+      "id": "param_feeWithdrawal",
+      "description": "feeWithdrawal argument of IMDEXadminWithdraw, clamped to 50 finney.",
+      "is_core": false,
+      "node_id": 46,
+      "type": "parameter"
+    },
+    {
+      "id": "param_X",
+      "description": "uint256[8] X argument of IMDEXtrade holding amounts, expiry, nonces and fees.",
+      "is_core": false,
+      "node_id": 47,
+      "type": "parameter"
+    },
+    {
+      "id": "param_Y",
+      "description": "address[4] Y argument of IMDEXtrade holding token addresses, maker and taker.",
+      "is_core": false,
+      "node_id": 48,
+      "type": "parameter"
+    },
+    {
+      "id": "local_c_safeMul",
+      "description": "Local product c = a * b inside safeMul.",
+      "is_core": false,
+      "node_id": 49,
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is compared against owner in the onlyOwner modifier of IMDEXsetOwner.",
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "from_id": 24,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Constructor assigns owner = msg.sender, making the deployer privileged.",
+      "to_id": 11,
+      "vuln_type": "access_control",
+      "from_id": 24,
+      "type": "dataflow"
+    },
+    {
+      "reason": "onlyAdmin gate on IMDEXinvalidateOrdersBefore checks msg.sender against owner and admins.",
+      "to_id": 9,
+      "vuln_type": "access_control",
+      "from_id": 24,
+      "type": "dataflow"
+    },
+    {
+      "reason": "onlyAdmin gate on IMDEXsetInactivityReleasePeriod checks msg.sender.",
+      "to_id": 10,
+      "vuln_type": "access_control",
+      "from_id": 24,
+      "type": "dataflow"
+    },
+    {
+      "reason": "onlyOwner gate on IMDEXsetAdmin checks msg.sender.",
+      "to_id": 12,
+      "vuln_type": "access_control",
+      "from_id": 24,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender is credited in tokens[token][msg.sender] during IMDEXdepositToken.",
+      "to_id": 14,
+      "vuln_type": "none",
+      "from_id": 24,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender is credited with msg.value in IMDEXdeposit.",
+      "to_id": 15,
+      "vuln_type": "none",
+      "from_id": 24,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender debits its own balance and then receives the withdrawn ether or tokens.",
+      "to_id": 16,
+      "vuln_type": "reentrancy",
+      "from_id": 24,
+      "type": "dataflow"
+    },
+    {
+      "reason": "onlyAdmin gate on IMDEXadminWithdraw checks msg.sender.",
+      "to_id": 17,
+      "vuln_type": "access_control",
+      "from_id": 24,
+      "type": "dataflow"
+    },
+    {
+      "reason": "onlyAdmin gate on IMDEXtrade checks msg.sender before settlement.",
+      "to_id": 19,
+      "vuln_type": "access_control",
+      "from_id": 24,
+      "type": "dataflow"
+    },
+    {
+      "reason": "owner is read to authorize IMDEXsetOwner.",
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "type": "controlflow"
+    },
+    {
+      "reason": "owner is read to authorize IMDEXsetAdmin.",
+      "to_id": 12,
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "type": "controlflow"
+    },
+    {
+      "reason": "onlyAdmin requires msg.sender == owner inside IMDEXinvalidateOrdersBefore.",
+      "to_id": 9,
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "type": "controlflow"
+    },
+    {
+      "reason": "onlyAdmin requires msg.sender == owner inside IMDEXsetInactivityReleasePeriod.",
+      "to_id": 10,
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "type": "controlflow"
+    },
+    {
+      "reason": "onlyAdmin requires msg.sender == owner inside IMDEXadminWithdraw.",
+      "to_id": 17,
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "type": "controlflow"
+    },
+    {
+      "reason": "onlyAdmin requires msg.sender == owner inside IMDEXtrade.",
+      "to_id": 19,
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "type": "controlflow"
+    },
+    {
+      "reason": "admins[msg.sender] is required by onlyAdmin on IMDEXinvalidateOrdersBefore.",
+      "to_id": 9,
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "admins[msg.sender] is required by onlyAdmin on IMDEXsetInactivityReleasePeriod.",
+      "to_id": 10,
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "admins[msg.sender] is required by onlyAdmin on IMDEXadminWithdraw.",
+      "to_id": 17,
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "admins[msg.sender] is required by onlyAdmin on IMDEXtrade.",
+      "to_id": 19,
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "invalidOrder[user] is compared with nonce before being overwritten.",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "invalidOrder[maker] is checked against the trade nonce X[3].",
+      "to_id": 19,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "lastActiveTransaction[msg.sender] is subtracted from block.number in the inactivity check.",
+      "to_id": 16,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "inactivityReleasePeriod is read as the withdrawal threshold.",
+      "to_id": 16,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "feeAccount receives the computed withdrawal fee.",
+      "to_id": 17,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "feeAccount receives the trade make/take fees.",
+      "to_id": 19,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Hardcoded IMDEXtoken address represents the token contract used by the deposit path.",
+      "to_id": 14,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "IMDEXsetOwner writes newOwner into owner with no zero-address validation.",
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Constructor writes msg.sender into owner.",
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "from_id": 11,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Constructor writes feeAccount_ into feeAccount.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 11,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Constructor writes the default inactivityReleasePeriod.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 11,
+      "type": "dataflow"
+    },
+    {
+      "reason": "IMDEXinvalidateOrdersBefore writes nonce into invalidOrder[user].",
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "IMDEXsetInactivityReleasePeriod writes expiry into inactivityReleasePeriod.",
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "from_id": 10,
+      "type": "dataflow"
+    },
+    {
+      "reason": "IMDEXsetAdmin writes the isAdmin flag into admins[admin].",
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "from_id": 12,
+      "type": "dataflow"
+    },
+    {
+      "reason": "IMDEXdepositToken increments tokens[token][msg.sender] before the external transferFrom.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 14,
+      "type": "dataflow"
+    },
+    {
+      "reason": "IMDEXdepositToken updates lastActiveTransaction[msg.sender].",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 14,
+      "type": "dataflow"
+    },
+    {
+      "reason": "IMDEXdeposit credits tokens[address(0)][msg.sender] with msg.value.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 15,
+      "type": "dataflow"
+    },
+    {
+      "reason": "IMDEXdeposit updates lastActiveTransaction[msg.sender].",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 15,
+      "type": "dataflow"
+    },
+    {
+      "reason": "IMDEXwithdrawToken debits tokens[token][msg.sender] before performing the external transfer.",
+      "to_id": 3,
+      "vuln_type": "reentrancy",
+      "from_id": 16,
+      "type": "dataflow"
+    },
+    {
+      "reason": "IMDEXadminWithdraw rewrites user and feeAccount balances before the external payout.",
+      "to_id": 3,
+      "vuln_type": "reentrancy",
+      "from_id": 17,
+      "type": "dataflow"
+    },
+    {
+      "reason": "IMDEXadminWithdraw refreshes lastActiveTransaction[user] after payout.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 17,
+      "type": "dataflow"
+    },
+    {
+      "reason": "IMDEXtrade mutates maker, taker and feeAccount balances in tokens.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 19,
+      "type": "dataflow"
+    },
+    {
+      "reason": "IMDEXtrade refreshes lastActiveTransaction for maker and taker.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 19,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender.transfer(amount) hands control and ether to an untrusted caller after state updates.",
+      "to_id": 25,
+      "vuln_type": "reentrancy",
+      "from_id": 16,
+      "type": "callback"
+    },
+    {
+      "reason": "IMDEX(token).transfer(msg.sender, amount) calls an attacker-controllable token contract.",
+      "to_id": 26,
+      "vuln_type": "reentrancy",
+      "from_id": 16,
+      "type": "callback"
+    },
+    {
+      "reason": "user.transfer(amount) sends ether to a caller-supplied address.",
+      "to_id": 27,
+      "vuln_type": "reentrancy",
+      "from_id": 17,
+      "type": "callback"
+    },
+    {
+      "reason": "IMDEX(token).transfer(user, amount) calls an arbitrary token contract on behalf of an admin-selected user.",
+      "to_id": 31,
+      "vuln_type": "reentrancy",
+      "from_id": 17,
+      "type": "callback"
+    },
+    {
+      "reason": "IMDEX(token).transferFrom is invoked on a caller-supplied token after the balance was already credited.",
+      "to_id": 28,
+      "vuln_type": "reentrancy",
+      "from_id": 14,
+      "type": "callback"
+    },
+    {
+      "reason": "feeWithdrawal feeds the raw (1 ether - feeWithdrawal) subtraction that is not protected by SafeMath.",
+      "to_id": 29,
+      "vuln_type": "arithmetic",
+      "from_id": 17,
+      "type": "dataflow"
+    },
+    {
+      "reason": "X[1] and X[4] flow into safeMul(X[1], X[4]) / X[0], an unchecked division by the caller-supplied amountBuy.",
+      "to_id": 30,
+      "vuln_type": "arithmetic",
+      "from_id": 19,
+      "type": "dataflow"
+    },
+    {
+      "reason": "newOwner parameter is written directly into owner without validation.",
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "from_id": 32,
+      "type": "dataflow"
+    },
+    {
+      "reason": "user parameter indexes invalidOrder in IMDEXinvalidateOrdersBefore.",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 33,
+      "type": "dataflow"
+    },
+    {
+      "reason": "nonce parameter is stored into invalidOrder[user].",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 34,
+      "type": "dataflow"
+    },
+    {
+      "reason": "expiry parameter is stored into inactivityReleasePeriod.",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 35,
+      "type": "dataflow"
+    },
+    {
+      "reason": "feeAccount_ parameter is stored into feeAccount at construction.",
+      "to_id": 11,
+      "vuln_type": "none",
+      "from_id": 36,
+      "type": "dataflow"
+    },
+    {
+      "reason": "admin parameter becomes an entry in the admins mapping.",
+      "to_id": 12,
+      "vuln_type": "access_control",
+      "from_id": 37,
+      "type": "dataflow"
+    },
+    {
+      "reason": "isAdmin parameter is written into admins[admin], granting or revoking privileges.",
+      "to_id": 12,
+      "vuln_type": "access_control",
+      "from_id": 38,
+      "type": "dataflow"
+    },
+    {
+      "reason": "token parameter selects which token balance is credited.",
+      "to_id": 14,
+      "vuln_type": "none",
+      "from_id": 39,
+      "type": "dataflow"
+    },
+    {
+      "reason": "amount parameter is added to tokens[token][msg.sender] and passed to transferFrom.",
+      "to_id": 14,
+      "vuln_type": "none",
+      "from_id": 40,
+      "type": "dataflow"
+    },
+    {
+      "reason": "token parameter selects the balance to debit and the transfer path.",
+      "to_id": 16,
+      "vuln_type": "none",
+      "from_id": 41,
+      "type": "dataflow"
+    },
+    {
+      "reason": "amount parameter is the value sent out to msg.sender through transfer.",
+      "to_id": 16,
+      "vuln_type": "reentrancy",
+      "from_id": 42,
+      "type": "dataflow"
+    },
+    {
+      "reason": "token parameter selects the user and feeAccount balances in IMDEXadminWithdraw.",
+      "to_id": 17,
+      "vuln_type": "none",
+      "from_id": 43,
+      "type": "dataflow"
+    },
+    {
+      "reason": "amount parameter is deducted and later recomputed with the fee.",
+      "to_id": 17,
+      "vuln_type": "none",
+      "from_id": 44,
+      "type": "dataflow"
+    },
+    {
+      "reason": "user parameter becomes the recipient of user.transfer and of the token transfer.",
+      "to_id": 17,
+      "vuln_type": "reentrancy",
+      "from_id": 45,
+      "type": "callback"
+    },
+    {
+      "reason": "feeWithdrawal is clamped but then used in the unchecked subtraction and SafeMath fee multiplications.",
+      "to_id": 17,
+      "vuln_type": "arithmetic",
+      "from_id": 46,
+      "type": "dataflow"
+    },
+    {
+      "reason": "X[0] and X[1] are the divisor and multiplier in the trade arithmetic.",
+      "to_id": 19,
+      "vuln_type": "arithmetic",
+      "from_id": 47,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Y array supplies token addresses, maker and taker used as mapping keys.",
+      "to_id": 19,
+      "vuln_type": "none",
+      "from_id": 48,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Local product c is asserted against c / a == b inside safeMul.",
+      "to_id": 20,
+      "vuln_type": "arithmetic",
+      "from_id": 49,
+      "type": "dataflow"
+    },
+    {
+      "reason": "IMDEXdepositToken delegates balance addition to safeAdd.",
+      "to_id": 23,
+      "vuln_type": "none",
+      "from_id": 14,
+      "type": "controlflow"
+    },
+    {
+      "reason": "IMDEXdeposit delegates balance addition to safeAdd.",
+      "to_id": 23,
+      "vuln_type": "none",
+      "from_id": 15,
+      "type": "controlflow"
+    },
+    {
+      "reason": "IMDEXwithdrawToken delegates balance deduction and inactivity math to safeSub.",
+      "to_id": 22,
+      "vuln_type": "none",
+      "from_id": 16,
+      "type": "controlflow"
+    },
+    {
+      "reason": "IMDEXadminWithdraw delegates balance deduction to safeSub.",
+      "to_id": 22,
+      "vuln_type": "none",
+      "from_id": 17,
+      "type": "controlflow"
+    },
+    {
+      "reason": "IMDEXadminWithdraw delegates fee credit to safeAdd.",
+      "to_id": 23,
+      "vuln_type": "none",
+      "from_id": 17,
+      "type": "controlflow"
+    },
+    {
+      "reason": "IMDEXadminWithdraw uses safeMul for fee and net-amount computation followed by raw division by 1 ether.",
+      "to_id": 20,
+      "vuln_type": "arithmetic",
+      "from_id": 17,
+      "type": "controlflow"
+    },
+    {
+      "reason": "IMDEXtrade uses safeMul for trade and fee amounts before dividing by X[0] and 1 ether.",
+      "to_id": 20,
+      "vuln_type": "arithmetic",
+      "from_id": 19,
+      "type": "controlflow"
+    },
+    {
+      "reason": "IMDEXtrade uses safeSub to debit taker and maker balances.",
+      "to_id": 22,
+      "vuln_type": "arithmetic",
+      "from_id": 19,
+      "type": "controlflow"
+    },
+    {
+      "reason": "IMDEXtrade uses safeAdd to credit maker, taker and feeAccount balances.",
+      "to_id": 23,
+      "vuln_type": "arithmetic",
+      "from_id": 19,
+      "type": "controlflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "newOwner is a transient parameter that is immediately written into the core state variable owner.",
+      "normal_node": "param_newOwner",
+      "merge_into": "IMDEXsetOwner"
+    },
+    {
+      "reason": "user only exists as the mapping key used by the core function IMDEXinvalidateOrdersBefore.",
+      "normal_node": "param_user_invalidate",
+      "merge_into": "IMDEXinvalidateOrdersBefore"
+    },
+    {
+      "reason": "nonce is only consumed by the invalidOrder write inside IMDEXinvalidateOrdersBefore.",
+      "normal_node": "param_nonce",
+      "merge_into": "IMDEXinvalidateOrdersBefore"
+    },
+    {
+      "reason": "expiry is only consumed by IMDEXsetInactivityReleasePeriod when setting inactivityReleasePeriod.",
+      "normal_node": "param_expiry",
+      "merge_into": "IMDEXsetInactivityReleasePeriod"
+    },
+    {
+      "reason": "feeAccount_ only exists during construction to initialise the feeAccount state variable.",
+      "normal_node": "param_feeAccount_",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "admin is only used as the admins mapping key inside IMDEXsetAdmin.",
+      "normal_node": "param_admin",
+      "merge_into": "IMDEXsetAdmin"
+    },
+    {
+      "reason": "isAdmin is only used to set the admins flag inside IMDEXsetAdmin.",
+      "normal_node": "param_isAdmin",
+      "merge_into": "IMDEXsetAdmin"
+    },
+    {
+      "reason": "token is only used as the tokens mapping key of IMDEXdepositToken.",
+      "normal_node": "param_token_deposit",
+      "merge_into": "IMDEXdepositToken"
+    },
+    {
+      "reason": "amount is only used inside IMDEXdepositToken for the balance credit and transferFrom.",
+      "normal_node": "param_amount_deposit",
+      "merge_into": "IMDEXdepositToken"
+    },
+    {
+      "reason": "token is only used inside IMDEXwithdrawToken to select the balance and transfer path.",
+      "normal_node": "param_token_withdraw",
+      "merge_into": "IMDEXwithdrawToken"
+    },
+    {
+      "reason": "amount directly feeds the msg.sender.transfer call that is the reentrancy sink in IMDEXwithdrawToken.",
+      "normal_node": "param_amount_withdraw",
+      "merge_into": "unsafe_ether_transfer_withdraw"
+    },
+    {
+      "reason": "token is only used as the tokens mapping key inside IMDEXadminWithdraw.",
+      "normal_node": "param_token_adminWithdraw",
+      "merge_into": "IMDEXadminWithdraw"
+    },
+    {
+      "reason": "amount is only used inside IMDEXadminWithdraw for balance deduction and payout computation.",
+      "normal_node": "param_amount_adminWithdraw",
+      "merge_into": "IMDEXadminWithdraw"
+    },
+    {
+      "reason": "user is the recipient address of the user.transfer payout that constitutes the external-call sink.",
+      "normal_node": "param_user_adminWithdraw",
+      "merge_into": "unsafe_user_transfer_admin"
+    },
+    {
+      "reason": "feeWithdrawal flows into the unchecked (1 ether - feeWithdrawal) subtraction that is the arithmetic sink.",
+      "normal_node": "param_feeWithdrawal",
+      "merge_into": "unsafe_unchecked_sub_fee"
+    },
+    {
+      "reason": "X[0] and X[1] from the X array feed the unchecked division and multiplication in IMDEXtrade.",
+      "normal_node": "param_X",
+      "merge_into": "unsafe_division_by_X0"
+    },
+    {
+      "reason": "Y only supplies token addresses and maker/taker keys consumed by the core function IMDEXtrade.",
+      "normal_node": "param_Y",
+      "merge_into": "IMDEXtrade"
+    },
+    {
+      "reason": "Local variable c exists only inside safeMul to hold and assert the multiplication result.",
+      "normal_node": "local_c_safeMul",
+      "merge_into": "safeMul"
+    }
+  ]
+}

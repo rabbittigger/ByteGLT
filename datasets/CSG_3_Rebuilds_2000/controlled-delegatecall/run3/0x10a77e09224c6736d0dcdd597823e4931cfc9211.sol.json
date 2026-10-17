@@ -1,0 +1,81 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "External function verify_relay_staker_address(int8,uint256) that accepts arbitrary callers and emits RelayAddressVerified without any caller authorization or validation.",
+      "id": "function.verify_relay_staker_address",
+      "type": "function",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "msg.sender, attacker-controllable caller address that is cast to uint160 and written into the RelayAddressVerified event, allowing anyone to forge a relay address verification.",
+      "id": "untrusted_input.msg.sender",
+      "type": "untrusted_input",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Unauthenticated event emission of RelayAddressVerified(uint160(msg.sender), workchain_id, address_body); the lack of access control lets any external account create trusted-looking verification records.",
+      "id": "unsafe_operation.emit_relay_address_verified",
+      "type": "unsafe_operation",
+      "node_id": 2
+    },
+    {
+      "is_core": false,
+      "description": "Input parameter workchain_id (int8) supplied by the caller and forwarded into the emitted RelayAddressVerified event with no validation.",
+      "id": "parameter.workchain_id",
+      "type": "parameter",
+      "node_id": 3
+    },
+    {
+      "is_core": false,
+      "description": "Input parameter address_body (uint256) supplied by the caller and forwarded into the emitted RelayAddressVerified event with no validation.",
+      "id": "parameter.address_body",
+      "type": "parameter",
+      "node_id": 4
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "reason": "msg.sender is cast to uint160 and used as the eth_addr field of the RelayAddressVerified event, so an arbitrary caller controls the identity that gets recorded as a verified relay address.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "reason": "The external function execute path reaches the emit with no caller check (no owner, role or require on msg.sender), so any account can trigger the privileged verification event.",
+      "type": "controlflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "Caller-supplied workchain_id parameter flows unchanged into the RelayAddressVerified event payload.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "Caller-supplied address_body parameter flows unchanged into the RelayAddressVerified event payload.",
+      "type": "dataflow",
+      "from_id": 4
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "function.verify_relay_staker_address",
+      "reason": "workchain_id is only a transient input of verify_relay_staker_address and carries no independent identity, so it should be folded into the enclosing function node.",
+      "normal_node": "parameter.workchain_id"
+    },
+    {
+      "merge_into": "function.verify_relay_staker_address",
+      "reason": "address_body is only a transient input of verify_relay_staker_address and carries no independent identity, so it should be folded into the enclosing function node.",
+      "normal_node": "parameter.address_body"
+    }
+  ]
+}

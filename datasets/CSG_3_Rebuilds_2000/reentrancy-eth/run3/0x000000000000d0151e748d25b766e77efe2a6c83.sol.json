@@ -1,0 +1,217 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Address stored in state variable `core` on XDEX; owner/authorized minter of the token.",
+      "id": "core",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Public function setCore(address _core) guarded by onlyCore; transfers the privileged core role to a new address.",
+      "id": "setCore",
+      "type": "function",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Public function mint(address account, uint256 amount) guarded by onlyCore; mints new tokens to an arbitrary account.",
+      "id": "mint",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "External function burnForSelf(uint256 amount); burns tokens from the caller's own balance with no access control.",
+      "id": "burnForSelf",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "Caller-controlled address used for authorization checks and as the burn source.",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "Internal state-changing _mint(account, amount) invocation inside mint that increases balances and total supply.",
+      "id": "_mint_call",
+      "type": "unsafe_operation",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "Internal state-changing _burn(msg.sender, amount) invocation inside burnForSelf that decreases balances and total supply.",
+      "id": "_burn_call",
+      "type": "unsafe_operation",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "ERC20 mapping(address => uint256) holding token balances, mutated by _mint and _burn.",
+      "id": "_balances",
+      "type": "state_var",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "ERC20 uint256 total supply, increased by _mint and decreased by _burn.",
+      "id": "_totalSupply",
+      "type": "state_var",
+      "node_id": 8
+    },
+    {
+      "is_core": false,
+      "description": "Parameter _core of setCore; new privileged address written into state variable core.",
+      "id": "_core_param",
+      "type": "parameter",
+      "node_id": 9
+    },
+    {
+      "is_core": false,
+      "description": "Parameter account of mint; destination address receiving newly minted tokens.",
+      "id": "mint_account_param",
+      "type": "parameter",
+      "node_id": 10
+    },
+    {
+      "is_core": false,
+      "description": "Parameter amount of mint; quantity of tokens created via _mint arithmetic.",
+      "id": "mint_amount_param",
+      "type": "parameter",
+      "node_id": 11
+    },
+    {
+      "is_core": false,
+      "description": "Parameter amount of burnForSelf; quantity of caller tokens destroyed via _burn arithmetic.",
+      "id": "burn_amount_param",
+      "type": "parameter",
+      "node_id": 12
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 1,
+      "vuln_type": "access_control",
+      "reason": "onlyCore modifier on setCore requires msg.sender == core, so the untrusted caller directly gates privileged role transfer.",
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "reason": "onlyCore modifier on mint requires msg.sender == core, making the untrusted caller the authorization gate for token creation.",
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "reason": "setCore writes the new address into the privileged state variable core, changing who passes onlyCore.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "Parameter _core flows into the core state variable assignment inside setCore.",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "mint invokes the internal _mint state-changing operation.",
+      "type": "controlflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "Parameter account flows into mint and is forwarded to _mint as the recipient.",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "arithmetic",
+      "reason": "Parameter amount flows into mint and is used in SafeMath addition arithmetic in _mint.",
+      "type": "dataflow",
+      "from_id": 11
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "arithmetic",
+      "reason": "_mint adds amount to _balances[account], an arithmetic state mutation.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "arithmetic",
+      "reason": "_mint increases _totalSupply by amount via SafeMath addition.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "burnForSelf uses msg.sender as the burned account with no authorization check, letting any caller destroy its own balance.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "burnForSelf invokes the internal _burn state-changing operation.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "arithmetic",
+      "reason": "Parameter amount flows into burnForSelf and drives the SafeMath subtraction in _burn.",
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "arithmetic",
+      "reason": "_burn subtracts amount from _balances[msg.sender], an arithmetic state mutation.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "arithmetic",
+      "reason": "_burn decreases _totalSupply by amount via SafeMath subtraction.",
+      "type": "dataflow",
+      "from_id": 6
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "setCore",
+      "reason": "Parameter _core exists only to be written into the core state variable by the setCore function, so it normalizes into that core function node.",
+      "normal_node": "_core_param"
+    },
+    {
+      "merge_into": "mint",
+      "reason": "Parameter account is solely the mint recipient forwarded to _mint, so it collapses into the mint function node.",
+      "normal_node": "mint_account_param"
+    },
+    {
+      "merge_into": "mint",
+      "reason": "Parameter amount is only consumed by the mint function's arithmetic via _mint, so it merges into the mint function node.",
+      "normal_node": "mint_amount_param"
+    },
+    {
+      "merge_into": "burnForSelf",
+      "reason": "Parameter amount is used exclusively by burnForSelf to compute the burn quantity, so it collapses into that core function node.",
+      "normal_node": "burn_amount_param"
+    }
+  ]
+}

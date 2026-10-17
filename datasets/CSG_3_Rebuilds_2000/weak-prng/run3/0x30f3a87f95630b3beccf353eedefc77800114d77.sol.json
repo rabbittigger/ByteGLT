@@ -1,0 +1,429 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "description": "Constructor that seeds the eth/reb and usdc/eth cumulative price and timestamp state variables from the Uniswap V2 pairs.",
+      "id": "RebasedPriceOracle::constructor",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "description": "External state-mutating function that gates on a minimum elapsed PERIOD, writes lastUpdate, and refreshes all cumulative price/timestamp state variables.",
+      "id": "RebasedPriceOracle::update",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "description": "Public view function computing the average REB/ETH price from deltas of the eth-reb pair cumulative prices over elapsed block time.",
+      "id": "RebasedPriceOracle::getRebEthRate",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "description": "Public view function computing the average USDC/ETH price from deltas of the usdc-eth pair cumulative prices over elapsed block time.",
+      "id": "RebasedPriceOracle::getUsdcEthRate",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 4,
+      "description": "IOracle entry point returning the final REB price in USD derived from the REB/ETH and USDC/ETH average rates.",
+      "id": "RebasedPriceOracle::getData",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "description": "Timestamp of the last successful oracle update; used as the minuend in the unchecked timeElapsed subtraction and rewritten in update().",
+      "id": "lastUpdate",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 6,
+      "description": "Stored eth-reb pair price0CumulativeLast snapshot, updated in constructor and update().",
+      "id": "ethRebPrice0CumulativeLast",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "description": "Stored eth-reb pair price1CumulativeLast snapshot, subtracted from the live cumulative price in getRebEthRate().",
+      "id": "ethRebPrice1CumulativeLast",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 8,
+      "description": "Stored eth-reb pair reserve timestamp snapshot, used as the divisor operand in the average price computation.",
+      "id": "ethRebBlockTimestampLast",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 9,
+      "description": "Stored usdc-eth pair price0CumulativeLast snapshot, updated in constructor and update().",
+      "id": "usdcEthPrice0CumulativeLast",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 10,
+      "description": "Stored usdc-eth pair price1CumulativeLast snapshot, refreshed in update().",
+      "id": "usdcEthPrice1CumulativeLast",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 11,
+      "description": "Stored usdc-eth pair reserve timestamp snapshot, used in the elapsed-time divisor.",
+      "id": "usdcEthBlockTimestampLast",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 12,
+      "description": "Constant 6 hour minimum interval enforced by the update() time gate.",
+      "id": "PERIOD",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 13,
+      "description": "Miner/validator-influenceable block timestamp used for update gating and for elapsed-time math in the price oracle.",
+      "id": "block.timestamp",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 14,
+      "description": "External calls to IUniswapV2Pair price0CumulativeLast(), price1CumulativeLast() and getReserves() returning untrusted oracle data.",
+      "id": "unsafe_operation::uniswap_pair_external_calls",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 15,
+      "description": "Unchecked 0.6.x subtraction timeElapsed = lastUpdate - timeStamp that underflows/reverts when the stored timestamp is in the future relative to block.timestamp.",
+      "id": "unsafe_operation::unchecked_sub_lastUpdate_minus_timeStamp",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 16,
+      "description": "Unchecked subtraction of stored vs live cumulative prices divided by (blockTimestamp - storedTimestamp): underflow and division-by-zero risk when no time has elapsed since the snapshot.",
+      "id": "unsafe_operation::unchecked_delta_division",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 17,
+      "description": "Local cache of block.timestamp inside update().",
+      "id": "update::timeStamp",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 18,
+      "description": "Local result of lastUpdate - timeStamp used by the PERIOD require.",
+      "id": "update::timeElapsed",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 19,
+      "description": "Local final price computed as (rebEthAverage * 1e18) / usdcEthAverage and returned by getData().",
+      "id": "getData::answer",
+      "type": "local_var",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor queries the Uniswap V2 pairs' cumulative price and reserve getters during deployment.",
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "controlflow",
+      "from_id": 0
+    },
+    {
+      "reason": "Constructor assigns the eth-reb price0CumulativeLast return value into ethRebPrice0CumulativeLast.",
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "reason": "Constructor assigns the eth-reb reserve blockTimestampLast into ethRebBlockTimestampLast.",
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "reason": "Constructor assigns the usdc-eth price0CumulativeLast return value into usdcEthPrice0CumulativeLast.",
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "reason": "Constructor assigns the usdc-eth reserve blockTimestampLast into usdcEthBlockTimestampLast.",
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "reason": "update() reads block.timestamp to derive the elapsed time used by the update-period guard.",
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "controlflow",
+      "from_id": 1
+    },
+    {
+      "reason": "block.timestamp flows into update()'s timeElapsed computation, giving miners influence over whether the update gate passes.",
+      "vuln_type": "access_control",
+      "to_id": 1,
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "reason": "timeStamp local is assigned block.timestamp.",
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "reason": "timeStamp is the subtrahend of the unchecked lastUpdate - timeStamp subtraction.",
+      "vuln_type": "arithmetic",
+      "to_id": 15,
+      "type": "dataflow",
+      "from_id": 17
+    },
+    {
+      "reason": "lastUpdate is the minuend of the unchecked subtraction; if lastUpdate > block.timestamp the operation underflows and reverts.",
+      "vuln_type": "arithmetic",
+      "to_id": 15,
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "reason": "update() reads lastUpdate for the period check and later overwrites it with the current timestamp.",
+      "vuln_type": "access_control",
+      "to_id": 1,
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "reason": "update() writes lastUpdate = timeStamp, advancing the oracle update window.",
+      "vuln_type": "access_control",
+      "to_id": 5,
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "reason": "PERIOD constant is consumed by the require(timeElapsed > PERIOD) access gate in update().",
+      "vuln_type": "access_control",
+      "to_id": 1,
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "reason": "timeElapsed local receives the result of the unchecked lastUpdate - timeStamp subtraction.",
+      "vuln_type": "arithmetic",
+      "to_id": 18,
+      "type": "dataflow",
+      "from_id": 15
+    },
+    {
+      "reason": "update() calls getRebEthRate() to refresh the eth-reb snapshots.",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "controlflow",
+      "from_id": 1
+    },
+    {
+      "reason": "update() calls getUsdcEthRate() to refresh the usdc-eth snapshots.",
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "controlflow",
+      "from_id": 1
+    },
+    {
+      "reason": "update() stores the returned price0Cumulative into ethRebPrice0CumulativeLast.",
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "reason": "update() stores the returned blockTimestamp into ethRebBlockTimestampLast.",
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "reason": "update() stores the returned price0Cumulative into usdcEthPrice0CumulativeLast.",
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "reason": "update() stores the returned blockTimestamp into usdcEthBlockTimestampLast.",
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "reason": "getRebEthRate() calls UniswapV2OracleLibrary.currentCumulativePrices on the eth-reb pair, triggering external getter calls.",
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "controlflow",
+      "from_id": 2
+    },
+    {
+      "reason": "External pair cumulative prices and reserves are returned into getRebEthRate()'s computation.",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 14
+    },
+    {
+      "reason": "block.timestamp (wrapped to uint32) is used as the current timestamp in the eth-reb cumulative price math.",
+      "vuln_type": "access_control",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "reason": "ethRebBlockTimestampLast is subtracted from the current block timestamp to form the divisor of the average price division.",
+      "vuln_type": "arithmetic",
+      "to_id": 16,
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "reason": "ethRebPrice1CumulativeLast is subtracted from the live cumulative value; an oracle-advanced state can underflow in 0.6.x.",
+      "vuln_type": "arithmetic",
+      "to_id": 16,
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "reason": "getRebEthRate() performs the unchecked delta subtraction and division that may underflow or divide by zero.",
+      "vuln_type": "arithmetic",
+      "to_id": 16,
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "reason": "getRebEthRate() reads ethRebBlockTimestampLast as the snapshot timestamp baseline.",
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "reason": "getRebEthRate() reads ethRebPrice1CumulativeLast as the stored cumulative price baseline.",
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "reason": "getUsdcEthRate() calls currentCumulativePrices on the usdc-eth pair, triggering external getter calls.",
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "reason": "External pair cumulative prices and reserves are returned into getUsdcEthRate()'s computation.",
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "from_id": 14
+    },
+    {
+      "reason": "block.timestamp feeds the elapsed-time divisor in the usdc-eth average price computation.",
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "reason": "getUsdcEthRate() repeats the unchecked delta subtraction and division pattern that can underflow or divide by zero.",
+      "vuln_type": "arithmetic",
+      "to_id": 16,
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "reason": "getUsdcEthRate() reads usdcEthPrice0CumulativeLast as the baseline for the usdc-eth delta.",
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "reason": "getData() calls getRebEthRate() to obtain the REB/ETH average.",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "reason": "getData() calls getUsdcEthRate() to obtain the USDC/ETH average.",
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "reason": "The REB/ETH average returned by getRebEthRate() is used as the numerator input in getData().",
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "reason": "The USDC/ETH average returned by getUsdcEthRate() is used as the denominator input in getData().",
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "reason": "getData() computes answer = rebEthAverage * 1e18 / usdcEthAverage, which divides by zero if the USDC average is 0.",
+      "vuln_type": "arithmetic",
+      "to_id": 19,
+      "type": "dataflow",
+      "from_id": 4
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "update::timeStamp is only a temporary alias of block.timestamp read inside update(); merge it into the update() function node.",
+      "merge_into": "RebasedPriceOracle::update",
+      "normal_node": "update::timeStamp"
+    },
+    {
+      "reason": "update::timeElapsed exists solely as the result of the unchecked lastUpdate - timeStamp subtraction; merge it into that unsafe operation node.",
+      "merge_into": "unsafe_operation::unchecked_sub_lastUpdate_minus_timeStamp",
+      "normal_node": "update::timeElapsed"
+    },
+    {
+      "reason": "getData::answer is the local return value computed and returned by getData(); merge it into the getData() function node.",
+      "merge_into": "RebasedPriceOracle::getData",
+      "normal_node": "getData::answer"
+    }
+  ]
+}

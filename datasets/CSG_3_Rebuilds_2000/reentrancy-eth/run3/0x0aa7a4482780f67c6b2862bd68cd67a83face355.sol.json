@@ -1,0 +1,993 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "msg.sender - caller controlled address used for ownership, request keys and payment destinations",
+      "id": "msg_sender",
+      "type": "untrusted_input",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "block.timestamp (now) - miner influenced time used for request expiration logic",
+      "id": "block_timestamp",
+      "type": "untrusted_input",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "msg.sender.transfer(amount) in withdrawRequest - external Ether transfer to caller",
+      "id": "unsafe_transfer_withdrawRequest",
+      "type": "unsafe_operation",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "msg.sender.transfer(reward.sub(commission)) in auditContract - external Ether transfer to auditor",
+      "id": "unsafe_transfer_auditContract",
+      "type": "unsafe_operation",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "msg.sender.transfer(_amount) in withdrawCommission - external Ether transfer to owner",
+      "id": "unsafe_transfer_withdrawCommission",
+      "type": "unsafe_operation",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "owner - privileged account state variable controlling onlyOwner functions",
+      "id": "owner",
+      "type": "state_var",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "paused - emergency stop flag read by whenNotPaused/whenPaused modifiers",
+      "id": "paused",
+      "type": "state_var",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "newContractAddress - address of replacement contract set on upgrade",
+      "id": "newContractAddress",
+      "type": "state_var",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "totalRequestsAmount - aggregated amount of audit requests held by contract",
+      "id": "totalRequestsAmount",
+      "type": "state_var",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "description": "availableCommission - collected commission withdrawable by owner",
+      "id": "availableCommission",
+      "type": "state_var",
+      "node_id": 9
+    },
+    {
+      "is_core": true,
+      "description": "commission - service commission percentage (default 9)",
+      "id": "commission",
+      "type": "state_var",
+      "node_id": 10
+    },
+    {
+      "is_core": true,
+      "description": "rewards - mapping of auditor/codeHash key to offered reward amount",
+      "id": "rewards",
+      "type": "state_var",
+      "node_id": 11
+    },
+    {
+      "is_core": true,
+      "description": "auditOutcomes - mapping of auditor/codeHash key to audit outcome code",
+      "id": "auditOutcomes",
+      "type": "state_var",
+      "node_id": 12
+    },
+    {
+      "is_core": true,
+      "description": "auditRequests - mapping of auditor/requestor/codeHash key to AuditRequest struct",
+      "id": "auditRequests",
+      "type": "state_var",
+      "node_id": 13
+    },
+    {
+      "is_core": true,
+      "description": "MIN_AUDIT_TIME constant (24 hours) bounding audit request duration",
+      "id": "MIN_AUDIT_TIME",
+      "type": "state_var",
+      "node_id": 14
+    },
+    {
+      "is_core": true,
+      "description": "MAX_AUDIT_TIME constant (28 days) bounding audit request duration",
+      "id": "MAX_AUDIT_TIME",
+      "type": "state_var",
+      "node_id": 15
+    },
+    {
+      "is_core": true,
+      "description": "MAX_COMMISION constant (33) bounding the commission percentage",
+      "id": "MAX_COMMISION",
+      "type": "state_var",
+      "node_id": 16
+    },
+    {
+      "is_core": true,
+      "description": "Ownable() constructor - sets owner = msg.sender",
+      "id": "Ownable_constructor",
+      "type": "function",
+      "node_id": 17
+    },
+    {
+      "is_core": true,
+      "description": "transferOwnership(address newOwner) - onlyOwner transfer of ownership",
+      "id": "transferOwnership",
+      "type": "function",
+      "node_id": 18
+    },
+    {
+      "is_core": true,
+      "description": "pause() onlyOwner whenNotPaused - sets paused = true",
+      "id": "pause",
+      "type": "function",
+      "node_id": 19
+    },
+    {
+      "is_core": true,
+      "description": "Pausable.unpause() onlyOwner whenPaused - sets paused = false",
+      "id": "Pausable_unpause",
+      "type": "function",
+      "node_id": 20
+    },
+    {
+      "is_core": true,
+      "description": "setNewAddress(address _v2Address) onlyOwner whenPaused - registers upgrade contract",
+      "id": "setNewAddress",
+      "type": "function",
+      "node_id": 21
+    },
+    {
+      "is_core": true,
+      "description": "requestAudit(address _auditor, bytes32 _codeHash, uint _auditTime) payable - registers a payable audit request",
+      "id": "requestAudit",
+      "type": "function",
+      "node_id": 22
+    },
+    {
+      "is_core": true,
+      "description": "withdrawRequest(address _auditor, bytes32 _codeHash) - refunds an expired audit request",
+      "id": "withdrawRequest",
+      "type": "function",
+      "node_id": 23
+    },
+    {
+      "is_core": true,
+      "description": "auditContract(bytes32 _codeHash, bool _isApproved) - records audit outcome and pays reward",
+      "id": "auditContract",
+      "type": "function",
+      "node_id": 24
+    },
+    {
+      "is_core": true,
+      "description": "changeCommission(uint _newCommission) onlyOwner whenNotPaused - updates commission",
+      "id": "changeCommission",
+      "type": "function",
+      "node_id": 25
+    },
+    {
+      "is_core": true,
+      "description": "calcCommission(uint _amount) private view - computes commission = amount * commission / 100",
+      "id": "calcCommission",
+      "type": "function",
+      "node_id": 26
+    },
+    {
+      "is_core": true,
+      "description": "withdrawCommission(uint _amount) onlyOwner - pays out accumulated commission",
+      "id": "withdrawCommission",
+      "type": "function",
+      "node_id": 27
+    },
+    {
+      "is_core": true,
+      "description": "SolidStamp.unpause() onlyOwner whenPaused - overrides base unpause after upgrade check",
+      "id": "unpause_override",
+      "type": "function",
+      "node_id": 28
+    },
+    {
+      "is_core": true,
+      "description": "fallback function payable - reverts any direct Ether transfers",
+      "id": "fallback",
+      "type": "function",
+      "node_id": 29
+    },
+    {
+      "is_core": true,
+      "description": "SafeMath.mul(uint256 a, uint256 b) - checked multiplication",
+      "id": "SafeMath_mul",
+      "type": "function",
+      "node_id": 30
+    },
+    {
+      "is_core": true,
+      "description": "SafeMath.sub(uint256 a, uint256 b) - checked subtraction",
+      "id": "SafeMath_sub",
+      "type": "function",
+      "node_id": 31
+    },
+    {
+      "is_core": true,
+      "description": "SafeMath.add(uint256 a, uint256 b) - checked addition",
+      "id": "SafeMath_add",
+      "type": "function",
+      "node_id": 32
+    },
+    {
+      "is_core": false,
+      "description": "newOwner parameter of transferOwnership",
+      "id": "param_newOwner",
+      "type": "parameter",
+      "node_id": 33
+    },
+    {
+      "is_core": false,
+      "description": "_v2Address parameter of setNewAddress",
+      "id": "param__v2Address",
+      "type": "parameter",
+      "node_id": 34
+    },
+    {
+      "is_core": false,
+      "description": "_auditor parameter of requestAudit (untrusted address)",
+      "id": "param_requestAudit__auditor",
+      "type": "parameter",
+      "node_id": 35
+    },
+    {
+      "is_core": false,
+      "description": "_codeHash parameter of requestAudit",
+      "id": "param_requestAudit__codeHash",
+      "type": "parameter",
+      "node_id": 36
+    },
+    {
+      "is_core": false,
+      "description": "_auditTime parameter of requestAudit",
+      "id": "param_requestAudit__auditTime",
+      "type": "parameter",
+      "node_id": 37
+    },
+    {
+      "is_core": false,
+      "description": "_auditor parameter of withdrawRequest",
+      "id": "param_withdrawRequest__auditor",
+      "type": "parameter",
+      "node_id": 38
+    },
+    {
+      "is_core": false,
+      "description": "_codeHash parameter of withdrawRequest",
+      "id": "param_withdrawRequest__codeHash",
+      "type": "parameter",
+      "node_id": 39
+    },
+    {
+      "is_core": false,
+      "description": "_codeHash parameter of auditContract",
+      "id": "param_auditContract__codeHash",
+      "type": "parameter",
+      "node_id": 40
+    },
+    {
+      "is_core": false,
+      "description": "_isApproved parameter of auditContract",
+      "id": "param_auditContract__isApproved",
+      "type": "parameter",
+      "node_id": 41
+    },
+    {
+      "is_core": false,
+      "description": "_newCommission parameter of changeCommission",
+      "id": "param_changeCommission__newCommission",
+      "type": "parameter",
+      "node_id": 42
+    },
+    {
+      "is_core": false,
+      "description": "_amount parameter of withdrawCommission",
+      "id": "param_withdrawCommission__amount",
+      "type": "parameter",
+      "node_id": 43
+    },
+    {
+      "is_core": false,
+      "description": "_amount parameter of calcCommission",
+      "id": "param_calcCommission__amount",
+      "type": "parameter",
+      "node_id": 44
+    },
+    {
+      "is_core": false,
+      "description": "hashAuditorCode = keccak256(_auditor, _codeHash) in requestAudit",
+      "id": "local_requestAudit_hashAuditorCode",
+      "type": "local_var",
+      "node_id": 45
+    },
+    {
+      "is_core": false,
+      "description": "outcome read from auditOutcomes in requestAudit",
+      "id": "local_requestAudit_outcome",
+      "type": "local_var",
+      "node_id": 46
+    },
+    {
+      "is_core": false,
+      "description": "currentReward read from rewards in requestAudit",
+      "id": "local_requestAudit_currentReward",
+      "type": "local_var",
+      "node_id": 47
+    },
+    {
+      "is_core": false,
+      "description": "expireDate = now + _auditTime in requestAudit",
+      "id": "local_requestAudit_expireDate",
+      "type": "local_var",
+      "node_id": 48
+    },
+    {
+      "is_core": false,
+      "description": "hashAuditorRequestorCode = keccak256(_auditor, msg.sender, _codeHash)",
+      "id": "local_requestAudit_hashAuditorRequestorCode",
+      "type": "local_var",
+      "node_id": 49
+    },
+    {
+      "is_core": false,
+      "description": "storage pointer request into auditRequests in requestAudit",
+      "id": "local_requestAudit_request",
+      "type": "local_var",
+      "node_id": 50
+    },
+    {
+      "is_core": false,
+      "description": "storage pointer request into auditRequests in withdrawRequest",
+      "id": "local_withdrawRequest_request",
+      "type": "local_var",
+      "node_id": 51
+    },
+    {
+      "is_core": false,
+      "description": "amount read from request.amount in withdrawRequest",
+      "id": "local_withdrawRequest_amount",
+      "type": "local_var",
+      "node_id": 52
+    },
+    {
+      "is_core": false,
+      "description": "reward read from rewards in auditContract",
+      "id": "local_auditContract_reward",
+      "type": "local_var",
+      "node_id": 53
+    },
+    {
+      "is_core": false,
+      "description": "commission computed by calcCommission in auditContract",
+      "id": "local_auditContract_commission",
+      "type": "local_var",
+      "node_id": 54
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 17,
+      "vuln_type": "none",
+      "reason": "Ownable constructor reads msg.sender to bootstrap ownership",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "constructor writes owner state variable",
+      "type": "dataflow",
+      "from_id": 17
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "reason": "onlyOwner modifier enforces require(msg.sender == owner)",
+      "type": "controlflow",
+      "from_id": 18
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "reason": "owner state variable is overwritten with caller supplied newOwner",
+      "type": "dataflow",
+      "from_id": 33
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "reason": "transferOwnership writes owner",
+      "type": "controlflow",
+      "from_id": 18
+    },
+    {
+      "to_id": 19,
+      "vuln_type": "access_control",
+      "reason": "pause is gated by onlyOwner on msg.sender",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "pause sets paused to true",
+      "type": "dataflow",
+      "from_id": 19
+    },
+    {
+      "to_id": 20,
+      "vuln_type": "access_control",
+      "reason": "base unpause is gated by onlyOwner on msg.sender",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "base unpause sets paused to false",
+      "type": "dataflow",
+      "from_id": 20
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "reason": "newContractAddress is set from the _v2Address parameter",
+      "type": "dataflow",
+      "from_id": 34
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "reason": "setNewAddress writes newContractAddress",
+      "type": "controlflow",
+      "from_id": 21
+    },
+    {
+      "to_id": 21,
+      "vuln_type": "access_control",
+      "reason": "setNewAddress is gated by onlyOwner on msg.sender",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 21,
+      "vuln_type": "none",
+      "reason": "whenPaused modifier reads paused state variable",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 22,
+      "vuln_type": "access_control",
+      "reason": "msg.sender is used as the requestor identity and request key in requestAudit",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 48,
+      "vuln_type": "access_control",
+      "reason": "expireDate is derived from block.timestamp (now.add(_auditTime))",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 48,
+      "vuln_type": "none",
+      "reason": "_auditTime parameter is added to now to compute expireDate",
+      "type": "dataflow",
+      "from_id": 37
+    },
+    {
+      "to_id": 32,
+      "vuln_type": "arithmetic",
+      "reason": "requestAudit uses SafeMath.add for rewards and totalRequestsAmount",
+      "type": "dataflow",
+      "from_id": 22
+    },
+    {
+      "to_id": 45,
+      "vuln_type": "none",
+      "reason": "_codeHash is hashed into hashAuditorCode",
+      "type": "dataflow",
+      "from_id": 36
+    },
+    {
+      "to_id": 45,
+      "vuln_type": "none",
+      "reason": "_auditor is hashed into hashAuditorCode",
+      "type": "dataflow",
+      "from_id": 35
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "hashAuditorCode indexes the rewards mapping",
+      "type": "dataflow",
+      "from_id": 45
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "hashAuditorCode indexes the auditOutcomes mapping",
+      "type": "dataflow",
+      "from_id": 45
+    },
+    {
+      "to_id": 22,
+      "vuln_type": "none",
+      "reason": "whenNotPaused modifier reads the paused state variable",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 22,
+      "vuln_type": "none",
+      "reason": "MIN_AUDIT_TIME constant bounds the _auditTime parameter",
+      "type": "dataflow",
+      "from_id": 14
+    },
+    {
+      "to_id": 22,
+      "vuln_type": "none",
+      "reason": "MAX_AUDIT_TIME constant bounds the _auditTime parameter",
+      "type": "dataflow",
+      "from_id": 15
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "requestAudit increases totalRequestsAmount",
+      "type": "controlflow",
+      "from_id": 22
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "requestAudit increases rewards entry",
+      "type": "controlflow",
+      "from_id": 22
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "none",
+      "reason": "requestAudit writes the auditRequests entry",
+      "type": "controlflow",
+      "from_id": 22
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "none",
+      "reason": "storage pointer request aliases auditRequests entry",
+      "type": "dataflow",
+      "from_id": 50
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "outcome local is read from auditOutcomes",
+      "type": "dataflow",
+      "from_id": 46
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "currentReward local is read from rewards",
+      "type": "dataflow",
+      "from_id": 47
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "none",
+      "reason": "hashAuditorRequestorCode is the auditRequests mapping key built from msg.sender",
+      "type": "dataflow",
+      "from_id": 49
+    },
+    {
+      "to_id": 23,
+      "vuln_type": "access_control",
+      "reason": "msg.sender determines which audit request may be withdrawn",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 23,
+      "vuln_type": "access_control",
+      "reason": "require(now > request.expireDate) makes withdrawal timing depend on block.timestamp",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "reentrancy",
+      "reason": "withdrawRequest performs an external Ether transfer to the caller",
+      "type": "controlflow",
+      "from_id": 23
+    },
+    {
+      "to_id": 52,
+      "vuln_type": "none",
+      "reason": "amount local is copied from the stored request",
+      "type": "dataflow",
+      "from_id": 51
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "withdrawRequest decreases the rewards entry",
+      "type": "controlflow",
+      "from_id": 23
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "withdrawRequest decreases totalRequestsAmount",
+      "type": "controlflow",
+      "from_id": 23
+    },
+    {
+      "to_id": 31,
+      "vuln_type": "arithmetic",
+      "reason": "withdrawRequest uses SafeMath.sub for rewards and totalRequestsAmount",
+      "type": "dataflow",
+      "from_id": 23
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "reentrancy",
+      "reason": "user controlled amount is sent out via the external transfer",
+      "type": "dataflow",
+      "from_id": 52
+    },
+    {
+      "to_id": 24,
+      "vuln_type": "access_control",
+      "reason": "msg.sender is the auditor whose outcome and reward are processed",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 24,
+      "vuln_type": "none",
+      "reason": "_codeHash parameter is used to build the auditor/code key",
+      "type": "dataflow",
+      "from_id": 40
+    },
+    {
+      "to_id": 24,
+      "vuln_type": "none",
+      "reason": "_isApproved parameter selects the outcome written to auditOutcomes",
+      "type": "dataflow",
+      "from_id": 41
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "auditContract writes the audit outcome",
+      "type": "controlflow",
+      "from_id": 24
+    },
+    {
+      "to_id": 53,
+      "vuln_type": "none",
+      "reason": "auditContract reads the reward from rewards",
+      "type": "dataflow",
+      "from_id": 24
+    },
+    {
+      "to_id": 26,
+      "vuln_type": "none",
+      "reason": "calcCommission is invoked with the reward amount",
+      "type": "dataflow",
+      "from_id": 53
+    },
+    {
+      "to_id": 30,
+      "vuln_type": "arithmetic",
+      "reason": "calcCommission multiplies amount by commission using SafeMath.mul",
+      "type": "dataflow",
+      "from_id": 26
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "calcCommission reads the commission state variable",
+      "type": "dataflow",
+      "from_id": 26
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "computed commission is added to availableCommission",
+      "type": "dataflow",
+      "from_id": 54
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "auditContract increases availableCommission",
+      "type": "controlflow",
+      "from_id": 24
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "auditContract decreases totalRequestsAmount",
+      "type": "controlflow",
+      "from_id": 24
+    },
+    {
+      "to_id": 31,
+      "vuln_type": "arithmetic",
+      "reason": "auditContract uses SafeMath.sub for reward and commission math",
+      "type": "dataflow",
+      "from_id": 24
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "reentrancy",
+      "reason": "auditContract performs an external Ether transfer to the auditor",
+      "type": "controlflow",
+      "from_id": 24
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "reentrancy",
+      "reason": "reward minus commission, derived from user funded rewards, is transferred out",
+      "type": "dataflow",
+      "from_id": 53
+    },
+    {
+      "to_id": 25,
+      "vuln_type": "access_control",
+      "reason": "changeCommission is gated by onlyOwner on msg.sender",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "access_control",
+      "reason": "commission state variable is set from the _newCommission parameter",
+      "type": "dataflow",
+      "from_id": 42
+    },
+    {
+      "to_id": 25,
+      "vuln_type": "none",
+      "reason": "MAX_COMMISION constant bounds the new commission value",
+      "type": "dataflow",
+      "from_id": 16
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "access_control",
+      "reason": "changeCommission writes the commission state variable",
+      "type": "controlflow",
+      "from_id": 25
+    },
+    {
+      "to_id": 26,
+      "vuln_type": "none",
+      "reason": "_amount parameter feeds the calcCommission computation",
+      "type": "dataflow",
+      "from_id": 44
+    },
+    {
+      "to_id": 27,
+      "vuln_type": "access_control",
+      "reason": "withdrawCommission is gated by onlyOwner on msg.sender",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "access_control",
+      "reason": "availableCommission is reduced by the owner supplied _amount",
+      "type": "dataflow",
+      "from_id": 43
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "withdrawCommission writes availableCommission",
+      "type": "controlflow",
+      "from_id": 27
+    },
+    {
+      "to_id": 31,
+      "vuln_type": "arithmetic",
+      "reason": "withdrawCommission uses SafeMath.sub for the balance reduction",
+      "type": "dataflow",
+      "from_id": 27
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "reentrancy",
+      "reason": "withdrawCommission performs an external Ether transfer to the owner",
+      "type": "controlflow",
+      "from_id": 27
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "reentrancy",
+      "reason": "owner supplied _amount is sent out via the external transfer",
+      "type": "dataflow",
+      "from_id": 43
+    },
+    {
+      "to_id": 28,
+      "vuln_type": "access_control",
+      "reason": "SolidStamp.unpause override is gated by onlyOwner on msg.sender",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 20,
+      "vuln_type": "none",
+      "reason": "override calls super.unpause after the upgrade check",
+      "type": "controlflow",
+      "from_id": 28
+    },
+    {
+      "to_id": 28,
+      "vuln_type": "access_control",
+      "reason": "require(newContractAddress == address(0)) blocks unpausing an upgraded contract",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 28,
+      "vuln_type": "none",
+      "reason": "whenPaused modifier reads paused in the override",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "override ultimately flips paused back to false",
+      "type": "controlflow",
+      "from_id": 28
+    },
+    {
+      "to_id": 29,
+      "vuln_type": "none",
+      "reason": "fallback function unconditionally reverts direct payments from callers",
+      "type": "controlflow",
+      "from_id": 0
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "transferOwnership",
+      "reason": "newOwner is only consumed by transferOwnership when writing owner",
+      "normal_node": "param_newOwner"
+    },
+    {
+      "merge_into": "setNewAddress",
+      "reason": "_v2Address is only consumed by setNewAddress when writing newContractAddress",
+      "normal_node": "param__v2Address"
+    },
+    {
+      "merge_into": "requestAudit",
+      "reason": "_auditor only feeds the keccak256 reward/request keys inside requestAudit",
+      "normal_node": "param_requestAudit__auditor"
+    },
+    {
+      "merge_into": "requestAudit",
+      "reason": "_codeHash only feeds the request keys inside requestAudit",
+      "normal_node": "param_requestAudit__codeHash"
+    },
+    {
+      "merge_into": "requestAudit",
+      "reason": "_auditTime is only bounded and added to now inside requestAudit",
+      "normal_node": "param_requestAudit__auditTime"
+    },
+    {
+      "merge_into": "withdrawRequest",
+      "reason": "_auditor only builds the hash keys used by withdrawRequest",
+      "normal_node": "param_withdrawRequest__auditor"
+    },
+    {
+      "merge_into": "withdrawRequest",
+      "reason": "_codeHash only builds the hash keys used by withdrawRequest",
+      "normal_node": "param_withdrawRequest__codeHash"
+    },
+    {
+      "merge_into": "auditContract",
+      "reason": "_codeHash only builds the auditor/code hash used by auditContract",
+      "normal_node": "param_auditContract__codeHash"
+    },
+    {
+      "merge_into": "auditContract",
+      "reason": "_isApproved only selects the auditOutcomes value written by auditContract",
+      "normal_node": "param_auditContract__isApproved"
+    },
+    {
+      "merge_into": "changeCommission",
+      "reason": "_newCommission only bounds and stores the commission state variable",
+      "normal_node": "param_changeCommission__newCommission"
+    },
+    {
+      "merge_into": "withdrawCommission",
+      "reason": "_amount only bounds the payout and the external transfer in withdrawCommission",
+      "normal_node": "param_withdrawCommission__amount"
+    },
+    {
+      "merge_into": "calcCommission",
+      "reason": "_amount is the sole input of the calcCommission view computation",
+      "normal_node": "param_calcCommission__amount"
+    },
+    {
+      "merge_into": "requestAudit",
+      "reason": "temporary key local used only to index rewards and auditOutcomes inside requestAudit",
+      "normal_node": "local_requestAudit_hashAuditorCode"
+    },
+    {
+      "merge_into": "requestAudit",
+      "reason": "temporary read of auditOutcomes used only for the NOT_AUDITED require in requestAudit",
+      "normal_node": "local_requestAudit_outcome"
+    },
+    {
+      "merge_into": "requestAudit",
+      "reason": "temporary read of rewards used only to accumulate the new reward in requestAudit",
+      "normal_node": "local_requestAudit_currentReward"
+    },
+    {
+      "merge_into": "requestAudit",
+      "reason": "temporary timestamp-derived value stored into the audit request inside requestAudit",
+      "normal_node": "local_requestAudit_expireDate"
+    },
+    {
+      "merge_into": "requestAudit",
+      "reason": "temporary request key built from msg.sender used only inside requestAudit",
+      "normal_node": "local_requestAudit_hashAuditorRequestorCode"
+    },
+    {
+      "merge_into": "requestAudit",
+      "reason": "storage pointer aliasing the auditRequests entry written inside requestAudit",
+      "normal_node": "local_requestAudit_request"
+    },
+    {
+      "merge_into": "withdrawRequest",
+      "reason": "storage pointer aliasing the auditRequests entry read and cleared in withdrawRequest",
+      "normal_node": "local_withdrawRequest_request"
+    },
+    {
+      "merge_into": "unsafe_transfer_withdrawRequest",
+      "reason": "amount local is the value that is sent out by the external transfer in withdrawRequest",
+      "normal_node": "local_withdrawRequest_amount"
+    },
+    {
+      "merge_into": "unsafe_transfer_auditContract",
+      "reason": "reward local determines the value leaving the contract through the external transfer in auditContract",
+      "normal_node": "local_auditContract_reward"
+    },
+    {
+      "merge_into": "auditContract",
+      "reason": "commission local is the accrual value added to availableCommission in auditContract",
+      "normal_node": "local_auditContract_commission"
+    }
+  ]
+}

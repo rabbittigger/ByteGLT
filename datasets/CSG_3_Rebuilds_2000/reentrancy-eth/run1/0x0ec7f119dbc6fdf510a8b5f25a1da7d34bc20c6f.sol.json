@@ -1,0 +1,225 @@
+{
+  "nodes": [
+    {
+      "description": "aggregate(Call[] memory calls) public: loops over caller-supplied Call structs and performs a low-level call on each target with the supplied callData, returning block.number and an array of return data.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 0,
+      "id": "function_aggregate"
+    },
+    {
+      "description": "getEthBalance(address addr) public view: returns the ETH balance of the given address.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 1,
+      "id": "function_getEthBalance"
+    },
+    {
+      "description": "getBlockHash(uint256 blockNumber) public view: returns blockhash(blockNumber) for the caller-supplied block number.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 2,
+      "id": "function_getBlockHash"
+    },
+    {
+      "description": "getLastBlockHash() public view: returns blockhash(block.number - 1).",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "function_getLastBlockHash"
+    },
+    {
+      "description": "getCurrentBlockTimestamp() public view: returns block.timestamp, exposing miner-influenced time to callers.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 4,
+      "id": "function_getCurrentBlockTimestamp"
+    },
+    {
+      "description": "getCurrentBlockDifficulty() public view: returns block.difficulty.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 5,
+      "id": "function_getCurrentBlockDifficulty"
+    },
+    {
+      "description": "getCurrentBlockGasLimit() public view: returns block.gaslimit.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 6,
+      "id": "function_getCurrentBlockGasLimit"
+    },
+    {
+      "description": "getCurrentBlockCoinbase() public view: returns block.coinbase, the block miner address.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 7,
+      "id": "function_getCurrentBlockCoinbase"
+    },
+    {
+      "description": "block.timestamp: miner-manipulable environment value read inside getCurrentBlockTimestamp.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 8,
+      "id": "untrusted_input_block_timestamp"
+    },
+    {
+      "description": "calls[i].target.call(calls[i].callData): arbitrary external low-level call to an attacker-chosen address with attacker-chosen data, executed inside the aggregate loop.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 9,
+      "id": "unsafe_operation_low_level_call"
+    },
+    {
+      "description": "calls: caller-supplied array of Call structs (target address plus callData) that fully determines which external calls aggregate performs.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 10,
+      "id": "param_calls"
+    },
+    {
+      "description": "addr: caller-supplied address whose balance is read by getEthBalance.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 11,
+      "id": "param_addr"
+    },
+    {
+      "description": "blockNumber: caller-supplied block number passed to blockhash in getBlockHash.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 12,
+      "id": "param_blockNumber"
+    },
+    {
+      "description": "i: loop counter in aggregate that drives iteration over the calls array and thus drives the external call execution.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 13,
+      "id": "local_i"
+    },
+    {
+      "description": "success: boolean returned by the low-level call in aggregate, used to decide whether the returned bytes are recorded.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 14,
+      "id": "local_success"
+    },
+    {
+      "description": "ret: raw bytes returned by the low-level call in aggregate.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 15,
+      "id": "local_ret"
+    },
+    {
+      "description": "returnData: dynamically sized bytes array allocated as new bytes[](calls.length) and filled inside the aggregate loop.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 16,
+      "id": "local_returnData"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The caller-controlled calls array supplies both the target address and the calldata consumed by the low-level external call, so untrusted input flows directly into the unsafe operation.",
+      "from_id": 10,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 9
+    },
+    {
+      "reason": "The low-level external call in aggregate transfers control to an arbitrary attacker-supplied contract, which can re-enter aggregate or other functions before the loop finishes writing returnData.",
+      "from_id": 9,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 0
+    },
+    {
+      "reason": "aggregate's loop body is the control-flow location where the low-level call on calls[i].target is executed.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 9
+    },
+    {
+      "reason": "The loop index i governs how many times and on which Call struct the unsafe external call is invoked.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 9
+    },
+    {
+      "reason": "The success flag returned by the external call gates whether ret is stored into the returnData array.",
+      "from_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 16
+    },
+    {
+      "reason": "The raw bytes ret returned by the external call are copied into the returnData result array.",
+      "from_id": 15,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 16
+    },
+    {
+      "reason": "block.timestamp is read and returned by getCurrentBlockTimestamp, making the function's output depend on a miner-manipulable environment value.",
+      "from_id": 8,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "The addr parameter is used to read the ETH balance returned by getEthBalance.",
+      "from_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "The blockNumber parameter is passed to the blockhash builtin in getBlockHash and drives the returned hash.",
+      "from_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The calls parameter is the direct source of the target and calldata used by the unsafe low-level call in aggregate, so it should be normalized into that unsafe_operation node.",
+      "normal_node": "param_calls",
+      "merge_into": "unsafe_operation_low_level_call"
+    },
+    {
+      "reason": "The addr parameter is only used inside getEthBalance to read that address's balance, so it can be merged into the getEthBalance function node.",
+      "normal_node": "param_addr",
+      "merge_into": "function_getEthBalance"
+    },
+    {
+      "reason": "The blockNumber parameter exists solely as the argument to blockhash inside getBlockHash, so it can be merged into the getBlockHash function node.",
+      "normal_node": "param_blockNumber",
+      "merge_into": "function_getBlockHash"
+    },
+    {
+      "reason": "The loop counter i is a purely local iteration variable that only determines which attacker-supplied Call is passed to the unsafe low-level call, so it should be normalized into that unsafe_operation node.",
+      "normal_node": "local_i",
+      "merge_into": "unsafe_operation_low_level_call"
+    },
+    {
+      "reason": "The success flag is local bookkeeping of the low-level call's result and has no meaning outside that call site, so it should be normalized into the unsafe_operation node.",
+      "normal_node": "local_success",
+      "merge_into": "unsafe_operation_low_level_call"
+    },
+    {
+      "reason": "The ret local holds the bytes returned by the low-level call and is tied directly to that call site, so it should be normalized into the unsafe_operation node.",
+      "normal_node": "local_ret",
+      "merge_into": "unsafe_operation_low_level_call"
+    },
+    {
+      "reason": "The returnData local is the aggregate function's own result buffer populated inside its loop, so it should be normalized into the aggregate function node.",
+      "normal_node": "local_returnData",
+      "merge_into": "function_aggregate"
+    }
+  ]
+}

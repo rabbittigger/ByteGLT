@@ -1,0 +1,156 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "description": "State variable 'ISalt public salt' storing the external Salt interface used to read startDate() and rawURI().",
+      "id": "salt",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "description": "Constructor(address a) that casts the supplied address into an ISalt interface and assigns it to the 'salt' state variable.",
+      "id": "constructor",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "description": "Public view tokenURI(uint256 tokenId) that reads salt.startDate() and computes a shifted token id using block.timestamp arithmetic.",
+      "id": "tokenURI",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "description": "Parameter 'a' (address) of the constructor, used to instantiate the ISalt interface.",
+      "id": "param_a",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 4,
+      "description": "Parameter 'tokenId' (uint256) of tokenURI, used as index for rawURI and in unchecked addition.",
+      "id": "param_tokenId",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 5,
+      "description": "Local variable 'daysPassed' computed as ((block.timestamp - salt.startDate()) % 180 days) / 1 days.",
+      "id": "local_daysPassed",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 6,
+      "description": "block.timestamp is used directly in the token id calculation, making tokenURI time dependent.",
+      "id": "block_timestamp",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "description": "Unchecked Solidity 0.6.8 arithmetic: subtraction block.timestamp - salt.startDate(), division/modulo, and addition tokenId + daysPassed can overflow/underflow.",
+      "id": "unsafe_arithmetic",
+      "type": "unsafe_operation",
+      "is_core": true
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor parameter 'a' flows into the constructor body where it is wrapped by ISalt.",
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "reason": "The constructor writes the ISalt(a) value into the 'salt' state variable.",
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "reason": "tokenURI parameter 'tokenId' is supplied to the tokenURI function body.",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "reason": "block.timestamp influences the control flow and returned URI of tokenURI, creating timestamp dependency.",
+      "vuln_type": "access_control",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "reason": "block.timestamp is an operand of the unchecked subtraction computing daysPassed, making the result time dependent.",
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "reason": "Function tokenURI reads salt.startDate() from the 'salt' state variable.",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "reason": "salt.startDate() is an operand in the unchecked subtraction that produces daysPassed.",
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "reason": "tokenId is added to daysPassed without overflow protection, so an attacker-controlled id can wrap in the unchecked addition.",
+      "vuln_type": "arithmetic",
+      "to_id": 7,
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "reason": "Local variable daysPassed is the value produced by the unsafe arithmetic operation.",
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "reason": "tokenURI executes the unchecked arithmetic expression on the else branch.",
+      "vuln_type": "arithmetic",
+      "to_id": 7,
+      "type": "controlflow",
+      "from_id": 2
+    },
+    {
+      "reason": "daysPassed is used inside tokenURI to compute the shifted token id for salt.rawURI.",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 5
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Constructor parameter 'a' has no standalone security relevance; it only feeds the assignment of the 'salt' state variable inside the constructor and should be folded into that function node.",
+      "merge_into": "constructor",
+      "normal_node": "param_a"
+    },
+    {
+      "reason": "Parameter 'tokenId' is only meaningful as an input of tokenURI and its downstream arithmetic, so it should be merged into the tokenURI function node.",
+      "merge_into": "tokenURI",
+      "normal_node": "param_tokenId"
+    },
+    {
+      "reason": "Local variable daysPassed exists solely as the result of the unsafe arithmetic operation, so it should be merged into that unsafe_operation node.",
+      "merge_into": "unsafe_arithmetic",
+      "normal_node": "local_daysPassed"
+    }
+  ]
+}

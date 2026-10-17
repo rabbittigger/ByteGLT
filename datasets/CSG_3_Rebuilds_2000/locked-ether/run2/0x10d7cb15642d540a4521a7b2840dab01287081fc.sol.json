@@ -1,0 +1,199 @@
+{
+  "nodes": [
+    {
+      "id": "Signer.recover",
+      "description": "Public pure function recover(bytes32 hash, bytes memory signature) returning address; validates signature length, s-range and v value, then calls ecrecover.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "function"
+    },
+    {
+      "id": "Signer.toEthSignedMessageHash",
+      "description": "External pure function toEthSignedMessageHash(bytes32 hash) that prefixes the hash with the Ethereum Signed Message prefix and returns keccak256.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "function"
+    },
+    {
+      "id": "recover.hash",
+      "description": "Parameter hash of function recover: the 32-byte digest that is passed into ecrecover.",
+      "is_core": false,
+      "node_id": 2,
+      "type": "parameter"
+    },
+    {
+      "id": "recover.signature",
+      "description": "Parameter signature of function recover: 65-byte packed r,s,v signature read via inline assembly.",
+      "is_core": false,
+      "node_id": 3,
+      "type": "parameter"
+    },
+    {
+      "id": "recover.r",
+      "description": "Local bytes32 r extracted from the signature at offset 0x20 by the assembly block and forwarded to ecrecover.",
+      "is_core": false,
+      "node_id": 4,
+      "type": "local_var"
+    },
+    {
+      "id": "recover.s",
+      "description": "Local bytes32 s extracted from the signature at offset 0x40 and forwarded to ecrecover after passing the lower-half-order check.",
+      "is_core": false,
+      "node_id": 5,
+      "type": "local_var"
+    },
+    {
+      "id": "recover.v",
+      "description": "Local uint8 v extracted as the first byte at offset 0x60 of the signature and forwarded to ecrecover.",
+      "is_core": false,
+      "node_id": 6,
+      "type": "local_var"
+    },
+    {
+      "id": "recover.ecrecover_call",
+      "description": "Low-level ecrecover(hash, v, r, s) call; returns address(0) on failure and is subject to signature malleability if the s/v checks are bypassed.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "recover.assembly_mload",
+      "description": "Inline assembly block performing mload on the signature bytes pointer for r, s and v; memory reads are unchecked and can silently return garbage for malformed input.",
+      "is_core": true,
+      "node_id": 8,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "toEthSignedMessageHash.hash",
+      "description": "Parameter hash of function toEthSignedMessageHash: the digest that gets prefixed and hashed with keccak256.",
+      "is_core": false,
+      "node_id": 9,
+      "type": "parameter"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Parameter hash is supplied to function recover and consumed by its validation and return logic.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Parameter signature is supplied to function recover and its length is checked before further processing.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Parameter hash flows into toEthSignedMessageHash where it is abi.encodePacked'ed and hashed.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The signature bytes are read by the inline assembly mload block to derive r, s and v.",
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Assembly assigns r from mload(add(signature,0x20)).",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Assembly assigns s from mload(add(signature,0x40)).",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Assembly assigns v from byte(0, mload(add(signature,0x60))).",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Parameter hash is passed as the first argument of the ecrecover call.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Local r is passed to ecrecover as the signature r component.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Local s is passed to ecrecover as the signature s component after the malleability range check.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Local v is passed to ecrecover as the recovery id after the 27/28 check.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Function recover executes the inline assembly extraction block as part of its body.",
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Function recover reaches the ecrecover call only after the length, s-range and v checks pass.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "controlflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Parameter hash of recover is a non-core node that is only meaningful inside function recover and should be merged into it.",
+      "normal_node": "recover.hash",
+      "merge_into": "Signer.recover"
+    },
+    {
+      "reason": "Parameter signature of recover is a non-core node consumed entirely within recover and should be merged into it.",
+      "normal_node": "recover.signature",
+      "merge_into": "Signer.recover"
+    },
+    {
+      "reason": "Local r is an assembly-derived temporary used directly as an argument to the unsafe ecrecover operation.",
+      "normal_node": "recover.r",
+      "merge_into": "recover.ecrecover_call"
+    },
+    {
+      "reason": "Local s is an assembly-derived temporary used directly as an argument to the unsafe ecrecover operation.",
+      "normal_node": "recover.s",
+      "merge_into": "recover.ecrecover_call"
+    },
+    {
+      "reason": "Local v is an assembly-derived temporary used directly as an argument to the unsafe ecrecover operation.",
+      "normal_node": "recover.v",
+      "merge_into": "recover.ecrecover_call"
+    },
+    {
+      "reason": "Parameter hash of toEthSignedMessageHash is a non-core node only meaningful inside that function and should be merged into it.",
+      "normal_node": "toEthSignedMessageHash.hash",
+      "merge_into": "Signer.toEthSignedMessageHash"
+    }
+  ]
+}

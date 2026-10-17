@@ -1,0 +1,295 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "IERC20 private _token: ERC20 token contract whose balances are held by the timelock.",
+      "id": "state_token",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "address private _beneficiary: recipient of the tokens once the release time is reached.",
+      "id": "state_beneficiary",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "uint256 private _releaseTime: unix timestamp gating when tokens may be released.",
+      "id": "state_releaseTime",
+      "type": "state_var",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "TokenTimelock constructor: validates releaseTime > block.timestamp and stores token, beneficiary and releaseTime.",
+      "id": "fn_TokenTimelock_constructor",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "token(): view getter returning the held IERC20 token.",
+      "id": "fn_token",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "beneficiary(): view getter returning the beneficiary address.",
+      "id": "fn_beneficiary",
+      "type": "function",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "releaseTime(): view getter returning the release timestamp.",
+      "id": "fn_releaseTime",
+      "type": "function",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "release(): checks block.timestamp >= _releaseTime, reads the contract token balance and transfers it to the beneficiary.",
+      "id": "fn_release",
+      "type": "function",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "CATXTimeLock constructor: forwards token, beneficiary and releaseTime to the TokenTimelock base constructor.",
+      "id": "fn_CATXTimeLock_constructor",
+      "type": "function",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "description": "block.timestamp used as the time source for the release gate in both the base constructor and release().",
+      "id": "input_block_timestamp",
+      "type": "untrusted_input",
+      "node_id": 9
+    },
+    {
+      "is_core": true,
+      "description": "_token.safeTransfer(_beneficiary, amount): external token call that hands control to an untrusted token contract and moves the whole held balance.",
+      "id": "unsafe_safeTransfer",
+      "type": "unsafe_operation",
+      "node_id": 10
+    },
+    {
+      "is_core": false,
+      "description": "IERC20 token parameter of the TokenTimelock constructor, assigned to _token.",
+      "id": "param_token_tl",
+      "type": "parameter",
+      "node_id": 11
+    },
+    {
+      "is_core": false,
+      "description": "address beneficiary parameter of the TokenTimelock constructor, assigned to _beneficiary.",
+      "id": "param_beneficiary_tl",
+      "type": "parameter",
+      "node_id": 12
+    },
+    {
+      "is_core": false,
+      "description": "uint256 releaseTime parameter of the TokenTimelock constructor, assigned to _releaseTime after a block.timestamp check.",
+      "id": "param_releaseTime_tl",
+      "type": "parameter",
+      "node_id": 13
+    },
+    {
+      "is_core": false,
+      "description": "address token parameter of the CATXTimeLock constructor, cast to IERC20 and passed to the base constructor.",
+      "id": "param_token_catx",
+      "type": "parameter",
+      "node_id": 14
+    },
+    {
+      "is_core": false,
+      "description": "address beneficiary parameter of the CATXTimeLock constructor, forwarded to the base constructor.",
+      "id": "param_beneficiary_catx",
+      "type": "parameter",
+      "node_id": 15
+    },
+    {
+      "is_core": false,
+      "description": "uint256 releaseTime parameter of the CATXTimeLock constructor, forwarded to the base constructor.",
+      "id": "param_releaseTime_catx",
+      "type": "parameter",
+      "node_id": 16
+    },
+    {
+      "is_core": false,
+      "description": "uint256 amount local in release(): balance of this contract in the held token, transferred to the beneficiary.",
+      "id": "local_amount",
+      "type": "local_var",
+      "node_id": 17
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "Constructor parameter token is stored into the _token state variable.",
+      "type": "dataflow",
+      "from_id": 11
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "Constructor parameter beneficiary is stored into the _beneficiary state variable.",
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "Constructor parameter releaseTime is stored into the _releaseTime state variable.",
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "Constructor requires releaseTime > block.timestamp, making deployment validity and constructor control flow dependent on the timestamp.",
+      "type": "controlflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "reason": "release() gates execution on require(block.timestamp >= _releaseTime); the unlock condition depends on the miner-controlled timestamp.",
+      "type": "controlflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "release() reads _releaseTime to evaluate the time gate.",
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "reason": "release() builds the amount and invokes the external safeTransfer, forwarding control to the untrusted token contract.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "The stored _token contract is the target of the safeTransfer external call.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "The stored _beneficiary address is the recipient argument of safeTransfer.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "The local amount (contract token balance) is the value argument of safeTransfer.",
+      "type": "dataflow",
+      "from_id": 17
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "reentrancy",
+      "reason": "The externally called token contract can re-enter release() during safeTransfer before any state is finalized.",
+      "type": "callback",
+      "from_id": 10
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "The CATXTimeLock constructor invokes the TokenTimelock base constructor via inheritance.",
+      "type": "controlflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "CATXTimeLock constructor token parameter is converted to IERC20 and used by the base constructor call.",
+      "type": "dataflow",
+      "from_id": 14
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "CATXTimeLock constructor beneficiary parameter is forwarded through the base constructor call.",
+      "type": "dataflow",
+      "from_id": 15
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "CATXTimeLock constructor releaseTime parameter is forwarded through the base constructor call.",
+      "type": "dataflow",
+      "from_id": 16
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "token() returns the _token state variable.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "beneficiary() returns the _beneficiary state variable.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "releaseTime() returns the _releaseTime state variable.",
+      "type": "dataflow",
+      "from_id": 2
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "fn_TokenTimelock_constructor",
+      "reason": "Constructor parameter token only feeds the state assignment inside the TokenTimelock constructor, so it can be normalized into that core function node.",
+      "normal_node": "param_token_tl"
+    },
+    {
+      "merge_into": "fn_TokenTimelock_constructor",
+      "reason": "Constructor parameter beneficiary only feeds the state assignment inside the TokenTimelock constructor, so it can be normalized into that core function node.",
+      "normal_node": "param_beneficiary_tl"
+    },
+    {
+      "merge_into": "fn_TokenTimelock_constructor",
+      "reason": "Constructor parameter releaseTime is validated against block.timestamp and stored inside the TokenTimelock constructor, so it can be normalized into that core function node.",
+      "normal_node": "param_releaseTime_tl"
+    },
+    {
+      "merge_into": "fn_CATXTimeLock_constructor",
+      "reason": "CATXTimeLock constructor parameter token is only passed to the base constructor, so it can be normalized into that core function node.",
+      "normal_node": "param_token_catx"
+    },
+    {
+      "merge_into": "fn_CATXTimeLock_constructor",
+      "reason": "CATXTimeLock constructor parameter beneficiary is only passed to the base constructor, so it can be normalized into that core function node.",
+      "normal_node": "param_beneficiary_catx"
+    },
+    {
+      "merge_into": "fn_CATXTimeLock_constructor",
+      "reason": "CATXTimeLock constructor parameter releaseTime is only passed to the base constructor, so it can be normalized into that core function node.",
+      "normal_node": "param_releaseTime_catx"
+    },
+    {
+      "merge_into": "unsafe_safeTransfer",
+      "reason": "The local amount is computed and immediately consumed as the value argument of the external safeTransfer, so it can be normalized into that unsafe_operation node.",
+      "normal_node": "local_amount"
+    }
+  ]
+}

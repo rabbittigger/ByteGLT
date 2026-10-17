@@ -1,0 +1,119 @@
+{
+  "nodes": [
+    {
+      "id": "Game1.prize",
+      "description": "Constant uint256 'prize' (0.05 ether) used as the minimum funding threshold checked in the constructor.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "Game1.friends",
+      "description": "Public dynamic address array 'friends' that records every caller who plays the game.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "Game1.constructor",
+      "description": "Payable constructor that requires msg.value >= prize so the contract is funded with at least the prize amount.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "Game1.winPrizeAndFeelGoodAboutSelf",
+      "description": "Public game function: records msg.sender in friends, enforces msg.sender == tx.origin, then transfers the whole contract balance to msg.sender.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "msg.sender",
+      "description": "Untrusted external caller address; used for the friends push, the tx.origin comparison and as the recipient of the balance transfer.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "tx.origin",
+      "description": "Untrusted transaction origin used as an 'anti-bot' authorization source in the require(msg.sender == tx.origin) check.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "external_call.transfer_balance",
+      "description": "External value transfer 'payable(msg.sender).transfer(address(this).balance)' sending the entire contract balance to an untrusted address.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "require.msg_sender_eq_tx_origin",
+      "description": "Authorization check 'require(msg.sender == tx.origin, \"no robots\")'; using tx.origin for access decisions is an access-control anti-pattern vulnerable to phishing.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is written into the friends state array via friends.push(msg.sender).",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender is the recipient of an external balance transfer, creating an untrusted external call/ether-sending relation.",
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender is compared against tx.origin inside the authorization require statement.",
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "tx.origin is used as the authorization source in the require check, enabling tx.origin-based access control bypass.",
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "winPrizeAndFeelGoodAboutSelf executes the tx.origin require check before paying out.",
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The game function mutates the friends state variable on every call.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The game function performs the external balance transfer to msg.sender.",
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The constructor reads the prize constant to enforce msg.value >= prize.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": []
+}

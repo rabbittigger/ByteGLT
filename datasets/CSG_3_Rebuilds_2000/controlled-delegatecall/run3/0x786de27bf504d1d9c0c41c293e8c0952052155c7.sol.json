@@ -1,0 +1,69 @@
+{
+  "nodes": [
+    {
+      "id": "Bait.receive",
+      "is_core": true,
+      "node_id": 0,
+      "description": "Payable receive() fallback that lets the contract accept plain Ether transfers; holds no logic and no access control.",
+      "type": "function"
+    },
+    {
+      "id": "Bait.bait",
+      "is_core": true,
+      "node_id": 1,
+      "description": "External bait(address _pickpocket) function that delegatecalls an entirely caller-supplied address and requires the call to succeed.",
+      "type": "function"
+    },
+    {
+      "id": "Bait.bait._pickpocket",
+      "is_core": false,
+      "node_id": 2,
+      "description": "Caller-supplied address parameter used directly as the delegatecall target without any whitelist or validation.",
+      "type": "parameter"
+    },
+    {
+      "id": "Bait.bait.delegatecall",
+      "is_core": true,
+      "node_id": 3,
+      "description": "delegatecall(abi.encodeWithSignature(\"finesse(address)\", _pickpocket)) executed on an arbitrary address, giving the callee full control of Bait's storage, balance and code context.",
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 1,
+      "to_id": 3,
+      "type": "controlflow",
+      "vuln_type": "reentrancy",
+      "reason": "bait() unconditionally reaches the delegatecall with no validation or guard, so the attacker-chosen callee executes arbitrary code (including re-entering Bait) inside the contract's own context."
+    },
+    {
+      "from_id": 2,
+      "to_id": 3,
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "reason": "The attacker-controlled _pickpocket parameter flows directly into the delegatecall target, making the executed code and its reentrant behaviour fully attacker-defined."
+    },
+    {
+      "from_id": 1,
+      "to_id": 2,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "bait() binds its external argument to the local parameter _pickpocket before use."
+    },
+    {
+      "from_id": 0,
+      "to_id": 3,
+      "type": "controlflow",
+      "vuln_type": "reentrancy",
+      "reason": "receive() keeps the contract funded with Ether, supplying the balance that the delegatecall callee can drain during the unsafe delegatecall."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "Bait.bait._pickpocket",
+      "merge_into": "Bait.bait.delegatecall",
+      "reason": "The parameter _pickpocket has no independent semantics: it exists only as the direct sink of the delegatecall target, so it should be absorbed into the delegatecall unsafe_operation node."
+    }
+  ]
+}

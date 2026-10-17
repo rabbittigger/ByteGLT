@@ -1,0 +1,319 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "description": "Private uint256 holding the secret number (1-10) used to decide whether a player wins.",
+      "id": "secretNumber",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "description": "Public timestamp of the last play() call, used by kill() for the time-lock check.",
+      "id": "lastPlayed",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "description": "Public price (0.1 ether) a player must send to play().",
+      "id": "betPrice",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "description": "Address of the contract owner, set in the constructor; gates kill().",
+      "id": "ownerAddr",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 4,
+      "description": "Public array of Game structs recording every bet (player address and guessed number).",
+      "id": "gamesPlayed",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "description": "Constructor: sets ownerAddr to msg.sender and initializes the secret number via shuffle().",
+      "id": "CryptoRoulette",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 6,
+      "description": "Internal function computing secretNumber from sha3(now, block.blockhash(block.number-1)) % 10 + 1.",
+      "id": "shuffle",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "description": "Payable game entry point: validates bet, records the game, pays out the whole balance on a correct guess, reshuffles and updates lastPlayed.",
+      "id": "play",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 8,
+      "description": "Owner-only function that selfdestructs the contract if at least one day has passed since lastPlayed.",
+      "id": "kill",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 9,
+      "description": "Payable fallback function that accepts plain ether transfers and enables the external call target used by the payout.",
+      "id": "fallback",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 10,
+      "description": "Caller-controlled address used as player, owner, payout recipient and destruct beneficiary.",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 11,
+      "description": "block.timestamp, used both as a randomness source in shuffle() and as the time-lock condition in kill().",
+      "id": "now",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 12,
+      "description": "msg.sender.transfer(this.balance): sends the entire contract balance to the caller with a fixed 2300 gas stipend.",
+      "id": "transfer_balance",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 13,
+      "description": "suicide(msg.sender): destroys the contract and forwards the remaining balance to the caller.",
+      "id": "suicide_call",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 14,
+      "description": "The uint256 guessed number passed to play(), constrained to <= 10 and compared to secretNumber.",
+      "id": "play_number_param",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 15,
+      "description": "Memory Game struct built inside play() from msg.sender and the guessed number before being pushed to gamesPlayed.",
+      "id": "game_local",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 16,
+      "description": "Pseudorandom value derived from sha3(now, block.blockhash(block.number-1)), fully predictable/manipulable by miners and attackers.",
+      "id": "weak_randomness",
+      "type": "unsafe_operation",
+      "is_core": true
+    }
+  ],
+  "edges": [
+    {
+      "reason": "play() receives the guessed number as its untrusted numeric parameter.",
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "reason": "The parameter is validated by require(msg.value >= betPrice && number <= 10) inside play().",
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "from_id": 14
+    },
+    {
+      "reason": "game.number = number copies the player guess into the local Game struct.",
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "from_id": 14
+    },
+    {
+      "reason": "play() reads secretNumber and compares it with the guessed number to decide the payout.",
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "reason": "play() writes the completed Game struct into the public gamesPlayed array.",
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "reason": "game.player = msg.sender stores the caller identity in the local Game struct.",
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "reason": "The caller address msg.sender is the recipient of the whole contract balance in the payout.",
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "reason": "When the guess matches secretNumber, play() executes msg.sender.transfer(this.balance); state (lastPlayed, reshuffle) is updated only after the transfer.",
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "controlflow",
+      "from_id": 7
+    },
+    {
+      "reason": "The external transfer hands control to the caller, whose fallback can re-enter play() before lastPlayed/shuffle state is refreshed.",
+      "vuln_type": "reentrancy",
+      "to_id": 7,
+      "type": "callback",
+      "from_id": 12
+    },
+    {
+      "reason": "The payout external call can invoke the payable fallback of the receiving contract, providing a re-entry surface.",
+      "vuln_type": "reentrancy",
+      "to_id": 9,
+      "type": "callback",
+      "from_id": 7
+    },
+    {
+      "reason": "The constructor reads msg.sender to initialize the owner.",
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "reason": "ownerAddr is set directly from the untrusted caller address in the constructor.",
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "reason": "The constructor calls shuffle() to initialize secretNumber.",
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "controlflow",
+      "from_id": 5
+    },
+    {
+      "reason": "shuffle() writes the derived value into secretNumber.",
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "reason": "shuffle() derives its randomness from block.timestamp (now), a miner-influenceable value.",
+      "vuln_type": "access_control",
+      "to_id": 6,
+      "type": "dataflow",
+      "from_id": 11
+    },
+    {
+      "reason": "block.timestamp is an input to sha3(now, block.blockhash(...)), making the random value miner-manipulable.",
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "dataflow",
+      "from_id": 11
+    },
+    {
+      "reason": "The weak pseudorandom expression is truncated to uint8, modulo 10 and assigned to secretNumber.",
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "from_id": 16
+    },
+    {
+      "reason": "After each attempt play() calls shuffle() to pick a new secret number.",
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "controlflow",
+      "from_id": 7
+    },
+    {
+      "reason": "lastPlayed is assigned directly from block.timestamp (now) at the end of play().",
+      "vuln_type": "access_control",
+      "to_id": 1,
+      "type": "dataflow",
+      "from_id": 11
+    },
+    {
+      "reason": "play() updates the lastPlayed state variable after the payout and reshuffle.",
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "reason": "kill() compares block.timestamp (now) against lastPlayed + 1 days, a timestamp-dependent condition.",
+      "vuln_type": "access_control",
+      "to_id": 8,
+      "type": "dataflow",
+      "from_id": 11
+    },
+    {
+      "reason": "kill() reads lastPlayed as the baseline for its one-day time-lock check.",
+      "vuln_type": "access_control",
+      "to_id": 8,
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "reason": "kill() reads ownerAddr in the authorization check msg.sender == ownerAddr.",
+      "vuln_type": "access_control",
+      "to_id": 8,
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "reason": "kill() authorization depends on the untrusted caller address msg.sender matching ownerAddr.",
+      "vuln_type": "access_control",
+      "to_id": 8,
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "reason": "kill() executes suicide(msg.sender) once the owner and time-lock conditions hold.",
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "controlflow",
+      "from_id": 8
+    },
+    {
+      "reason": "The caller address determines the beneficiary of the suicide() selfdestruct.",
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "from_id": 10
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The guessed number parameter is only meaningful as an argument of play(); it must be merged into the play() function node for core reasoning.",
+      "merge_into": "play",
+      "normal_node": "play_number_param"
+    },
+    {
+      "reason": "The local Game struct is a temporary container written and consumed entirely inside play(); it should be merged into the play() function node.",
+      "merge_into": "play",
+      "normal_node": "game_local"
+    }
+  ]
+}

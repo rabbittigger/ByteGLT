@@ -1,0 +1,393 @@
+{
+  "nodes": [
+    {
+      "description": "Array of AggregatorV3Interface oracle feeds (dai/usdc/usdt/tusd to ETH), pushable by admin.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "ChainlinkPriceFeed.priceFeed"
+    },
+    {
+      "description": "AggregatorV3Interface oracle for ETH/USD used as second price leg.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "ChainlinkPriceFeed.priceFeedETHToUSD"
+    },
+    {
+      "description": "IAdmin contract instance that decides who may add price feeds.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 2,
+      "id": "ChainlinkPriceFeed.admin"
+    },
+    {
+      "description": "Deploys the contract, populates price feed array and sets admin from constructor argument.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "ChainlinkPriceFeed.constructor"
+    },
+    {
+      "description": "Admin-only function that pushes an attacker-supplied oracle address into priceFeed.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 4,
+      "id": "ChainlinkPriceFeed.addPriceFeed"
+    },
+    {
+      "description": "View function reading two Chainlink oracles and returning price scaled by 1e18.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 5,
+      "id": "ChainlinkPriceFeed.getLatestPrice"
+    },
+    {
+      "description": "Overflow-checked multiplication helper used for price math.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 6,
+      "id": "SafeMath.mul"
+    },
+    {
+      "description": "Division-by-zero-checked division helper used to scale the price by 1e18.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 7,
+      "id": "SafeMath.div"
+    },
+    {
+      "description": "Caller address, used as the only authorization input in addPriceFeed.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 8,
+      "id": "msg.sender"
+    },
+    {
+      "description": "External call admin.admin() used inside the require guard; returns an untrusted admin address from another contract.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 9,
+      "id": "external_call.admin.admin"
+    },
+    {
+      "description": "State-mutating push of a new oracle address into the priceFeed array.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 10,
+      "id": "external_call.priceFeed.push"
+    },
+    {
+      "description": "External oracle read priceFeed[idx].latestRoundData(); returned answer/timestamps are unvalidated beyond non-zero.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 11,
+      "id": "oracle_call.priceFeed.latestRoundData"
+    },
+    {
+      "description": "External oracle read of the ETH/USD feed; answer/timestamps unchecked for staleness.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 12,
+      "id": "oracle_call.priceFeedETHToUSD.latestRoundData"
+    },
+    {
+      "description": "Expression uint(priceETH).mul(uint(priceUSD)).div(1e18) combining two oracle answers; int256->uint256 casts on feed data.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 13,
+      "id": "arith.mul_div_price"
+    },
+    {
+      "description": "Constructor parameter holding the IAdmin contract address.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 14,
+      "id": "param.adminAddress"
+    },
+    {
+      "description": "addPriceFeed parameter, the oracle address to be registered.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 15,
+      "id": "param.addr"
+    },
+    {
+      "description": "getLatestPrice parameter selecting which feed in priceFeed to query.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 16,
+      "id": "param.idx"
+    },
+    {
+      "description": "Local int256 answer returned by priceFeed[idx].latestRoundData().",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 17,
+      "id": "local.priceETH"
+    },
+    {
+      "description": "Local uint updatedAt timestamp returned by priceFeed[idx].latestRoundData().",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 18,
+      "id": "local.timeStampETH"
+    },
+    {
+      "description": "Local int256 answer returned by priceFeedETHToUSD.latestRoundData().",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 19,
+      "id": "local.priceUSD"
+    },
+    {
+      "description": "Local uint updatedAt timestamp returned by priceFeedETHToUSD.latestRoundData().",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 20,
+      "id": "local.timeStampUSD"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor argument adminAddress is written to the admin state variable, making authorization externally controlled.",
+      "from_id": 14,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "Constructor sets the admin IAdmin instance.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 2
+    },
+    {
+      "reason": "Constructor populates the priceFeed array with four hardcoded oracles.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 0
+    },
+    {
+      "reason": "Constructor assigns the ETH/USD oracle to priceFeedETHToUSD.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 1
+    },
+    {
+      "reason": "msg.sender is compared with the return value of admin.admin() in the require guard.",
+      "from_id": 8,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 9
+    },
+    {
+      "reason": "The admin state variable supplies the external contract that is queried for the authorization decision.",
+      "from_id": 2,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 9
+    },
+    {
+      "reason": "require(msg.sender == admin.admin()) gates execution of priceFeed.push.",
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 10
+    },
+    {
+      "reason": "addPriceFeed performs the external admin check before mutating state.",
+      "from_id": 4,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 9
+    },
+    {
+      "reason": "addPriceFeed pushes the supplied oracle into the priceFeed array.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 10
+    },
+    {
+      "reason": "The addr parameter is pushed into priceFeed, letting the caller choose an arbitrary oracle contract.",
+      "from_id": 15,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 10
+    },
+    {
+      "reason": "getLatestPrice queries priceFeed[idx].latestRoundData().",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 11
+    },
+    {
+      "reason": "getLatestPrice queries the ETH/USD feed via latestRoundData().",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 12
+    },
+    {
+      "reason": "The priceFeed array is indexed to obtain the oracle being called.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "The idx parameter selects which oracle in priceFeed is called.",
+      "from_id": 16,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "The priceFeedETHToUSD state variable is the oracle being called.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "The oracle answer of the selected feed is stored in local priceETH.",
+      "from_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 17
+    },
+    {
+      "reason": "The oracle updatedAt value is stored in local timeStampETH.",
+      "from_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 18
+    },
+    {
+      "reason": "The ETH/USD oracle answer is stored in local priceUSD.",
+      "from_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 19
+    },
+    {
+      "reason": "The ETH/USD oracle updatedAt value is stored in local timeStampUSD.",
+      "from_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 20
+    },
+    {
+      "reason": "priceETH is cast to uint256 and multiplied into the price expression.",
+      "from_id": 17,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 13
+    },
+    {
+      "reason": "priceUSD is cast to uint256 and multiplied into the price expression.",
+      "from_id": 19,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 13
+    },
+    {
+      "reason": "getLatestPrice calls SafeMath.mul for the price multiplication step.",
+      "from_id": 6,
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "to_id": 13
+    },
+    {
+      "reason": "getLatestPrice calls SafeMath.div to scale the product by 1e18.",
+      "from_id": 7,
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "to_id": 13
+    },
+    {
+      "reason": "The computed price expression is returned by getLatestPrice.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "The oracle timestamp timeStampETH only has a non-zero completeness check (no staleness bound), gating the return value.",
+      "from_id": 18,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 5
+    },
+    {
+      "reason": "The oracle timestamp timeStampUSD only has a non-zero completeness check (no staleness bound), gating the return value.",
+      "from_id": 20,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 5
+    },
+    {
+      "reason": "External call to the admin contract happens inside addPriceFeed's guard; it is a view call so it cannot mutate state or reenter.",
+      "from_id": 9,
+      "vuln_type": "none",
+      "type": "callback",
+      "to_id": 4
+    },
+    {
+      "reason": "External oracle call is made inside getLatestPrice; a view call, so reentrancy is not exploitable but the result is untrusted.",
+      "from_id": 11,
+      "vuln_type": "none",
+      "type": "callback",
+      "to_id": 5
+    },
+    {
+      "reason": "Second external oracle call inside getLatestPrice; view call returning untrusted, potentially stale data.",
+      "from_id": 12,
+      "vuln_type": "none",
+      "type": "callback",
+      "to_id": 5
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Constructor-only parameter that is immediately consumed to initialize the admin state variable.",
+      "normal_node": "param.adminAddress",
+      "merge_into": "ChainlinkPriceFeed.constructor"
+    },
+    {
+      "reason": "Only used to push a new oracle into the priceFeed array inside addPriceFeed.",
+      "normal_node": "param.addr",
+      "merge_into": "ChainlinkPriceFeed.addPriceFeed"
+    },
+    {
+      "reason": "Bounds-checked index used solely to select the oracle queried by getLatestPrice.",
+      "normal_node": "param.idx",
+      "merge_into": "ChainlinkPriceFeed.getLatestPrice"
+    },
+    {
+      "reason": "Intermediate oracle answer that is directly inserted into the price multiplication/division expression.",
+      "normal_node": "local.priceETH",
+      "merge_into": "arith.mul_div_price"
+    },
+    {
+      "reason": "Temporary holder of the oracle updatedAt value read by the priceFeed oracle call.",
+      "normal_node": "local.timeStampETH",
+      "merge_into": "oracle_call.priceFeed.latestRoundData"
+    },
+    {
+      "reason": "Intermediate ETH/USD oracle answer that is directly inserted into the price multiplication/division expression.",
+      "normal_node": "local.priceUSD",
+      "merge_into": "arith.mul_div_price"
+    },
+    {
+      "reason": "Temporary holder of the ETH/USD oracle updatedAt value read by the oracle call.",
+      "normal_node": "local.timeStampUSD",
+      "merge_into": "oracle_call.priceFeedETHToUSD.latestRoundData"
+    }
+  ]
+}

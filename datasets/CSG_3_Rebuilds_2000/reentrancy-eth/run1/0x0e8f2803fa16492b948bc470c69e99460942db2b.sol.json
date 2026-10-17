@@ -1,0 +1,348 @@
+{
+  "nodes": [
+    {
+      "description": "External payable game guess function that verifies the response hash and transfers the whole contract balance to msg.sender",
+      "is_core": true,
+      "type": "function",
+      "node_id": 0,
+      "id": "Play"
+    },
+    {
+      "description": "Public payable function that sets responseHash, question and questionSender",
+      "is_core": true,
+      "type": "function",
+      "node_id": 1,
+      "id": "StartGame"
+    },
+    {
+      "description": "Public payable function restricted to questionSender that closes the game and may transfer the balance",
+      "is_core": true,
+      "type": "function",
+      "node_id": 2,
+      "id": "StopGame"
+    },
+    {
+      "description": "Public payable function restricted to questionSender that replaces the question and the response hash",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "NewQuestion"
+    },
+    {
+      "description": "Private helper that marks the game as closed",
+      "is_core": true,
+      "type": "function",
+      "node_id": 4,
+      "id": "GiftHasBeenSent"
+    },
+    {
+      "description": "Payable fallback function that accepts ether without any logic",
+      "is_core": true,
+      "type": "function",
+      "node_id": 5,
+      "id": "fallback"
+    },
+    {
+      "description": "Public string holding the current quiz question",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 6,
+      "id": "question"
+    },
+    {
+      "description": "Address of the account allowed to administer the game (owner-like)",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 7,
+      "id": "questionSender"
+    },
+    {
+      "description": "Public boolean flag indicating the game has been closed",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 8,
+      "id": "closed"
+    },
+    {
+      "description": "Bytes32 hash of the expected answer used by Play",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 9,
+      "id": "responseHash"
+    },
+    {
+      "description": "Caller-controlled address used for authorization checks and as ether transfer recipient",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 10,
+      "id": "msg.sender"
+    },
+    {
+      "description": "Origin address compared against msg.sender inside Play",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 11,
+      "id": "tx.origin"
+    },
+    {
+      "description": "msg.sender.transfer(this.balance) inside Play: external value call to an untrusted address",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 12,
+      "id": "transfer_Play"
+    },
+    {
+      "description": "msg.sender.transfer(this.balance) inside StopGame: external value call to an untrusted address",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 13,
+      "id": "transfer_StopGame"
+    },
+    {
+      "description": "Answer string supplied to Play and hashed for comparison with responseHash",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 14,
+      "id": "_response_Play"
+    },
+    {
+      "description": "Question string supplied to StartGame",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 15,
+      "id": "_question_StartGame"
+    },
+    {
+      "description": "Answer string supplied to StartGame which is hashed into responseHash",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 16,
+      "id": "_response_StartGame"
+    },
+    {
+      "description": "New question string supplied to NewQuestion",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 17,
+      "id": "_question_NewQuestion"
+    },
+    {
+      "description": "New response hash supplied to NewQuestion",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 18,
+      "id": "_responseHash_NewQuestion"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The answer parameter is hashed and compared with responseHash inside Play",
+      "from_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "Play reads responseHash when validating the submitted answer",
+      "from_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "Play reads the closed flag before paying out",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "Play uses msg.sender both for the tx.origin check and as the payment recipient",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "Play authorization relies on msg.sender == tx.origin, a timestamp/origin-style identity check on untrusted input",
+      "from_id": 11,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "Play performs an external value transfer to msg.sender which can execute attacker-controlled code",
+      "from_id": 0,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 12
+    },
+    {
+      "reason": "The untrusted caller address receives the full contract balance in Play",
+      "from_id": 10,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "Play calls GiftHasBeenSent after a successful payout",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 4
+    },
+    {
+      "reason": "GiftHasBeenSent writes the closed state variable",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "The StartGame response parameter is hashed into responseHash",
+      "from_id": 16,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "The StartGame question parameter is stored in the question state variable",
+      "from_id": 15,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "StartGame stores the caller address into questionSender, granting administrative rights to an untrusted address",
+      "from_id": 10,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "StartGame writes responseHash",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 9
+    },
+    {
+      "reason": "StartGame writes the question state variable",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "StartGame writes the questionSender state variable",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "StopGame authorizes the caller against the questionSender state variable",
+      "from_id": 7,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "StopGame compares msg.sender with questionSender for access control",
+      "from_id": 10,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "StopGame calls GiftHasBeenSent to close the game",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 4
+    },
+    {
+      "reason": "StopGame performs an external value transfer to msg.sender which can reenter",
+      "from_id": 2,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 13
+    },
+    {
+      "reason": "The untrusted caller address receives the contract balance in StopGame",
+      "from_id": 10,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 13
+    },
+    {
+      "reason": "NewQuestion authorizes the caller against the questionSender state variable",
+      "from_id": 7,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "NewQuestion compares msg.sender with questionSender for access control",
+      "from_id": 10,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "The new question parameter is stored in the question state variable",
+      "from_id": 17,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "The new response hash parameter is stored in responseHash",
+      "from_id": 18,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "NewQuestion writes the question state variable",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "NewQuestion writes responseHash",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 9
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The Play answer parameter only exists to be hashed and compared inside Play, so it should be folded into the Play function node",
+      "normal_node": "_response_Play",
+      "merge_into": "Play"
+    },
+    {
+      "reason": "The question parameter is used only to set the question state variable inside StartGame and can be merged into that function",
+      "normal_node": "_question_StartGame",
+      "merge_into": "StartGame"
+    },
+    {
+      "reason": "The response parameter is used only to compute responseHash inside StartGame and can be merged into that function",
+      "normal_node": "_response_StartGame",
+      "merge_into": "StartGame"
+    },
+    {
+      "reason": "The question parameter is used only to overwrite the question state variable inside NewQuestion",
+      "normal_node": "_question_NewQuestion",
+      "merge_into": "NewQuestion"
+    },
+    {
+      "reason": "The response hash parameter is used only to overwrite responseHash inside NewQuestion",
+      "normal_node": "_responseHash_NewQuestion",
+      "merge_into": "NewQuestion"
+    }
+  ]
+}

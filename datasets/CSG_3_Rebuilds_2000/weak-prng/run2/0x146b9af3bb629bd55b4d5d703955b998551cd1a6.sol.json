@@ -1,0 +1,700 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "ERC20_Transferable token instance (0x7C5A...) used for all payouts",
+      "is_core": true,
+      "node_id": 0,
+      "id": "state_var_token"
+    },
+    {
+      "type": "state_var",
+      "description": "address[] of registered team members eligible for payout",
+      "is_core": true,
+      "node_id": 1,
+      "id": "state_var_team_accounts"
+    },
+    {
+      "type": "state_var",
+      "description": "timestamp set in start(); 0 means the contract is in INIT state",
+      "is_core": true,
+      "node_id": 2,
+      "id": "state_var_locked_since"
+    },
+    {
+      "type": "state_var",
+      "description": "cached per-member token amount computed once per withdrawal window",
+      "is_core": true,
+      "node_id": 3,
+      "id": "state_var_amount_to_distribute"
+    },
+    {
+      "type": "state_var",
+      "description": "constant address allowed to call start()",
+      "is_core": true,
+      "node_id": 4,
+      "id": "state_var_MULTISIG_OWNER"
+    },
+    {
+      "type": "state_var",
+      "description": "constant address allowed to sweep remaining tokens in CLOSED state",
+      "is_core": true,
+      "node_id": 5,
+      "id": "state_var_TEAM_WALLET"
+    },
+    {
+      "type": "state_var",
+      "description": "constant timestamp when locked tokens become releasable",
+      "is_core": true,
+      "node_id": 6,
+      "id": "state_var_LOCK_RELASE_TIME"
+    },
+    {
+      "type": "state_var",
+      "description": "constant timestamp when the withdrawal window closes",
+      "is_core": true,
+      "node_id": 7,
+      "id": "state_var_WITHDRAWAL_END_TIME"
+    },
+    {
+      "type": "state_var",
+      "description": "string[4] human readable labels for the State enum",
+      "is_core": true,
+      "node_id": 8,
+      "id": "state_var_labels"
+    },
+    {
+      "type": "function",
+      "description": "external constant getter returning the full team_accounts array",
+      "is_core": true,
+      "node_id": 9,
+      "id": "fn_all_team_accounts"
+    },
+    {
+      "type": "function",
+      "description": "external constant view computing days/hours/minutes until LOCK_RELASE_TIME using now",
+      "is_core": true,
+      "node_id": 10,
+      "id": "fn_timeToUnlockDDHHMM"
+    },
+    {
+      "type": "function",
+      "description": "owner-only state transition from INIT to LOCKED, sets locked_since = now",
+      "is_core": true,
+      "node_id": 11,
+      "id": "fn_start"
+    },
+    {
+      "type": "function",
+      "description": "payable fallback: refunds msg.value, registers members, pays out tokens or sweeps to team wallet",
+      "is_core": true,
+      "node_id": 12,
+      "id": "fn_fallback"
+    },
+    {
+      "type": "function",
+      "description": "internal _state() deriving State from locked_since and now against lock timestamps",
+      "is_core": true,
+      "node_id": 13,
+      "id": "fn_state_internal"
+    },
+    {
+      "type": "function",
+      "description": "public constant state() returning the label of the current state",
+      "is_core": true,
+      "node_id": 14,
+      "id": "fn_state_public"
+    },
+    {
+      "type": "function",
+      "description": "internal linear search over an address[] storage array returning index or -1",
+      "is_core": true,
+      "node_id": 15,
+      "id": "fn_indexOf"
+    },
+    {
+      "type": "function",
+      "description": "modifier only(address allowed) reverting when msg.sender != allowed",
+      "is_core": true,
+      "node_id": 16,
+      "id": "fn_modifier_only"
+    },
+    {
+      "type": "function",
+      "description": "modifier inState(State s) reverting when _state() != s",
+      "is_core": true,
+      "node_id": 17,
+      "id": "fn_modifier_inState"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "msg.sender, fully attacker controlled caller address",
+      "is_core": true,
+      "node_id": 18,
+      "id": "untrusted_msg_sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "block.timestamp (now), miner-influenced time source driving state transitions",
+      "is_core": true,
+      "node_id": 19,
+      "id": "untrusted_block_timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "msg.sender.transfer(msg.value) external ether send to an attacker chosen address",
+      "is_core": true,
+      "node_id": 20,
+      "id": "unsafe_send_back_value"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "token.transfer(msg.sender, amount_to_distribute / team_accounts.length) external call during WITHDRAWAL",
+      "is_core": true,
+      "node_id": 21,
+      "id": "unsafe_token_transfer_withdraw"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "token.transfer(msg.sender, balance) external call draining remaining tokens in CLOSED state",
+      "is_core": true,
+      "node_id": 22,
+      "id": "unsafe_token_transfer_sweep"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "team_accounts.push(msg.sender) unbounded attacker driven array growth in INIT state",
+      "is_core": true,
+      "node_id": 23,
+      "id": "unsafe_team_push"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "amount_to_distribute / team_accounts.length division that can divide by zero and truncates dust",
+      "is_core": true,
+      "node_id": 24,
+      "id": "unsafe_division"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "external token.balanceOf(this) call whose return value controls payout amounts",
+      "is_core": true,
+      "node_id": 25,
+      "id": "unsafe_token_balanceOf"
+    },
+    {
+      "type": "parameter",
+      "description": "address[] storage parameter of indexOf (the searched array)",
+      "is_core": false,
+      "node_id": 26,
+      "id": "param_addrs"
+    },
+    {
+      "type": "parameter",
+      "description": "address parameter of indexOf (the searched address)",
+      "is_core": false,
+      "node_id": 27,
+      "id": "param_addr"
+    },
+    {
+      "type": "local_var",
+      "description": "local State variable in the fallback holding _state() result",
+      "is_core": false,
+      "node_id": 28,
+      "id": "local_state"
+    },
+    {
+      "type": "local_var",
+      "description": "local var holding token.balanceOf(this) in the CLOSED branch of the fallback",
+      "is_core": false,
+      "node_id": 29,
+      "id": "local_balance"
+    },
+    {
+      "type": "local_var",
+      "description": "local uint diff = LOCK_RELASE_TIME - now in timeToUnlockDDHHMM",
+      "is_core": false,
+      "node_id": 30,
+      "id": "local_diff"
+    },
+    {
+      "type": "local_var",
+      "description": "local uint dd (days) in timeToUnlockDDHHMM",
+      "is_core": false,
+      "node_id": 31,
+      "id": "local_dd"
+    },
+    {
+      "type": "local_var",
+      "description": "local uint hh (hours) in timeToUnlockDDHHMM",
+      "is_core": false,
+      "node_id": 32,
+      "id": "local_hh"
+    },
+    {
+      "type": "local_var",
+      "description": "local uint mm (minutes) in timeToUnlockDDHHMM",
+      "is_core": false,
+      "node_id": 33,
+      "id": "local_mm"
+    },
+    {
+      "type": "local_var",
+      "description": "loop counter uint i in indexOf",
+      "is_core": false,
+      "node_id": 34,
+      "id": "local_i"
+    },
+    {
+      "type": "parameter",
+      "description": "State s parameter of the inState modifier",
+      "is_core": false,
+      "node_id": 35,
+      "id": "param_s"
+    },
+    {
+      "type": "parameter",
+      "description": "address allowed parameter of the only modifier",
+      "is_core": false,
+      "node_id": 36,
+      "id": "param_allowed"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "controlflow",
+      "reason": "fallback unconditionally refunds msg.value to the caller before any state logic",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "controlflow",
+      "reason": "INIT branch of fallback pushes msg.sender into team_accounts",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "controlflow",
+      "reason": "WITHDRAWAL branch of fallback pays out tokens to msg.sender",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "controlflow",
+      "reason": "CLOSED branch of fallback sweeps tokens to the team wallet",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "_state() result selects which branch of the fallback executes",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "inState(State.INIT) modifier guards start()",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "only(MULTISIG_OWNER) modifier guards start()",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "indexOf result drives the require checks that gate registration and payout",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "controlflow",
+      "reason": "state() indexes labels with the value returned by _state()",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "locked_since is read by _state() to decide INIT vs later states",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "block.timestamp is compared against lock constants inside _state(), making state time dependent",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "LOCK_RELASE_TIME constant gates the LOCKED to WITHDRAWAL transition",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "WITHDRAWAL_END_TIME constant gates the WITHDRAWAL to CLOSED transition",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "timeToUnlockDDHHMM branches on now < LOCK_RELASE_TIME, a timestamp dependency",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "LOCK_RELASE_TIME is the reference point for the time remaining calculation",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "start() assigns locked_since = now, seeding state machine timing with miner influenceable time",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "start() writes locked_since, transitioning the contract out of INIT",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 30,
+      "type": "dataflow",
+      "reason": "diff is derived directly from now",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "diff feeds the returned [dd,hh,mm] array",
+      "from_id": 30
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 31,
+      "type": "dataflow",
+      "reason": "dd computed from now-derived diff",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "dd is returned by timeToUnlockDDHHMM",
+      "from_id": 31
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 32,
+      "type": "dataflow",
+      "reason": "hh computed from now-derived diff",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "hh is returned by timeToUnlockDDHHMM",
+      "from_id": 32
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 33,
+      "type": "dataflow",
+      "reason": "mm computed from now-derived diff",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "mm is returned by timeToUnlockDDHHMM",
+      "from_id": 33
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "token instance is the target of the external balanceOf call",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "token.balanceOf(this) result is cached into amount_to_distribute",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "token.balanceOf(this) result is stored in the local balance variable",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "local balance is transferred out in the CLOSED sweep",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "amount_to_distribute is the dividend of the payout division",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "team_accounts.length is the divisor; a zero length causes a division by zero revert",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "division result is passed to token.transfer, so truncation/dust and div-by-zero affect payout correctness",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "amount_to_distribute determines the value transferred to the member",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "token instance is the target of the withdrawal transfer external call",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "team_accounts.length scales the per-member payout",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "token instance is the target of the sweep transfer external call",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "attacker controlled msg.sender is the recipient of the ether refund",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "msg.sender is the value pushed into the team_accounts array",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "msg.sender is the recipient of the token payout",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "msg.sender is required to equal TEAM_WALLET before the sweep is executed",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "require(msg.sender == TEAM_WALLET) is the sole authorisation for the full-balance sweep",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "MULTISIG_OWNER is the allowed address enforced by the only modifier",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "msg.sender is compared against the allowed address to grant privileged access",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "team_accounts array is searched by indexOf",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "msg.sender is the address looked up in the team_accounts array",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "the addrs storage parameter is the array iterated by indexOf",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "the addr parameter is compared against each array element",
+      "from_id": 27
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "loop counter i indexes the searched array",
+      "from_id": 34
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "labels array is indexed to produce the human readable state string",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "all_team_accounts() returns the team_accounts state array",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "callback",
+      "reason": "external ether send to msg.sender invokes the recipient contract, which may call back into the payable fallback",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "callback",
+      "reason": "token.transfer is an external call on an untrusted token contract and can reenter the fallback before state settles",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "callback",
+      "reason": "token.transfer sweep is an external call on an untrusted token contract and can reenter the fallback",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "callback",
+      "reason": "token.balanceOf is an external call into a caller-supplied token contract able to reenter the fallback",
+      "from_id": 25
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "fn_indexOf",
+      "reason": "parameter addrs only exists as the storage array argument of indexOf and carries no independent semantics",
+      "normal_node": "param_addrs"
+    },
+    {
+      "merge_into": "fn_indexOf",
+      "reason": "parameter addr only exists as the lookup key argument of indexOf",
+      "normal_node": "param_addr"
+    },
+    {
+      "merge_into": "fn_fallback",
+      "reason": "local state only holds the _state() result used to branch inside the fallback",
+      "normal_node": "local_state"
+    },
+    {
+      "merge_into": "unsafe_token_transfer_sweep",
+      "reason": "local balance only holds token.balanceOf(this) immediately transferred to the team wallet in the sweep",
+      "normal_node": "local_balance"
+    },
+    {
+      "merge_into": "fn_timeToUnlockDDHHMM",
+      "reason": "local diff is an intermediate value of the timeToUnlockDDHHMM computation",
+      "normal_node": "local_diff"
+    },
+    {
+      "merge_into": "fn_timeToUnlockDDHHMM",
+      "reason": "local dd is an intermediate value of the timeToUnlockDDHHMM computation",
+      "normal_node": "local_dd"
+    },
+    {
+      "merge_into": "fn_timeToUnlockDDHHMM",
+      "reason": "local hh is an intermediate value of the timeToUnlockDDHHMM computation",
+      "normal_node": "local_hh"
+    },
+    {
+      "merge_into": "fn_timeToUnlockDDHHMM",
+      "reason": "local mm is an intermediate value of the timeToUnlockDDHHMM computation",
+      "normal_node": "local_mm"
+    },
+    {
+      "merge_into": "fn_indexOf",
+      "reason": "loop counter i only exists to iterate the array inside indexOf",
+      "normal_node": "local_i"
+    },
+    {
+      "merge_into": "fn_modifier_inState",
+      "reason": "parameter s only exists as the expected state compared inside the inState modifier",
+      "normal_node": "param_s"
+    },
+    {
+      "merge_into": "fn_modifier_only",
+      "reason": "parameter allowed only exists as the address compared inside the only modifier",
+      "normal_node": "param_allowed"
+    }
+  ]
+}

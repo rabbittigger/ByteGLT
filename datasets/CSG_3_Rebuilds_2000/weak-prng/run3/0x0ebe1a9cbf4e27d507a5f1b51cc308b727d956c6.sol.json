@@ -1,0 +1,142 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Immutable constant address _TRADE_RESERVE that receives all Ether and ERC20 tokens held by this contract.",
+      "id": "state_var_TRADE_RESERVE",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "receive() external payable fallback that accepts incoming Ether transfers.",
+      "id": "function_receive",
+      "type": "function",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "settleEther() external function that forwards the whole contract balance to _TRADE_RESERVE via a low-level call and bubbles up revert data on failure.",
+      "id": "function_settleEther",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "settleERC20(IERC20 token) external function that transfers the full token balance of this contract to _TRADE_RESERVE.",
+      "id": "function_settleERC20",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "Low-level call `_TRADE_RESERVE.call{value: address(this).balance}(\"\")` in settleEther, forwarding the entire Ether balance to an external address.",
+      "id": "unsafe_op_lowlevel_call_value",
+      "type": "unsafe_operation",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "External call `token.transfer(_TRADE_RESERVE, token.balanceOf(address(this)))` on a caller-supplied token contract in settleERC20.",
+      "id": "unsafe_op_token_transfer",
+      "type": "unsafe_operation",
+      "node_id": 5
+    },
+    {
+      "is_core": false,
+      "description": "Parameter `token` of settleERC20, an arbitrary caller-supplied IERC20 implementation used as the external call target.",
+      "id": "param_token",
+      "type": "parameter",
+      "node_id": 6
+    },
+    {
+      "is_core": false,
+      "description": "Local variable `ok` in settleEther holding the success flag returned by the low-level call.",
+      "id": "local_ok_settleEther",
+      "type": "local_var",
+      "node_id": 7
+    },
+    {
+      "is_core": false,
+      "description": "Local variable `ok` in settleERC20 holding the boolean result of token.transfer, checked by require.",
+      "id": "local_ok_settleERC20",
+      "type": "local_var",
+      "node_id": 8
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "settleEther executes the low-level value call that drains the contract balance to _TRADE_RESERVE.",
+      "type": "controlflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "The state variable _TRADE_RESERVE supplies the callee address of the low-level call.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "The success flag returned by the low-level call is assigned to the local variable ok.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "settleERC20 performs the external token.transfer call to move the whole token balance.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "The caller-supplied parameter token determines the target contract of the external transfer call.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "The boolean result of token.transfer is assigned to the local variable ok and enforced by require.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "The state variable _TRADE_RESERVE is used as the destination address of the ERC20 transfer.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "Incoming Ether accepted by receive() becomes the balance spent by the subsequent settleEther() call.",
+      "type": "controlflow",
+      "from_id": 1
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "unsafe_op_token_transfer",
+      "reason": "Parameter token is only used as the receiver of the external token.transfer call and can be folded into that unsafe_operation node.",
+      "normal_node": "param_token"
+    },
+    {
+      "merge_into": "unsafe_op_lowlevel_call_value",
+      "reason": "Local variable ok merely carries the success flag of the low-level call in settleEther and can be folded into that unsafe_operation node.",
+      "normal_node": "local_ok_settleEther"
+    },
+    {
+      "merge_into": "unsafe_op_token_transfer",
+      "reason": "Local variable ok only stores the result of token.transfer in settleERC20 and can be folded into that unsafe_operation node.",
+      "normal_node": "local_ok_settleERC20"
+    }
+  ]
+}

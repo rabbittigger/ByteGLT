@@ -1,0 +1,794 @@
+{
+  "nodes": [
+    {
+      "description": "Constant number of confirmations required (3) to execute a transaction.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "REQUIRED"
+    },
+    {
+      "description": "Mapping of transactionId to Transaction struct holding destination, value, data and executed flag.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "transactions"
+    },
+    {
+      "description": "Mapping transactionId => owner => bool recording owner confirmations.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 2,
+      "id": "confirmations"
+    },
+    {
+      "description": "Mapping address => bool marking wallet owners.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 3,
+      "id": "isOwner"
+    },
+    {
+      "description": "Array of owner addresses.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 4,
+      "id": "owners"
+    },
+    {
+      "description": "Additional owner whose confirmation only becomes valid after a delay.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 5,
+      "id": "delayedOwner"
+    },
+    {
+      "description": "Mapping transactionId => timestamp when the delayed owner confirmation becomes valid.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 6,
+      "id": "delayedConfirmations"
+    },
+    {
+      "description": "Total number of submitted transactions; also the next transaction id.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 7,
+      "id": "transactionCount"
+    },
+    {
+      "description": "Transaction.executed flag guarding against re-execution (notExecuted modifier).",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 8,
+      "id": "transactions_executed"
+    },
+    {
+      "description": "Payable fallback function that emits Deposit when msg.value > 0.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 9,
+      "id": "fallback"
+    },
+    {
+      "description": "Constructor setting delayedOwner and the REQUIRED owner set.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 10,
+      "id": "constructor"
+    },
+    {
+      "description": "onlyWallet function replacing an owner with a new owner.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 11,
+      "id": "replaceOwner"
+    },
+    {
+      "description": "Owner-only function adding and confirming a new transaction.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 12,
+      "id": "submitTransaction"
+    },
+    {
+      "description": "Owner-only function confirming a transaction and executing it for regular owners.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 13,
+      "id": "confirmTransaction"
+    },
+    {
+      "description": "Executes a confirmed transaction via low-level call with value and data.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 14,
+      "id": "executeTransaction"
+    },
+    {
+      "description": "View function counting confirmations (including delayed one) against REQUIRED.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 15,
+      "id": "isConfirmed"
+    },
+    {
+      "description": "Internal function storing a new Transaction and incrementing transactionCount.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 16,
+      "id": "addTransaction"
+    },
+    {
+      "description": "View function returning transaction ids in a pending/executed filtered range.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 17,
+      "id": "getTransactionIds"
+    },
+    {
+      "description": "External caller address msg.sender used for ownership and authorization checks.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 18,
+      "id": "msg_sender"
+    },
+    {
+      "description": "Block timestamp (now) driving delayed confirmation validity windows.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 19,
+      "id": "block_timestamp"
+    },
+    {
+      "description": "Low-level external call destination.call.value(txn.value)(txn.data) in executeTransaction.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 20,
+      "id": "external_call"
+    },
+    {
+      "description": "Arithmetic increment transactionCount += 1 in addTransaction.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 21,
+      "id": "counter_increment"
+    },
+    {
+      "description": "Arithmetic now + 2 weeks used as delayed confirmation deadline.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 22,
+      "id": "delayed_confirm_deadline"
+    },
+    {
+      "description": "Constructor parameter: list of initial owners.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 23,
+      "id": "param_owners"
+    },
+    {
+      "description": "Constructor parameter: the delayed owner address.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 24,
+      "id": "param_delayedOwner"
+    },
+    {
+      "description": "replaceOwner parameter: owner address to be replaced.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 25,
+      "id": "param_replace_owner"
+    },
+    {
+      "description": "replaceOwner parameter: new owner address.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 26,
+      "id": "param_newOwner"
+    },
+    {
+      "description": "submitTransaction parameter: transaction target address.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 27,
+      "id": "param_submit_destination"
+    },
+    {
+      "description": "submitTransaction parameter: ether value to send.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 28,
+      "id": "param_submit_value"
+    },
+    {
+      "description": "submitTransaction parameter: call data payload.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 29,
+      "id": "param_submit_data"
+    },
+    {
+      "description": "confirmTransaction parameter: transaction id to confirm.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 30,
+      "id": "param_confirm_transactionId"
+    },
+    {
+      "description": "executeTransaction parameter: transaction id to execute.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 31,
+      "id": "param_execute_transactionId"
+    },
+    {
+      "description": "isConfirmed parameter: transaction id to check.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 32,
+      "id": "param_isConfirmed_transactionId"
+    },
+    {
+      "description": "addTransaction parameter: transaction target address.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 33,
+      "id": "param_add_destination"
+    },
+    {
+      "description": "addTransaction parameter: ether value.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 34,
+      "id": "param_add_value"
+    },
+    {
+      "description": "addTransaction parameter: call data.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 35,
+      "id": "param_add_data"
+    },
+    {
+      "description": "getTransactionIds parameter: start index.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 36,
+      "id": "param_from"
+    },
+    {
+      "description": "getTransactionIds parameter: end index.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 37,
+      "id": "param_to"
+    },
+    {
+      "description": "getTransactionIds parameter: include pending transactions.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 38,
+      "id": "param_pending"
+    },
+    {
+      "description": "getTransactionIds parameter: include executed transactions.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 39,
+      "id": "param_executed"
+    },
+    {
+      "description": "Constructor local: number of owners supplied.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 40,
+      "id": "local_length"
+    },
+    {
+      "description": "Constructor loop index over _owners.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 41,
+      "id": "local_ctor_i"
+    },
+    {
+      "description": "replaceOwner loop index over owners array.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 42,
+      "id": "local_replace_i"
+    },
+    {
+      "description": "isConfirmed local confirmation counter.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 43,
+      "id": "local_isConfirmed_count"
+    },
+    {
+      "description": "isConfirmed loop index over owners.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 44,
+      "id": "local_isConfirmed_i"
+    },
+    {
+      "description": "executeTransaction storage pointer to the transaction being executed.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 45,
+      "id": "local_txn"
+    },
+    {
+      "description": "getTransactionIds local counter of matching ids.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 46,
+      "id": "local_getIds_count"
+    },
+    {
+      "description": "getTransactionIds loop index.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 47,
+      "id": "local_getIds_i"
+    },
+    {
+      "description": "getTransactionIds temporary memory array of matching ids.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 48,
+      "id": "local_transactionIdsTemp"
+    },
+    {
+      "description": "getTransactionIds returned slice array.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 49,
+      "id": "local_transactionIds"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is forwarded into the Deposit event in the payable fallback.",
+      "from_id": 18,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 9
+    },
+    {
+      "reason": "onlyWallet modifier requires msg.sender == address(this) before replaceOwner body runs.",
+      "from_id": 18,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 11
+    },
+    {
+      "reason": "ownerExists modifier requires isOwner[msg.sender] || msg.sender == delayedOwner.",
+      "from_id": 18,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 12
+    },
+    {
+      "reason": "ownerExists modifier gates confirmTransaction entry.",
+      "from_id": 18,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 13
+    },
+    {
+      "reason": "ownerExists modifier gates executeTransaction entry.",
+      "from_id": 18,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 14
+    },
+    {
+      "reason": "confirmations[transactionId][msg.sender] = true records the caller confirmation.",
+      "from_id": 18,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "msg.sender == delayedOwner branch selects the delayed confirmation path.",
+      "from_id": 18,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 5
+    },
+    {
+      "reason": "block.timestamp decides whether the delayed owner confirmation is stored.",
+      "from_id": 19,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 13
+    },
+    {
+      "reason": "now is the base of the now + 2 weeks deadline computation.",
+      "from_id": 19,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 22
+    },
+    {
+      "reason": "Computed deadline is written to delayedConfirmations[transactionId].",
+      "from_id": 22,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "confirmed modifier compares delayedConfirmations[transactionId] < now before execution.",
+      "from_id": 19,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 14
+    },
+    {
+      "reason": "isConfirmed uses now to decide whether the delayed confirmation counts.",
+      "from_id": 19,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 15
+    },
+    {
+      "reason": "executeTransaction forwards destination, value and data into the low-level external call.",
+      "from_id": 14,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 20
+    },
+    {
+      "reason": "The external call lets the callee re-enter the wallet, including executeTransaction.",
+      "from_id": 20,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 14
+    },
+    {
+      "reason": "txn.executed is set to true before the external call to block re-execution.",
+      "from_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "On a failed call the executed flag is reset to false after the external interaction.",
+      "from_id": 20,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "notExecuted modifier reads transactions[transactionId].executed to guard re-entry.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 14
+    },
+    {
+      "reason": "submitTransaction calls addTransaction to create the transaction.",
+      "from_id": 12,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 16
+    },
+    {
+      "reason": "submitTransaction immediately calls confirmTransaction.",
+      "from_id": 12,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 13
+    },
+    {
+      "reason": "confirmTransaction calls executeTransaction for non-delayed owners.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 14
+    },
+    {
+      "reason": "confirmTransaction writes the caller confirmation into the confirmations mapping.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "confirmTransaction writes the delayed confirmation deadline.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "addTransaction performs transactionCount += 1, an unchecked arithmetic operation.",
+      "from_id": 16,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 21
+    },
+    {
+      "reason": "The incremented value is written back to the transactionCount state variable.",
+      "from_id": 21,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "addTransaction reads transactionCount as the new transaction id.",
+      "from_id": 16,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "addTransaction stores the new Transaction struct in the transactions mapping.",
+      "from_id": 16,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "isConfirmed reads confirmations[transactionId][owners[i]].",
+      "from_id": 15,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "isConfirmed iterates over the owners array.",
+      "from_id": 15,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "isConfirmed reads delayedConfirmations and compares it to the block timestamp.",
+      "from_id": 15,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "isConfirmed compares the counted confirmations against the REQUIRED constant.",
+      "from_id": 15,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 0
+    },
+    {
+      "reason": "executeTransaction only proceeds when isConfirmed returns true.",
+      "from_id": 14,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 15
+    },
+    {
+      "reason": "executeTransaction reads and mutates transactions[transactionId] storage.",
+      "from_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "replaceOwner rewrites the owners array entry with newOwner.",
+      "from_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "replaceOwner flips isOwner for the old and new owner.",
+      "from_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "Constructor sets isOwner[_owners[i]] = true.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "Constructor assigns owners = _owners.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "Constructor assigns delayedOwner = _delayedOwner.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "Constructor requires _length == REQUIRED before initializing owners.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 0
+    },
+    {
+      "reason": "Constructor parameter _delayedOwner is written into the delayedOwner state variable.",
+      "from_id": 24,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "Each entry of the _owners parameter is registered in isOwner.",
+      "from_id": 23,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "The _owners parameter array is assigned to the owners state variable.",
+      "from_id": 23,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "getTransactionIds reads transactions[i].executed to filter results.",
+      "from_id": 17,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "getTransactionIds sizes the temporary array using transactionCount.",
+      "from_id": 17,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 7
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Parameter is only consumed to initialize the owners and isOwner state within the constructor.",
+      "normal_node": "param_owners",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "Parameter is only assigned to the delayedOwner state variable in the constructor.",
+      "normal_node": "param_delayedOwner",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "Parameter is only used inside replaceOwner to locate the owner entry to swap.",
+      "normal_node": "param_replace_owner",
+      "merge_into": "replaceOwner"
+    },
+    {
+      "reason": "Parameter is only used inside replaceOwner to write the new owner entry.",
+      "normal_node": "param_newOwner",
+      "merge_into": "replaceOwner"
+    },
+    {
+      "reason": "Parameter is forwarded to addTransaction from submitTransaction.",
+      "normal_node": "param_submit_destination",
+      "merge_into": "submitTransaction"
+    },
+    {
+      "reason": "Parameter is forwarded to addTransaction from submitTransaction.",
+      "normal_node": "param_submit_value",
+      "merge_into": "submitTransaction"
+    },
+    {
+      "reason": "Parameter is forwarded to addTransaction from submitTransaction.",
+      "normal_node": "param_submit_data",
+      "merge_into": "submitTransaction"
+    },
+    {
+      "reason": "Parameter only indexes the confirmations and delayedConfirmations mappings inside confirmTransaction.",
+      "normal_node": "param_confirm_transactionId",
+      "merge_into": "confirmTransaction"
+    },
+    {
+      "reason": "Parameter only indexes the transactions mapping inside executeTransaction.",
+      "normal_node": "param_execute_transactionId",
+      "merge_into": "executeTransaction"
+    },
+    {
+      "reason": "Parameter only indexes confirmations and delayedConfirmations inside isConfirmed.",
+      "normal_node": "param_isConfirmed_transactionId",
+      "merge_into": "isConfirmed"
+    },
+    {
+      "reason": "Parameter is only stored into the Transaction struct in addTransaction.",
+      "normal_node": "param_add_destination",
+      "merge_into": "addTransaction"
+    },
+    {
+      "reason": "Parameter is only stored into the Transaction struct in addTransaction.",
+      "normal_node": "param_add_value",
+      "merge_into": "addTransaction"
+    },
+    {
+      "reason": "Parameter is only stored into the Transaction struct in addTransaction.",
+      "normal_node": "param_add_data",
+      "merge_into": "addTransaction"
+    },
+    {
+      "reason": "Parameter only bounds the result slicing loop in getTransactionIds.",
+      "normal_node": "param_from",
+      "merge_into": "getTransactionIds"
+    },
+    {
+      "reason": "Parameter only bounds the result slicing loop in getTransactionIds.",
+      "normal_node": "param_to",
+      "merge_into": "getTransactionIds"
+    },
+    {
+      "reason": "Parameter only filters pending transactions in getTransactionIds.",
+      "normal_node": "param_pending",
+      "merge_into": "getTransactionIds"
+    },
+    {
+      "reason": "Parameter only filters executed transactions in getTransactionIds.",
+      "normal_node": "param_executed",
+      "merge_into": "getTransactionIds"
+    },
+    {
+      "reason": "Local caches _owners.length for the REQUIRED check and loop bound in the constructor.",
+      "normal_node": "local_length",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "Loop index used only for owner initialization in the constructor.",
+      "normal_node": "local_ctor_i",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "Loop index used only to find and overwrite the owner entry in replaceOwner.",
+      "normal_node": "local_replace_i",
+      "merge_into": "replaceOwner"
+    },
+    {
+      "reason": "Local counter of confirmations compared against REQUIRED in isConfirmed.",
+      "normal_node": "local_isConfirmed_count",
+      "merge_into": "isConfirmed"
+    },
+    {
+      "reason": "Loop index over owners inside isConfirmed.",
+      "normal_node": "local_isConfirmed_i",
+      "merge_into": "isConfirmed"
+    },
+    {
+      "reason": "Storage pointer used to set the executed flag and to build the external call in executeTransaction.",
+      "normal_node": "local_txn",
+      "merge_into": "executeTransaction"
+    },
+    {
+      "reason": "Local counter for matching transactions in getTransactionIds.",
+      "normal_node": "local_getIds_count",
+      "merge_into": "getTransactionIds"
+    },
+    {
+      "reason": "Loop index used in getTransactionIds.",
+      "normal_node": "local_getIds_i",
+      "merge_into": "getTransactionIds"
+    },
+    {
+      "reason": "Temporary memory array holding filtered ids in getTransactionIds.",
+      "normal_node": "local_transactionIdsTemp",
+      "merge_into": "getTransactionIds"
+    },
+    {
+      "reason": "Return array assembled at the end of getTransactionIds.",
+      "normal_node": "local_transactionIds",
+      "merge_into": "getTransactionIds"
+    }
+  ]
+}

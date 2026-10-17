@@ -1,0 +1,154 @@
+{
+  "nodes": [
+    {
+      "id": "ReservoirLike.init",
+      "is_core": true,
+      "description": "External interface function init(uint numTokens, address target) declared in ReservoirLike; could be reached through the proxy delegatecall.",
+      "node_id": 0,
+      "type": "function"
+    },
+    {
+      "id": "ReservoirLike.drip",
+      "is_core": true,
+      "description": "External no-argument interface function drip() declared in ReservoirLike; potential state-changing entry point callable via proxy delegatecall.",
+      "node_id": 1,
+      "type": "function"
+    },
+    {
+      "id": "ReservoirLike.init.numTokens",
+      "is_core": false,
+      "description": "First parameter numTokens of ReservoirLike.init, a plain unsigned amount argument.",
+      "node_id": 2,
+      "type": "parameter"
+    },
+    {
+      "id": "ReservoirLike.init.target",
+      "is_core": false,
+      "description": "Second parameter target (address) of ReservoirLike.init, an externally supplied address argument.",
+      "node_id": 3,
+      "type": "parameter"
+    },
+    {
+      "id": "Proxy.fallback",
+      "is_core": true,
+      "description": "Payable fallback function of Proxy that forwards all raw calldata via delegatecall to a hardcoded implementation address with no access control.",
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "Proxy.fallback.delegatecall",
+      "is_core": true,
+      "description": "Assembly delegatecall(gas, _target, 0x0, calldatasize, 0x0, 0) to hardcoded address 0x9a2E280aAeB4dE82AAD34Df9c114f67A1699744c, executing untrusted external code in the Proxy storage context.",
+      "node_id": 5,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "msg.sender",
+      "is_core": true,
+      "description": "Attacker-controlled caller of the Proxy fallback; any address can trigger the delegatecall path.",
+      "node_id": 6,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "Proxy.fallback._target",
+      "is_core": false,
+      "description": "Assembly local holding the hardcoded delegatecall target address 0x9a2E280aAeB4dE82AAD34Df9c114f67A1699744c.",
+      "node_id": 7,
+      "type": "local_var"
+    },
+    {
+      "id": "Proxy.fallback.result",
+      "is_core": false,
+      "description": "Assembly local that stores the delegatecall success flag used by the switch statement.",
+      "node_id": 8,
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow",
+      "reason": "numTokens parameter is consumed as the token amount by ReservoirLike.init."
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow",
+      "reason": "target parameter is consumed as the destination address by ReservoirLike.init."
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "from_id": 6,
+      "type": "dataflow",
+      "reason": "Any msg.sender can invoke the payable Proxy fallback because there is no caller restriction."
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "from_id": 6,
+      "type": "dataflow",
+      "reason": "Untrusted msg.sender reaches the delegatecall, giving unprivileged callers control over the raw calldata executed in proxy context."
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow",
+      "reason": "The hardcoded target local address is the delegatecall destination argument."
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "dataflow",
+      "reason": "The delegatecall success flag is written into the result local and then checked by the switch."
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "controlflow",
+      "reason": "Execution of the fallback unconditionally flows into the assembly delegatecall block."
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "callback",
+      "reason": "The delegatecall executes external implementation code, which may dispatch into the ReservoirLike.init selector."
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "callback",
+      "reason": "The delegatecall executes external implementation code, which may dispatch into the ReservoirLike.drip selector."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "ReservoirLike.init.numTokens",
+      "merge_into": "ReservoirLike.init",
+      "reason": "Parameter numTokens has no independent security effect and should be folded into the ReservoirLike.init function it belongs to."
+    },
+    {
+      "normal_node": "ReservoirLike.init.target",
+      "merge_into": "ReservoirLike.init",
+      "reason": "Parameter target has no independent security effect and should be folded into the ReservoirLike.init function it belongs to."
+    },
+    {
+      "normal_node": "Proxy.fallback._target",
+      "merge_into": "Proxy.fallback.delegatecall",
+      "reason": "Local _target is only used as the destination of the unsafe delegatecall and can be merged into that unsafe_operation node."
+    },
+    {
+      "normal_node": "Proxy.fallback.result",
+      "merge_into": "Proxy.fallback.delegatecall",
+      "reason": "Local result only holds the delegatecall status flag and can be merged into the unsafe_operation node for the delegatecall."
+    }
+  ]
+}

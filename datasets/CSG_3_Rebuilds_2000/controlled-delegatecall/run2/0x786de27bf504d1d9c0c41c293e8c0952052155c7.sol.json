@@ -1,0 +1,69 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "function",
+      "description": "Payable fallback receive() function of contract Bait; allows the contract to accept plain Ether transfers with empty body.",
+      "is_core": true,
+      "id": "Bait.receive"
+    },
+    {
+      "node_id": 1,
+      "type": "function",
+      "description": "External function bait(address _pickpocket) that forwards an attacker-supplied address into a delegatecall of finesse(address), executing arbitrary external code in the storage context of Bait.",
+      "is_core": true,
+      "id": "Bait.bait"
+    },
+    {
+      "node_id": 2,
+      "type": "parameter",
+      "description": "Caller-supplied address parameter of bait(); fully controllable destination of the delegatecall and therefore an attacker-controlled code pointer.",
+      "is_core": false,
+      "id": "Bait.bait._pickpocket"
+    },
+    {
+      "node_id": 3,
+      "type": "unsafe_operation",
+      "description": "Low-level delegatecall to _pickpocket with selector finesse(address); executes untrusted external code inside Bait's context, enabling state manipulation/selfdestruct of Bait.",
+      "is_core": true,
+      "id": "Bait.bait.delegatecall"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "bait() unconditionally performs the delegatecall on the caller-supplied address and only checks the returned success flag, so the function body drives the unsafe operation.",
+      "from_id": 1
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "reason": "The value of parameter _pickpocket flows directly into the delegatecall target, letting an attacker re-enter and execute arbitrary code in Bait's storage context (attacker-controlled callee / external call to untrusted address).",
+      "from_id": 2
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "The external entrypoint bait() takes the untrusted address parameter, so the parameter provides the access path that reaches the privileged delegatecall execution.",
+      "from_id": 2
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "Bait declares a payable receive() fallback, so value or plain calls sent during/after the delegatecall-based interaction can re-enter the contract through the fallback function.",
+      "from_id": 1
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "Bait.bait.delegatecall",
+      "normal_node": "Bait.bait._pickpocket",
+      "reason": "The parameter _pickpocket is a non-core node whose only semantic role is to supply the callee address of the unsafe delegatecall, so it should be normalized into that unsafe_operation."
+    }
+  ]
+}

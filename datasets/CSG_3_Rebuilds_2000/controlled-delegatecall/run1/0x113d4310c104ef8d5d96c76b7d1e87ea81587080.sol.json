@@ -1,0 +1,196 @@
+{
+  "nodes": [
+    {
+      "description": "Immutable IERC20 collateral asset address stored by CollateralLocker; used as the token target for transfers in pull().",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "collateralAsset"
+    },
+    {
+      "description": "Immutable address of the Loan contract allowed to call pull(); the trusted caller enforced by the isLoan modifier.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "loan"
+    },
+    {
+      "description": "Sets the immutable collateralAsset and loan state variables from constructor arguments.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 2,
+      "id": "constructor"
+    },
+    {
+      "description": "Access-control modifier requiring msg.sender == loan, guarding pull().",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "isLoan"
+    },
+    {
+      "description": "External, isLoan-guarded function that transfers amt of collateralAsset to dst via SafeERC20.safeTransfer, performing an external token call.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 4,
+      "id": "pull"
+    },
+    {
+      "description": "Caller-supplied address used for the isLoan access-control check in the modifier applied to pull().",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 5,
+      "id": "msg.sender"
+    },
+    {
+      "description": "External call collateralAsset.safeTransfer(dst, amt) that invokes arbitrary token code, potentially allowing reentrancy via a malicious token callback.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 6,
+      "id": "safeTransfer"
+    },
+    {
+      "description": "Constructor parameter providing the collateral asset token address assigned to collateralAsset.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 7,
+      "id": "_collateralAsset"
+    },
+    {
+      "description": "Constructor parameter providing the trusted Loan contract address assigned to loan.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 8,
+      "id": "_loan"
+    },
+    {
+      "description": "Destination address receiving the collateral asset in pull(), forwarded to safeTransfer.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 9,
+      "id": "dst"
+    },
+    {
+      "description": "Amount of collateral asset transferred in pull(), forwarded to safeTransfer.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 10,
+      "id": "amt"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor parameter _collateralAsset is written into the collateralAsset state variable.",
+      "from_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "Constructor parameter _loan is written into the loan state variable.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "msg.sender flows into the isLoan modifier comparison against loan to authorize the caller.",
+      "from_id": 5,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "The loan state variable is read in the isLoan modifier as the expected trusted caller.",
+      "from_id": 1,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "The isLoan modifier gates execution of pull(), restricting it to the Loan contract.",
+      "from_id": 3,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 4
+    },
+    {
+      "reason": "msg.sender reaches pull() through the modifier access-control check that may revert the call.",
+      "from_id": 5,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 4
+    },
+    {
+      "reason": "Parameter dst is an argument of pull() used as the transfer destination.",
+      "from_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "Parameter amt is an argument of pull() used as the transfer amount.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "The collateralAsset state variable is the token contract on which safeTransfer is invoked.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "Parameter dst is passed as the recipient of the external safeTransfer call.",
+      "from_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "Parameter amt is passed as the value of the external safeTransfer call.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "pull() performs an external token transfer, transferring control to the token contract before returning.",
+      "from_id": 4,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 6
+    },
+    {
+      "reason": "The external token call may invoke malicious token code that re-enters pull() (or other guarded functions) before state is finalized.",
+      "from_id": 6,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 4
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Parameter _collateralAsset only exists to initialize the immutable collateralAsset state variable inside the constructor, so it should be merged into the constructor node.",
+      "normal_node": "_collateralAsset",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "Parameter _loan only exists to initialize the immutable loan state variable inside the constructor, so it should be merged into the constructor node.",
+      "normal_node": "_loan",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "Parameter dst is a transient argument that directly feeds the safeTransfer unsafe operation and the pull() call, so it should be merged into the associated unsafe operation.",
+      "normal_node": "dst",
+      "merge_into": "safeTransfer"
+    },
+    {
+      "reason": "Parameter amt is a transient argument that directly feeds the safeTransfer unsafe operation and the pull() call, so it should be merged into the associated unsafe operation.",
+      "normal_node": "amt",
+      "merge_into": "safeTransfer"
+    }
+  ]
+}

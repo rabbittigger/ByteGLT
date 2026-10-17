@@ -1,0 +1,361 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "manager",
+      "is_core": true,
+      "description": "address public manager; owner address set in constructor, receives share of the pot"
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "id": "winner",
+      "is_core": true,
+      "description": "address public winner; selected by index derived from pseudo-random value"
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "id": "players",
+      "is_core": true,
+      "description": "address[] private players; dynamic array of entrants, reset after each draw"
+    },
+    {
+      "node_id": 3,
+      "type": "function",
+      "id": "Lottery",
+      "is_core": true,
+      "description": "constructor; sets manager = msg.sender, so deployer becomes privileged owner"
+    },
+    {
+      "node_id": 4,
+      "type": "function",
+      "id": "enter",
+      "is_core": true,
+      "description": "payable public entry point; pushes msg.sender into players, guarded by isNotManager/isNotInList/validValue"
+    },
+    {
+      "node_id": 5,
+      "type": "function",
+      "id": "pickWinner",
+      "is_core": true,
+      "description": "manager-only draw; picks index from random(), transfers balance-share to winner and share to manager, then clears players"
+    },
+    {
+      "node_id": 6,
+      "type": "function",
+      "id": "entryPlayers",
+      "is_core": true,
+      "description": "view getter returning the players array"
+    },
+    {
+      "node_id": 7,
+      "type": "function",
+      "id": "random",
+      "is_core": true,
+      "description": "private view returning keccak256(block.difficulty, now, players) % players.length - predictable, miner-influenceable randomness"
+    },
+    {
+      "node_id": 8,
+      "type": "function",
+      "id": "isNotManager",
+      "is_core": true,
+      "description": "modifier: require(msg.sender != manager)"
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "id": "isManager",
+      "is_core": true,
+      "description": "modifier: require(msg.sender == manager)"
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "id": "isNotInList",
+      "is_core": true,
+      "description": "modifier: loops over players but always compares against players[0] - broken duplicate-entry check"
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "id": "validValue",
+      "is_core": true,
+      "description": "modifier: require(msg.value == .01 ether)"
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "id": "isAnyPlayers",
+      "is_core": true,
+      "description": "modifier: require(players.length > 0)"
+    },
+    {
+      "node_id": 13,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "is_core": true,
+      "description": "caller-controlled address; used as manager, as player entry and in every access-control modifier"
+    },
+    {
+      "node_id": 14,
+      "type": "untrusted_input",
+      "id": "block.timestamp",
+      "is_core": true,
+      "description": "now, used as a seed component of random(); miner/validator influenceable"
+    },
+    {
+      "node_id": 15,
+      "type": "unsafe_operation",
+      "id": "transfer_to_winner",
+      "is_core": true,
+      "description": "players[index].transfer(this.balance - share) - external value transfer to an attacker-influenced address before state cleanup"
+    },
+    {
+      "node_id": 16,
+      "type": "unsafe_operation",
+      "id": "transfer_to_manager",
+      "is_core": true,
+      "description": "manager.transfer(share) - second external value transfer of 20% of the pot"
+    },
+    {
+      "node_id": 17,
+      "type": "unsafe_operation",
+      "id": "weak_randomness",
+      "is_core": true,
+      "description": "keccak256(block.difficulty, now, players) % players.length - manipulable randomness used to select the winner"
+    },
+    {
+      "node_id": 18,
+      "type": "unsafe_operation",
+      "id": "share_arithmetic",
+      "is_core": true,
+      "description": "share = (this.balance) * 20 / 100 - multiplication on balance without SafeMath in solc 0.4.17"
+    },
+    {
+      "node_id": 19,
+      "type": "local_var",
+      "id": "index",
+      "is_core": false,
+      "description": "uint index = random(); local index into players"
+    },
+    {
+      "node_id": 20,
+      "type": "local_var",
+      "id": "share",
+      "is_core": false,
+      "description": "uint share = this.balance * 20 / 100; local amount paid to manager"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "constructor assigns manager = msg.sender, making the caller permanently privileged",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 0
+    },
+    {
+      "reason": "enter() pushes msg.sender into the players array",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 2
+    },
+    {
+      "reason": "isNotManager gates execution on msg.sender != manager",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 13,
+      "to_id": 8
+    },
+    {
+      "reason": "isManager gates pickWinner on msg.sender == manager",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 13,
+      "to_id": 9
+    },
+    {
+      "reason": "isNotInList attempts (incorrectly) to check msg.sender against the players list",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 13,
+      "to_id": 10
+    },
+    {
+      "reason": "enter() is guarded by the isNotManager modifier",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 4,
+      "to_id": 8
+    },
+    {
+      "reason": "enter() is guarded by the isNotInList modifier",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 4,
+      "to_id": 10
+    },
+    {
+      "reason": "enter() is guarded by the validValue modifier (exact 0.01 ether)",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 4,
+      "to_id": 11
+    },
+    {
+      "reason": "pickWinner() is guarded by the isManager modifier",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 5,
+      "to_id": 9
+    },
+    {
+      "reason": "pickWinner() is guarded by the isAnyPlayers modifier",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 5,
+      "to_id": 12
+    },
+    {
+      "reason": "random() seeds the hash with now, so the result depends on block.timestamp",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 7
+    },
+    {
+      "reason": "weak randomness is directly derived from block.timestamp and block.difficulty",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 17
+    },
+    {
+      "reason": "random() hashes the players array and takes modulo players.length",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 7
+    },
+    {
+      "reason": "pickWinner() calls random() to obtain the winning index",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 5,
+      "to_id": 7
+    },
+    {
+      "reason": "the manipulable random value becomes the local index",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 19
+    },
+    {
+      "reason": "index = random() stores the pseudo-random result",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 19
+    },
+    {
+      "reason": "winner is selected with an index derived from timestamp-dependent randomness, allowing winner manipulation",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 19,
+      "to_id": 1
+    },
+    {
+      "reason": "winner = players[index] reads the players array",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 1
+    },
+    {
+      "reason": "transfer recipient players[index] comes from the players array",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 15
+    },
+    {
+      "reason": "manager.transfer(share) sends value to the manager state variable",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 16
+    },
+    {
+      "reason": "the transferred amount this.balance - share is computed with unchecked multiplication/division",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 15
+    },
+    {
+      "reason": "pickWinner() computes share = this.balance * 20 / 100 without SafeMath",
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "from_id": 5,
+      "to_id": 18
+    },
+    {
+      "reason": "pickWinner() performs the external transfer to the winner",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 5,
+      "to_id": 15
+    },
+    {
+      "reason": "pickWinner() performs the external transfer to the manager",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 5,
+      "to_id": 16
+    },
+    {
+      "reason": "pickWinner() resets players = new address[](0) after the transfers",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 2
+    },
+    {
+      "reason": "entryPlayers() returns the players array",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 2
+    },
+    {
+      "reason": "external transfer to the winner can re-enter enter() before state is cleared",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 15,
+      "to_id": 4
+    },
+    {
+      "reason": "value transfer to an attacker-controlled winner occurs before players is reset and before winner commits, enabling re-entrant draw",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 15,
+      "to_id": 5
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "local index carries no independent behaviour; it only materialises the value returned by random(), so it folds into the random() core function",
+      "merge_into": "random",
+      "normal_node": "index"
+    },
+    {
+      "reason": "local share is only an intermediate value consumed by pickWinner()'s transfers and has no independent behaviour, so it folds into the pickWinner core function",
+      "merge_into": "pickWinner",
+      "normal_node": "share"
+    }
+  ]
+}

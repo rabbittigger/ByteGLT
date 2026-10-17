@@ -1,0 +1,378 @@
+{
+  "nodes": [
+    {
+      "id": "func_initialize",
+      "description": "initialize(address,address) onlyInit; stores input/output token managers",
+      "type": "function",
+      "node_id": 0,
+      "is_core": true
+    },
+    {
+      "id": "func_setVestingWindowMerkleRoot",
+      "description": "setVestingWindowMerkleRoot(bytes32) auth-guarded root setter",
+      "type": "function",
+      "node_id": 1,
+      "is_core": true
+    },
+    {
+      "id": "func_migrateVested",
+      "description": "migrateVested(...) external; verifies merkle proof, computes vested amount, burns input and mints output tokens",
+      "type": "function",
+      "node_id": 2,
+      "is_core": true
+    },
+    {
+      "id": "func_calcVestedAmount",
+      "description": "calcVestedAmount(uint256,uint256,uint256,uint256) view; time-based vesting interpolation with division",
+      "type": "function",
+      "node_id": 3,
+      "is_core": true
+    },
+    {
+      "id": "state_vestingWindowsMerkleRoot",
+      "description": "bytes32 public vestingWindowsMerkleRoot",
+      "type": "state_var",
+      "node_id": 4,
+      "is_core": true
+    },
+    {
+      "id": "state_amountMigratedFromWindow",
+      "description": "mapping(bytes32=>uint256) public amountMigratedFromWindow",
+      "type": "state_var",
+      "node_id": 5,
+      "is_core": true
+    },
+    {
+      "id": "state_inputTokenManager",
+      "description": "ITokenManager public inputTokenManager",
+      "type": "state_var",
+      "node_id": 6,
+      "is_core": true
+    },
+    {
+      "id": "state_outputTokenManager",
+      "description": "ITokenManager public outputTokenManager",
+      "type": "state_var",
+      "node_id": 7,
+      "is_core": true
+    },
+    {
+      "id": "untrusted_msg_sender",
+      "description": "msg.sender used as migrator identity and burn target",
+      "type": "untrusted_input",
+      "node_id": 8,
+      "is_core": true
+    },
+    {
+      "id": "untrusted_block_timestamp",
+      "description": "block.timestamp used as current time in vesting calculation",
+      "type": "untrusted_input",
+      "node_id": 9,
+      "is_core": true
+    },
+    {
+      "id": "unsafe_input_token_burn",
+      "description": "inputTokenManager.burn(msg.sender, migrateAmount) external call",
+      "type": "unsafe_operation",
+      "node_id": 10,
+      "is_core": true
+    },
+    {
+      "id": "unsafe_output_token_mint",
+      "description": "outputTokenManager.mint(_receiver, migrateAmount) external call",
+      "type": "unsafe_operation",
+      "node_id": 11,
+      "is_core": true
+    },
+    {
+      "id": "unsafe_amount_migrated_add",
+      "description": "amountMigratedFromWindow[leaf].add(migrateAmount) accumulation of migrated amount",
+      "type": "unsafe_operation",
+      "node_id": 12,
+      "is_core": true
+    },
+    {
+      "id": "unsafe_calc_division",
+      "description": "_amount.mul(_time.sub(_vestingStart)) / _vestingEnd.sub(_vestingStart) division in calcVestedAmount",
+      "type": "unsafe_operation",
+      "node_id": 13,
+      "is_core": true
+    },
+    {
+      "id": "param_receiver",
+      "description": "address _receiver of migrateVested",
+      "type": "parameter",
+      "node_id": 14,
+      "is_core": false
+    },
+    {
+      "id": "param_amount",
+      "description": "uint256 _amount of migrateVested",
+      "type": "parameter",
+      "node_id": 15,
+      "is_core": false
+    },
+    {
+      "id": "param_windowAmount",
+      "description": "uint256 _windowAmount of migrateVested",
+      "type": "parameter",
+      "node_id": 16,
+      "is_core": false
+    },
+    {
+      "id": "param_windowVestingStart",
+      "description": "uint256 _windowVestingStart of migrateVested",
+      "type": "parameter",
+      "node_id": 17,
+      "is_core": false
+    },
+    {
+      "id": "param_windowVestingEnd",
+      "description": "uint256 _windowVestingEnd of migrateVested",
+      "type": "parameter",
+      "node_id": 18,
+      "is_core": false
+    },
+    {
+      "id": "param_proof",
+      "description": "bytes32[] _proof merkle proof of migrateVested",
+      "type": "parameter",
+      "node_id": 19,
+      "is_core": false
+    },
+    {
+      "id": "param_root",
+      "description": "bytes32 _root of setVestingWindowMerkleRoot",
+      "type": "parameter",
+      "node_id": 20,
+      "is_core": false
+    },
+    {
+      "id": "local_leaf",
+      "description": "bytes32 leaf = keccak256(msg.sender, window params) used as migration key",
+      "type": "local_var",
+      "node_id": 21,
+      "is_core": false
+    },
+    {
+      "id": "local_migrateAmount",
+      "description": "uint256 migrateAmount computed as min(_amount, vested - already migrated)",
+      "type": "local_var",
+      "node_id": 22,
+      "is_core": false
+    },
+    {
+      "id": "param_inputTokenManager",
+      "description": "address _inputTokenManager of initialize",
+      "type": "parameter",
+      "node_id": 23,
+      "is_core": false
+    },
+    {
+      "id": "param_outputTokenManager",
+      "description": "address _outputTokenManager of initialize",
+      "type": "parameter",
+      "node_id": 24,
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "reason": "msg.sender determines who is burned and the leaf identity in migrateVested",
+      "to_id": 2,
+      "from_id": 8,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "dataflow",
+      "reason": "msg.sender is hashed into the local leaf variable",
+      "to_id": 21,
+      "from_id": 8,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "msg.sender is passed as the burn target to inputTokenManager",
+      "to_id": 10,
+      "from_id": 8,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "block.timestamp feeds the vesting interpolation time parameter",
+      "to_id": 3,
+      "from_id": 9,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "dataflow",
+      "reason": "block.timestamp drives the subtraction finalizing the vested ratio",
+      "to_id": 13,
+      "from_id": 9,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "type": "controlflow",
+      "reason": "migrateVested invokes calcVestedAmount to compute vested tokens",
+      "to_id": 3,
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "type": "controlflow",
+      "reason": "migrateVested performs external burn call on input token manager",
+      "to_id": 10,
+      "from_id": 2,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "controlflow",
+      "reason": "migrateVested performs external mint call on output token manager",
+      "to_id": 11,
+      "from_id": 2,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "callback",
+      "reason": "external burn call can re-enter migrateVested",
+      "to_id": 2,
+      "from_id": 10,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "callback",
+      "reason": "external mint call can re-enter migrateVested",
+      "to_id": 2,
+      "from_id": 11,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "dataflow",
+      "reason": "amountMigratedFromWindow accumulator updated via SafeMath add",
+      "to_id": 12,
+      "from_id": 5,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "type": "controlflow",
+      "reason": "accumulated migrated amount determines the burn quantity passed to external call",
+      "to_id": 10,
+      "from_id": 12,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "type": "controlflow",
+      "reason": "division expression executes inside calcVestedAmount",
+      "to_id": 13,
+      "from_id": 3,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "type": "dataflow",
+      "reason": "_amount bounds the computed migrateAmount",
+      "to_id": 22,
+      "from_id": 15,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "vestingWindowsMerkleRoot is consumed by merkle verification in migrateVested",
+      "to_id": 2,
+      "from_id": 4,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "controlflow",
+      "reason": "setVestingWindowMerkleRoot writes the merkle root state variable",
+      "to_id": 4,
+      "from_id": 1,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "dataflow",
+      "reason": "_inputTokenManager parameter assigned to inputTokenManager state",
+      "to_id": 6,
+      "from_id": 23,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "_outputTokenManager parameter assigned to outputTokenManager state",
+      "to_id": 7,
+      "from_id": 24,
+      "vuln_type": "none"
+    },
+    {
+      "type": "controlflow",
+      "reason": "initialize sets the input token manager without access control beyond onlyInit",
+      "to_id": 6,
+      "from_id": 0,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "controlflow",
+      "reason": "initialize sets the output token manager without access control beyond onlyInit",
+      "to_id": 7,
+      "from_id": 0,
+      "vuln_type": "access_control"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "_receiver is only consumed as the destination of the output token mint",
+      "normal_node": "param_receiver",
+      "merge_into": "unsafe_output_token_mint"
+    },
+    {
+      "reason": "_amount is a scalar input bounding the migration computation",
+      "normal_node": "param_amount",
+      "merge_into": "func_migrateVested"
+    },
+    {
+      "reason": "_windowAmount is only used to build the leaf and cap the vesting",
+      "normal_node": "param_windowAmount",
+      "merge_into": "func_migrateVested"
+    },
+    {
+      "reason": "_windowVestingStart is a time input to the vesting calculation",
+      "normal_node": "param_windowVestingStart",
+      "merge_into": "func_calcVestedAmount"
+    },
+    {
+      "reason": "_windowVestingEnd is a time input to the vesting calculation",
+      "normal_node": "param_windowVestingEnd",
+      "merge_into": "func_calcVestedAmount"
+    },
+    {
+      "reason": "_proof is only consumed by merkle verification inside migrateVested",
+      "normal_node": "param_proof",
+      "merge_into": "func_migrateVested"
+    },
+    {
+      "reason": "_root is the sole argument written by the root setter",
+      "normal_node": "param_root",
+      "merge_into": "func_setVestingWindowMerkleRoot"
+    },
+    {
+      "reason": "leaf is a derived local key used for the migration bookkeeping in migrateVested",
+      "normal_node": "local_leaf",
+      "merge_into": "func_migrateVested"
+    },
+    {
+      "reason": "migrateAmount is the value accumulated into amountMigratedFromWindow",
+      "normal_node": "local_migrateAmount",
+      "merge_into": "unsafe_amount_migrated_add"
+    },
+    {
+      "reason": "_inputTokenManager is stored and later invoked for the burn call",
+      "normal_node": "param_inputTokenManager",
+      "merge_into": "unsafe_input_token_burn"
+    },
+    {
+      "reason": "_outputTokenManager is stored and later invoked for the mint call",
+      "normal_node": "param_outputTokenManager",
+      "merge_into": "unsafe_output_token_mint"
+    }
+  ]
+}

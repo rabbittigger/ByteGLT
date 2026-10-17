@@ -1,0 +1,315 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Address of the oneToken owner authorized to change the oracle interval.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "owner"
+    },
+    {
+      "type": "state_var",
+      "description": "Chainlink AggregatorV3 spot price oracle address used for the spot price.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "spotOracle"
+    },
+    {
+      "type": "state_var",
+      "description": "Decimals reported by the chainlink spot oracle, used for scaling.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "spotOracle_decimals"
+    },
+    {
+      "type": "state_var",
+      "description": "Desired output decimals of the oracle price result.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "outputDecimals"
+    },
+    {
+      "type": "state_var",
+      "description": "Stored update period set by owner via changeInterval (interface requirement).",
+      "is_core": true,
+      "node_id": 4,
+      "id": "PERIOD"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping of pair index to UniswapPair struct holding TWAP accumulators, averages and timestamps.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "pairs"
+    },
+    {
+      "type": "state_var",
+      "description": "Constant 1 hour TWAP window used when initialising the pair structs.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "HOURLY"
+    },
+    {
+      "type": "function",
+      "description": "External function allowing only the owner to set the PERIOD state variable.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "changeInterval"
+    },
+    {
+      "type": "function",
+      "description": "External function that loops over the two pairs, fetches cumulative prices and refreshes TWAP averages.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "update"
+    },
+    {
+      "type": "function",
+      "description": "Internal view function converting an amountIn to a price using the stored pair averages.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "consult"
+    },
+    {
+      "type": "function",
+      "description": "Public view function computing the pWING/USDC TWAP price via two consult calls.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "getHourlyPrice"
+    },
+    {
+      "type": "function",
+      "description": "Public view function reading the chainlink latestRoundData and scaling to output decimals.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "getSpotPrice"
+    },
+    {
+      "type": "function",
+      "description": "Public view function returning the lower of the hourly TWAP price and the chainlink spot price.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "getLatestPrice"
+    },
+    {
+      "type": "function",
+      "description": "Constructor initialising pair structs, token addresses, owner and decimals.",
+      "is_core": true,
+      "node_id": 13,
+      "id": "constructor"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller address used as the authorization check in changeInterval.",
+      "is_core": true,
+      "node_id": 14,
+      "id": "msg.sender_input"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Block timestamp consumed when computing time elapsed for the TWAP update.",
+      "is_core": true,
+      "node_id": 15,
+      "id": "block.timestamp_input"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External call to UniswapV2OracleLibrary/pair contract inside update that pulls cumulative price data.",
+      "is_core": true,
+      "node_id": 16,
+      "id": "currentCumulativePrices_call"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External call to the chainlink aggregator latestRoundData inside getSpotPrice.",
+      "is_core": true,
+      "node_id": 17,
+      "id": "latestRoundData_call"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Unchecked uint32 subtraction of last stored blockTimestamp from the current one where overflow is intended.",
+      "is_core": true,
+      "node_id": 18,
+      "id": "timestamp_subtraction"
+    },
+    {
+      "type": "parameter",
+      "description": "Parameter of changeInterval carrying the new period value.",
+      "is_core": false,
+      "node_id": 19,
+      "id": "period_"
+    },
+    {
+      "type": "local_var",
+      "description": "Local variable in update holding the elapsed seconds since the last TWAP update.",
+      "is_core": false,
+      "node_id": 20,
+      "id": "timeElapsed"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "controlflow",
+      "reason": "msg.sender is compared against owner to gate changeInterval, so the caller controls whether the state-changing function executes.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "The period_ parameter provided by the owner flows directly into the PERIOD state variable.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "update derives timeElapsed from the miner-influenceable block.timestamp, making the TWAP refresh timestamp dependent.",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "block.timestamp based blockTimestamp is subtracted from the stored blockTimestampLast, an unchecked uint32 subtraction where wrap-around is intended.",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "The uint32 subtraction result feeds the update branch condition and average computation inside update.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "update calls the external currentCumulativePrices library routine to obtain cumulative prices.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "Externally fetched cumulative prices are written back into the pairs mapping state.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "update writes refreshed price averages and timestamps into the pairs mapping.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "timeElapsed local variable is computed and consumed inside the update loop.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "consult reads the stored price averages from the pairs mapping.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "controlflow",
+      "reason": "getHourlyPrice invokes consult for both pair types.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "The spotOracle state variable is used as the target of the chainlink read.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "getSpotPrice performs the external latestRoundData call on the chainlink aggregator.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "spotOracle_decimals controls the scaling arithmetic applied to the spot price result.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "outputDecimals controls the scaling arithmetic applied to the spot price result.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "controlflow",
+      "reason": "getLatestPrice calls getHourlyPrice to obtain the TWAP price.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "getLatestPrice calls getSpotPrice to obtain the chainlink spot price.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "getHourlyPrice uses pair data indirectly through consult to build the TWAP price.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "changeInterval writes the owner-supplied period into PERIOD, the privileged state modification.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "The owner state variable is read as the authorization authority in changeInterval.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "The constructor sets the owner state variable from the oneToken argument.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "The constructor initialises the pairs mapping entries for both Uniswap pairs.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "HOURLY constant is used as the PERIOD field of each initialised pair struct.",
+      "from_id": 6
+    }
+  ],
+  "normalization_plan": []
+}

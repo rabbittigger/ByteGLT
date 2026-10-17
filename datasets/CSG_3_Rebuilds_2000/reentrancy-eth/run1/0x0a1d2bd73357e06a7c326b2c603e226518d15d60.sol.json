@@ -1,0 +1,521 @@
+{
+  "nodes": [
+    {
+      "description": "Public owner address; controls minting, whitelist/blacklist and safeOwner changes.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "_owner"
+    },
+    {
+      "description": "Secondary privileged address that can be reassigned by owner and bypasses transfer restrictions.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "_safeOwner"
+    },
+    {
+      "description": "Threshold amount set when owner self-transfers; used to gate whether other senders may transfer.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 2,
+      "id": "_sellAmount"
+    },
+    {
+      "description": "Whitelist mapping that exempts addresses from transfer restrictions.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 3,
+      "id": "_whiteAddress"
+    },
+    {
+      "description": "Blacklist mapping that blocks addresses from transferring unless they are safeOwner or recipient is the uniswap router.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 4,
+      "id": "_blackAddress"
+    },
+    {
+      "description": "Internal token balance ledger keyed by address.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 5,
+      "id": "_balances"
+    },
+    {
+      "description": "Total token supply, increased by _mint and decreased by _burn.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 6,
+      "id": "_totalSupply"
+    },
+    {
+      "description": "Caller-controlled origin of the transaction; compared against _owner for privileged functions.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 7,
+      "id": "msg.sender"
+    },
+    {
+      "description": "Public ERC20 transfer; routes through _approveCheck with _msgSender as sender.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 8,
+      "id": "transfer"
+    },
+    {
+      "description": "Owner-only batched transfer that also whitelists receivers and approves the uniswap router.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 9,
+      "id": "multiTransfer"
+    },
+    {
+      "description": "Public allowance-based transfer; applies _approveCheck and decrements allowance.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 10,
+      "id": "transferFrom"
+    },
+    {
+      "description": "Internal unchecked transfer helper updating _balances.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 11,
+      "id": "_transfer"
+    },
+    {
+      "description": "Public mint guarded by msg.sender == _owner; inflates supply and owner balance.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 12,
+      "id": "_mint"
+    },
+    {
+      "description": "Restricted transfer path guarded by the burnTokenCheck modifier.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 13,
+      "id": "_approveCheck"
+    },
+    {
+      "description": "Modifier implementing whitelist/blacklist/sellAmount transfer gating and blacklisting senders.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 14,
+      "id": "burnTokenCheck"
+    },
+    {
+      "description": "Internal allowance setter updating _allowances.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 15,
+      "id": "_approve"
+    },
+    {
+      "description": "Owner-only function that whitelists an array of receivers.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 16,
+      "id": "increaseAllowance"
+    },
+    {
+      "description": "Owner-only function that reassigns the _safeOwner privileged address.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 17,
+      "id": "decreaseAllowance"
+    },
+    {
+      "description": "Owner-only function that blacklists an array of receivers.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 18,
+      "id": "addApprove"
+    },
+    {
+      "description": "Silent blacklist/whitelist state mutation triggered inside the transfer path.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 19,
+      "id": "blacklist_mutation"
+    },
+    {
+      "description": "Comparison amount < _sellAmount that can block or allow transfers and blacklist senders.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 20,
+      "id": "sellAmount_gate"
+    },
+    {
+      "description": "sender address parameter of burnTokenCheck/_approveCheck/_transfer.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 21,
+      "id": "sender_param"
+    },
+    {
+      "description": "recipient address parameter of burnTokenCheck/_approveCheck/_transfer.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 22,
+      "id": "recipient_param"
+    },
+    {
+      "description": "uint256 amount parameter compared against _sellAmount and applied to balances.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 23,
+      "id": "amount_param"
+    },
+    {
+      "description": "address[] array parameter of multiTransfer/increaseAllowance/addApprove.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 24,
+      "id": "receivers_param"
+    },
+    {
+      "description": "address parameter assigned to _safeOwner by decreaseAllowance.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 25,
+      "id": "safeOwner_param"
+    },
+    {
+      "description": "Loop counter i used in multiTransfer, increaseAllowance and addApprove.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 26,
+      "id": "loop_i"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is passed as sender into transfer via _msgSender for _approveCheck.",
+      "from_id": 7,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "multiTransfer is gated by require(msg.sender == _owner).",
+      "from_id": 7,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 9
+    },
+    {
+      "reason": "msg.sender determines the allowance owner checked and decremented in transferFrom.",
+      "from_id": 7,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 10
+    },
+    {
+      "reason": "_mint is gated by require(msg.sender == _owner) allowing arbitrary supply inflation by owner.",
+      "from_id": 7,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 12
+    },
+    {
+      "reason": "increaseAllowance is gated by require(msg.sender == _owner).",
+      "from_id": 7,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 16
+    },
+    {
+      "reason": "decreaseAllowance is gated by require(msg.sender == _owner).",
+      "from_id": 7,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 17
+    },
+    {
+      "reason": "addApprove is gated by require(msg.sender == _owner).",
+      "from_id": 7,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 18
+    },
+    {
+      "reason": "_owner is compared with msg.sender to authorise multiTransfer.",
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 9
+    },
+    {
+      "reason": "_owner is both the authorisation subject and the balance credited in _mint.",
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "_owner participates in every branch of the burnTokenCheck gating logic.",
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 14
+    },
+    {
+      "reason": "_owner is compared with msg.sender to authorise increaseAllowance.",
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 16
+    },
+    {
+      "reason": "_owner is compared with msg.sender to authorise decreaseAllowance.",
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 17
+    },
+    {
+      "reason": "_owner is compared with msg.sender to authorise addApprove.",
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 18
+    },
+    {
+      "reason": "_safeOwner exempts senders from restriction and can be reset by owner-self transfers.",
+      "from_id": 1,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 14
+    },
+    {
+      "reason": "_sellAmount is compared with amount to decide whether to allow or blacklist the transfer.",
+      "from_id": 2,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 14
+    },
+    {
+      "reason": "_whiteAddress[sender] short-circuits the transfer restriction check.",
+      "from_id": 3,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 14
+    },
+    {
+      "reason": "_blackAddress[sender] enforces the router/safeOwner exemption requirement.",
+      "from_id": 4,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 14
+    },
+    {
+      "reason": "multiTransfer invokes transfer for each receiver, amplifying owner privileges.",
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 8
+    },
+    {
+      "reason": "multiTransfer whitelists receivers and approves the uniswap router for max uint256.",
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 15
+    },
+    {
+      "reason": "transfer delegates the balance movement to _approveCheck.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 13
+    },
+    {
+      "reason": "transferFrom delegates the balance movement to _approveCheck.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 13
+    },
+    {
+      "reason": "transferFrom decrements allowance through _approve.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 15
+    },
+    {
+      "reason": "burnTokenCheck modifier wraps the body of _approveCheck.",
+      "from_id": 14,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 13
+    },
+    {
+      "reason": "burnTokenCheck mutates _blackAddress and _whiteAddress to silently blacklist senders.",
+      "from_id": 14,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 19
+    },
+    {
+      "reason": "burnTokenCheck applies the amount < _sellAmount gate before allowing transfer.",
+      "from_id": 14,
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "to_id": 20
+    },
+    {
+      "reason": "decreaseAllowance writes the caller-supplied address into _safeOwner, transferring privileges.",
+      "from_id": 17,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "increaseAllowance sets _whiteAddress[receivers[i]] to true.",
+      "from_id": 16,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "increaseAllowance clears _blackAddress[receivers[i]].",
+      "from_id": 16,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "addApprove sets _blackAddress[receivers[i]] to true.",
+      "from_id": 18,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "addApprove clears _whiteAddress[receivers[i]].",
+      "from_id": 18,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "_approveCheck subtracts from sender and adds to recipient balances using SafeMath.",
+      "from_id": 13,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "_transfer updates both sides of _balances with sub and add.",
+      "from_id": 11,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "_mint adds amount to _totalSupply.",
+      "from_id": 12,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "_mint credits amount to _balances[_owner].",
+      "from_id": 12,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "sender parameter drives every branch and blacklist decision of burnTokenCheck.",
+      "from_id": 21,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 14
+    },
+    {
+      "reason": "recipient parameter is compared against _owner, _safeOwner and _unirouter.",
+      "from_id": 22,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 14
+    },
+    {
+      "reason": "amount parameter is compared against _sellAmount in the burnTokenCheck gate.",
+      "from_id": 23,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 14
+    },
+    {
+      "reason": "receivers array is iterated by multiTransfer to distribute tokens.",
+      "from_id": 24,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 9
+    },
+    {
+      "reason": "receivers array is iterated by increaseAllowance to whitelist addresses.",
+      "from_id": 24,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 16
+    },
+    {
+      "reason": "receivers array is iterated by addApprove to blacklist addresses.",
+      "from_id": 24,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 18
+    },
+    {
+      "reason": "safeOwner parameter is stored directly into the privileged _safeOwner variable.",
+      "from_id": 25,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 17
+    },
+    {
+      "reason": "loop counter i indexes receivers and approvecount in multiTransfer.",
+      "from_id": 26,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 9
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "sender parameter is only meaningful as input to the burnTokenCheck gating modifier and should be folded into it.",
+      "normal_node": "sender_param",
+      "merge_into": "burnTokenCheck"
+    },
+    {
+      "reason": "recipient parameter is only used inside the burnTokenCheck restriction logic and should be folded into it.",
+      "normal_node": "recipient_param",
+      "merge_into": "burnTokenCheck"
+    },
+    {
+      "reason": "amount parameter is consumed solely by the burnTokenCheck sellAmount comparison and should be folded into it.",
+      "normal_node": "amount_param",
+      "merge_into": "burnTokenCheck"
+    },
+    {
+      "reason": "receivers array parameter is the batch input of multiTransfer and its whitelist/blacklist loops.",
+      "normal_node": "receivers_param",
+      "merge_into": "multiTransfer"
+    },
+    {
+      "reason": "safeOwner parameter is written straight into _safeOwner by decreaseAllowance and has no other use.",
+      "normal_node": "safeOwner_param",
+      "merge_into": "decreaseAllowance"
+    },
+    {
+      "reason": "local loop counter i is an iteration detail of multiTransfer and should be absorbed into it.",
+      "normal_node": "loop_i",
+      "merge_into": "multiTransfer"
+    }
+  ]
+}

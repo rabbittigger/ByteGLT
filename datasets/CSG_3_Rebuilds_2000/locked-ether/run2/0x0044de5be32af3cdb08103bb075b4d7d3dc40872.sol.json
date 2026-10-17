@@ -1,0 +1,221 @@
+{
+  "nodes": [
+    {
+      "id": "token",
+      "description": "ERC20Basic public token contract being held by the lockup; target of external transfer calls.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "beneficiary",
+      "description": "Address that receives released tokens; set in constructor.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "releaseTime",
+      "description": "Timestamp after which full balance becomes unlocked; derived from block.timestamp in constructor.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "state_var"
+    },
+    {
+      "id": "unlocked",
+      "description": "Amount of tokens currently withdrawable; updated by div, sub and balance assignment in release.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "state_var"
+    },
+    {
+      "id": "withdrawalsInitiated",
+      "description": "Boolean guard ensuring the 50% partial unlock is only set once.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "state_var"
+    },
+    {
+      "id": "year",
+      "description": "Constant duration of 365 days used to compute the release time.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "state_var"
+    },
+    {
+      "id": "constructor",
+      "description": "Initializes token, beneficiary and releaseTime from block.timestamp.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "function"
+    },
+    {
+      "id": "release",
+      "description": "Public release function; computes unlocked amount, validates _amount and performs external token transfer.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "function"
+    },
+    {
+      "id": "balanceOf",
+      "description": "External view returning the token balance held by this contract.",
+      "is_core": true,
+      "node_id": 8,
+      "type": "function"
+    },
+    {
+      "id": "currentTime",
+      "description": "External view returning block.timestamp (now).",
+      "is_core": true,
+      "node_id": 9,
+      "type": "function"
+    },
+    {
+      "id": "block_timestamp",
+      "description": "block.timestamp (now) used for release timing logic and returned by currentTime.",
+      "is_core": true,
+      "node_id": 10,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "token_safeTransfer",
+      "description": "External call token.safeTransfer(beneficiary, _amount) via SafeERC20; state is written before the transfer.",
+      "is_core": true,
+      "node_id": 11,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unlocked_sub",
+      "description": "SafeMath sub on unlocked; arithmetic state update that can revert on underflow.",
+      "is_core": true,
+      "node_id": 12,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "balance_div",
+      "description": "SafeMath div of the current balance by 2 used to compute the 50% partial unlock.",
+      "is_core": true,
+      "node_id": 13,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "_amount",
+      "description": "Caller-supplied amount requested for release; must be <= unlocked.",
+      "is_core": false,
+      "node_id": 14,
+      "type": "parameter"
+    },
+    {
+      "id": "balance",
+      "description": "Local copy of token.balanceOf(address(this)) read at the start of release.",
+      "is_core": false,
+      "node_id": 15,
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor computes releaseTime = now + year, making the unlock schedule dependent on block.timestamp.",
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "from_id": 10,
+      "type": "dataflow"
+    },
+    {
+      "reason": "release branches on the condition now >= releaseTime to unlock the full balance, creating timestamp dependency.",
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "from_id": 10,
+      "type": "controlflow"
+    },
+    {
+      "reason": "currentTime directly returns block.timestamp (now), exposing the timestamp dependency to callers.",
+      "to_id": 9,
+      "vuln_type": "access_control",
+      "from_id": 10,
+      "type": "controlflow"
+    },
+    {
+      "reason": "_amount parameter flows into release and is checked with require(_amount <= unlocked).",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 14,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_amount is passed as the subtrahend to unlocked.sub(_amount), driving the arithmetic state update.",
+      "to_id": 12,
+      "vuln_type": "arithmetic",
+      "from_id": 14,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Local balance is divided by 2 via SafeMath div to compute the partial unlock amount.",
+      "to_id": 13,
+      "vuln_type": "arithmetic",
+      "from_id": 15,
+      "type": "dataflow"
+    },
+    {
+      "reason": "release performs an external token transfer to beneficiary after updating state; the untrusted token contract can re-enter.",
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "from_id": 7,
+      "type": "callback"
+    },
+    {
+      "reason": "The token state variable is the contract on which safeTransfer is invoked.",
+      "to_id": 11,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The beneficiary state variable is the recipient of the safeTransfer call.",
+      "to_id": 11,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "release invokes unlocked.sub(_amount) to decrement the unlocked balance.",
+      "to_id": 12,
+      "vuln_type": "arithmetic",
+      "from_id": 7,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The result of unlocked.sub(_amount) is written back into the unlocked state variable.",
+      "to_id": 3,
+      "vuln_type": "arithmetic",
+      "from_id": 12,
+      "type": "dataflow"
+    },
+    {
+      "reason": "release reads unlocked to validate _amount and to decide when to reset it to the full balance.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "release invokes balance.div(2) during the first-withdrawal branch.",
+      "to_id": 13,
+      "vuln_type": "arithmetic",
+      "from_id": 7,
+      "type": "controlflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "_amount is only used inside release and is merged into the release function node.",
+      "normal_node": "_amount",
+      "merge_into": "release"
+    },
+    {
+      "reason": "The local balance variable is only used inside release and is merged into the release function node.",
+      "normal_node": "balance",
+      "merge_into": "release"
+    }
+  ]
+}

@@ -1,0 +1,927 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "WAD = 10 ** 18 scaling constant used for bid increase comparison in findAuctions.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "const_WAD"
+    },
+    {
+      "type": "state_var",
+      "description": "RAY = 10 ** 27 scaling constant used to convert internal vat DAI to ERC20 DAI in extractVatDAI.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "const_RAY"
+    },
+    {
+      "type": "state_var",
+      "description": "Immutable owner address of FlapperMassBid; source of MKR and recipient of extracted funds; used in access control checks.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "state_owner"
+    },
+    {
+      "type": "state_var",
+      "description": "Immutable Vow contract; supplies bump() lot size and flapper address.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "state_vow"
+    },
+    {
+      "type": "state_var",
+      "description": "Immutable Flap (surplus auction) contract; used to read bids/beg and to call tend.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "state_flap"
+    },
+    {
+      "type": "state_var",
+      "description": "Immutable DaiJoin contract; used for exit of vat DAI and derivation of dai/vat addresses.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "state_daiJoin"
+    },
+    {
+      "type": "state_var",
+      "description": "Immutable DAI ERC20 token address.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "state_dai"
+    },
+    {
+      "type": "state_var",
+      "description": "Immutable Vat core contract; holds internal DAI balance of this contract.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "state_vat"
+    },
+    {
+      "type": "state_var",
+      "description": "Immutable MKR token used to pay auction bids; approved to flap.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "state_mkr"
+    },
+    {
+      "type": "state_var",
+      "description": "Immutable Vow address stored in FlapperMassBidFactory for cloning.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "state_factory_vow"
+    },
+    {
+      "type": "state_var",
+      "description": "Immutable DaiJoin address stored in FlapperMassBidFactory for cloning.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "state_factory_daiJoin"
+    },
+    {
+      "type": "function",
+      "description": "FlapperMassBid constructor: wires immutable protocol addresses and grants MKR approval plus vat hope.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "func_FlapperMassBid_constructor"
+    },
+    {
+      "type": "function",
+      "description": "View helper scanning flap auctions between indexes and selecting the cheapest bids up to maxAuctionsToBid.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "func_findAuctions"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only entry point: pulls MKR from owner and mass-tends the chosen flap auctions.",
+      "is_core": true,
+      "node_id": 13,
+      "id": "func_execute"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only: exits internal vat DAI to the owner as ERC20 DAI.",
+      "is_core": true,
+      "node_id": 14,
+      "id": "func_extractVatDAI"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only: transfers any MKR held by the contract back to the owner.",
+      "is_core": true,
+      "node_id": 15,
+      "id": "func_extractMKR"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only: transfers any ERC20 DAI held by the contract back to the owner.",
+      "is_core": true,
+      "node_id": 16,
+      "id": "func_extractDAI"
+    },
+    {
+      "type": "function",
+      "description": "Factory constructor storing the shared vow and daiJoin addresses.",
+      "is_core": true,
+      "node_id": 17,
+      "id": "func_FlapperMassBidFactory_constructor"
+    },
+    {
+      "type": "function",
+      "description": "Factory create(): deploys a new FlapperMassBid owned by msg.sender.",
+      "is_core": true,
+      "node_id": 18,
+      "id": "func_create"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "msg.sender: gate for all owner-only functions and the owner of factory-created instances.",
+      "is_core": true,
+      "node_id": 19,
+      "id": "untrusted_msg_sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "block.timestamp: used to filter finished/expired auctions in findAuctions.",
+      "is_core": true,
+      "node_id": 20,
+      "id": "untrusted_block_timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "mkr.transferFrom(owner, this, bid * auctions.length) external token call inside execute.",
+      "is_core": true,
+      "node_id": 21,
+      "id": "op_mkr_transferFrom_execute"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "flap.tend(auction, lot, bid) external call to the auction contract, wrapped in try/catch.",
+      "is_core": true,
+      "node_id": 22,
+      "id": "op_flap_tend_execute"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "mkr.transfer(owner, balance) refund of remaining MKR at the end of execute.",
+      "is_core": true,
+      "node_id": 23,
+      "id": "op_mkr_transfer_execute"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "daiJoin.exit(owner, vat.dai(this)/RAY) external call that converts internal vat DAI to ERC20.",
+      "is_core": true,
+      "node_id": 24,
+      "id": "op_daiJoin_exit_extractVatDAI"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "mkr.transfer(owner, balance) external call in extractMKR.",
+      "is_core": true,
+      "node_id": 25,
+      "id": "op_mkr_transfer_extractMKR"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "dai.transfer(owner, balance) external call in extractDAI.",
+      "is_core": true,
+      "node_id": 26,
+      "id": "op_dai_transfer_extractDAI"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "mkr.approve(flap, uint256 max) external call granting unlimited allowance in the constructor.",
+      "is_core": true,
+      "node_id": 27,
+      "id": "op_mkr_approve_constructor"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "vat.hope(daiJoin) external call granting daiJoin operator rights in the constructor.",
+      "is_core": true,
+      "node_id": 28,
+      "id": "op_vat_hope_constructor"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "new FlapperMassBid(msg.sender, vow, daiJoin) deployment performed by the factory.",
+      "is_core": true,
+      "node_id": 29,
+      "id": "op_new_FlapperMassBid_create"
+    },
+    {
+      "type": "parameter",
+      "description": "Constructor parameter _owner assigned to the immutable owner state variable.",
+      "is_core": false,
+      "node_id": 30,
+      "id": "param_owner"
+    },
+    {
+      "type": "parameter",
+      "description": "Constructor parameter _vow cast to VowAbstract.",
+      "is_core": false,
+      "node_id": 31,
+      "id": "param_vow"
+    },
+    {
+      "type": "parameter",
+      "description": "Constructor parameter _daiJoin cast to DaiJoinAbstract.",
+      "is_core": false,
+      "node_id": 32,
+      "id": "param_daiJoin"
+    },
+    {
+      "type": "parameter",
+      "description": "findAuctions parameter: first flap auction id scanned.",
+      "is_core": false,
+      "node_id": 33,
+      "id": "param_startAuctionIndex"
+    },
+    {
+      "type": "parameter",
+      "description": "findAuctions parameter: last flap auction id scanned.",
+      "is_core": false,
+      "node_id": 34,
+      "id": "param_endAuctionIndex"
+    },
+    {
+      "type": "parameter",
+      "description": "findAuctions parameter: maximum number of auctions to bid on; sizes the candidates array.",
+      "is_core": false,
+      "node_id": 35,
+      "id": "param_maxAuctionsToBid"
+    },
+    {
+      "type": "parameter",
+      "description": "findAuctions parameter: per-auction MKR bid in wads; encoded into the returned data blob.",
+      "is_core": false,
+      "node_id": 36,
+      "id": "param_mkrBidInWads"
+    },
+    {
+      "type": "parameter",
+      "description": "execute parameter: ABI-encoded (bid, auctions[]) blob produced by findAuctions.",
+      "is_core": false,
+      "node_id": 37,
+      "id": "param_data_execute"
+    },
+    {
+      "type": "parameter",
+      "description": "Factory constructor parameter _vow stored as immutable vow.",
+      "is_core": false,
+      "node_id": 38,
+      "id": "param_factory_vow"
+    },
+    {
+      "type": "parameter",
+      "description": "Factory constructor parameter _daiJoin stored as immutable daiJoin.",
+      "is_core": false,
+      "node_id": 39,
+      "id": "param_factory_daiJoin"
+    },
+    {
+      "type": "local_var",
+      "description": "findAuctions local: flap.beg() minimum bid increase factor.",
+      "is_core": false,
+      "node_id": 40,
+      "id": "local_beg"
+    },
+    {
+      "type": "local_var",
+      "description": "findAuctions loop counter over auction indexes and later over candidates.",
+      "is_core": false,
+      "node_id": 41,
+      "id": "local_i_findAuctions"
+    },
+    {
+      "type": "local_var",
+      "description": "findAuctions local: memory array of AuctionCandidate structs holding the cheapest bids.",
+      "is_core": false,
+      "node_id": 42,
+      "id": "local_candidates"
+    },
+    {
+      "type": "local_var",
+      "description": "findAuctions local/return value: number of selected auction candidates.",
+      "is_core": false,
+      "node_id": 43,
+      "id": "local_numAuctions"
+    },
+    {
+      "type": "local_var",
+      "description": "findAuctions local: candidate with the largest bid, the replacement target when the buffer is full.",
+      "is_core": false,
+      "node_id": 44,
+      "id": "local_largestBidCandidate"
+    },
+    {
+      "type": "local_var",
+      "description": "findAuctions inner loop counter scanning candidates for the largest bid.",
+      "is_core": false,
+      "node_id": 45,
+      "id": "local_o"
+    },
+    {
+      "type": "local_var",
+      "description": "findAuctions local: uint256 array of the chosen auction ids.",
+      "is_core": false,
+      "node_id": 46,
+      "id": "local_auctions_findAuctions"
+    },
+    {
+      "type": "local_var",
+      "description": "execute local: bid amount decoded from the data blob and passed to flap.tend.",
+      "is_core": false,
+      "node_id": 47,
+      "id": "local_bid_execute"
+    },
+    {
+      "type": "local_var",
+      "description": "execute local: decoded array of auction ids that are mass-bid.",
+      "is_core": false,
+      "node_id": 48,
+      "id": "local_auctions_execute"
+    },
+    {
+      "type": "local_var",
+      "description": "execute local: lot size read from vow.bump() and used as the tend lot.",
+      "is_core": false,
+      "node_id": 49,
+      "id": "local_lot_execute"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "Constructor parameter _owner is assigned to the immutable owner state variable and later controls all authorization checks.",
+      "from_id": 30
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "Constructor parameter _vow is cast and stored in the vow state variable.",
+      "from_id": 31
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "Constructor parameter _daiJoin is cast and stored in the daiJoin state variable.",
+      "from_id": 32
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "Factory parameter _vow is stored in the factory vow state variable.",
+      "from_id": 38
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "Factory parameter _daiJoin is stored in the factory daiJoin state variable.",
+      "from_id": 39
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "The flap state variable is derived from vow.flapper() in the constructor.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "The dai state variable is derived from daiJoin.dai().",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "The vat state variable is derived from daiJoin.vat().",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "The mkr state variable is derived from flap.gem().",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "The mkr token instance is the receiver of the approve call in the constructor.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "The flap address is the spender granted unlimited allowance by mkr.approve.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 28,
+      "type": "dataflow",
+      "reason": "The vat instance is the receiver of the hope call in the constructor.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 28,
+      "type": "dataflow",
+      "reason": "The daiJoin address is granted operator rights via vat.hope.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 40,
+      "type": "dataflow",
+      "reason": "beg is read from flap.beg() in findAuctions.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 42,
+      "type": "dataflow",
+      "reason": "maxAuctionsToBid sizes the candidates array (new AuctionCandidate[](maxAuctionsToBid)).",
+      "from_id": 35
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 41,
+      "type": "dataflow",
+      "reason": "startAuctionIndex initializes the auction scan counter i.",
+      "from_id": 33
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 41,
+      "type": "dataflow",
+      "reason": "endAuctionIndex bounds the auction scan counter i.",
+      "from_id": 34
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 44,
+      "type": "dataflow",
+      "reason": "Candidate entries are read out of candidates to find the largest bid candidate.",
+      "from_id": 42
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 42,
+      "type": "dataflow",
+      "reason": "The largest bid candidate is written back into the candidates array when replaced.",
+      "from_id": 44
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 46,
+      "type": "dataflow",
+      "reason": "Selected candidate auction ids are copied into the auctions result array.",
+      "from_id": 42
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 46,
+      "type": "dataflow",
+      "reason": "numAuctions determines the length of the auctions result array.",
+      "from_id": 43
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 37,
+      "type": "dataflow",
+      "reason": "mkrBidInWads is ABI-encoded into the data blob returned by findAuctions.",
+      "from_id": 36
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 37,
+      "type": "dataflow",
+      "reason": "The auctions array is ABI-encoded into the data blob returned by findAuctions and later passed to execute.",
+      "from_id": 46
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "The data blob produced by findAuctions is intended to be submitted to execute.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 47,
+      "type": "dataflow",
+      "reason": "The bid amount is decoded from the untrusted data parameter inside execute.",
+      "from_id": 37
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 48,
+      "type": "dataflow",
+      "reason": "The auction id array is decoded from the untrusted data parameter inside execute.",
+      "from_id": 37
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 49,
+      "type": "dataflow",
+      "reason": "lot is read from vow.bump() inside execute.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "The decoded bid is multiplied by auctions.length and passed to mkr.transferFrom.",
+      "from_id": 47
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "auctions.length from untrusted data drives the bid * auctions.length MKR amount pulled from the owner.",
+      "from_id": 48
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "The mkr token instance is the receiver of the transferFrom call in execute.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "The owner address is the MKR source of the transferFrom call in execute.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "lot from vow.bump() is passed as the tend lot argument.",
+      "from_id": 49
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "The decoded bid is passed as the tend bid argument.",
+      "from_id": 47
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "The decoded auction id array supplies the auction identifiers iterated for flap.tend.",
+      "from_id": 48
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "The flap instance is the receiver of the tend calls in execute.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "The mkr instance is the receiver of the residual MKR transfer in execute.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "The owner address is the destination of the residual MKR transfer in execute.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "The daiJoin instance is the receiver of the exit call in extractVatDAI.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "The vat instance supplies the internal DAI balance exited in extractVatDAI.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "The owner address is the recipient of the DAI exit in extractVatDAI.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "dataflow",
+      "reason": "The dai instance is the receiver of the transfer in extractDAI.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "dataflow",
+      "reason": "The owner address is the recipient of the DAI transfer in extractDAI.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "The mkr instance is the receiver of the transfer in extractMKR.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "The owner address is the recipient of the MKR transfer in extractMKR.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "msg.sender is used as the owner argument passed to the newly deployed FlapperMassBid in create.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "execute is gated by require(msg.sender == owner), which authorizes fund movement using the untrusted caller.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 14,
+      "type": "controlflow",
+      "reason": "extractVatDAI is gated by require(msg.sender == owner).",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 15,
+      "type": "controlflow",
+      "reason": "extractMKR is gated by require(msg.sender == owner).",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "controlflow",
+      "reason": "extractDAI is gated by require(msg.sender == owner).",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "findAuctions decisions depend on block.timestamp when filtering finished and expired auctions.",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "controlflow",
+      "reason": "mkr.transferFrom is executed within the execute function body.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "controlflow",
+      "reason": "flap.tend calls are executed within the execute function body.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "controlflow",
+      "reason": "The MKR pull from the owner precedes the loop of flap.tend bids in execute.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "controlflow",
+      "reason": "The residual MKR refund occurs after the flap.tend loop in execute.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 24,
+      "type": "controlflow",
+      "reason": "daiJoin.exit is executed within extractVatDAI.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "controlflow",
+      "reason": "mkr.transfer is executed within extractMKR.",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "controlflow",
+      "reason": "dai.transfer is executed within extractDAI.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "controlflow",
+      "reason": "mkr.approve is called in the FlapperMassBid constructor.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 28,
+      "type": "controlflow",
+      "reason": "vat.hope is called in the FlapperMassBid constructor.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "controlflow",
+      "reason": "create performs the new FlapperMassBid deployment.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "The deployment in create invokes the FlapperMassBid constructor.",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 13,
+      "type": "callback",
+      "reason": "The external MKR transferFrom call transfers control to an attacker-controlled token before bids are settled, allowing reentry into execute.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 13,
+      "type": "callback",
+      "reason": "flap.tend is an external call inside the execute loop and can call back into the contract mid-iteration.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 13,
+      "type": "callback",
+      "reason": "The trailing mkr.transfer refund is an external token call reachable while state from execute is still live.",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 14,
+      "type": "callback",
+      "reason": "daiJoin.exit performs external token/vat interaction during extractVatDAI.",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 15,
+      "type": "callback",
+      "reason": "mkr.transfer performs an external token call during extractMKR.",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 16,
+      "type": "callback",
+      "reason": "dai.transfer performs an external token call during extractDAI.",
+      "from_id": 26
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "func_FlapperMassBid_constructor",
+      "reason": "_owner is only used to initialize the owner immutable, so it normalizes into the constructor.",
+      "normal_node": "param_owner"
+    },
+    {
+      "merge_into": "func_FlapperMassBid_constructor",
+      "reason": "_vow is only used to initialize the vow immutable in the constructor.",
+      "normal_node": "param_vow"
+    },
+    {
+      "merge_into": "func_FlapperMassBid_constructor",
+      "reason": "_daiJoin is only used to initialize the daiJoin immutable in the constructor.",
+      "normal_node": "param_daiJoin"
+    },
+    {
+      "merge_into": "func_findAuctions",
+      "reason": "startAuctionIndex only bounds the scan loop inside findAuctions.",
+      "normal_node": "param_startAuctionIndex"
+    },
+    {
+      "merge_into": "func_findAuctions",
+      "reason": "endAuctionIndex only bounds the scan loop inside findAuctions.",
+      "normal_node": "param_endAuctionIndex"
+    },
+    {
+      "merge_into": "func_findAuctions",
+      "reason": "maxAuctionsToBid only sizes and bounds the candidate buffer in findAuctions.",
+      "normal_node": "param_maxAuctionsToBid"
+    },
+    {
+      "merge_into": "func_findAuctions",
+      "reason": "mkrBidInWads is only used for filtering and encoding the result of findAuctions.",
+      "normal_node": "param_mkrBidInWads"
+    },
+    {
+      "merge_into": "func_execute",
+      "reason": "data is the sole input of execute and is decoded there.",
+      "normal_node": "param_data_execute"
+    },
+    {
+      "merge_into": "func_FlapperMassBidFactory_constructor",
+      "reason": "_vow merely initializes the factory vow immutable.",
+      "normal_node": "param_factory_vow"
+    },
+    {
+      "merge_into": "func_FlapperMassBidFactory_constructor",
+      "reason": "_daiJoin merely initializes the factory daiJoin immutable.",
+      "normal_node": "param_factory_daiJoin"
+    },
+    {
+      "merge_into": "func_findAuctions",
+      "reason": "beg is a short-lived caching local of flap.beg() used only in the findAuctions filter.",
+      "normal_node": "local_beg"
+    },
+    {
+      "merge_into": "func_findAuctions",
+      "reason": "i is a loop counter confined to findAuctions.",
+      "normal_node": "local_i_findAuctions"
+    },
+    {
+      "merge_into": "func_findAuctions",
+      "reason": "candidates is the transient selection buffer of findAuctions.",
+      "normal_node": "local_candidates"
+    },
+    {
+      "merge_into": "func_findAuctions",
+      "reason": "numAuctions tracks the filled candidate slots within findAuctions.",
+      "normal_node": "local_numAuctions"
+    },
+    {
+      "merge_into": "func_findAuctions",
+      "reason": "largestBidCandidate is a temporary structure used for replacement inside findAuctions.",
+      "normal_node": "local_largestBidCandidate"
+    },
+    {
+      "merge_into": "func_findAuctions",
+      "reason": "o is an inner loop counter used only in the findAuctions replacement search.",
+      "normal_node": "local_o"
+    },
+    {
+      "merge_into": "func_findAuctions",
+      "reason": "The auctions array is a temporary aggregation built and encoded in findAuctions.",
+      "normal_node": "local_auctions_findAuctions"
+    },
+    {
+      "merge_into": "op_mkr_transferFrom_execute",
+      "reason": "The decoded bid directly determines the MKR amount moved by mkr.transferFrom in execute.",
+      "normal_node": "local_bid_execute"
+    },
+    {
+      "merge_into": "op_flap_tend_execute",
+      "reason": "The decoded auctions array supplies the ids and count used by the flap.tend loop in execute.",
+      "normal_node": "local_auctions_execute"
+    },
+    {
+      "merge_into": "op_flap_tend_execute",
+      "reason": "lot from vow.bump() is passed straight into flap.tend as the lot argument.",
+      "normal_node": "local_lot_execute"
+    }
+  ]
+}

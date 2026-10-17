@@ -1,0 +1,785 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Incremental counter for the ID of a sale; incremented in _createSale",
+      "is_core": true,
+      "id": "saleIdCounter"
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Mapping hash(saleId,phaseId,address) => total minted by that address, enforces wallet mint limit",
+      "is_core": true,
+      "id": "totalMints"
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "description": "Mapping edition id => sale id, used to link editions to gated sales",
+      "is_core": true,
+      "id": "editionToSale"
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "description": "Mapping sale id => Sale struct holding creator, fundsReceiver, maxEditionId, mintCounter and paused flag",
+      "is_core": true,
+      "id": "sales"
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "description": "Mapping sale id => array of Phase structs (timing, price, caps, merkle root)",
+      "is_core": true,
+      "id": "phases"
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "description": "Mapping sale id => KOCommissionOverride used to override the platform commission per sale",
+      "is_core": true,
+      "id": "koCommissionOverrideForSale"
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "description": "External IKOAccessControlsLookup contract governing admin/contract/creator roles",
+      "is_core": true,
+      "id": "accessControls"
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "description": "External IKODAV3 NFT contract used for transfers, royalty and edition data",
+      "is_core": true,
+      "id": "koda"
+    },
+    {
+      "node_id": 8,
+      "type": "state_var",
+      "description": "Address that receives the platform commission from sales",
+      "is_core": true,
+      "id": "platformAccount"
+    },
+    {
+      "node_id": 9,
+      "type": "state_var",
+      "description": "Precision constant (100.00000%) used to compute commission amounts",
+      "is_core": true,
+      "id": "modulo"
+    },
+    {
+      "node_id": 10,
+      "type": "state_var",
+      "description": "Bid lockup period used together with block.timestamp in _getLockupTime",
+      "is_core": true,
+      "id": "bidLockupPeriod"
+    },
+    {
+      "node_id": 11,
+      "type": "state_var",
+      "description": "Primary commission percentage applied to sales when no per-sale override is active",
+      "is_core": true,
+      "id": "platformPrimaryCommission"
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "description": "External payable nonReentrant mint entry point; validates phase timing, caps, wallet limits, merkle proof and payment before minting tokens",
+      "is_core": true,
+      "id": "mint"
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "description": "Creates a sale and immediately attaches one or more phases",
+      "is_core": true,
+      "id": "createSaleWithPhases"
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "description": "Creates a sale with zero phases",
+      "is_core": true,
+      "id": "createSale"
+    },
+    {
+      "node_id": 15,
+      "type": "function",
+      "description": "Internal helper that increments saleIdCounter and stores the Sale struct plus editionToSale link",
+      "is_core": true,
+      "id": "_createSale"
+    },
+    {
+      "node_id": 16,
+      "type": "function",
+      "description": "Adds a single phase to an existing sale, restricted to creator/contract/admin",
+      "is_core": true,
+      "id": "createPhase"
+    },
+    {
+      "node_id": 17,
+      "type": "function",
+      "description": "Adds multiple phases to an existing sale, restricted to creator/contract/admin",
+      "is_core": true,
+      "id": "createPhases"
+    },
+    {
+      "node_id": 18,
+      "type": "function",
+      "description": "Deletes a phase from a sale, restricted to creator/contract/admin",
+      "is_core": true,
+      "id": "removePhase"
+    },
+    {
+      "node_id": 19,
+      "type": "function",
+      "description": "Public view verifying a merkle proof against a phase merkle root to authorize a minter",
+      "is_core": true,
+      "id": "onPhaseMintList"
+    },
+    {
+      "node_id": 20,
+      "type": "function",
+      "description": "Toggles the paused flag of a sale, restricted to creator/contract/admin",
+      "is_core": true,
+      "id": "toggleSalePause"
+    },
+    {
+      "node_id": 21,
+      "type": "function",
+      "description": "View computing the remaining mint allowance for an account on a phase",
+      "is_core": true,
+      "id": "remainingPhaseMintAllowance"
+    },
+    {
+      "node_id": 22,
+      "type": "function",
+      "description": "Internal function that transfers tokens to the recipient and settles sale funds",
+      "is_core": true,
+      "id": "handleMint"
+    },
+    {
+      "node_id": 23,
+      "type": "function",
+      "description": "Returns the per-sale commission override if active, otherwise the global platform commission",
+      "is_core": true,
+      "id": "getPlatformSaleCommissionForSale"
+    },
+    {
+      "node_id": 24,
+      "type": "function",
+      "description": "Internal view scanning downward for the next token owned by the creator",
+      "is_core": true,
+      "id": "getNextAvailablePrimarySaleToken"
+    },
+    {
+      "node_id": 25,
+      "type": "function",
+      "description": "Internal function splitting msg.value into platform commission and funds receiver payment via low-level calls",
+      "is_core": true,
+      "id": "_handleSaleFunds"
+    },
+    {
+      "node_id": 26,
+      "type": "function",
+      "description": "Internal function refunding a bidder with a low-level call and emitting success/failure events",
+      "is_core": true,
+      "id": "_refundBidder"
+    },
+    {
+      "node_id": 27,
+      "type": "function",
+      "description": "Internal view computing lockupUntil from block.timestamp plus bidLockupPeriod",
+      "is_core": true,
+      "id": "_getLockupTime"
+    },
+    {
+      "node_id": 28,
+      "type": "function",
+      "description": "Admin-only update of a sale funds receiver address",
+      "is_core": true,
+      "id": "updateFundsReceiver"
+    },
+    {
+      "node_id": 29,
+      "type": "function",
+      "description": "Admin-only update of a sale max edition id",
+      "is_core": true,
+      "id": "updateMaxEditionId"
+    },
+    {
+      "node_id": 30,
+      "type": "function",
+      "description": "Admin-only update of a sale creator address",
+      "is_core": true,
+      "id": "updateCreator"
+    },
+    {
+      "node_id": 31,
+      "type": "function",
+      "description": "Admin-only setter for the per-sale KO commission override",
+      "is_core": true,
+      "id": "setKoCommissionOverrideForSale"
+    },
+    {
+      "node_id": 32,
+      "type": "function",
+      "description": "Initializer that wires accessControls, koda, platformAccount and default economic parameters",
+      "is_core": true,
+      "id": "initialize"
+    },
+    {
+      "node_id": 33,
+      "type": "function",
+      "description": "UUPS upgrade authorization restricted by hasAdminRole(msg.sender)",
+      "is_core": true,
+      "id": "_authorizeUpgrade"
+    },
+    {
+      "node_id": 34,
+      "type": "function",
+      "description": "Admin-only function sending stuck ETH to a recipient via a low-level call",
+      "is_core": true,
+      "id": "recoverStuckETH"
+    },
+    {
+      "node_id": 35,
+      "type": "function",
+      "description": "Admin-only function recovering ERC20 tokens with safeTransfer",
+      "is_core": true,
+      "id": "recoverERC20"
+    },
+    {
+      "node_id": 36,
+      "type": "untrusted_input",
+      "description": "Transaction sender used for role checks, merkle leaf computation and mint accounting",
+      "is_core": true,
+      "id": "msg.sender"
+    },
+    {
+      "node_id": 37,
+      "type": "untrusted_input",
+      "description": "Miner-influenced timestamp used for phase window checks and lockup computation",
+      "is_core": true,
+      "id": "block.timestamp"
+    },
+    {
+      "node_id": 38,
+      "type": "unsafe_operation",
+      "description": "External NFT transfer call to the koda contract during handleMint",
+      "is_core": true,
+      "id": "koda.safeTransferFrom"
+    },
+    {
+      "node_id": 39,
+      "type": "unsafe_operation",
+      "description": "Low-level value call sending the platform commission to platformAccount",
+      "is_core": true,
+      "id": "platformAccount.call"
+    },
+    {
+      "node_id": 40,
+      "type": "unsafe_operation",
+      "description": "Low-level value call sending remaining sale funds to the funds receiver",
+      "is_core": true,
+      "id": "fundsReceiver.call"
+    },
+    {
+      "node_id": 41,
+      "type": "unsafe_operation",
+      "description": "Low-level value call in recoverStuckETH sending ETH to a caller-supplied recipient",
+      "is_core": true,
+      "id": "recipient.call"
+    },
+    {
+      "node_id": 42,
+      "type": "unsafe_operation",
+      "description": "Low-level value call in _refundBidder returning ETH to a bidder",
+      "is_core": true,
+      "id": "receiver.call"
+    },
+    {
+      "node_id": 43,
+      "type": "unsafe_operation",
+      "description": "Library call verifying the supplied merkle proof against the phase root",
+      "is_core": true,
+      "id": "MerkleProof.verify"
+    },
+    {
+      "node_id": 44,
+      "type": "parameter",
+      "description": "Caller-supplied number of tokens to mint in the mint function",
+      "is_core": false,
+      "id": "_mintCount"
+    },
+    {
+      "node_id": 45,
+      "type": "parameter",
+      "description": "Caller-supplied sale identifier parameter of the mint function",
+      "is_core": false,
+      "id": "_saleId"
+    },
+    {
+      "node_id": 46,
+      "type": "local_var",
+      "description": "Storage pointer to the Sale struct loaded in mint from sales[_saleId]",
+      "is_core": false,
+      "id": "sale"
+    },
+    {
+      "node_id": 47,
+      "type": "local_var",
+      "description": "Storage pointer to the Phase struct loaded in mint from phases[_saleId][_phaseId]",
+      "is_core": false,
+      "id": "phase"
+    },
+    {
+      "node_id": 48,
+      "type": "local_var",
+      "description": "Local keccak256 key derived from saleId, phaseId and msg.sender used to index totalMints",
+      "is_core": false,
+      "id": "totalMintsKey"
+    },
+    {
+      "node_id": 49,
+      "type": "parameter",
+      "description": "Caller-supplied merkle proof array used for gated mint authorization",
+      "is_core": false,
+      "id": "_merkleProof"
+    },
+    {
+      "node_id": 50,
+      "type": "parameter",
+      "description": "Account parameter of onPhaseMintList used to build the merkle leaf",
+      "is_core": false,
+      "id": "_account"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 12,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "msg.sender is consumed by mint for the merkle leaf, totalMints key and recipient, directly gating mint authorization",
+      "from_id": 36
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "mint requires block.timestamp to fall inside the phase window, making minting time dependent on miner-controlled timestamp",
+      "from_id": 37
+    },
+    {
+      "to_id": 27,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "_getLockupTime derives lockupUntil from block.timestamp plus bidLockupPeriod, a timestamp dependency",
+      "from_id": 37
+    },
+    {
+      "to_id": 22,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "mint invokes handleMint to perform the token transfer and fund settlement",
+      "from_id": 12
+    },
+    {
+      "to_id": 19,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "mint calls onPhaseMintList to validate the caller merkle proof before minting",
+      "from_id": 12
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "reason": "mint reads and increments totalMints with _mintCount when enforcing the wallet mint limit",
+      "from_id": 12
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "mint reads the Sale struct for the paused flag, editionId and mintCounter updates",
+      "from_id": 12
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "reason": "mint reads and increments phase.mintCounter against mintCap and wallet limits",
+      "from_id": 12
+    },
+    {
+      "to_id": 38,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "handleMint transfers NFTs via koda.safeTransferFrom, an external call occurring before sale fund settlement",
+      "from_id": 22
+    },
+    {
+      "to_id": 25,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "handleMint settles the sale funds through _handleSaleFunds after finishing transfers",
+      "from_id": 22
+    },
+    {
+      "to_id": 39,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "_handleSaleFunds performs a low-level value call to platformAccount, giving control to an external address",
+      "from_id": 25
+    },
+    {
+      "to_id": 40,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "_handleSaleFunds performs a low-level value call to the funds receiver, giving control to an external address",
+      "from_id": 25
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "reason": "_handleSaleFunds computes koCommission as msg.value * commission / modulo using the global commission value",
+      "from_id": 25
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "reason": "_handleSaleFunds divides the commission product by modulo, an arithmetic-sensitive scaling",
+      "from_id": 25
+    },
+    {
+      "to_id": 41,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "recoverStuckETH forwards ETH with a low-level call to a caller-supplied recipient",
+      "from_id": 34
+    },
+    {
+      "to_id": 42,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "_refundBidder sends ETH to the bidder with a low-level call, allowing reentrant behavior",
+      "from_id": 26
+    },
+    {
+      "to_id": 43,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "onPhaseMintList builds the leaf and delegates validation to MerkleProof.verify",
+      "from_id": 19
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "onPhaseMintList reads the merkleRoot from the stored Phase struct",
+      "from_id": 19
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "reason": "_createSale pre-increments saleIdCounter and uses the value as the new sale id",
+      "from_id": 15
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_createSale writes the newly constructed Sale struct into the sales mapping",
+      "from_id": 15
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_createSale writes the saleId into the editionToSale mapping for the edition",
+      "from_id": 15
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_createSale queries the koda contract for the royalties receiver and max token id",
+      "from_id": 15
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "createSale creates the sale through the internal _createSale helper",
+      "from_id": 14
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "createSaleWithPhases creates the sale through the internal _createSale helper",
+      "from_id": 13
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "createSaleWithPhases authorizes the caller via accessControls.hasContractOrAdminRole",
+      "from_id": 13
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "createSale authorizes the caller via accessControls.hasContractOrAdminRole",
+      "from_id": 14
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "createPhase is guarded by the onlyCreatorContractOrAdmin modifier reading accessControls",
+      "from_id": 16
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "createPhases is guarded by the onlyCreatorContractOrAdmin modifier reading accessControls",
+      "from_id": 17
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "removePhase is guarded by the onlyCreatorContractOrAdmin modifier reading accessControls",
+      "from_id": 18
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "toggleSalePause is guarded by the onlyCreatorContractOrAdmin modifier reading accessControls",
+      "from_id": 20
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "createPhase appends a new Phase struct to the phases mapping for the sale",
+      "from_id": 16
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "createPhases appends multiple Phase structs to the phases mapping for the sale",
+      "from_id": 17
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "removePhase deletes the targeted phase entry from the phases mapping",
+      "from_id": 18
+    },
+    {
+      "to_id": 19,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "remainingPhaseMintAllowance requires a valid onPhaseMintList proof before returning an allowance",
+      "from_id": 21
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "reason": "remainingPhaseMintAllowance subtracts the recorded totalMints entry from the phase wallet limit",
+      "from_id": 21
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "setKoCommissionOverrideForSale writes the active flag and commission into the override mapping",
+      "from_id": 31
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "getPlatformSaleCommissionForSale reads the per-sale override to decide the commission",
+      "from_id": 23
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "getPlatformSaleCommissionForSale falls back to the global platformPrimaryCommission",
+      "from_id": 23
+    },
+    {
+      "to_id": 23,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "handleMint obtains the applicable commission from getPlatformSaleCommissionForSale",
+      "from_id": 22
+    },
+    {
+      "to_id": 24,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "handleMint resolves each token id via getNextAvailablePrimarySaleToken",
+      "from_id": 22
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "getNextAvailablePrimarySaleToken queries koda.ownerOf to find the next available token",
+      "from_id": 24
+    },
+    {
+      "to_id": 36,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "_authorizeUpgrade checks accessControls.hasAdminRole against msg.sender",
+      "from_id": 33
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "_authorizeUpgrade consults the accessControls contract to validate the upgrader",
+      "from_id": 33
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "recoverERC20 is gated by the onlyAdmin modifier reading accessControls",
+      "from_id": 35
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "recoverStuckETH is gated by the onlyAdmin modifier reading accessControls",
+      "from_id": 34
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "initialize sets the accessControls reference and validates it is non-zero",
+      "from_id": 32
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "initialize sets the koda reference and validates it is non-zero",
+      "from_id": 32
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "initialize sets the platformAccount address used for commission payments",
+      "from_id": 32
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "reason": "_mintCount participates in phase cap and wallet limit arithmetic inside mint",
+      "from_id": 44
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_saleId selects the Sale and Phase storage entries read by mint",
+      "from_id": 45
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "sale storage pointer exposes the paused flag and mintCounter used by mint",
+      "from_id": 46
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "reason": "phase storage pointer supplies timing, price, caps and counters used in mint arithmetic",
+      "from_id": 47
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "totalMintsKey binds the mint accounting to the caller-derived hash",
+      "from_id": 48
+    },
+    {
+      "to_id": 19,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_merkleProof is forwarded by mint to onPhaseMintList for merkle verification",
+      "from_id": 49
+    },
+    {
+      "to_id": 19,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "_account is hashed into the merkle leaf inside onPhaseMintList to authorize the minter",
+      "from_id": 50
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "mint",
+      "normal_node": "_mintCount",
+      "reason": "The _mintCount parameter only exists to drive the mint cap, wallet limit and payment checks performed entirely inside mint"
+    },
+    {
+      "merge_into": "mint",
+      "normal_node": "_saleId",
+      "reason": "The _saleId parameter is only used to index the sales and phases mappings read by mint"
+    },
+    {
+      "merge_into": "mint",
+      "normal_node": "sale",
+      "reason": "The sale local storage pointer is a temporary view of the sales mapping created and consumed solely inside mint"
+    },
+    {
+      "merge_into": "mint",
+      "normal_node": "phase",
+      "reason": "The phase local storage pointer is a temporary view of the phases mapping created and consumed solely inside mint"
+    },
+    {
+      "merge_into": "mint",
+      "normal_node": "totalMintsKey",
+      "reason": "totalMintsKey is a locally computed hash used only within mint to read and update the totalMints mapping"
+    },
+    {
+      "merge_into": "onPhaseMintList",
+      "normal_node": "_merkleProof",
+      "reason": "The _merkleProof parameter is passed directly from mint into onPhaseMintList and has no meaning outside the merkle verification"
+    },
+    {
+      "merge_into": "onPhaseMintList",
+      "normal_node": "_account",
+      "reason": "The _account parameter is only hashed into the merkle leaf built by onPhaseMintList for proof verification"
+    }
+  ]
+}

@@ -1,0 +1,589 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "function",
+      "id": "mintGEVOLS",
+      "is_core": true,
+      "description": "Public payable mint function enforcing sale state, supply cap, price, whitelist and private-sale limits, then minting tokens to msg.sender."
+    },
+    {
+      "node_id": 1,
+      "type": "function",
+      "id": "claimFreeMints",
+      "is_core": true,
+      "description": "Public function letting an address claim free mints up to its whitelist claimAmount while sale is active."
+    },
+    {
+      "node_id": 2,
+      "type": "function",
+      "id": "setStartingIndex",
+      "is_core": true,
+      "description": "onlyOwner function deriving startingIndex from blockhash of startingIndexBlock with a late-call fallback."
+    },
+    {
+      "node_id": 3,
+      "type": "function",
+      "id": "claimETH",
+      "is_core": true,
+      "description": "Transfers the whole contract balance to claimEthAddress when the caller equals that address."
+    },
+    {
+      "node_id": 4,
+      "type": "function",
+      "id": "tokenURI",
+      "is_core": true,
+      "description": "Returns metadata URI, offsetting tokenId by startingIndex modulo TOTAL_SUPPLY."
+    },
+    {
+      "node_id": 5,
+      "type": "function",
+      "id": "addAddressToWhitelist",
+      "is_core": true,
+      "description": "onlyOwner function creating or updating a whitelist entry with claimAmount and hasMinted."
+    },
+    {
+      "node_id": 6,
+      "type": "function",
+      "id": "isWhitelisted",
+      "is_core": true,
+      "description": "View function reporting whether an address has a whitelist entry."
+    },
+    {
+      "node_id": 7,
+      "type": "function",
+      "id": "reserveGEVOLS",
+      "is_core": true,
+      "description": "onlyOwner function minting reserve tokens using the current supply plus loop index."
+    },
+    {
+      "node_id": 8,
+      "type": "function",
+      "id": "_safeMint",
+      "is_core": true,
+      "description": "Internal safe mint that mints a token then verifies the ERC721 receiver callback."
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "id": "_checkOnERC721Received",
+      "is_core": true,
+      "description": "Internal function performing an external onERC721Received call on contract recipients."
+    },
+    {
+      "node_id": 10,
+      "type": "state_var",
+      "id": "PRICE",
+      "is_core": true,
+      "description": "Constant mint price of 0.1 ether per token."
+    },
+    {
+      "node_id": 11,
+      "type": "state_var",
+      "id": "TOTAL_SUPPLY",
+      "is_core": true,
+      "description": "Constant maximum collection size of 8888."
+    },
+    {
+      "node_id": 12,
+      "type": "state_var",
+      "id": "REVEAL_TIMESTAMP",
+      "is_core": true,
+      "description": "Constant reveal timestamp (0) compared against block.timestamp."
+    },
+    {
+      "node_id": 13,
+      "type": "state_var",
+      "id": "MAX_PER_TX",
+      "is_core": true,
+      "description": "Constant public mint cap per transaction (10)."
+    },
+    {
+      "node_id": 14,
+      "type": "state_var",
+      "id": "MAX_MINT_WHITELIST",
+      "is_core": true,
+      "description": "Constant private/whitelist mint cap per address (20)."
+    },
+    {
+      "node_id": 15,
+      "type": "state_var",
+      "id": "MAX_CLAIM",
+      "is_core": true,
+      "description": "Constant maximum free-claim amount per transaction (25)."
+    },
+    {
+      "node_id": 16,
+      "type": "state_var",
+      "id": "startingIndex",
+      "is_core": true,
+      "description": "Storage index used to shuffle revealed token identifiers."
+    },
+    {
+      "node_id": 17,
+      "type": "state_var",
+      "id": "startingIndexBlock",
+      "is_core": true,
+      "description": "Storage block number recorded to seed the starting index randomness."
+    },
+    {
+      "node_id": 18,
+      "type": "state_var",
+      "id": "whitelist",
+      "is_core": true,
+      "description": "Mapping of address to Whitelist struct holding addr, claimAmount and hasMinted."
+    },
+    {
+      "node_id": 19,
+      "type": "state_var",
+      "id": "claimEthAddress",
+      "is_core": true,
+      "description": "Payable multisig address authorized to withdraw contract ETH."
+    },
+    {
+      "node_id": 20,
+      "type": "state_var",
+      "id": "saleIsActive",
+      "is_core": true,
+      "description": "Public flag gating public and claim minting."
+    },
+    {
+      "node_id": 21,
+      "type": "state_var",
+      "id": "privateSaleIsActive",
+      "is_core": true,
+      "description": "Public flag selecting the private (whitelist) mint branch."
+    },
+    {
+      "node_id": 22,
+      "type": "state_var",
+      "id": "_owner",
+      "is_core": true,
+      "description": "Ownable storage holding the contract owner address."
+    },
+    {
+      "node_id": 23,
+      "type": "untrusted_input",
+      "id": "msg_sender",
+      "is_core": true,
+      "description": "Caller-controlled address used for minting recipient, whitelist lookup and owner checks."
+    },
+    {
+      "node_id": 24,
+      "type": "untrusted_input",
+      "id": "block_timestamp",
+      "is_core": true,
+      "description": "Block timestamp compared against REVEAL_TIMESTAMP to set startingIndexBlock."
+    },
+    {
+      "node_id": 25,
+      "type": "unsafe_operation",
+      "id": "claimETH_transfer",
+      "is_core": true,
+      "description": "External ETH transfer to claimEthAddress via transfer()."
+    },
+    {
+      "node_id": 26,
+      "type": "unsafe_operation",
+      "id": "onERC721Received_external_call",
+      "is_core": true,
+      "description": "External functionCall invoking onERC721Received on the recipient contract."
+    },
+    {
+      "node_id": 27,
+      "type": "unsafe_operation",
+      "id": "reserve_unchecked_add",
+      "is_core": true,
+      "description": "Unchecked addition supply + i used as the reserved token id."
+    },
+    {
+      "node_id": 28,
+      "type": "unsafe_operation",
+      "id": "blockhash_starting_index",
+      "is_core": true,
+      "description": "startingIndex derived from blockhash of startingIndexBlock (weak randomness source)."
+    },
+    {
+      "node_id": 29,
+      "type": "parameter",
+      "id": "numberOfTokens_mint_param",
+      "is_core": false,
+      "description": "numberOfTokens parameter of mintGEVOLS controlling loop iterations and price."
+    },
+    {
+      "node_id": 30,
+      "type": "parameter",
+      "id": "numberOfTokens_claim_param",
+      "is_core": false,
+      "description": "numberOfTokens parameter of claimFreeMints controlling claimed amount."
+    },
+    {
+      "node_id": 31,
+      "type": "parameter",
+      "id": "addr_reserve_param",
+      "is_core": false,
+      "description": "addr parameter of reserveGEVOLS receiving reserved tokens."
+    },
+    {
+      "node_id": 32,
+      "type": "parameter",
+      "id": "amount_reserve_param",
+      "is_core": false,
+      "description": "amount parameter of reserveGEVOLS controlling number of reserved mints."
+    },
+    {
+      "node_id": 33,
+      "type": "parameter",
+      "id": "tokenId_uri_param",
+      "is_core": false,
+      "description": "tokenId parameter of tokenURI offset by startingIndex."
+    },
+    {
+      "node_id": 34,
+      "type": "local_var",
+      "id": "mintIndex_local",
+      "is_core": false,
+      "description": "Local mintIndex set to totalSupply() before each _safeMint."
+    },
+    {
+      "node_id": 35,
+      "type": "local_var",
+      "id": "i_local",
+      "is_core": false,
+      "description": "Loop counter i used in reserveGEVOLS and mint loops."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender determines the mint recipient and the whitelist entry used for minting.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 23,
+      "to_id": 0
+    },
+    {
+      "reason": "numberOfTokens parameter drives loop count, price and cap checks in mintGEVOLS.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 0
+    },
+    {
+      "reason": "PRICE is used in the ETH payment validation.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 0
+    },
+    {
+      "reason": "TOTAL_SUPPLY bounds the total minted amount.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 0
+    },
+    {
+      "reason": "REVEAL_TIMESTAMP is compared with block.timestamp to set startingIndexBlock.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 0
+    },
+    {
+      "reason": "MAX_PER_TX bounds public mint quantity.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 0
+    },
+    {
+      "reason": "MAX_MINT_WHITELIST bounds private mint quantity and hasMinted accumulation.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 0
+    },
+    {
+      "reason": "whitelist mapping is read and updated for the minter.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 0
+    },
+    {
+      "reason": "saleIsActive gates whether minting is allowed.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 20,
+      "to_id": 0
+    },
+    {
+      "reason": "privateSaleIsActive selects private versus public mint branch.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 0
+    },
+    {
+      "reason": "block.timestamp is a timestamp dependency controlling startingIndexBlock assignment.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 24,
+      "to_id": 0
+    },
+    {
+      "reason": "msg.sender receives the claimed tokens and its whitelist entry is decremented.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 23,
+      "to_id": 1
+    },
+    {
+      "reason": "numberOfTokens parameter drives claim limit checks and loop count.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 30,
+      "to_id": 1
+    },
+    {
+      "reason": "TOTAL_SUPPLY bounds the claimed supply.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 1
+    },
+    {
+      "reason": "MAX_CLAIM bounds the per-transaction claim amount.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 1
+    },
+    {
+      "reason": "whitelist claimAmount is validated against and decremented by the claim.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 1
+    },
+    {
+      "reason": "saleIsActive gates whether claiming is allowed.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 20,
+      "to_id": 1
+    },
+    {
+      "reason": "block.timestamp is a timestamp dependency controlling startingIndexBlock assignment.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 24,
+      "to_id": 1
+    },
+    {
+      "reason": "claimEthAddress is both the authorization check and the transfer recipient.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 19,
+      "to_id": 3
+    },
+    {
+      "reason": "msg.sender must equal claimEthAddress to withdraw ETH.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 23,
+      "to_id": 3
+    },
+    {
+      "reason": "startingIndex is written by setStartingIndex.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 2
+    },
+    {
+      "reason": "startingIndexBlock is read for blockhash and block.number arithmetic.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 2
+    },
+    {
+      "reason": "TOTAL_SUPPLY is used as the modulo base for the starting index.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 2
+    },
+    {
+      "reason": "startingIndex offsets the requested tokenId.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 4
+    },
+    {
+      "reason": "TOTAL_SUPPLY is used as the modulo base for the token id.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 4
+    },
+    {
+      "reason": "tokenId parameter participates in the URI id computation.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 33,
+      "to_id": 4
+    },
+    {
+      "reason": "whitelist entry is written by addAddressToWhitelist.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 5
+    },
+    {
+      "reason": "_owner enforces the onlyOwner authorization on addAddressToWhitelist.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 5
+    },
+    {
+      "reason": "whitelist entry is read by isWhitelisted.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 6
+    },
+    {
+      "reason": "totalSupply derived from TOTAL_SUPPLY context is used as the reserve base id.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 7
+    },
+    {
+      "reason": "_owner enforces the onlyOwner authorization on reserveGEVOLS.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 7
+    },
+    {
+      "reason": "_owner enforces the onlyOwner authorization on setStartingIndex.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 2
+    },
+    {
+      "reason": "mintGEVOLS calls _safeMint in its minting loop.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 0,
+      "to_id": 8
+    },
+    {
+      "reason": "claimFreeMints calls _safeMint in its claiming loop.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 1,
+      "to_id": 8
+    },
+    {
+      "reason": "reserveGEVOLS calls _safeMint in its reserve loop.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 7,
+      "to_id": 8
+    },
+    {
+      "reason": "mintGEVOLS calls isWhitelisted during private sale validation.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 0,
+      "to_id": 6
+    },
+    {
+      "reason": "addAddressToWhitelist calls isWhitelisted to prevent duplicates.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 5,
+      "to_id": 6
+    },
+    {
+      "reason": "claimETH executes the external ETH transfer to claimEthAddress.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 3,
+      "to_id": 25
+    },
+    {
+      "reason": "reserveGEVOLS performs unchecked addition supply + i for token ids.",
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "from_id": 7,
+      "to_id": 27
+    },
+    {
+      "reason": "setStartingIndex derives the index from blockhash of startingIndexBlock.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 2,
+      "to_id": 28
+    },
+    {
+      "reason": "_safeMint invokes _checkOnERC721Received after state changes, enabling reentrant receiver callbacks.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 8,
+      "to_id": 9
+    },
+    {
+      "reason": "_checkOnERC721Received performs an external onERC721Received call into an untrusted recipient contract.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 9,
+      "to_id": 26
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The mint quantity parameter is only meaningful within mintGEVOLS and should collapse into that function node.",
+      "merge_into": "mintGEVOLS",
+      "normal_node": "numberOfTokens_mint_param"
+    },
+    {
+      "reason": "The claim quantity parameter is only meaningful within claimFreeMints and should collapse into that function node.",
+      "merge_into": "claimFreeMints",
+      "normal_node": "numberOfTokens_claim_param"
+    },
+    {
+      "reason": "The recipient parameter is only used inside reserveGEVOLS and should merge into that function node.",
+      "merge_into": "reserveGEVOLS",
+      "normal_node": "addr_reserve_param"
+    },
+    {
+      "reason": "The reserve amount parameter is only used inside reserveGEVOLS and should merge into that function node.",
+      "merge_into": "reserveGEVOLS",
+      "normal_node": "amount_reserve_param"
+    },
+    {
+      "reason": "The token id parameter is only meaningful within tokenURI and should collapse into that function node.",
+      "merge_into": "tokenURI",
+      "normal_node": "tokenId_uri_param"
+    },
+    {
+      "reason": "The local mintIndex is fed directly into _safeMint and should merge into that callee node.",
+      "merge_into": "_safeMint",
+      "normal_node": "mintIndex_local"
+    },
+    {
+      "reason": "The loop counter local is confined to reserveGEVOLS and should merge into that function node.",
+      "merge_into": "reserveGEVOLS",
+      "normal_node": "i_local"
+    }
+  ]
+}

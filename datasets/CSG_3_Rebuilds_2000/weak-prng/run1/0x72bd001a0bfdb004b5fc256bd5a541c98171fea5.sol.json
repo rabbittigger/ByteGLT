@@ -1,0 +1,268 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "cost",
+      "is_core": true,
+      "description": "Public mint cost per token (0.01 ether), used in payment check."
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "id": "maxFREN",
+      "is_core": true,
+      "description": "Maximum token supply of the collection (100)."
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "id": "maxFRENMintAmount",
+      "is_core": true,
+      "description": "Maximum number of tokens mintable in a single mintFRENS call."
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "id": "paused",
+      "is_core": true,
+      "description": "Boolean pause flag gating the mintFRENS function."
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "id": "baseURI",
+      "is_core": true,
+      "description": "Base URI prefix used for token metadata resolution."
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "id": "baseExtension",
+      "is_core": true,
+      "description": "Metadata file extension appended to token URI."
+    },
+    {
+      "node_id": 6,
+      "type": "function",
+      "id": "mintFRENS",
+      "is_core": true,
+      "description": "Public payable mint entrypoint; validates amount and payment then loops minting tokens."
+    },
+    {
+      "node_id": 7,
+      "type": "function",
+      "id": "withdraw",
+      "is_core": true,
+      "description": "Owner-only function sending the contract balance to msg.sender via low-level send."
+    },
+    {
+      "node_id": 8,
+      "type": "function",
+      "id": "tokenURI",
+      "is_core": true,
+      "description": "Returns metadata URI by concatenating baseURI, tokenId and baseExtension."
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "id": "nextToken",
+      "is_core": true,
+      "description": "RandomlyAssigned.nextToken: derives a pseudo-random token id from block values and updates tokenMatrix."
+    },
+    {
+      "node_id": 10,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "is_core": true,
+      "description": "Caller-controlled address used as mint recipient and withdraw beneficiary."
+    },
+    {
+      "node_id": 11,
+      "type": "untrusted_input",
+      "id": "block.timestamp",
+      "is_core": true,
+      "description": "Miner-influenceable value used as entropy in the random token id derivation."
+    },
+    {
+      "node_id": 12,
+      "type": "unsafe_operation",
+      "id": "_safeMint",
+      "is_core": true,
+      "description": "External callback to IERC721Receiver.onERC721Received on the recipient contract."
+    },
+    {
+      "node_id": 13,
+      "type": "unsafe_operation",
+      "id": "payable_send",
+      "is_core": true,
+      "description": "Low-level send of the full contract balance to msg.sender."
+    },
+    {
+      "node_id": 14,
+      "type": "unsafe_operation",
+      "id": "keccak_randomness",
+      "is_core": true,
+      "description": "Pseudo-random value from keccak256 of msg.sender, block.coinbase, difficulty, gaslimit and timestamp."
+    },
+    {
+      "node_id": 15,
+      "type": "parameter",
+      "id": "_FRENMintAmount",
+      "is_core": false,
+      "description": "Caller-supplied number of tokens to mint in mintFRENS."
+    },
+    {
+      "node_id": 16,
+      "type": "parameter",
+      "id": "tokenId",
+      "is_core": false,
+      "description": "Token id argument of tokenURI used in metadata resolution."
+    },
+    {
+      "node_id": 17,
+      "type": "local_var",
+      "id": "mintIndex",
+      "is_core": false,
+      "description": "Local variable holding the randomly assigned token id returned by nextToken."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "mintFRENS reads the paused state variable in its require guard.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 3
+    },
+    {
+      "reason": "mintFRENS compares the mint amount against maxFRENMintAmount.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 2
+    },
+    {
+      "reason": "mintFRENS checks totalSupply plus amount against maxFREN.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 1
+    },
+    {
+      "reason": "mintFRENS performs cost * _FRENMintAmount multiplication for the payment check.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 0
+    },
+    {
+      "reason": "mintFRENS calls nextToken inside the mint loop to obtain a token id.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 6,
+      "to_id": 9
+    },
+    {
+      "reason": "mintFRENS invokes _safeMint which triggers an external onERC721Received callback before state is settled.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 6,
+      "to_id": 12
+    },
+    {
+      "reason": "msg.sender (via _msgSender) is used as the mint recipient and payment sender in mintFRENS.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 6
+    },
+    {
+      "reason": "block.timestamp feeds the pseudo-random token id computation, creating miner timestamp dependency.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 9
+    },
+    {
+      "reason": "msg.sender is mixed into the keccak256 entropy for the random token id.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 9
+    },
+    {
+      "reason": "withdraw sends the contract balance to the caller-supplied msg.sender.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 7
+    },
+    {
+      "reason": "withdraw performs a low-level value send to msg.sender.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 7,
+      "to_id": 13
+    },
+    {
+      "reason": "tokenURI reads baseURI to construct metadata.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 4
+    },
+    {
+      "reason": "tokenURI reads baseExtension to construct metadata.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 5
+    },
+    {
+      "reason": "tokenURI consumes the tokenId parameter when building the URI.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 8
+    },
+    {
+      "reason": "_FRENMintAmount parameter drives the cost multiplication and loop bounds in mintFRENS.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 6
+    },
+    {
+      "reason": "mintIndex local variable carries the nextToken result into the mint call.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 6
+    },
+    {
+      "reason": "nextToken executes the keccak256 randomness computation over block values and msg.sender.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 9,
+      "to_id": 14
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The _FRENMintAmount parameter belongs directly to mintFRENS and should be folded into that function node.",
+      "merge_into": "mintFRENS",
+      "normal_node": "_FRENMintAmount"
+    },
+    {
+      "reason": "The tokenId parameter belongs directly to tokenURI and should be folded into that function node.",
+      "merge_into": "tokenURI",
+      "normal_node": "tokenId"
+    },
+    {
+      "reason": "The mintIndex local variable is produced and consumed inside mintFRENS and should be folded into that function node.",
+      "merge_into": "mintFRENS",
+      "normal_node": "mintIndex"
+    }
+  ]
+}

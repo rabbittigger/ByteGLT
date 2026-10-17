@@ -1,0 +1,194 @@
+{
+  "nodes": [
+    {
+      "id": "flootPrice",
+      "description": "Public state variable holding the mint price (0.01 ether) read by claim() during the payment check.",
+      "type": "state_var",
+      "node_id": 0,
+      "is_core": true
+    },
+    {
+      "id": "claim",
+      "description": "Public payable mint entry point; validates msg.value against flootPrice and tokenId range, then mints to _msgSender(); protected by nonReentrant.",
+      "type": "function",
+      "node_id": 1,
+      "is_core": true
+    },
+    {
+      "id": "ownerClaim",
+      "description": "Owner-only mint entry point for reserved token IDs; restricted by the onlyOwner modifier and nonReentrant.",
+      "type": "function",
+      "node_id": 2,
+      "is_core": true
+    },
+    {
+      "id": "tokenURI",
+      "description": "View function generating the on-chain SVG/JSON metadata for a tokenId; derives a size string from tokenId modulo arithmetic.",
+      "type": "function",
+      "node_id": 3,
+      "is_core": true
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller-controlled address obtained via _msgSender(); used as mint recipient in claim and as the authorization subject in onlyOwner.",
+      "type": "untrusted_input",
+      "node_id": 4,
+      "is_core": true
+    },
+    {
+      "id": "safeMint_claim",
+      "description": "_safeMint(_msgSender(), tokenId) inside claim: performs state writes then triggers an external onERC721Received callback to an attacker-controlled recipient.",
+      "type": "unsafe_operation",
+      "node_id": 5,
+      "is_core": true
+    },
+    {
+      "id": "safeMint_ownerClaim",
+      "description": "_safeMint(owner(), tokenId) inside ownerClaim: external callback path reachable only through the owner-gated function.",
+      "type": "unsafe_operation",
+      "node_id": 6,
+      "is_core": true
+    },
+    {
+      "id": "tokenId_claim",
+      "description": "Caller-supplied tokenId argument of claim(); used in the range check and forwarded to _safeMint.",
+      "type": "parameter",
+      "node_id": 7,
+      "is_core": false
+    },
+    {
+      "id": "tokenId_ownerClaim",
+      "description": "Caller-supplied tokenId argument of ownerClaim(); used in the reserved-range check and forwarded to _safeMint.",
+      "type": "parameter",
+      "node_id": 8,
+      "is_core": false
+    },
+    {
+      "id": "tokenId_tokenURI",
+      "description": "tokenId argument of tokenURI(); drives the modulo computation and metadata generation.",
+      "type": "parameter",
+      "node_id": 9,
+      "is_core": false
+    },
+    {
+      "id": "msgValue_claim",
+      "description": "msg.value read in claim() for the require(flootPrice <= msg.value) payment check.",
+      "type": "local_var",
+      "node_id": 10,
+      "is_core": false
+    },
+    {
+      "id": "size_tokenURI",
+      "description": "Local string variable in tokenURI() set from tokenId%3 and embedded into the generated SVG output.",
+      "type": "local_var",
+      "node_id": 11,
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "reason": "msg.sender is passed as the recipient of _safeMint, so attacker-controlled code receives the onERC721Received callback.",
+      "to_id": 5,
+      "from_id": 4,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "controlflow",
+      "reason": "claim() invokes _safeMint after its checks, transferring control into the mint routine.",
+      "to_id": 5,
+      "from_id": 1,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "claim() reads the state variable flootPrice in the require(flootPrice <= msg.value) check.",
+      "to_id": 1,
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "msg.value of the call is compared against flootPrice inside claim().",
+      "to_id": 1,
+      "from_id": 10,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The tokenId parameter of claim() flows through the range check and into _safeMint.",
+      "to_id": 1,
+      "from_id": 7,
+      "vuln_type": "none"
+    },
+    {
+      "type": "callback",
+      "reason": "_safeMint performs an external call returning to the msg.sender recipient via onERC721Received, the classic reentrancy callback surface.",
+      "to_id": 4,
+      "from_id": 5,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "controlflow",
+      "reason": "ownerClaim() is guarded by onlyOwner, which compares msg.sender against owner(); authorization depends on caller identity.",
+      "to_id": 2,
+      "from_id": 4,
+      "vuln_type": "access_control"
+    },
+    {
+      "type": "controlflow",
+      "reason": "ownerClaim() invokes _safeMint(owner(), tokenId) for reserved token IDs.",
+      "to_id": 6,
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The tokenId parameter of ownerClaim() is used in the 7777-8001 range check and forwarded to _safeMint.",
+      "to_id": 2,
+      "from_id": 8,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "tokenURI() consumes its tokenId parameter in modulo arithmetic and string encoding.",
+      "to_id": 3,
+      "from_id": 9,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The local variable size is computed from tokenId and packed into the returned metadata string.",
+      "to_id": 3,
+      "from_id": 11,
+      "vuln_type": "none"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "tokenId_claim is a parameter consumed only by the claim() function; collapse it into the claim core node.",
+      "normal_node": "tokenId_claim",
+      "merge_into": "claim"
+    },
+    {
+      "reason": "tokenId_ownerClaim is a parameter consumed only by ownerClaim(); collapse it into the ownerClaim core node.",
+      "normal_node": "tokenId_ownerClaim",
+      "merge_into": "ownerClaim"
+    },
+    {
+      "reason": "tokenId_tokenURI is a parameter consumed only by tokenURI(); collapse it into the tokenURI core node.",
+      "normal_node": "tokenId_tokenURI",
+      "merge_into": "tokenURI"
+    },
+    {
+      "reason": "msgValue_claim is a transient local read of msg.value used only in claim()'s payment check.",
+      "normal_node": "msgValue_claim",
+      "merge_into": "claim"
+    },
+    {
+      "reason": "size_tokenURI is a transient local derived from tokenId inside tokenURI() and has no independent state meaning.",
+      "normal_node": "size_tokenURI",
+      "merge_into": "tokenURI"
+    }
+  ]
+}

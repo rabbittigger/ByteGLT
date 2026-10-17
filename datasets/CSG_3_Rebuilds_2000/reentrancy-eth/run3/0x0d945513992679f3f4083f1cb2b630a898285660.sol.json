@@ -1,0 +1,763 @@
+{
+  "nodes": [
+    {
+      "id": "state_orderFills",
+      "node_id": 0,
+      "type": "state_var",
+      "description": "mapping(bytes32 => uint256) public orderFills; tracks how much of each signed order has been filled.",
+      "is_core": true
+    },
+    {
+      "id": "state_owner",
+      "node_id": 1,
+      "type": "state_var",
+      "description": "address payable public owner; privileged address receiving fees and controlling fee parameters.",
+      "is_core": true
+    },
+    {
+      "id": "state_feeAccount",
+      "node_id": 2,
+      "type": "state_var",
+      "description": "address payable public feeAccount; fixed recipient of the 1% exchange fee.",
+      "is_core": true
+    },
+    {
+      "id": "state_baeContract",
+      "node_id": 3,
+      "type": "state_var",
+      "description": "address public baeContract; external ERC1155 artwork contract used for transfers and creator lookup.",
+      "is_core": true
+    },
+    {
+      "id": "state_fee",
+      "node_id": 4,
+      "type": "state_var",
+      "description": "uint256 public fee = 40; owner-controlled fee in per-mille used in payout math.",
+      "is_core": true
+    },
+    {
+      "id": "state_creatorFee",
+      "node_id": 5,
+      "type": "state_var",
+      "description": "uint256 public creatorFee = 50; owner-controlled creator royalty in per-mille used in payout math.",
+      "is_core": true
+    },
+    {
+      "id": "state_traded",
+      "node_id": 6,
+      "type": "state_var",
+      "description": "mapping(bytes32 => bool) public traded; declared order-flag mapping that is never written.",
+      "is_core": true
+    },
+    {
+      "id": "func_constructor",
+      "node_id": 7,
+      "type": "function",
+      "description": "constructor(address baeContract_) sets owner, feeAccount and baeContract.",
+      "is_core": true
+    },
+    {
+      "id": "func_changeFee",
+      "node_id": 8,
+      "type": "function",
+      "description": "function changeFee(uint256 _amount) public onlyAdmin; sets the exchange fee.",
+      "is_core": true
+    },
+    {
+      "id": "func_changeCreatorFee",
+      "node_id": 9,
+      "type": "function",
+      "description": "function changeCreatorFee(uint256 _amount) public onlyAdmin; sets the creator royalty.",
+      "is_core": true
+    },
+    {
+      "id": "func_invalidateOrder",
+      "node_id": 10,
+      "type": "function",
+      "description": "function invalidateOrder(...) public; verifies a signature and marks an order as fully filled.",
+      "is_core": true
+    },
+    {
+      "id": "func_isValidOrder",
+      "node_id": 11,
+      "type": "function",
+      "description": "function isValidOrder(...) public view; signature, balance, fill and expiry checks.",
+      "is_core": true
+    },
+    {
+      "id": "func_buyArtworkETH",
+      "node_id": 12,
+      "type": "function",
+      "description": "function buyArtworkETH(...) public payable; executes an ETH purchase of an ERC1155 token and distributes payouts.",
+      "is_core": true
+    },
+    {
+      "id": "func_onlyAdmin",
+      "node_id": 13,
+      "type": "function",
+      "description": "modifier onlyAdmin: require(msg.sender == owner, \"Not Owner\").",
+      "is_core": true
+    },
+    {
+      "id": "input_msg_sender",
+      "node_id": 14,
+      "type": "untrusted_input",
+      "description": "msg.sender: caller address used for authorization and for receiving tokens/refunds.",
+      "is_core": true
+    },
+    {
+      "id": "input_block_timestamp",
+      "node_id": 15,
+      "type": "untrusted_input",
+      "description": "block.timestamp: used for order expiry checks.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_safeTransferFrom",
+      "node_id": 16,
+      "type": "unsafe_operation",
+      "description": "IERC1155(baeContract).safeTransferFrom(...) external call to an untrusted contract performed before orderFills is updated.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_feeAccount_transfer",
+      "node_id": 17,
+      "type": "unsafe_operation",
+      "description": "feeAccount.transfer(...) native ETH payout to a state-configured address.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_owner_transfer",
+      "node_id": 18,
+      "type": "unsafe_operation",
+      "description": "owner.transfer(...) native ETH payout to the privileged owner address.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_creator_transfer",
+      "node_id": 19,
+      "type": "unsafe_operation",
+      "description": "payable(IERC1155(baeContract).creators(...)).transfer(...) payout to externally supplied creator address, preceded by an external call.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_maker_transfer",
+      "node_id": 20,
+      "type": "unsafe_operation",
+      "description": "tradeAddresses[1].transfer(...) native ETH payout to the order maker address.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_buyer_refund",
+      "node_id": 21,
+      "type": "unsafe_operation",
+      "description": "msg.sender.transfer(msg.value - amount) refund of excess ETH to the caller.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_ecrecover",
+      "node_id": 22,
+      "type": "unsafe_operation",
+      "description": "ecrecover over a personal_sign hash used for order authorization.",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_fee_arithmetic",
+      "node_id": 23,
+      "type": "unsafe_operation",
+      "description": "amount.mul(1000 - fee - creatorFee - 10).div(1000): unchecked subtraction of owner-controlled fee variables (Solidity 0.7 wraps on underflow).",
+      "is_core": true
+    },
+    {
+      "id": "unsafe_orderfills_accounting",
+      "node_id": 24,
+      "type": "unsafe_operation",
+      "description": "orderFills[orderHash].add(tradeValues[5]) fill accounting performed after external token transfer and payouts.",
+      "is_core": true
+    },
+    {
+      "id": "param_changeFee_amount",
+      "node_id": 25,
+      "type": "parameter",
+      "description": "parameter _amount of changeFee.",
+      "is_core": false
+    },
+    {
+      "id": "param_changeCreatorFee_amount",
+      "node_id": 26,
+      "type": "parameter",
+      "description": "parameter _amount of changeCreatorFee.",
+      "is_core": false
+    },
+    {
+      "id": "param_invalidate_tradeValues",
+      "node_id": 27,
+      "type": "parameter",
+      "description": "parameter tradeValues (uint256[5]) of invalidateOrder.",
+      "is_core": false
+    },
+    {
+      "id": "param_invalidate_tradeAddresses",
+      "node_id": 28,
+      "type": "parameter",
+      "description": "parameter tradeAddresses (address[2]) of invalidateOrder.",
+      "is_core": false
+    },
+    {
+      "id": "param_invalidate_v",
+      "node_id": 29,
+      "type": "parameter",
+      "description": "parameter v of invalidateOrder.",
+      "is_core": false
+    },
+    {
+      "id": "param_invalidate_rs",
+      "node_id": 30,
+      "type": "parameter",
+      "description": "parameter rs (bytes32[2]) of invalidateOrder.",
+      "is_core": false
+    },
+    {
+      "id": "local_invalidate_orderHash",
+      "node_id": 31,
+      "type": "local_var",
+      "description": "local orderHash computed in invalidateOrder.",
+      "is_core": false
+    },
+    {
+      "id": "param_isValid_tradeValues",
+      "node_id": 32,
+      "type": "parameter",
+      "description": "parameter tradeValues (uint256[5]) of isValidOrder.",
+      "is_core": false
+    },
+    {
+      "id": "param_isValid_tradeAddresses",
+      "node_id": 33,
+      "type": "parameter",
+      "description": "parameter tradeAddresses (address[2]) of isValidOrder.",
+      "is_core": false
+    },
+    {
+      "id": "param_isValid_v",
+      "node_id": 34,
+      "type": "parameter",
+      "description": "parameter v of isValidOrder.",
+      "is_core": false
+    },
+    {
+      "id": "param_isValid_rs",
+      "node_id": 35,
+      "type": "parameter",
+      "description": "parameter rs (bytes32[2]) of isValidOrder.",
+      "is_core": false
+    },
+    {
+      "id": "local_isValid_orderHash",
+      "node_id": 36,
+      "type": "local_var",
+      "description": "local orderHash computed in isValidOrder.",
+      "is_core": false
+    },
+    {
+      "id": "param_buy_tradeValues",
+      "node_id": 37,
+      "type": "parameter",
+      "description": "parameter tradeValues (uint256[6]) of buyArtworkETH.",
+      "is_core": false
+    },
+    {
+      "id": "param_buy_tradeAddresses",
+      "node_id": 38,
+      "type": "parameter",
+      "description": "parameter tradeAddresses (address payable[2]) of buyArtworkETH.",
+      "is_core": false
+    },
+    {
+      "id": "param_buy_v",
+      "node_id": 39,
+      "type": "parameter",
+      "description": "parameter v of buyArtworkETH.",
+      "is_core": false
+    },
+    {
+      "id": "param_buy_rs",
+      "node_id": 40,
+      "type": "parameter",
+      "description": "parameter rs (bytes32[2]) of buyArtworkETH.",
+      "is_core": false
+    },
+    {
+      "id": "local_buy_orderHash",
+      "node_id": 41,
+      "type": "local_var",
+      "description": "local orderHash computed in buyArtworkETH.",
+      "is_core": false
+    },
+    {
+      "id": "local_buy_amount",
+      "node_id": 42,
+      "type": "local_var",
+      "description": "local amount = tradeValues[2].mul(tradeValues[5]) in buyArtworkETH.",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 7,
+      "reason": "constructor assigns owner state variable",
+      "type": "dataflow",
+      "from_id": 1,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "constructor assigns feeAccount state variable",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "constructor assigns baeContract state variable",
+      "type": "dataflow",
+      "from_id": 3,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "_amount flows into fee assignment",
+      "type": "dataflow",
+      "from_id": 25,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "changeFee writes the fee state variable",
+      "type": "dataflow",
+      "from_id": 4,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 13,
+      "reason": "onlyAdmin modifier compares msg.sender with owner",
+      "type": "controlflow",
+      "from_id": 14,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 8,
+      "reason": "onlyAdmin gate protects changeFee",
+      "type": "controlflow",
+      "from_id": 13,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 9,
+      "reason": "onlyAdmin gate protects changeCreatorFee",
+      "type": "controlflow",
+      "from_id": 13,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 8,
+      "reason": "msg.sender determines whether changeFee may execute",
+      "type": "controlflow",
+      "from_id": 14,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 9,
+      "reason": "msg.sender determines whether changeCreatorFee may execute",
+      "type": "controlflow",
+      "from_id": 14,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 9,
+      "reason": "_amount flows into creatorFee assignment",
+      "type": "dataflow",
+      "from_id": 26,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 9,
+      "reason": "changeCreatorFee writes the creatorFee state variable",
+      "type": "dataflow",
+      "from_id": 5,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "tradeValues used to build orderHash in invalidateOrder",
+      "type": "dataflow",
+      "from_id": 27,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "tradeAddresses used to build orderHash and signature check",
+      "type": "dataflow",
+      "from_id": 28,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "v used in ecrecover in invalidateOrder",
+      "type": "dataflow",
+      "from_id": 29,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "rs used in ecrecover in invalidateOrder",
+      "type": "dataflow",
+      "from_id": 30,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "computed orderHash indexes orderFills",
+      "type": "dataflow",
+      "from_id": 31,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 22,
+      "reason": "invalidateOrder invokes ecrecover to authenticate the order",
+      "type": "controlflow",
+      "from_id": 10,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "orderFills entry is set by invalidateOrder",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 11,
+      "reason": "tradeValues used to build orderHash and balance checks",
+      "type": "dataflow",
+      "from_id": 32,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 11,
+      "reason": "tradeAddresses used for signature and balance checks",
+      "type": "dataflow",
+      "from_id": 33,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 11,
+      "reason": "v used in ecrecover in isValidOrder",
+      "type": "dataflow",
+      "from_id": 34,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 11,
+      "reason": "rs used in ecrecover in isValidOrder",
+      "type": "dataflow",
+      "from_id": 35,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 11,
+      "reason": "computed orderHash used for fill and balance lookups",
+      "type": "dataflow",
+      "from_id": 36,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 22,
+      "reason": "isValidOrder calls ecrecover to validate signature",
+      "type": "controlflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 11,
+      "reason": "orderFills read when computing remaining balance",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 11,
+      "reason": "baeContract used for the ERC1155 balanceOf call",
+      "type": "dataflow",
+      "from_id": 3,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 11,
+      "reason": "block.timestamp governs the order expiry check in isValidOrder",
+      "type": "controlflow",
+      "from_id": 15,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 12,
+      "reason": "tradeValues drive hash, price, fill and expiry logic",
+      "type": "dataflow",
+      "from_id": 37,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 12,
+      "reason": "tradeAddresses are the maker/sell token and signature target",
+      "type": "dataflow",
+      "from_id": 38,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 12,
+      "reason": "v used in ecrecover in buyArtworkETH",
+      "type": "dataflow",
+      "from_id": 39,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 12,
+      "reason": "rs used in ecrecover in buyArtworkETH",
+      "type": "dataflow",
+      "from_id": 40,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 12,
+      "reason": "orderHash drives deduplication and fill accounting",
+      "type": "dataflow",
+      "from_id": 41,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 12,
+      "reason": "computed amount drives all payouts and refund",
+      "type": "dataflow",
+      "from_id": 42,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 12,
+      "reason": "msg.sender receives the purchased tokens and the ETH refund",
+      "type": "controlflow",
+      "from_id": 14,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 12,
+      "reason": "block.timestamp drives the Expired requirement in buyArtworkETH",
+      "type": "controlflow",
+      "from_id": 15,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 16,
+      "reason": "baeContract is the target of the external safeTransferFrom call",
+      "type": "dataflow",
+      "from_id": 3,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "external ERC1155 transfer executes before orderFills state update",
+      "type": "controlflow",
+      "from_id": 12,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 12,
+      "reason": "untrusted ERC1155 contract can call back into buyArtworkETH while orderFills is stale",
+      "type": "callback",
+      "from_id": 16,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 17,
+      "reason": "feeAccount receives the protocol fee transfer",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "buyArtworkETH performs the feeAccount payout",
+      "type": "controlflow",
+      "from_id": 12,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 18,
+      "reason": "owner receives the variable owner fee",
+      "type": "dataflow",
+      "from_id": 1,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 18,
+      "reason": "buyArtworkETH performs the owner payout",
+      "type": "controlflow",
+      "from_id": 12,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 19,
+      "reason": "creator address obtained from an external contract call is then paid via transfer",
+      "type": "controlflow",
+      "from_id": 12,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 20,
+      "reason": "buyArtworkETH pays the seller/maker remainder",
+      "type": "controlflow",
+      "from_id": 12,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 21,
+      "reason": "buyArtworkETH refunds excess ETH to msg.sender",
+      "type": "controlflow",
+      "from_id": 12,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 22,
+      "reason": "buyArtworkETH uses ecrecover to authenticate the maker signature",
+      "type": "controlflow",
+      "from_id": 12,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 23,
+      "reason": "fee per-mille value participates in the unchecked 1000 - fee - creatorFee - 10 subtraction",
+      "type": "dataflow",
+      "from_id": 4,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 23,
+      "reason": "creatorFee per-mille value participates in the unchecked 1000 - fee - creatorFee - 10 subtraction",
+      "type": "dataflow",
+      "from_id": 5,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 23,
+      "reason": "buyArtworkETH computes amount.mul(1000 - fee - creatorFee - 10).div(1000)",
+      "type": "controlflow",
+      "from_id": 12,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 24,
+      "reason": "orderFills[orderHash] is incremented by tradeValues[5] after external calls",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 24,
+      "reason": "buyArtworkETH updates fill accounting at the end of execution",
+      "type": "controlflow",
+      "from_id": 12,
+      "vuln_type": "none"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "func_changeFee",
+      "reason": "_amount parameter is only used to assign the fee state variable in changeFee",
+      "normal_node": "param_changeFee_amount"
+    },
+    {
+      "merge_into": "func_changeCreatorFee",
+      "reason": "_amount parameter is only used to assign the creatorFee state variable in changeCreatorFee",
+      "normal_node": "param_changeCreatorFee_amount"
+    },
+    {
+      "merge_into": "func_invalidateOrder",
+      "reason": "tradeValues is only consumed by invalidateOrder hash construction",
+      "normal_node": "param_invalidate_tradeValues"
+    },
+    {
+      "merge_into": "func_invalidateOrder",
+      "reason": "tradeAddresses is only consumed by invalidateOrder signature verification",
+      "normal_node": "param_invalidate_tradeAddresses"
+    },
+    {
+      "merge_into": "func_invalidateOrder",
+      "reason": "v is only consumed by the ecrecover call in invalidateOrder",
+      "normal_node": "param_invalidate_v"
+    },
+    {
+      "merge_into": "func_invalidateOrder",
+      "reason": "rs is only consumed by the ecrecover call in invalidateOrder",
+      "normal_node": "param_invalidate_rs"
+    },
+    {
+      "merge_into": "func_invalidateOrder",
+      "reason": "orderHash is a transient local used only inside invalidateOrder",
+      "normal_node": "local_invalidate_orderHash"
+    },
+    {
+      "merge_into": "func_isValidOrder",
+      "reason": "tradeValues is only consumed by isValidOrder checks",
+      "normal_node": "param_isValid_tradeValues"
+    },
+    {
+      "merge_into": "func_isValidOrder",
+      "reason": "tradeAddresses is only consumed by isValidOrder checks",
+      "normal_node": "param_isValid_tradeAddresses"
+    },
+    {
+      "merge_into": "func_isValidOrder",
+      "reason": "v is only consumed by the ecrecover call in isValidOrder",
+      "normal_node": "param_isValid_v"
+    },
+    {
+      "merge_into": "func_isValidOrder",
+      "reason": "rs is only consumed by the ecrecover call in isValidOrder",
+      "normal_node": "param_isValid_rs"
+    },
+    {
+      "merge_into": "func_isValidOrder",
+      "reason": "orderHash is a transient local used only inside isValidOrder",
+      "normal_node": "local_isValid_orderHash"
+    },
+    {
+      "merge_into": "func_buyArtworkETH",
+      "reason": "tradeValues is only consumed by buyArtworkETH logic",
+      "normal_node": "param_buy_tradeValues"
+    },
+    {
+      "merge_into": "func_buyArtworkETH",
+      "reason": "tradeAddresses is only consumed by buyArtworkETH logic",
+      "normal_node": "param_buy_tradeAddresses"
+    },
+    {
+      "merge_into": "func_buyArtworkETH",
+      "reason": "v is only consumed by the ecrecover call in buyArtworkETH",
+      "normal_node": "param_buy_v"
+    },
+    {
+      "merge_into": "func_buyArtworkETH",
+      "reason": "rs is only consumed by the ecrecover call in buyArtworkETH",
+      "normal_node": "param_buy_rs"
+    },
+    {
+      "merge_into": "func_buyArtworkETH",
+      "reason": "orderHash is a transient local used only inside buyArtworkETH",
+      "normal_node": "local_buy_orderHash"
+    },
+    {
+      "merge_into": "func_buyArtworkETH",
+      "reason": "amount is a transient local used only inside buyArtworkETH payout math",
+      "normal_node": "local_buy_amount"
+    }
+  ]
+}

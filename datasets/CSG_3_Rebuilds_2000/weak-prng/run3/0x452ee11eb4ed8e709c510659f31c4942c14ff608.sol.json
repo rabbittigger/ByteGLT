@@ -1,0 +1,324 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "description": "Public address state variable storing the contract owner, set in the constructor.",
+      "id": "owner",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "description": "Public mapping(address=>uint) holding player balances, credited and debited by withdraw/challenge flows.",
+      "id": "balances",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "description": "Public address state variable holding the current leader of the game.",
+      "id": "leader",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "description": "Constructor: assigns owner = msg.sender and initialises leader = owner.",
+      "id": "constructor",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 4,
+      "description": "View function returning balances[player] for a supplied address.",
+      "id": "publicGetBalance",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "description": "View function returning the current leader address.",
+      "id": "publicGetState",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 6,
+      "description": "Withdraw function that zeroes the caller balance then transfers the amount to msg.sender.",
+      "id": "userWithdraw",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "description": "Payable challenge function using blockhash-derived randomness to pick a winner and update balances/leader.",
+      "id": "userChallenge",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 8,
+      "description": "External caller-controlled address used as owner, player, leader and transfer recipient.",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 9,
+      "description": "External value transfer to msg.sender in userWithdraw; potential callback entry point.",
+      "id": "msg.sender.transfer",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 10,
+      "description": "Weak randomness source: uint(blockhash(block.number - 1)) combined with leader and msg.sender addresses.",
+      "id": "random_source",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 11,
+      "description": "Arithmetic credit balances[msg.sender] += 100 finney on winning branch.",
+      "id": "balances_msg_sender_add",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 12,
+      "description": "Arithmetic credit balances[leader] += 95 finney and balances[owner] += 5 finney on losing branch.",
+      "id": "balances_payout_add",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 13,
+      "description": "Address parameter of publicGetBalance used to look up a balance.",
+      "id": "player",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 14,
+      "description": "Local variable in userWithdraw caching balances[msg.sender] before zeroing.",
+      "id": "amount",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 15,
+      "description": "Local variable in userChallenge holding the pseudo-random value used for the branch condition.",
+      "id": "random",
+      "type": "local_var",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is assigned to the owner state variable in the constructor.",
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "reason": "msg.sender is the recipient of the external transfer in userWithdraw.",
+      "vuln_type": "reentrancy",
+      "to_id": 9,
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "reason": "msg.sender address is hashed into the random value in userChallenge.",
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "reason": "msg.sender selects the mapping slot credited with 100 finney on the winning branch.",
+      "vuln_type": "arithmetic",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "reason": "Stored balance value determines the amount sent by the external transfer.",
+      "vuln_type": "reentrancy",
+      "to_id": 9,
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "reason": "Local amount variable is passed to the external transfer call.",
+      "vuln_type": "reentrancy",
+      "to_id": 9,
+      "type": "dataflow",
+      "from_id": 14
+    },
+    {
+      "reason": "userWithdraw reads and writes the balances mapping.",
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "reason": "publicGetBalance reads the balances mapping.",
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "reason": "Caller-supplied player parameter indexes the balances mapping.",
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "reason": "player parameter is the input of the publicGetBalance view function.",
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "reason": "leader address is mixed into the random value computation.",
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "reason": "Winning branch (random % 2 == 1) executes the credit to msg.sender balance.",
+      "vuln_type": "arithmetic",
+      "to_id": 11,
+      "type": "controlflow",
+      "from_id": 10
+    },
+    {
+      "reason": "Losing branch (random % 2 == 0) executes the leader/owner payouts.",
+      "vuln_type": "arithmetic",
+      "to_id": 12,
+      "type": "controlflow",
+      "from_id": 10
+    },
+    {
+      "reason": "userChallenge computes the random value during execution.",
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "controlflow",
+      "from_id": 7
+    },
+    {
+      "reason": "userChallenge may execute the msg.sender balance credit.",
+      "vuln_type": "arithmetic",
+      "to_id": 11,
+      "type": "controlflow",
+      "from_id": 7
+    },
+    {
+      "reason": "userChallenge may execute the leader and owner balance credits.",
+      "vuln_type": "arithmetic",
+      "to_id": 12,
+      "type": "controlflow",
+      "from_id": 7
+    },
+    {
+      "reason": "userWithdraw transfers funds to msg.sender at the end of its execution.",
+      "vuln_type": "reentrancy",
+      "to_id": 9,
+      "type": "controlflow",
+      "from_id": 6
+    },
+    {
+      "reason": "External transfer can re-enter the contract's withdraw function.",
+      "vuln_type": "reentrancy",
+      "to_id": 6,
+      "type": "callback",
+      "from_id": 9
+    },
+    {
+      "reason": "owner address receives the 5 finney fee on the losing branch.",
+      "vuln_type": "arithmetic",
+      "to_id": 12,
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "reason": "leader address receives the 95 finney payout on the losing branch.",
+      "vuln_type": "arithmetic",
+      "to_id": 12,
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "reason": "leader is used as the defender and can be overwritten by msg.sender on the winning branch.",
+      "vuln_type": "arithmetic",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "reason": "Local random variable stores the derived random value from the unsafe source.",
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "from_id": 15
+    },
+    {
+      "reason": "msg.sender participates in and pays for the challenge game logic.",
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "reason": "msg.sender keys the balance check and update in userWithdraw.",
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "reason": "balances mapping is mutated by the winning-branch arithmetic credit.",
+      "vuln_type": "arithmetic",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "reason": "balances mapping is mutated by the losing-branch arithmetic credits.",
+      "vuln_type": "arithmetic",
+      "to_id": 12,
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "reason": "publicGetState returns the leader state variable.",
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "from_id": 2
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The player parameter exists only as input to publicGetBalance and should be folded into that core function node.",
+      "merge_into": "publicGetBalance",
+      "normal_node": "player"
+    },
+    {
+      "reason": "The amount local variable is a temporary alias of balances[msg.sender] inside userWithdraw and merges into that function node.",
+      "merge_into": "userWithdraw",
+      "normal_node": "amount"
+    },
+    {
+      "reason": "The random local variable is a temporary of the userChallenge randomness computation and merges into that function node.",
+      "merge_into": "userChallenge",
+      "normal_node": "random"
+    }
+  ]
+}

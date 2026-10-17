@@ -1,0 +1,773 @@
+{
+  "nodes": [
+    {
+      "id": "fn_setVaultData",
+      "is_core": true,
+      "type": "function",
+      "description": "owner-only setter writing the required bid price for an NFT key into vaultItemData",
+      "node_id": 0
+    },
+    {
+      "id": "fn_setCommisionPercentage",
+      "is_core": true,
+      "type": "function",
+      "description": "owner-only setter updating commisionFeesPercentage",
+      "node_id": 1
+    },
+    {
+      "id": "fn_claimERC721",
+      "is_core": true,
+      "type": "function",
+      "description": "payable nonReentrant entry point that records an ERC721 claim and takes the bidder payment",
+      "node_id": 2
+    },
+    {
+      "id": "fn_claimERC1155",
+      "is_core": true,
+      "type": "function",
+      "description": "payable nonReentrant entry point that records an ERC1155 claim and takes the bidder payment",
+      "node_id": 3
+    },
+    {
+      "id": "fn_approveSale",
+      "is_core": true,
+      "type": "function",
+      "description": "owner-only settlement that pushes the NFT to the buyer then pays the seller",
+      "node_id": 4
+    },
+    {
+      "id": "fn_rejectSale",
+      "is_core": true,
+      "type": "function",
+      "description": "owner-only refund that sends the escrowed value back to the claim sender",
+      "node_id": 5
+    },
+    {
+      "id": "fn_valueTransfer",
+      "is_core": true,
+      "type": "function",
+      "description": "internal payout helper splitting value into seller amount and protocol commission",
+      "node_id": 6
+    },
+    {
+      "id": "fn_widthdraw",
+      "is_core": true,
+      "type": "function",
+      "description": "owner-only payable function transferring an arbitrary amount to an arbitrary receiver",
+      "node_id": 7
+    },
+    {
+      "id": "sv_vaultItemData",
+      "is_core": true,
+      "type": "state_var",
+      "description": "mapping(string => uint256) public vaultItemData holding the expected bid price per NFT key",
+      "node_id": 8
+    },
+    {
+      "id": "sv_claims",
+      "is_core": true,
+      "type": "state_var",
+      "description": "mapping(uint256 => Claim) public claims holding all pending settlement records",
+      "node_id": 9
+    },
+    {
+      "id": "sv_claimPointer",
+      "is_core": true,
+      "type": "state_var",
+      "description": "uint256 claimPointer cursor used as the claim index and incremented on every claim",
+      "node_id": 10
+    },
+    {
+      "id": "sv_commisionFeesPercentage",
+      "is_core": true,
+      "type": "state_var",
+      "description": "uint256 commisionFeesPercentage, default 5, used to compute the protocol fee",
+      "node_id": 11
+    },
+    {
+      "id": "sv_owner",
+      "is_core": true,
+      "type": "state_var",
+      "description": "address private _owner inherited from Ownable, gates onlyOwner functions and receives commission",
+      "node_id": 12
+    },
+    {
+      "id": "ti_msg_sender",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "msg.sender, the caller-controlled address recorded as the claim sender and compared in onlyOwner",
+      "node_id": 13
+    },
+    {
+      "id": "uo_sendValue",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "Address.sendValue low-level call forwarding all gas to the seller and to owner()",
+      "node_id": 14
+    },
+    {
+      "id": "uo_reject_transfer",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "claims[claimId].sender.transfer(...) Ether push to an attacker-controlled claim sender",
+      "node_id": 15
+    },
+    {
+      "id": "uo_widthdraw_transfer",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "payable(reciever).transfer(amount) Ether push to a caller-supplied receiver",
+      "node_id": 16
+    },
+    {
+      "id": "uo_nft_transfer",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "external IERC1155.safeTransferFrom / IERC721.transferFrom call to an arbitrary NFT contract",
+      "node_id": 17
+    },
+    {
+      "id": "uo_claimPointer_increment",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "claimPointer++ state counter increment performed after claim insertion",
+      "node_id": 18
+    },
+    {
+      "id": "param_setVaultData_nftKey",
+      "is_core": false,
+      "type": "parameter",
+      "description": "string _nftKey key used to index vaultItemData",
+      "node_id": 19
+    },
+    {
+      "id": "param_setVaultData_bidderPrice",
+      "is_core": false,
+      "type": "parameter",
+      "description": "uint256 _bidderPrice price written into vaultItemData",
+      "node_id": 20
+    },
+    {
+      "id": "param_setCommisionPercentage_commision",
+      "is_core": false,
+      "type": "parameter",
+      "description": "uint256 _commision new commission percentage",
+      "node_id": 21
+    },
+    {
+      "id": "param_claimERC721_nftKey",
+      "is_core": false,
+      "type": "parameter",
+      "description": "string _nftKey used to look up the required bid price",
+      "node_id": 22
+    },
+    {
+      "id": "param_claimERC721_nftContract",
+      "is_core": false,
+      "type": "parameter",
+      "description": "address _nftContract NFT contract stored in the claim",
+      "node_id": 23
+    },
+    {
+      "id": "param_claimERC721_owner",
+      "is_core": false,
+      "type": "parameter",
+      "description": "address _owner seller address stored in the claim",
+      "node_id": 24
+    },
+    {
+      "id": "param_claimERC721_tokenId",
+      "is_core": false,
+      "type": "parameter",
+      "description": "uint256 _tokenId token identifier stored in the claim",
+      "node_id": 25
+    },
+    {
+      "id": "param_claimERC1155_nftKey",
+      "is_core": false,
+      "type": "parameter",
+      "description": "string _nftKey used to look up the required bid price",
+      "node_id": 26
+    },
+    {
+      "id": "param_claimERC1155_nftContract",
+      "is_core": false,
+      "type": "parameter",
+      "description": "address _nftContract NFT contract stored in the claim",
+      "node_id": 27
+    },
+    {
+      "id": "param_claimERC1155_owner",
+      "is_core": false,
+      "type": "parameter",
+      "description": "address _owner seller address stored in the claim",
+      "node_id": 28
+    },
+    {
+      "id": "param_claimERC1155_amount",
+      "is_core": false,
+      "type": "parameter",
+      "description": "uint256 _amount ERC1155 quantity, also selects the transfer branch",
+      "node_id": 29
+    },
+    {
+      "id": "param_claimERC1155_tokenId",
+      "is_core": false,
+      "type": "parameter",
+      "description": "uint256 _tokenId token identifier stored in the claim",
+      "node_id": 30
+    },
+    {
+      "id": "param_claimERC1155_data",
+      "is_core": false,
+      "type": "parameter",
+      "description": "bytes _data forwarded to the ERC1155 safe transfer",
+      "node_id": 31
+    },
+    {
+      "id": "param_approveSale_claimId",
+      "is_core": false,
+      "type": "parameter",
+      "description": "uint256 claimId indexing the claim to settle",
+      "node_id": 32
+    },
+    {
+      "id": "param_rejectSale_claimId",
+      "is_core": false,
+      "type": "parameter",
+      "description": "uint256 claimId indexing the claim to refund",
+      "node_id": 33
+    },
+    {
+      "id": "param_valueTransfer_owner",
+      "is_core": false,
+      "type": "parameter",
+      "description": "address _owner payout recipient of the seller share",
+      "node_id": 34
+    },
+    {
+      "id": "param_valueTransfer_value",
+      "is_core": false,
+      "type": "parameter",
+      "description": "uint256 _value total amount split between seller and commission",
+      "node_id": 35
+    },
+    {
+      "id": "param_widthdraw_amount",
+      "is_core": false,
+      "type": "parameter",
+      "description": "uint256 amount to withdraw",
+      "node_id": 36
+    },
+    {
+      "id": "param_widthdraw_reciever",
+      "is_core": false,
+      "type": "parameter",
+      "description": "address payable reciever destination of the withdrawal",
+      "node_id": 37
+    },
+    {
+      "id": "local_valueTransfer_commision",
+      "is_core": false,
+      "type": "local_var",
+      "description": "uint256 commision local computed as mul(_value, commisionFeesPercentage)/100",
+      "node_id": 38
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 0,
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "controlflow",
+      "reason": "setVaultData consumes the _nftKey parameter"
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "controlflow",
+      "reason": "setVaultData consumes the _bidderPrice parameter"
+    },
+    {
+      "from_id": 19,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "_nftKey is used as the key when writing vaultItemData"
+    },
+    {
+      "from_id": 20,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "_bidderPrice is stored into vaultItemData as the required bid"
+    },
+    {
+      "from_id": 1,
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "controlflow",
+      "reason": "setCommisionPercentage consumes the _commision parameter"
+    },
+    {
+      "from_id": 21,
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "_commision overwrites commisionFeesPercentage without bounds"
+    },
+    {
+      "from_id": 2,
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "controlflow",
+      "reason": "claimERC721 consumes the _nftKey parameter"
+    },
+    {
+      "from_id": 2,
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "controlflow",
+      "reason": "claimERC721 consumes the _nftContract parameter"
+    },
+    {
+      "from_id": 2,
+      "vuln_type": "none",
+      "to_id": 24,
+      "type": "controlflow",
+      "reason": "claimERC721 consumes the _owner parameter"
+    },
+    {
+      "from_id": 2,
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "controlflow",
+      "reason": "claimERC721 consumes the _tokenId parameter"
+    },
+    {
+      "from_id": 22,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "_nftKey reads the required price from vaultItemData for validation"
+    },
+    {
+      "from_id": 2,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "claimERC721 writes a new Claim struct into the claims mapping"
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "msg.sender is stored as the payable sender of the claim"
+    },
+    {
+      "from_id": 2,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "controlflow",
+      "reason": "claimERC721 executes the claimPointer increment"
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "msg.sender enters claimERC721 as the buyer and future settlement recipient"
+    },
+    {
+      "from_id": 18,
+      "vuln_type": "arithmetic",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "claimPointer++ mutates the shared claim counter used as the array index"
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "controlflow",
+      "reason": "claimERC1155 consumes the _nftKey parameter"
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "controlflow",
+      "reason": "claimERC1155 consumes the _nftContract parameter"
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "none",
+      "to_id": 28,
+      "type": "controlflow",
+      "reason": "claimERC1155 consumes the _owner parameter"
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "controlflow",
+      "reason": "claimERC1155 consumes the _amount parameter"
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "none",
+      "to_id": 30,
+      "type": "controlflow",
+      "reason": "claimERC1155 consumes the _tokenId parameter"
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "none",
+      "to_id": 31,
+      "type": "controlflow",
+      "reason": "claimERC1155 consumes the _data parameter"
+    },
+    {
+      "from_id": 26,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "_nftKey reads the required price from vaultItemData for validation"
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "claimERC1155 writes a new Claim struct into the claims mapping"
+    },
+    {
+      "from_id": 3,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "controlflow",
+      "reason": "claimERC1155 executes the claimPointer increment"
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "msg.sender enters claimERC1155 as the buyer and future settlement recipient"
+    },
+    {
+      "from_id": 4,
+      "vuln_type": "none",
+      "to_id": 32,
+      "type": "controlflow",
+      "reason": "approveSale consumes the claimId parameter"
+    },
+    {
+      "from_id": 4,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "approveSale reads the stored claim fields to settle"
+    },
+    {
+      "from_id": 4,
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "controlflow",
+      "reason": "approveSale performs the external NFT transfer through the caller-supplied contract"
+    },
+    {
+      "from_id": 17,
+      "vuln_type": "reentrancy",
+      "to_id": 14,
+      "type": "callback",
+      "reason": "the external NFT transfer hands control to the buyer before the commission/seller Ether payout is executed"
+    },
+    {
+      "from_id": 4,
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "controlflow",
+      "reason": "approveSale invokes the internal valueTransfer payout helper"
+    },
+    {
+      "from_id": 14,
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "commisionFeesPercentage is read to compute the protocol fee"
+    },
+    {
+      "from_id": 14,
+      "vuln_type": "access_control",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "owner() is read as the recipient of the commission payout"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "controlflow",
+      "reason": "the onlyOwner modifier compares owner() before allowing setVaultData"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "access_control",
+      "to_id": 1,
+      "type": "controlflow",
+      "reason": "the onlyOwner modifier gates setCommisionPercentage"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "access_control",
+      "to_id": 4,
+      "type": "controlflow",
+      "reason": "the onlyOwner modifier gates approveSale"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "access_control",
+      "to_id": 5,
+      "type": "controlflow",
+      "reason": "the onlyOwner modifier gates rejectSale"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "controlflow",
+      "reason": "the onlyOwner modifier gates widthdraw"
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "access_control",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "msg.sender is compared against owner() in the onlyOwner check"
+    },
+    {
+      "from_id": 5,
+      "vuln_type": "none",
+      "to_id": 33,
+      "type": "controlflow",
+      "reason": "rejectSale consumes the claimId parameter"
+    },
+    {
+      "from_id": 5,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "rejectSale reads the stored claim value and sender"
+    },
+    {
+      "from_id": 5,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "controlflow",
+      "reason": "rejectSale performs an Ether transfer to the stored claim sender"
+    },
+    {
+      "from_id": 9,
+      "vuln_type": "reentrancy",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "the refund destination is the untrusted msg.sender previously recorded in the claim"
+    },
+    {
+      "from_id": 33,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "claimId selects which stored claim is refunded"
+    },
+    {
+      "from_id": 6,
+      "vuln_type": "none",
+      "to_id": 34,
+      "type": "controlflow",
+      "reason": "valueTransfer consumes the _owner payout parameter"
+    },
+    {
+      "from_id": 6,
+      "vuln_type": "none",
+      "to_id": 35,
+      "type": "controlflow",
+      "reason": "valueTransfer consumes the _value parameter"
+    },
+    {
+      "from_id": 6,
+      "vuln_type": "none",
+      "to_id": 38,
+      "type": "controlflow",
+      "reason": "valueTransfer computes the local commision variable"
+    },
+    {
+      "from_id": 35,
+      "vuln_type": "arithmetic",
+      "to_id": 38,
+      "type": "dataflow",
+      "reason": "_value is multiplied and divided to derive the commission amount"
+    },
+    {
+      "from_id": 38,
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "the commission local depends on the mutable commisionFeesPercentage"
+    },
+    {
+      "from_id": 6,
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "controlflow",
+      "reason": "valueTransfer performs two Address.sendValue payouts"
+    },
+    {
+      "from_id": 34,
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "the _owner address is the recipient of the seller payout"
+    },
+    {
+      "from_id": 14,
+      "vuln_type": "arithmetic",
+      "to_id": 38,
+      "type": "dataflow",
+      "reason": "the commission local determines how much value is retained by the contract"
+    },
+    {
+      "from_id": 7,
+      "vuln_type": "none",
+      "to_id": 36,
+      "type": "controlflow",
+      "reason": "widthdraw consumes the amount parameter"
+    },
+    {
+      "from_id": 7,
+      "vuln_type": "none",
+      "to_id": 37,
+      "type": "controlflow",
+      "reason": "widthdraw consumes the reciever parameter"
+    },
+    {
+      "from_id": 7,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "controlflow",
+      "reason": "widthdraw performs a raw Ether transfer to the supplied receiver"
+    },
+    {
+      "from_id": 37,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "the caller-supplied reciever address is the transfer destination"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "fn_setVaultData",
+      "normal_node": "param_setVaultData_nftKey",
+      "reason": "the string _nftKey parameter has no independent semantic value outside setVaultData"
+    },
+    {
+      "merge_into": "fn_setVaultData",
+      "normal_node": "param_setVaultData_bidderPrice",
+      "reason": "the uint256 _bidderPrice parameter is only meaningful as the argument of setVaultData"
+    },
+    {
+      "merge_into": "fn_setCommisionPercentage",
+      "normal_node": "param_setCommisionPercentage_commision",
+      "reason": "the _commision parameter is only meaningful as the argument of setCommisionPercentage"
+    },
+    {
+      "merge_into": "fn_claimERC721",
+      "normal_node": "param_claimERC721_nftKey",
+      "reason": "the _nftKey parameter is only meaningful within claimERC721"
+    },
+    {
+      "merge_into": "fn_claimERC721",
+      "normal_node": "param_claimERC721_nftContract",
+      "reason": "the _nftContract parameter is only meaningful within claimERC721"
+    },
+    {
+      "merge_into": "fn_claimERC721",
+      "normal_node": "param_claimERC721_owner",
+      "reason": "the _owner parameter is only meaningful within claimERC721"
+    },
+    {
+      "merge_into": "fn_claimERC721",
+      "normal_node": "param_claimERC721_tokenId",
+      "reason": "the _tokenId parameter is only meaningful within claimERC721"
+    },
+    {
+      "merge_into": "fn_claimERC1155",
+      "normal_node": "param_claimERC1155_nftKey",
+      "reason": "the _nftKey parameter is only meaningful within claimERC1155"
+    },
+    {
+      "merge_into": "fn_claimERC1155",
+      "normal_node": "param_claimERC1155_nftContract",
+      "reason": "the _nftContract parameter is only meaningful within claimERC1155"
+    },
+    {
+      "merge_into": "fn_claimERC1155",
+      "normal_node": "param_claimERC1155_owner",
+      "reason": "the _owner parameter is only meaningful within claimERC1155"
+    },
+    {
+      "merge_into": "fn_claimERC1155",
+      "normal_node": "param_claimERC1155_amount",
+      "reason": "the _amount parameter is only meaningful within claimERC1155"
+    },
+    {
+      "merge_into": "fn_claimERC1155",
+      "normal_node": "param_claimERC1155_tokenId",
+      "reason": "the _tokenId parameter is only meaningful within claimERC1155"
+    },
+    {
+      "merge_into": "fn_claimERC1155",
+      "normal_node": "param_claimERC1155_data",
+      "reason": "the _data parameter is only meaningful within claimERC1155"
+    },
+    {
+      "merge_into": "fn_approveSale",
+      "normal_node": "param_approveSale_claimId",
+      "reason": "the claimId parameter is only meaningful within approveSale"
+    },
+    {
+      "merge_into": "fn_rejectSale",
+      "normal_node": "param_rejectSale_claimId",
+      "reason": "the claimId parameter is only meaningful within rejectSale"
+    },
+    {
+      "merge_into": "fn_valueTransfer",
+      "normal_node": "param_valueTransfer_owner",
+      "reason": "the _owner parameter is only meaningful within valueTransfer"
+    },
+    {
+      "merge_into": "fn_valueTransfer",
+      "normal_node": "param_valueTransfer_value",
+      "reason": "the _value parameter is only meaningful within valueTransfer"
+    },
+    {
+      "merge_into": "fn_valueTransfer",
+      "normal_node": "local_valueTransfer_commision",
+      "reason": "the commision local variable is a temporary inside valueTransfer feeding the payout unsafe operation"
+    },
+    {
+      "merge_into": "fn_widthdraw",
+      "normal_node": "param_widthdraw_amount",
+      "reason": "the amount parameter is only meaningful within widthdraw"
+    },
+    {
+      "merge_into": "fn_widthdraw",
+      "normal_node": "param_widthdraw_reciever",
+      "reason": "the reciever parameter is only meaningful within widthdraw"
+    }
+  ]
+}

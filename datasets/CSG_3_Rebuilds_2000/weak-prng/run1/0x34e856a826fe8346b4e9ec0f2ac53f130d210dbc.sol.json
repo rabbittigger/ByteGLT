@@ -1,0 +1,471 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "gamblers",
+      "is_core": true,
+      "description": "Public mapping(uint => address) storing the address of every gambler; source of recipient addresses for all payouts."
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "id": "player_count",
+      "is_core": true,
+      "description": "uint8 counter of currently registered players; incremented on each deposit and decremented inside refund/round-shift loops, so it can underflow."
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "id": "ante",
+      "is_core": true,
+      "description": "uint bet size per player in wei (0.01 ether by default); drives every payout calculation."
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "id": "required_number_players",
+      "is_core": true,
+      "description": "uint8 number of sign-ups that trigger a draw; also used as modulus for the pseudo-random winner selection."
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "id": "next_round_players",
+      "is_core": true,
+      "description": "uint8 carry-over count of players rolled into the next round after a draw."
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "id": "random",
+      "is_core": true,
+      "description": "uint storing the pseudo-random winner index derived from block.blockhash(block.number)."
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "id": "winner_percentage",
+      "is_core": true,
+      "description": "uint percentage of the pot paid to the winner (default 90); remainder is split between two hard-coded addresses."
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "id": "owner",
+      "is_core": true,
+      "description": "address of the contract deployer; used as the only authorisation check in changeParameters and refund."
+    },
+    {
+      "node_id": 8,
+      "type": "state_var",
+      "id": "bet_blocknumber",
+      "is_core": true,
+      "description": "uint block number captured when the required player count is reached; compared against block.number to decide the draw block."
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "id": "Lottery",
+      "is_core": true,
+      "description": "Constructor: sets owner = msg.sender and initialises ante, required_number_players and winner_percentage."
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "id": "changeParameters",
+      "is_core": true,
+      "description": "Owner-only setter for ante, required_number_players and winner_percentage."
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "id": "refund",
+      "is_core": true,
+      "description": "Owner-only refund routine that drains the contract balance to gamblers via transfer() inside a while loop."
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "id": "fallback",
+      "is_core": true,
+      "description": "Payable anonymous deposit function: registers the sender, triggers the draw when enough players joined, computes a pseudo-random winner and pays out the winner plus two fixed addresses."
+    },
+    {
+      "node_id": 13,
+      "type": "untrusted_input",
+      "id": "msg_sender",
+      "is_core": true,
+      "description": "msg.sender: attacker-controlled caller used for owner assignment, owner checks and gambler registration."
+    },
+    {
+      "node_id": 14,
+      "type": "unsafe_operation",
+      "id": "refund_transfer_player",
+      "is_core": true,
+      "description": "gamblers[player_count].transfer(ante) in refund(): external value transfer whose recipient index is taken from a decrementing counter (underflow/out-of-range recipient)."
+    },
+    {
+      "node_id": 15,
+      "type": "unsafe_operation",
+      "id": "refund_transfer_balance",
+      "is_core": true,
+      "description": "gamblers[1].transfer(this.balance) in refund(): sends the whole contract balance to a fixed mapping slot irrespective of that slot's real owner."
+    },
+    {
+      "node_id": 16,
+      "type": "unsafe_operation",
+      "id": "random_generation",
+      "is_core": true,
+      "description": "random = uint(block.blockhash(block.number))%required_number_players + 1: predictable block-hash based pseudo-randomness used to pick the winner."
+    },
+    {
+      "node_id": 17,
+      "type": "unsafe_operation",
+      "id": "winner_transfer",
+      "is_core": true,
+      "description": "gamblers[random].transfer(ante*required_number_players*winner_percentage/100): pays the pseudo-randomly chosen gambler the winner share of the pot."
+    },
+    {
+      "node_id": 18,
+      "type": "unsafe_operation",
+      "id": "fee_transfer_1",
+      "is_core": true,
+      "description": "0xBdf8fF4648bF66c03160F572f67722cf9793cE6b.transfer(...): sends half of the remaining (non-winner) pot to a hard-coded address."
+    },
+    {
+      "node_id": 19,
+      "type": "unsafe_operation",
+      "id": "fee_transfer_2",
+      "is_core": true,
+      "description": "0xA7aa3509d62B9f8B6ee02EA0cFd3738873D3ee4C.transfer(...): sends the other half of the remaining (non-winner) pot to a hard-coded address."
+    },
+    {
+      "node_id": 20,
+      "type": "unsafe_operation",
+      "id": "player_count_decrement",
+      "is_core": true,
+      "description": "player_count -=1 inside the refund() while loop: uint8 arithmetic that can underflow to 255."
+    },
+    {
+      "node_id": 21,
+      "type": "unsafe_operation",
+      "id": "player_count_increment",
+      "is_core": true,
+      "description": "player_count +=1 on every deposit: uint8 arithmetic that can overflow after 255 deposits."
+    },
+    {
+      "node_id": 22,
+      "type": "parameter",
+      "id": "newAnte",
+      "is_core": false,
+      "description": "Parameter of changeParameters: the new ante value written into the ante state variable."
+    },
+    {
+      "node_id": 23,
+      "type": "parameter",
+      "id": "newNumberOfPlayers",
+      "is_core": false,
+      "description": "Parameter of changeParameters: the new required_number_players value."
+    },
+    {
+      "node_id": 24,
+      "type": "parameter",
+      "id": "newWinnerPercentage",
+      "is_core": false,
+      "description": "Parameter of changeParameters: the new winner_percentage value."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor writes the untrusted caller into the privileged owner state variable (owner = msg.sender).",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 9
+    },
+    {
+      "reason": "The anonymous payable function stores msg.sender as gamblers[player_count], so caller-controlled addresses end up as payout recipients.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 0
+    },
+    {
+      "reason": "changeParameters gates all parameter updates on msg.sender == owner, an equality check on an untrusted caller.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 13,
+      "to_id": 10
+    },
+    {
+      "reason": "owner (set from msg.sender at construction) is the only address allowed to modify ante/required_number_players/winner_percentage.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 7,
+      "to_id": 10
+    },
+    {
+      "reason": "refund() is reachable only when msg.sender == owner, so authorisation depends entirely on the untrusted caller.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 13,
+      "to_id": 11
+    },
+    {
+      "reason": "owner guards the balance-draining refund routine.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 7,
+      "to_id": 11
+    },
+    {
+      "reason": "The ante state variable determines the value transferred in refund().",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 14
+    },
+    {
+      "reason": "player_count is used as the mapping index (gamblers[player_count]) whose address receives the transfer.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 14
+    },
+    {
+      "reason": "The gamblers mapping supplies the recipient address of the refund transfer.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 14
+    },
+    {
+      "reason": "gamblers[1] from the mapping is the recipient of the full-balance refund transfer.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 15
+    },
+    {
+      "reason": "The player_count state variable is decremented, and uint8 underflow wraps it to 255 when the loop runs past zero.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 20
+    },
+    {
+      "reason": "The decremented value is written back into the player_count state variable inside the refund loop.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 20,
+      "to_id": 1
+    },
+    {
+      "reason": "Deposits read and increment player_count (+=1), which can overflow the uint8 counter.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 21
+    },
+    {
+      "reason": "The incremented counter is stored back to the player_count state variable on each payable call.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 1
+    },
+    {
+      "reason": "bet_blocknumber is compared against block.number to decide whether the draw happens in the current block.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 16
+    },
+    {
+      "reason": "required_number_players is the modulus in the pseudo-random winner index computation.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 16
+    },
+    {
+      "reason": "The value computed by the pseudo-random expression determines which gambler index is paid.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 16,
+      "to_id": 17
+    },
+    {
+      "reason": "The random state variable (winner index) selects gamblers[random] as the payout recipient.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 17
+    },
+    {
+      "reason": "The gamblers mapping provides the winner address that receives the pot share.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 17
+    },
+    {
+      "reason": "ante is a factor of the winner payout amount ante*required_number_players*winner_percentage/100.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 17
+    },
+    {
+      "reason": "required_number_players scales the pot size in the winner payout computation.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 17
+    },
+    {
+      "reason": "winner_percentage determines the winner's share of the pot in the payout expression.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 17
+    },
+    {
+      "reason": "ante appears in the residual pot amount sent to the first hard-coded address.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 18
+    },
+    {
+      "reason": "required_number_players scales the total pot in the residual fee calculation.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 18
+    },
+    {
+      "reason": "winner_percentage is subtracted out to derive the residual amount paid to the first hard-coded address.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 18
+    },
+    {
+      "reason": "ante appears in the residual pot amount sent to the second hard-coded address.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 19
+    },
+    {
+      "reason": "required_number_players scales the total pot in the residual fee calculation.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 19
+    },
+    {
+      "reason": "winner_percentage is subtracted out to derive the residual amount paid to the second hard-coded address.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 19
+    },
+    {
+      "reason": "The payable fallback function executes the winner transfer when the draw conditions are met.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 12,
+      "to_id": 17
+    },
+    {
+      "reason": "The payable fallback function executes the first hard-coded fee transfer.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 12,
+      "to_id": 18
+    },
+    {
+      "reason": "The payable fallback function executes the second hard-coded fee transfer.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 12,
+      "to_id": 19
+    },
+    {
+      "reason": "Value transfer to gamblers[player_count] happens before player_count is decremented, so the recipient can re-enter refund() with stale counter state.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 14,
+      "to_id": 11
+    },
+    {
+      "reason": "Full-balance transfer to gamblers[1] is an external call that can re-enter the refund routine before state settles.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 15,
+      "to_id": 11
+    },
+    {
+      "reason": "Payout to gamblers[random] occurs before player_count/next_round_players are rewritten in the fallback loop, allowing re-entry into the payable function.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 17,
+      "to_id": 12
+    },
+    {
+      "reason": "External transfer to the fixed fee address happens before the round-shift bookkeeping completes, so re-entry into the fallback is possible.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 18,
+      "to_id": 12
+    },
+    {
+      "reason": "External transfer to the second fixed fee address happens before player_count is normalised, enabling re-entrant deposits.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 19,
+      "to_id": 12
+    },
+    {
+      "reason": "The newAnte parameter is written directly into the ante state variable.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 2
+    },
+    {
+      "reason": "The newNumberOfPlayers parameter is written into required_number_players.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 23,
+      "to_id": 3
+    },
+    {
+      "reason": "The newWinnerPercentage parameter is written into winner_percentage.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 24,
+      "to_id": 6
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "newAnte is only used as a temporary input that is immediately copied into the ante state variable inside changeParameters, so it carries no independent semantic meaning.",
+      "merge_into": "changeParameters",
+      "normal_node": "newAnte"
+    },
+    {
+      "reason": "newNumberOfPlayers is a transient argument that is stored into required_number_players within changeParameters and never used elsewhere.",
+      "merge_into": "changeParameters",
+      "normal_node": "newNumberOfPlayers"
+    },
+    {
+      "reason": "newWinnerPercentage is a transient argument that is stored into winner_percentage within changeParameters and never used elsewhere.",
+      "merge_into": "changeParameters",
+      "normal_node": "newWinnerPercentage"
+    }
+  ]
+}

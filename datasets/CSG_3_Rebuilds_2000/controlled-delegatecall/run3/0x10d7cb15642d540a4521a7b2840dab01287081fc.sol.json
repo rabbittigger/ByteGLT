@@ -1,0 +1,199 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "public pure recover(bytes32 hash, bytes memory signature): parses a 65-byte ECDSA signature in inline assembly, validates s-range and v, then calls ecrecover to return the signer address.",
+      "id": "fn_recover",
+      "type": "function",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "external pure toEthSignedMessageHash(bytes32 hash): wraps a hash with the Ethereum Signed Message prefix using keccak256(abi.encodePacked(...)).",
+      "id": "fn_toEthSignedMessageHash",
+      "type": "function",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "ecrecover(hash, v, r, s) precompile call: can return address(0) on invalid signatures and is historically malleable; the recovered signer is a security-critical, attacker-influenceable value.",
+      "id": "op_ecrecover",
+      "type": "unsafe_operation",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "Inline assembly block reading signature via mload(add(signature,0x20/0x40/0x60)) and byte(0,...) into r, s, v without bounds/layout safety checks.",
+      "id": "op_assembly_mload",
+      "type": "unsafe_operation",
+      "node_id": 3
+    },
+    {
+      "is_core": false,
+      "description": "Parameter hash of recover(bytes32 hash, bytes memory signature).",
+      "id": "param_recover_hash",
+      "type": "parameter",
+      "node_id": 4
+    },
+    {
+      "is_core": false,
+      "description": "Parameter signature (bytes memory) of recover: attacker-controllable raw signature bytes copied in memory.",
+      "id": "param_recover_signature",
+      "type": "parameter",
+      "node_id": 5
+    },
+    {
+      "is_core": false,
+      "description": "Parameter hash of toEthSignedMessageHash(bytes32 hash).",
+      "id": "param_toEth_hash",
+      "type": "parameter",
+      "node_id": 6
+    },
+    {
+      "is_core": false,
+      "description": "Local bytes32 r: first 32 bytes of the supplied signature, extracted by assembly.",
+      "id": "local_recover_r",
+      "type": "local_var",
+      "node_id": 7
+    },
+    {
+      "is_core": false,
+      "description": "Local bytes32 s: second 32 bytes of the supplied signature, validated against the lower-half order bound.",
+      "id": "local_recover_s",
+      "type": "local_var",
+      "node_id": 8
+    },
+    {
+      "is_core": false,
+      "description": "Local uint8 v: recovery id extracted from the 65th byte, required to be 27 or 28.",
+      "id": "local_recover_v",
+      "type": "local_var",
+      "node_id": 9
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "recover reads the hash parameter used as the recovery digest.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "recover reads the signature parameter and checks its length (65 bytes).",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "The signature memory buffer is read by the inline assembly to extract r, s and v.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "Assembly assigns the first signature word into local r.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "Assembly assigns the second signature word into local s.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "Assembly assigns the 65th signature byte into local v.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "recover executes the inline assembly block for signature parsing.",
+      "type": "controlflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "recover invokes the ecrecover precompile when length, s-range and v checks pass.",
+      "type": "controlflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "Local r is passed as an argument to ecrecover.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "Local s is passed as an argument to ecrecover.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "Local v is passed as an argument to ecrecover.",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "The hash parameter flows directly into ecrecover as the signed digest.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "toEthSignedMessageHash reads its hash parameter and prefixes it.",
+      "type": "dataflow",
+      "from_id": 6
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "fn_recover",
+      "reason": "Parameter hash is only used inside recover and carries no independent semantic identity.",
+      "normal_node": "param_recover_hash"
+    },
+    {
+      "merge_into": "fn_recover",
+      "reason": "Parameter signature is consumed entirely by recover's length check and assembly parsing.",
+      "normal_node": "param_recover_signature"
+    },
+    {
+      "merge_into": "fn_toEthSignedMessageHash",
+      "reason": "Parameter hash exists only as input to toEthSignedMessageHash and should be folded into that function.",
+      "normal_node": "param_toEth_hash"
+    },
+    {
+      "merge_into": "op_ecrecover",
+      "reason": "Local r is extracted from the signature solely to be fed into the ecrecover call.",
+      "normal_node": "local_recover_r"
+    },
+    {
+      "merge_into": "op_ecrecover",
+      "reason": "Local s is validated and then consumed by the ecrecover call.",
+      "normal_node": "local_recover_s"
+    },
+    {
+      "merge_into": "op_ecrecover",
+      "reason": "Local v is validated and then consumed by the ecrecover call.",
+      "normal_node": "local_recover_v"
+    }
+  ]
+}

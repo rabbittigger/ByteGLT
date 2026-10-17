@@ -1,0 +1,480 @@
+{
+  "nodes": [
+    {
+      "id": "initialRate",
+      "description": "Immutable public state variable holding the initial interest rate per year (scaled 1e18).",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "minRate",
+      "description": "Immutable public state variable holding the minimum allowed interest rate.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "maxRate",
+      "description": "Immutable public state variable holding the maximum allowed interest rate.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "state_var"
+    },
+    {
+      "id": "adjustRate",
+      "description": "Immutable public state variable holding the adjustment aggressiveness factor, constrained to be < 1e18 in the constructor.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "state_var"
+    },
+    {
+      "id": "BetaInterestModelV1.constructor",
+      "description": "Constructor validating _minRate < _maxRate and _adjustRate < 1e18, then assigning the four immutable rate state variables.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "BetaInterestModelV1.getNextInterestRate",
+      "description": "External view function computing the next interest rate from previous rate, liquidity, loan amount and elapsed time; uses piecewise utilization logic and clamps the result between minRate and maxRate.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "function"
+    },
+    {
+      "id": "_initialRate",
+      "description": "Constructor parameter for the initial interest rate.",
+      "is_core": false,
+      "node_id": 6,
+      "type": "parameter"
+    },
+    {
+      "id": "_minRate",
+      "description": "Constructor parameter for the minimum interest rate; used in the require(_minRate < _maxRate) check.",
+      "is_core": false,
+      "node_id": 7,
+      "type": "parameter"
+    },
+    {
+      "id": "_maxRate",
+      "description": "Constructor parameter for the maximum interest rate; used in the require(_minRate < _maxRate) check.",
+      "is_core": false,
+      "node_id": 8,
+      "type": "parameter"
+    },
+    {
+      "id": "_adjustRate",
+      "description": "Constructor parameter for the adjustment rate; validated against 1e18 and later used in the rate multiplier computation.",
+      "is_core": false,
+      "node_id": 9,
+      "type": "parameter"
+    },
+    {
+      "id": "prevRate",
+      "description": "Current interest rate input to getNextInterestRate.",
+      "is_core": false,
+      "node_id": 10,
+      "type": "parameter"
+    },
+    {
+      "id": "totalAvailable",
+      "description": "Current available liquidity input to getNextInterestRate.",
+      "is_core": false,
+      "node_id": 11,
+      "type": "parameter"
+    },
+    {
+      "id": "totalLoan",
+      "description": "Current outstanding loan input to getNextInterestRate.",
+      "is_core": false,
+      "node_id": 12,
+      "type": "parameter"
+    },
+    {
+      "id": "timePassed",
+      "description": "Time passed since the last interest rate rebase, in seconds, input to getNextInterestRate.",
+      "is_core": false,
+      "node_id": 13,
+      "type": "parameter"
+    },
+    {
+      "id": "totalLiquidity",
+      "description": "Local computed as totalAvailable + totalLoan; zero is handled by returning prevRate early.",
+      "is_core": false,
+      "node_id": 14,
+      "type": "local_var"
+    },
+    {
+      "id": "utilRate",
+      "description": "Local utilization rate computed as (totalLoan * 1e18) / totalLiquidity.",
+      "is_core": false,
+      "node_id": 15,
+      "type": "local_var"
+    },
+    {
+      "id": "cappedtimePassed",
+      "description": "Local time passed capped at 1 days via Math.min.",
+      "is_core": false,
+      "node_id": 16,
+      "type": "local_var"
+    },
+    {
+      "id": "multRate",
+      "description": "Local multiplier applied to prevRate, selected by the piecewise utilization branches.",
+      "is_core": false,
+      "node_id": 17,
+      "type": "local_var"
+    },
+    {
+      "id": "downScale",
+      "description": "Local (0.7e18 - utilRate) * 5 used in the 50-70% utilization branch.",
+      "is_core": false,
+      "node_id": 18,
+      "type": "local_var"
+    },
+    {
+      "id": "upScale",
+      "description": "Local (utilRate - 0.8e18) * 5 used in the 80-100% utilization branch.",
+      "is_core": false,
+      "node_id": 19,
+      "type": "local_var"
+    },
+    {
+      "id": "upMaxRate",
+      "description": "Local 1e36 / (1e18 - adjustRate) - 1e18, derived from adjustRate, used to scale the upper branch.",
+      "is_core": false,
+      "node_id": 20,
+      "type": "local_var"
+    },
+    {
+      "id": "targetRate",
+      "description": "Local (prevRate * multRate) / 1e18, the computed rate before clamping; returned to the caller.",
+      "is_core": false,
+      "node_id": 21,
+      "type": "local_var"
+    },
+    {
+      "id": "op_mul_totalLoan_1e18",
+      "description": "Checked multiplication totalLoan * 1e18 used to build utilRate; can revert or behave unexpectedly with extreme inputs.",
+      "is_core": true,
+      "node_id": 22,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "op_div_1e36_by_1e18_minus_adjustRate",
+      "description": "Checked division 1e36 / (1e18 - adjustRate) followed by subtraction of 1e18; division by zero would revert if adjustRate were >= 1e18.",
+      "is_core": true,
+      "node_id": 23,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "op_mul_prevRate_multRate",
+      "description": "Checked multiplication prevRate * multRate used to form targetRate; can overflow and revert for large rates.",
+      "is_core": true,
+      "node_id": 24,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor assigns the _initialRate parameter to the immutable initialRate state variable.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Constructor assigns the _minRate parameter to the immutable minRate state variable.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Constructor assigns the _maxRate parameter to the immutable maxRate state variable.",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Constructor assigns the _adjustRate parameter to the immutable adjustRate state variable.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "require(_minRate < _maxRate) gates constructor execution based on the _minRate parameter.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "controlflow"
+    },
+    {
+      "reason": "require(_adjustRate < 1e18) gates constructor execution based on the _adjustRate parameter.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "controlflow"
+    },
+    {
+      "reason": "totalAvailable contributes to the totalLiquidity local.",
+      "to_id": 14,
+      "vuln_type": "none",
+      "from_id": 11,
+      "type": "dataflow"
+    },
+    {
+      "reason": "totalLoan contributes to the totalLiquidity local.",
+      "to_id": 14,
+      "vuln_type": "none",
+      "from_id": 12,
+      "type": "dataflow"
+    },
+    {
+      "reason": "totalLoan is the left operand of the checked multiplication totalLoan * 1e18.",
+      "to_id": 22,
+      "vuln_type": "arithmetic",
+      "from_id": 12,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The result of totalLoan * 1e18 flows into the utilRate computation.",
+      "to_id": 15,
+      "vuln_type": "arithmetic",
+      "from_id": 22,
+      "type": "dataflow"
+    },
+    {
+      "reason": "totalLiquidity is the denominator in the utilRate computation.",
+      "to_id": 15,
+      "vuln_type": "none",
+      "from_id": 14,
+      "type": "dataflow"
+    },
+    {
+      "reason": "timePassed is capped via Math.min into cappedtimePassed.",
+      "to_id": 16,
+      "vuln_type": "none",
+      "from_id": 13,
+      "type": "dataflow"
+    },
+    {
+      "reason": "adjustRate is the subtracted operand in 1e18 - adjustRate, the divisor of the upMaxRate expression.",
+      "to_id": 23,
+      "vuln_type": "arithmetic",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The result of 1e36 / (1e18 - adjustRate) - 1e18 is stored in the upMaxRate local.",
+      "to_id": 20,
+      "vuln_type": "arithmetic",
+      "from_id": 23,
+      "type": "dataflow"
+    },
+    {
+      "reason": "prevRate is the left operand of the checked multiplication prevRate * multRate.",
+      "to_id": 24,
+      "vuln_type": "arithmetic",
+      "from_id": 10,
+      "type": "dataflow"
+    },
+    {
+      "reason": "multRate is the right operand of the checked multiplication prevRate * multRate.",
+      "to_id": 24,
+      "vuln_type": "arithmetic",
+      "from_id": 17,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The product prevRate * multRate, divided by 1e18, produces the targetRate local.",
+      "to_id": 21,
+      "vuln_type": "arithmetic",
+      "from_id": 24,
+      "type": "dataflow"
+    },
+    {
+      "reason": "utilRate is used in the downScale computation of the 50-70% branch.",
+      "to_id": 18,
+      "vuln_type": "none",
+      "from_id": 15,
+      "type": "dataflow"
+    },
+    {
+      "reason": "cappedtimePassed scales the downScale-based multiplier.",
+      "to_id": 18,
+      "vuln_type": "none",
+      "from_id": 16,
+      "type": "dataflow"
+    },
+    {
+      "reason": "downScale feeds the arithmetic expression producing multRate in the middle-utilization branch.",
+      "to_id": 17,
+      "vuln_type": "arithmetic",
+      "from_id": 18,
+      "type": "dataflow"
+    },
+    {
+      "reason": "utilRate is used in the upScale computation of the 80-100% branch.",
+      "to_id": 19,
+      "vuln_type": "none",
+      "from_id": 15,
+      "type": "dataflow"
+    },
+    {
+      "reason": "cappedtimePassed scales the upScale-based multiplier.",
+      "to_id": 19,
+      "vuln_type": "none",
+      "from_id": 16,
+      "type": "dataflow"
+    },
+    {
+      "reason": "upScale feeds the arithmetic expression producing multRate in the high-utilization branch.",
+      "to_id": 17,
+      "vuln_type": "arithmetic",
+      "from_id": 19,
+      "type": "dataflow"
+    },
+    {
+      "reason": "upMaxRate is multiplied by upScale and cappedtimePassed inside the multRate expression.",
+      "to_id": 17,
+      "vuln_type": "arithmetic",
+      "from_id": 20,
+      "type": "dataflow"
+    },
+    {
+      "reason": "cappedtimePassed directly scales multRate in the decrease and increase branches.",
+      "to_id": 17,
+      "vuln_type": "none",
+      "from_id": 16,
+      "type": "dataflow"
+    },
+    {
+      "reason": "targetRate is clamped by Math.min/Math.max and returned from getNextInterestRate.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 21,
+      "type": "controlflow"
+    },
+    {
+      "reason": "minRate is used as the lower bound in the final Math.max clamp.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "maxRate is used as the upper bound in the final Math.min clamp.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "getNextInterestRate executes the checked multiplication totalLoan * 1e18.",
+      "to_id": 22,
+      "vuln_type": "arithmetic",
+      "from_id": 5,
+      "type": "controlflow"
+    },
+    {
+      "reason": "getNextInterestRate executes the checked division 1e36 / (1e18 - adjustRate) - 1e18.",
+      "to_id": 23,
+      "vuln_type": "arithmetic",
+      "from_id": 5,
+      "type": "controlflow"
+    },
+    {
+      "reason": "getNextInterestRate executes the checked multiplication prevRate * multRate.",
+      "to_id": 24,
+      "vuln_type": "arithmetic",
+      "from_id": 5,
+      "type": "controlflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Constructor parameter used solely to initialize the initialRate immutable; can be folded into the constructor node.",
+      "normal_node": "_initialRate",
+      "merge_into": "BetaInterestModelV1.constructor"
+    },
+    {
+      "reason": "Constructor parameter used only in the require bound check and minRate assignment; can be folded into the constructor node.",
+      "normal_node": "_minRate",
+      "merge_into": "BetaInterestModelV1.constructor"
+    },
+    {
+      "reason": "Constructor parameter used only in the require bound check and maxRate assignment; can be folded into the constructor node.",
+      "normal_node": "_maxRate",
+      "merge_into": "BetaInterestModelV1.constructor"
+    },
+    {
+      "reason": "Constructor parameter validated and stored as adjustRate; its identity is subsumed by the constructor and the derived state variable.",
+      "normal_node": "_adjustRate",
+      "merge_into": "BetaInterestModelV1.constructor"
+    },
+    {
+      "reason": "Function parameter directly consumed as the left operand of the prevRate * multRate computation.",
+      "normal_node": "prevRate",
+      "merge_into": "op_mul_prevRate_multRate"
+    },
+    {
+      "reason": "Function parameter only contributes to the totalLiquidity local of getNextInterestRate.",
+      "normal_node": "totalAvailable",
+      "merge_into": "BetaInterestModelV1.getNextInterestRate"
+    },
+    {
+      "reason": "Function parameter directly consumed as the operand of the totalLoan * 1e18 computation.",
+      "normal_node": "totalLoan",
+      "merge_into": "op_mul_totalLoan_1e18"
+    },
+    {
+      "reason": "Function parameter only feeds the cappedtimePassed local inside getNextInterestRate.",
+      "normal_node": "timePassed",
+      "merge_into": "BetaInterestModelV1.getNextInterestRate"
+    },
+    {
+      "reason": "Intermediate local defining the liquidity denominator; its effect is captured by the enclosing function node.",
+      "normal_node": "totalLiquidity",
+      "merge_into": "BetaInterestModelV1.getNextInterestRate"
+    },
+    {
+      "reason": "Local produced directly by the totalLoan * 1e18 arithmetic and its division, so it merges into that unsafe operation.",
+      "normal_node": "utilRate",
+      "merge_into": "op_mul_totalLoan_1e18"
+    },
+    {
+      "reason": "Intermediate local derived from timePassed via Math.min; subsumed by the enclosing function.",
+      "normal_node": "cappedtimePassed",
+      "merge_into": "BetaInterestModelV1.getNextInterestRate"
+    },
+    {
+      "reason": "Local directly consumed as the right operand of the prevRate * multRate computation.",
+      "normal_node": "multRate",
+      "merge_into": "op_mul_prevRate_multRate"
+    },
+    {
+      "reason": "Branch-specific intermediate local feeding multRate; subsumed by the enclosing function.",
+      "normal_node": "downScale",
+      "merge_into": "BetaInterestModelV1.getNextInterestRate"
+    },
+    {
+      "reason": "Branch-specific intermediate local feeding multRate; subsumed by the enclosing function.",
+      "normal_node": "upScale",
+      "merge_into": "BetaInterestModelV1.getNextInterestRate"
+    },
+    {
+      "reason": "Local produced directly by the 1e36 / (1e18 - adjustRate) - 1e18 arithmetic operation.",
+      "normal_node": "upMaxRate",
+      "merge_into": "op_div_1e36_by_1e18_minus_adjustRate"
+    },
+    {
+      "reason": "Local that is the quotient of the prevRate * multRate product, directly tied to that unsafe operation.",
+      "normal_node": "targetRate",
+      "merge_into": "op_mul_prevRate_multRate"
+    }
+  ]
+}

@@ -1,0 +1,683 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "description": "Address of the contract administrator, set to msg.sender in constructor.",
+      "id": "sv_admin",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "description": "Public counter of total allocated founder amounts.",
+      "id": "sv_totalAllocated",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "description": "Public mapping(address => Founder) storing amountWithdrawn and totalAmountLocked per founder.",
+      "id": "sv_founders",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "description": "Immutable timelock start timestamp set to block.timestamp.",
+      "id": "sv_start",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 4,
+      "description": "Immutable total amount available inside the timelock (50000000000000).",
+      "id": "sv_totalAmountTimelocked",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "description": "Running total of tokens withdrawn from the timelock.",
+      "id": "sv_totalAmountWithdrawn",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 6,
+      "description": "Private mapping(uint256 => uint256) of vesting day to percentage available.",
+      "id": "sv_percentageAvailableByDays",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "description": "Constructor: sets start, admin and initializes vesting schedule.",
+      "id": "fn_constructor",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 8,
+      "description": "Internal function that fills percentageAvailableByDays in 7-day steps up to 100%.",
+      "id": "fn_setWithdrawalSchedule",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 9,
+      "description": "Admin-only function adding a founder with a locked amount.",
+      "id": "fn_addFounder",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 10,
+      "description": "receive() external payable, accepts plain ETH transfers.",
+      "id": "fn_receive",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 11,
+      "description": "Founder withdrawal function computing vested amount and performing ERC20 transfer.",
+      "id": "fn_withdraw",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 12,
+      "description": "View helper returning a founder's locked amount.",
+      "id": "fn_checkFounderAllocation",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 13,
+      "description": "View helper returning the percentage for a normalized withdrawal day.",
+      "id": "fn_checkAvailability",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 14,
+      "description": "View helper returning amount available for msg.sender given a percentage.",
+      "id": "fn_checkAmountAvailable",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 15,
+      "description": "View helper returning amount already withdrawn by msg.sender.",
+      "id": "fn_checkAmountWithdrawn",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 16,
+      "description": "msg.sender, attacker-influenced caller identity used for auth and share lookups.",
+      "id": "ui_msg_sender",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 17,
+      "description": "block.timestamp, miner-influenced time used for vesting and lock checks.",
+      "id": "ui_block_timestamp",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 18,
+      "description": "External call IERC20(token).transfer(owner, amount) executed before state updates, reentrancy prone.",
+      "id": "uo_external_transfer",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 19,
+      "description": "Arithmetic on vested/withdrawn amounts (multiply, divide, subtract) determining payout size.",
+      "id": "uo_arithmetic",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 20,
+      "description": "Parameter _founderAddress of addFounder: founder being registered.",
+      "id": "par_founderAddress",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 21,
+      "description": "Parameter _amountLocked of addFounder: amount to lock for the founder.",
+      "id": "par_amountLocked",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 22,
+      "description": "Parameter token of withdraw: ERC20 token address to transfer out.",
+      "id": "par_token",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 23,
+      "description": "Parameter _founder of checkFounderAllocation.",
+      "id": "par_founder",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 24,
+      "description": "Parameter _daysElapsed of checkAvailability.",
+      "id": "par_daysElapsed",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 25,
+      "description": "Parameter _percentAvailable of checkAmountAvailable.",
+      "id": "par_percentAvailable",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 26,
+      "description": "Local address owner = msg.sender in withdraw, recipient of the transfer.",
+      "id": "lv_owner",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 27,
+      "description": "Local currentElapsedTime = block.timestamp - start in withdraw.",
+      "id": "lv_currentElapsedTime",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 28,
+      "description": "Local currentElapsedDays = currentElapsedTime / 86400 in withdraw.",
+      "id": "lv_currentElapsedDays",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 29,
+      "description": "Local normalized withdrawal day computed in withdraw.",
+      "id": "lv_standardWithdrawalDay",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 30,
+      "description": "Local percentage fetched from percentageAvailableByDays in withdraw.",
+      "id": "lv_percentageAvailableToOwner",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 31,
+      "description": "Local vested amount = percentage * totalAmountLocked / 100 in withdraw.",
+      "id": "lv_amountAvailableToOwner",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 32,
+      "description": "Local claimable amount = vested minus already withdrawn in withdraw.",
+      "id": "lv_amountAvailableForWithdrawal",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 33,
+      "description": "Local currentPercentage loop accumulator in _setWithdrawalSchedule.",
+      "id": "lv_currentPercentage",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 34,
+      "description": "Local startDay loop index in _setWithdrawalSchedule.",
+      "id": "lv_startDay",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 35,
+      "description": "Local standardWithdrawalDay computed in checkAvailability.",
+      "id": "lv_standardWithdrawalDayCheck",
+      "type": "local_var",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor calls the internal _setWithdrawalSchedule initializer.",
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "controlflow",
+      "from_id": 7
+    },
+    {
+      "reason": "Admin is assigned from untrusted msg.sender, granting privileged role to caller.",
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "dataflow",
+      "from_id": 16
+    },
+    {
+      "reason": "Immutable start time is derived from block.timestamp.",
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "dataflow",
+      "from_id": 17
+    },
+    {
+      "reason": "Constructor writes admin state variable.",
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "reason": "Constructor writes the start timestamp.",
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "reason": "_setWithdrawalSchedule populates percentageAvailableByDays mapping.",
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "reason": "addFounder authorization check compares msg.sender against admin.",
+      "vuln_type": "access_control",
+      "to_id": 9,
+      "type": "dataflow",
+      "from_id": 16
+    },
+    {
+      "reason": "addFounder reads founders mapping for duplicate-address check.",
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "reason": "addFounder enforces totalAllocated + _amountLocked <= totalAmountTimelocked.",
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "reason": "addFounder reads and updates totalAllocated.",
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "reason": "_founderAddress parameter indexes founders and zero-address check.",
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "from_id": 20
+    },
+    {
+      "reason": "_amountLocked parameter is stored as founder locked amount.",
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "from_id": 21
+    },
+    {
+      "reason": "addFounder increases totalAllocated state variable.",
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "reason": "addFounder writes founder totalAmountLocked and amountWithdrawn.",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "reason": "withdraw uses msg.sender as the founder key for balance lookups.",
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 16
+    },
+    {
+      "reason": "withdraw reads founders[msg.sender] locked and withdrawn amounts.",
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "reason": "withdraw computes elapsed time relative to start.",
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "reason": "withdraw gating and vesting math depend on block.timestamp.",
+      "vuln_type": "access_control",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 17
+    },
+    {
+      "reason": "withdraw reads the percentage for the normalized vesting day.",
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "reason": "withdraw checks withdrawn total against totalAmountTimelocked.",
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "reason": "withdraw reads and updates totalAmountWithdrawn.",
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "reason": "token parameter selects the ERC20 contract to transfer.",
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 22
+    },
+    {
+      "reason": "Local owner is the transfer recipient inside withdraw.",
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 26
+    },
+    {
+      "reason": "Local currentElapsedTime feeds day computation in withdraw.",
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 27
+    },
+    {
+      "reason": "Local currentElapsedDays feeds withdrawal-day normalization in withdraw.",
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 28
+    },
+    {
+      "reason": "Local standardWithdrawalDay indexes percentageAvailableByDays in withdraw.",
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 29
+    },
+    {
+      "reason": "Local percentageAvailableToOwner is used in the vested amount calculation.",
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 30
+    },
+    {
+      "reason": "Local amountAvailableToOwner is used in the claimable amount calculation.",
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 31
+    },
+    {
+      "reason": "Local amountAvailableForWithdrawal is the value transferred in withdraw.",
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 32
+    },
+    {
+      "reason": "withdraw performs the external ERC20 transfer call.",
+      "vuln_type": "reentrancy",
+      "to_id": 18,
+      "type": "controlflow",
+      "from_id": 11
+    },
+    {
+      "reason": "Untrusted token address determines which contract is called during transfer.",
+      "vuln_type": "reentrancy",
+      "to_id": 18,
+      "type": "dataflow",
+      "from_id": 22
+    },
+    {
+      "reason": "Claimable amount computed from callable data funds the external transfer.",
+      "vuln_type": "reentrancy",
+      "to_id": 18,
+      "type": "dataflow",
+      "from_id": 32
+    },
+    {
+      "reason": "totalAmountWithdrawn is updated only after the external call returns (state change after interaction).",
+      "vuln_type": "reentrancy",
+      "to_id": 5,
+      "type": "dataflow",
+      "from_id": 18
+    },
+    {
+      "reason": "founders[owner].amountWithdrawn is updated only after the external call returns.",
+      "vuln_type": "reentrancy",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 18
+    },
+    {
+      "reason": "withdraw computes vesting amounts via multiply, divide and subtract operations.",
+      "vuln_type": "arithmetic",
+      "to_id": 19,
+      "type": "controlflow",
+      "from_id": 11
+    },
+    {
+      "reason": "Vested amount local feeds the subtraction yielding the claimable amount.",
+      "vuln_type": "arithmetic",
+      "to_id": 19,
+      "type": "dataflow",
+      "from_id": 31
+    },
+    {
+      "reason": "Claimable amount local is the result of the subtraction arithmetic.",
+      "vuln_type": "arithmetic",
+      "to_id": 19,
+      "type": "dataflow",
+      "from_id": 32
+    },
+    {
+      "reason": "checkAmountAvailable reads founders[msg.sender].totalAmountLocked.",
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "from_id": 16
+    },
+    {
+      "reason": "checkAmountWithdrawn reads founders[msg.sender].amountWithdrawn.",
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "from_id": 16
+    },
+    {
+      "reason": "checkAmountAvailable reads the founders mapping.",
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "reason": "checkAmountWithdrawn reads the founders mapping.",
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "reason": "checkFounderAllocation reads founders[_founder].totalAmountLocked.",
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "reason": "_founder parameter indexes the founders mapping.",
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "from_id": 23
+    },
+    {
+      "reason": "_daysElapsed parameter drives the standard withdrawal day math.",
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "from_id": 24
+    },
+    {
+      "reason": "Local standardWithdrawalDay indexes percentageAvailableByDays in the view helper.",
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "from_id": 35
+    },
+    {
+      "reason": "checkAvailability reads percentageAvailableByDays.",
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "reason": "_percentAvailable parameter is multiplied with the founder locked amount.",
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "from_id": 25
+    },
+    {
+      "reason": "Local currentPercentage is the loop accumulator written into the mapping.",
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "from_id": 33
+    },
+    {
+      "reason": "Local startDay is the loop index used as mapping key.",
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "from_id": 34
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "_founderAddress is only used inside addFounder to index the founders mapping.",
+      "merge_into": "fn_addFounder",
+      "normal_node": "par_founderAddress"
+    },
+    {
+      "reason": "_amountLocked is only used inside addFounder to set the founder allocation.",
+      "merge_into": "fn_addFounder",
+      "normal_node": "par_amountLocked"
+    },
+    {
+      "reason": "token selects the ERC20 target and flows into the external transfer inside withdraw.",
+      "merge_into": "fn_withdraw",
+      "normal_node": "par_token"
+    },
+    {
+      "reason": "_founder is only used as lookup key in the view helper.",
+      "merge_into": "fn_checkFounderAllocation",
+      "normal_node": "par_founder"
+    },
+    {
+      "reason": "_daysElapsed is only used to compute the withdrawal day in the view helper.",
+      "merge_into": "fn_checkAvailability",
+      "normal_node": "par_daysElapsed"
+    },
+    {
+      "reason": "_percentAvailable is only used in the availability calculation of the view helper.",
+      "merge_into": "fn_checkAmountAvailable",
+      "normal_node": "par_percentAvailable"
+    },
+    {
+      "reason": "owner is the msg.sender-derived transfer recipient local of withdraw.",
+      "merge_into": "fn_withdraw",
+      "normal_node": "lv_owner"
+    },
+    {
+      "reason": "Intermediate elapsed-time local used only in withdraw.",
+      "merge_into": "fn_withdraw",
+      "normal_node": "lv_currentElapsedTime"
+    },
+    {
+      "reason": "Intermediate elapsed-days local used only in withdraw.",
+      "merge_into": "fn_withdraw",
+      "normal_node": "lv_currentElapsedDays"
+    },
+    {
+      "reason": "Normalized vesting-day local used only as mapping key in withdraw.",
+      "merge_into": "fn_withdraw",
+      "normal_node": "lv_standardWithdrawalDay"
+    },
+    {
+      "reason": "Percentage lookup local feeding the vested amount in withdraw.",
+      "merge_into": "fn_withdraw",
+      "normal_node": "lv_percentageAvailableToOwner"
+    },
+    {
+      "reason": "Vested amount local is produced by the arithmetic operation in withdraw.",
+      "merge_into": "uo_arithmetic",
+      "normal_node": "lv_amountAvailableToOwner"
+    },
+    {
+      "reason": "Claimable amount local is the value passed to the external ERC20 transfer in withdraw.",
+      "merge_into": "uo_external_transfer",
+      "normal_node": "lv_amountAvailableForWithdrawal"
+    },
+    {
+      "reason": "Loop accumulator local used only in the schedule initializer.",
+      "merge_into": "fn_setWithdrawalSchedule",
+      "normal_node": "lv_currentPercentage"
+    },
+    {
+      "reason": "Loop index local used only in the schedule initializer.",
+      "merge_into": "fn_setWithdrawalSchedule",
+      "normal_node": "lv_startDay"
+    },
+    {
+      "reason": "Local day computation used only as mapping key in checkAvailability.",
+      "merge_into": "fn_checkAvailability",
+      "normal_node": "lv_standardWithdrawalDayCheck"
+    }
+  ]
+}

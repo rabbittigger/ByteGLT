@@ -1,0 +1,165 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "tellor",
+      "description": "TellorStorage.TellorStorageStruct instance holding all protocol storage (uintVars, addressVars, disputes, balances, staking info).",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "newTellor",
+      "description": "Constant address of the new Tellor implementation that becomes the delegatecall target after transition.",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "currentTellor",
+      "description": "Constant address of the legacy Tellor implementation used as delegatecall target before transition.",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "_transition",
+      "description": "Internal one-time migration that rewrites timeTarget, difficulty, version and sets tellorContract to newTellor.",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "_isReady",
+      "description": "Internal view that returns true only when slotProgress == 0, i.e. no mining round is in progress.",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fallback",
+      "description": "Payable fallback function that optionally runs the transition then delegatecalls the forwarded msg.data to the chosen Tellor address.",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "delegatecall",
+      "description": "Assembly delegatecall executing untrusted bytecode of the target Tellor contract in this contract's storage context with raw msg.data.",
+      "node_id": 6
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "addr",
+      "description": "Local variable holding the delegatecall target address, initially currentTellor and switched to newTellor after the transition.",
+      "node_id": 7
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "_calldata",
+      "description": "Local bytes copy of msg.data forwarded verbatim as the delegatecall calldata payload.",
+      "node_id": 8
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 0,
+      "reason": "_transition writes tellor.uintVars/timeTarget, difficulty, version and tellor.addressVars/tellorContract inside the shared Tellor storage struct."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 1,
+      "reason": "_transition reads the newTellor constant and stores it as tellor.addressVars[keccak256(\"tellorContract\")]."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 5,
+      "to_id": 4,
+      "reason": "The fallback function calls _isReady() to decide whether the migration should be executed."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 5,
+      "to_id": 3,
+      "reason": "If _isReady() returns true the fallback function invokes _transition() before delegating the call."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 4,
+      "to_id": 0,
+      "reason": "_isReady reads tellor.uintVars[keccak256(\"slotProgress\")] from the Tellor storage struct."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 5,
+      "to_id": 6,
+      "reason": "The fallback function reaches the assembly delegatecall after the readiness check and optional transition."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 7,
+      "to_id": 6,
+      "reason": "The local addr variable supplies the target address argument of the delegatecall."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 8,
+      "to_id": 6,
+      "reason": "The local _calldata buffer supplies the calldata pointer/length arguments of the delegatecall."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 2,
+      "to_id": 7,
+      "reason": "addr is initialised from the currentTellor constant before the readiness check."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 1,
+      "to_id": 7,
+      "reason": "addr is reassigned to the newTellor constant when the transition has been performed."
+    },
+    {
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 6,
+      "to_id": 5,
+      "reason": "The delegatecall executes the target contract's untrusted code inside this contract, which can re-enter the fallback/entrypoint or mutate state before the original frame completes."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 6,
+      "to_id": 0,
+      "reason": "Because delegatecall runs in this contract's context, the delegated code can arbitrarily read and write the tellor storage struct (uintVars, addressVars, disputes, balances)."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "addr",
+      "merge_into": "delegatecall",
+      "reason": "The local addr only exists to select the delegatecall target (currentTellor or newTellor), so it is folded into the core unsafe delegatecall operation node."
+    },
+    {
+      "normal_node": "_calldata",
+      "merge_into": "delegatecall",
+      "reason": "The local _calldata is merely the msg.data buffer passed straight to the delegatecall, so it is folded into the core unsafe delegatecall operation node."
+    }
+  ]
+}

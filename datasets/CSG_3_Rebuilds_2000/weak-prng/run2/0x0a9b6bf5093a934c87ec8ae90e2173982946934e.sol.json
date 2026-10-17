@@ -1,0 +1,569 @@
+{
+  "nodes": [
+    {
+      "id": "state_var:owner",
+      "description": "Owner address state variable declared in Owned; initialized to msg.sender and used as the sole access-control authority for the GetToken contract.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "state_var:token",
+      "description": "Address of the ERC20 token contract that GetToken sells; set in the GetToken constructor and used as the target of every external ERC20 call.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "state_var:sellPrice",
+      "description": "Price of one token unit in wei (stored after multiplying by 1 szabo); drives BuyToken arithmetic and can be changed by the owner via SetPrice.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "state_var"
+    },
+    {
+      "id": "function:Owned",
+      "description": "Owned constructor that assigns owner = msg.sender, establishing the initial privileged account.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "function:onlyOwner",
+      "description": "onlyOwner modifier that reverts unless msg.sender equals the stored owner; applied to transferOwnership, WithdrawToken, SetPrice and WithdrawEther.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "function:transferOwnership",
+      "description": "Owner-only function that emits OwnershipTransferred and transfers the owner role to newOwner.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "function"
+    },
+    {
+      "id": "function:GetToken",
+      "description": "GetToken constructor receiving _token and _sellPrice, storing the token address and scaling the price by 1 szabo.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "function"
+    },
+    {
+      "id": "function:WithdrawToken",
+      "description": "Owner-only function that transfers tokens held by the contract to the owner through the ERC20 interface.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "function"
+    },
+    {
+      "id": "function:SetPrice",
+      "description": "Owner-only function that overwrites sellPrice with newprice * 1 szabo.",
+      "is_core": true,
+      "node_id": 8,
+      "type": "function"
+    },
+    {
+      "id": "function:WithdrawEther",
+      "description": "Owner-only function that sends ethers to owner via owner.send when the contract balance is sufficient; returns the send result.",
+      "is_core": true,
+      "node_id": 9,
+      "type": "function"
+    },
+    {
+      "id": "function:BuyToken",
+      "description": "Payable function that computes tokens from msg.value/sellPrice, refunds excess ether to msg.sender and transfers purchased tokens; emits GotTokens.",
+      "is_core": true,
+      "node_id": 10,
+      "type": "function"
+    },
+    {
+      "id": "function:fallback",
+      "description": "Payable fallback function that forwards all plain ether transfers to BuyToken().",
+      "is_core": true,
+      "node_id": 11,
+      "type": "function"
+    },
+    {
+      "id": "untrusted_input:msg.sender",
+      "description": "msg.sender used as the trusted owner identity in the Owned constructor and in the onlyOwner access-control check.",
+      "is_core": true,
+      "node_id": 12,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "unsafe_operation:owner.send(ethers)",
+      "description": "Low-level ether push to owner in WithdrawEther; return value is returned but the send is an external call that can invoke a contract owner.",
+      "is_core": true,
+      "node_id": 13,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_operation:msg.sender.send(change)",
+      "description": "Ether refund to the untrusted msg.sender inside BuyToken before the token transfer; classic reentrancy entry point since state (tokens/payable accounting) is read before the call completes.",
+      "is_core": true,
+      "node_id": 14,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_operation:ERC20(token).transfer(msg.sender,tokens)",
+      "description": "External ERC20 transfer of purchased tokens to the untrusted msg.sender inside BuyToken, performed after the ether refund; target contract address comes from state variable token.",
+      "is_core": true,
+      "node_id": 15,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_operation:ERC20(token).transfer(owner,tokens)",
+      "description": "External ERC20 transfer draining the contract's token balance to owner inside WithdrawToken.",
+      "is_core": true,
+      "node_id": 16,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_operation:sellPrice = _sellPrice * 1 szabo",
+      "description": "Unchecked multiplication in the GetToken constructor: _sellPrice * 1 szabo can overflow the 256-bit price value.",
+      "is_core": true,
+      "node_id": 17,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_operation:maxethers = total * sellPrice",
+      "description": "Unchecked multiplication in BuyToken combining the token balance with the price; overflow can make maxethers wrap and break the refund logic.",
+      "is_core": true,
+      "node_id": 18,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_operation:tokens = msg.value / sellPrice",
+      "description": "Unchecked division in BuyToken by the owner-controlled sellPrice; a zero or tampered price causes division-by-zero / bad token accounting.",
+      "is_core": true,
+      "node_id": 19,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_operation:ERC20(token).balanceOf(address(this))",
+      "description": "External call into the token contract for balanceOf; the returned value is trusted for the price/refund calculation.",
+      "is_core": true,
+      "node_id": 20,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_operation:sellPrice = newprice * 1 szabo",
+      "description": "Unchecked multiplication in SetPrice; overflow of newprice * 1 szabo can silently corrupt sellPrice.",
+      "is_core": true,
+      "node_id": 21,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "parameter:_token",
+      "description": "ERC20 token address parameter of the GetToken constructor, assigned to the token state variable.",
+      "is_core": false,
+      "node_id": 22,
+      "type": "parameter"
+    },
+    {
+      "id": "parameter:_sellPrice",
+      "description": "Initial sell price parameter of the GetToken constructor, scaled by 1 szabo before storage.",
+      "is_core": false,
+      "node_id": 23,
+      "type": "parameter"
+    },
+    {
+      "id": "parameter:tokens",
+      "description": "Number of tokens the owner wants to withdraw, passed to WithdrawToken.",
+      "is_core": false,
+      "node_id": 24,
+      "type": "parameter"
+    },
+    {
+      "id": "parameter:newprice",
+      "description": "New token price supplied to the owner-only SetPrice function.",
+      "is_core": false,
+      "node_id": 25,
+      "type": "parameter"
+    },
+    {
+      "id": "parameter:ethers",
+      "description": "Amount of wei the owner wants to withdraw, passed to WithdrawEther.",
+      "is_core": false,
+      "node_id": 26,
+      "type": "parameter"
+    },
+    {
+      "id": "parameter:newOwner",
+      "description": "Address that receives the owner role in transferOwnership.",
+      "is_core": false,
+      "node_id": 27,
+      "type": "parameter"
+    },
+    {
+      "id": "local_var:tokens",
+      "description": "Local in BuyToken holding the number of tokens the buyer receives (msg.value / sellPrice).",
+      "is_core": false,
+      "node_id": 28,
+      "type": "local_var"
+    },
+    {
+      "id": "local_var:total",
+      "description": "Local in BuyToken holding the contract's ERC20 token balance fetched via balanceOf.",
+      "is_core": false,
+      "node_id": 29,
+      "type": "local_var"
+    },
+    {
+      "id": "local_var:change",
+      "description": "Local in BuyToken holding the excess ether to be refunded to msg.sender (msg.value - maxethers).",
+      "is_core": false,
+      "node_id": 30,
+      "type": "local_var"
+    },
+    {
+      "id": "local_var:maxethers",
+      "description": "Local in BuyToken holding total * sellPrice, the maximum ether accepted before a refund is due.",
+      "is_core": false,
+      "node_id": 31,
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is written directly into the owner state variable by the Owned constructor, trusting the caller as owner.",
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "from_id": 12,
+      "type": "dataflow"
+    },
+    {
+      "reason": "msg.sender is assigned to the owner privilege state variable, making an untrusted caller the initial owner.",
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "from_id": 12,
+      "type": "dataflow"
+    },
+    {
+      "reason": "onlyOwner compares msg.sender against the stored owner, so this gate is the only barrier protecting privileged functions.",
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "from_id": 12,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The stored owner value is the reference used by onlyOwner to decide whether the caller is authorized.",
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The Owned constructor writes the owner state variable during deployment.",
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "transferOwnership is guarded by the onlyOwner modifier, so the modifier controls execution of the function body.",
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "WithdrawToken is guarded by onlyOwner, restricting the token drain to the owner.",
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "SetPrice is guarded by onlyOwner, restricting price manipulation to the owner.",
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "WithdrawEther is guarded by onlyOwner, restricting ether withdrawal to the owner.",
+      "to_id": 9,
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The newOwner parameter flows into the OwnershipTransferred event and the owner state variable.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 27,
+      "type": "dataflow"
+    },
+    {
+      "reason": "transferOwnership overwrites the owner state variable, changing the privileged account.",
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The _token constructor parameter is stored into the token state variable.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 22,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The _sellPrice constructor parameter feeds the unchecked multiplication _sellPrice * 1 szabo.",
+      "to_id": 17,
+      "vuln_type": "arithmetic",
+      "from_id": 23,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The result of the unchecked scaling multiplication is written into the sellPrice state variable.",
+      "to_id": 2,
+      "vuln_type": "arithmetic",
+      "from_id": 17,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The newprice parameter feeds the unchecked multiplication newprice * 1 szabo.",
+      "to_id": 21,
+      "vuln_type": "arithmetic",
+      "from_id": 25,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The unchecked scaled price is written into the sellPrice state variable from SetPrice.",
+      "to_id": 2,
+      "vuln_type": "arithmetic",
+      "from_id": 21,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The tokens parameter is the amount forwarded to the ERC20 transfer in WithdrawToken.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 24,
+      "type": "dataflow"
+    },
+    {
+      "reason": "WithdrawToken executes the external ERC20 transfer of tokens to owner.",
+      "to_id": 16,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The ethers parameter is the amount passed to owner.send in WithdrawEther.",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 26,
+      "type": "dataflow"
+    },
+    {
+      "reason": "WithdrawEther performs the owner.send(ethers) external push of ether.",
+      "to_id": 13,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The destination of the ether send is the owner state variable address.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 13,
+      "type": "dataflow"
+    },
+    {
+      "reason": "BuyToken reads the untrusted msg.sender as the buyer, refund recipient and event argument.",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 12,
+      "type": "dataflow"
+    },
+    {
+      "reason": "BuyToken performs the external balanceOf call on the token contract to size the purchase.",
+      "to_id": 20,
+      "vuln_type": "none",
+      "from_id": 10,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The external balanceOf return value is stored in the total local variable.",
+      "to_id": 29,
+      "vuln_type": "none",
+      "from_id": 20,
+      "type": "dataflow"
+    },
+    {
+      "reason": "sellPrice is the divisor in msg.value / sellPrice, so an owner-set or overflowed price breaks the division.",
+      "to_id": 19,
+      "vuln_type": "arithmetic",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The unchecked division result is stored in the tokens local variable used for the payout.",
+      "to_id": 28,
+      "vuln_type": "arithmetic",
+      "from_id": 19,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The token balance total is multiplied by sellPrice without overflow protection.",
+      "to_id": 18,
+      "vuln_type": "arithmetic",
+      "from_id": 29,
+      "type": "dataflow"
+    },
+    {
+      "reason": "sellPrice is a multiplicand in total * sellPrice, so price corruption propagates into maxethers.",
+      "to_id": 18,
+      "vuln_type": "arithmetic",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The unchecked multiplication result is stored in the maxethers local variable.",
+      "to_id": 31,
+      "vuln_type": "arithmetic",
+      "from_id": 18,
+      "type": "dataflow"
+    },
+    {
+      "reason": "maxethers determines the refund amount change = msg.value - maxethers.",
+      "to_id": 30,
+      "vuln_type": "arithmetic",
+      "from_id": 18,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The refund destination of msg.sender.send(change) is the untrusted caller, who can reenter BuyToken.",
+      "to_id": 14,
+      "vuln_type": "reentrancy",
+      "from_id": 12,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The refunded change value is pushed to msg.sender before the token transfer completes.",
+      "to_id": 30,
+      "vuln_type": "reentrancy",
+      "from_id": 14,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The ERC20 transfer sends purchased tokens to the untrusted msg.sender after the ether refund.",
+      "to_id": 12,
+      "vuln_type": "reentrancy",
+      "from_id": 15,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The locally computed tokens amount is the value passed into the ERC20 transfer.",
+      "to_id": 15,
+      "vuln_type": "none",
+      "from_id": 28,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The token state variable supplies the target contract address for the ERC20 transfer to the buyer.",
+      "to_id": 15,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The token state variable supplies the target contract address for the ERC20 transfer in WithdrawToken.",
+      "to_id": 16,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The token state variable supplies the target contract address for the external balanceOf call.",
+      "to_id": 20,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The GetToken constructor stores the supplied token address into the token state variable.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "BuyToken makes an external callback into the token contract controlled by state variable token, which can invoke back into the contract before accounting settles.",
+      "to_id": 15,
+      "vuln_type": "reentrancy",
+      "from_id": 10,
+      "type": "callback"
+    },
+    {
+      "reason": "BuyToken makes an external ether callback to msg.sender, allowing the buyer to reenter the payable flow.",
+      "to_id": 14,
+      "vuln_type": "reentrancy",
+      "from_id": 10,
+      "type": "callback"
+    },
+    {
+      "reason": "The payable fallback function delegates plain ether transfers into BuyToken.",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 11,
+      "type": "controlflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "_token is only consumed by the GetToken constructor to seed the token state variable, so it folds into that core function node.",
+      "normal_node": "parameter:_token",
+      "merge_into": "function:GetToken"
+    },
+    {
+      "reason": "_sellPrice is used only inside the GetToken constructor as input to the unchecked price scaling multiplication, folding into the constructor.",
+      "normal_node": "parameter:_sellPrice",
+      "merge_into": "function:GetToken"
+    },
+    {
+      "reason": "The tokens parameter exists solely to be passed to the ERC20 transfer inside WithdrawToken, so it merges into that core function.",
+      "normal_node": "parameter:tokens",
+      "merge_into": "function:WithdrawToken"
+    },
+    {
+      "reason": "newprice is the only input of the owner-only SetPrice function and merges into it.",
+      "normal_node": "parameter:newprice",
+      "merge_into": "function:SetPrice"
+    },
+    {
+      "reason": "ethers is only used to size the owner.send push inside WithdrawEther and folds into that core function.",
+      "normal_node": "parameter:ethers",
+      "merge_into": "function:WithdrawEther"
+    },
+    {
+      "reason": "newOwner is consumed exclusively by transferOwnership to update the owner state variable.",
+      "normal_node": "parameter:newOwner",
+      "merge_into": "function:transferOwnership"
+    },
+    {
+      "reason": "The tokens local is computed for, and immediately passed to, the external ERC20 transfer to the buyer.",
+      "normal_node": "local_var:tokens",
+      "merge_into": "unsafe_operation:ERC20(token).transfer(msg.sender,tokens)"
+    },
+    {
+      "reason": "total only holds the return value of the external balanceOf call and merges into that unsafe operation.",
+      "normal_node": "local_var:total",
+      "merge_into": "unsafe_operation:ERC20(token).balanceOf(address(this))"
+    },
+    {
+      "reason": "change is computed only to be refunded to msg.sender and merges into that ether-push operation.",
+      "normal_node": "local_var:change",
+      "merge_into": "unsafe_operation:msg.sender.send(change)"
+    },
+    {
+      "reason": "maxethers is produced by the unchecked multiplication total * sellPrice and merges into that arithmetic operation.",
+      "normal_node": "local_var:maxethers",
+      "merge_into": "unsafe_operation:maxethers = total * sellPrice"
+    }
+  ]
+}

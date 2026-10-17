@@ -1,0 +1,147 @@
+{
+  "nodes": [
+    {
+      "id": "fn_isValidBubbleBudz",
+      "description": "public pure function isValidBubbleBudz(uint id_) that validates a packed BubbleBudz id against a hardcoded address prefix and a low-order constant, returning bool.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "function"
+    },
+    {
+      "id": "param_id_",
+      "description": "Input parameter id_ of isValidBubbleBudz, a packed uint encoding address prefix and token suffix.",
+      "is_core": false,
+      "node_id": 1,
+      "type": "parameter"
+    },
+    {
+      "id": "fn_bubbleBudsGenesisId",
+      "description": "public pure function bubbleBudsGenesisId(uint tokenId_) that extracts the raw genesis id from a packed token id and subtracts a fixed offset.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "param_tokenId_",
+      "description": "Input parameter tokenId_ of bubbleBudsGenesisId, a packed uint holding the raw id in bits 40..199.",
+      "is_core": false,
+      "node_id": 3,
+      "type": "parameter"
+    },
+    {
+      "id": "local_rawId",
+      "description": "Local variable _rawId holding the masked and right-shifted value (tokenId_ & 0xffffffffffffff0000000000) >> 40.",
+      "is_core": false,
+      "node_id": 4,
+      "type": "local_var"
+    },
+    {
+      "id": "local_fixedId",
+      "description": "Local variable _fixedId holding the corrected genesis id returned by the function.",
+      "is_core": false,
+      "node_id": 5,
+      "type": "local_var"
+    },
+    {
+      "id": "op_bitwise_id_check",
+      "description": "Bitwise operations on id_ (id_ >> 96 address prefix comparison and id_ & 0xff..ff low-order equality check) used as the validity predicate.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "op_rawId_subtract",
+      "description": "Unsigned subtraction _rawId - 2 which underflows (reverting in 0.8.x, or wrapping in unchecked contexts) when _rawId < 2.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The parameter id_ is the sole input consumed by isValidBubbleBudz.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "id_ flows into the bitwise shift/mask validity checks.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The result of the bitwise checks determines the boolean returned by the function.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Failure of the prefix or low-order bitwise check short-circuits and returns false early.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The parameter tokenId_ is the sole input consumed by bubbleBudsGenesisId.",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "tokenId_ is masked and shifted to produce the local _rawId.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_rawId is the left operand of the subtraction _rawId - 2, which can underflow.",
+      "to_id": 7,
+      "vuln_type": "arithmetic",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The subtraction result is assigned to the local _fixedId, carrying any underflow value.",
+      "to_id": 5,
+      "vuln_type": "arithmetic",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_fixedId is returned directly to the caller, propagating the arithmetic result out of the function.",
+      "to_id": 2,
+      "vuln_type": "arithmetic",
+      "from_id": 5,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The parameter id_ has no independent security identity; it is fully subsumed by the isValidBubbleBudz entry point it feeds.",
+      "normal_node": "param_id_",
+      "merge_into": "fn_isValidBubbleBudz"
+    },
+    {
+      "reason": "The parameter tokenId_ exists only as the input of bubbleBudsGenesisId and should be folded into that function node.",
+      "normal_node": "param_tokenId_",
+      "merge_into": "fn_bubbleBudsGenesisId"
+    },
+    {
+      "reason": "_rawId is an intermediate temporary whose only role is to feed the subtraction operation, so it collapses into that unsafe operation.",
+      "normal_node": "local_rawId",
+      "merge_into": "op_rawId_subtract"
+    },
+    {
+      "reason": "_fixedId is a short-lived temporary returned by the function, so it collapses into the bubbleBudsGenesisId return path.",
+      "normal_node": "local_fixedId",
+      "merge_into": "fn_bubbleBudsGenesisId"
+    }
+  ]
+}

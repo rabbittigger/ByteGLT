@@ -1,0 +1,135 @@
+{
+  "nodes": [
+    {
+      "id": "implementation",
+      "description": "Address of the implementation contract stored in storage slot 0 and used as the delegatecall target of the fallback function.",
+      "type": "state_var",
+      "node_id": 0,
+      "is_core": true
+    },
+    {
+      "id": "constructor",
+      "description": "Constructor that permanently sets the implementation address; the implementation cannot be upgraded afterwards.",
+      "type": "function",
+      "node_id": 1,
+      "is_core": true
+    },
+    {
+      "id": "_implementation",
+      "description": "Constructor argument supplying the address of the fixed implementation contract.",
+      "type": "parameter",
+      "node_id": 2,
+      "is_core": false
+    },
+    {
+      "id": "fallback",
+      "description": "External payable fallback that copies the raw calldata and delegatecalls the implementation, reverting or returning the raw returndata.",
+      "type": "function",
+      "node_id": 3,
+      "is_core": true
+    },
+    {
+      "id": "receive",
+      "description": "External payable receive hook that emits the Received event with msg.value, msg.sender and msg.data.",
+      "type": "function",
+      "node_id": 4,
+      "is_core": true
+    },
+    {
+      "id": "delegatecall",
+      "description": "Inline-assembly delegatecall(gas(), target, ...) that executes the implementation code in the proxy storage context using caller-controlled calldata.",
+      "type": "unsafe_operation",
+      "node_id": 5,
+      "is_core": true
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller-controlled address forwarded into the Received event emitted by the receive function.",
+      "type": "untrusted_input",
+      "node_id": 6,
+      "is_core": true
+    },
+    {
+      "id": "target",
+      "description": "Assembly local variable holding the implementation address loaded via sload(0) and passed to delegatecall.",
+      "type": "local_var",
+      "node_id": 7,
+      "is_core": false
+    },
+    {
+      "id": "result",
+      "description": "Assembly local variable holding the delegatecall success flag that decides between revert and return.",
+      "type": "local_var",
+      "node_id": 8,
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "reason": "The constructor parameter _implementation is written into the implementation state variable.",
+      "to_id": 1,
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The constructor assigns _implementation to the implementation state variable in storage slot 0.",
+      "to_id": 0,
+      "from_id": 1,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The fallback reads the implementation state variable through assembly sload(0) to build the delegatecall target.",
+      "to_id": 3,
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "type": "controlflow",
+      "reason": "The fallback unconditionally forwards execution into delegatecall with the caller-supplied calldata, allowing arbitrary reentrant calls into the proxy and implementation.",
+      "to_id": 5,
+      "from_id": 3,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The assembly local target (implementation read from storage) is the destination address supplied to the delegatecall.",
+      "to_id": 5,
+      "from_id": 7,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The success flag of the delegatecall is captured in the assembly local result, which controls revert versus raw return.",
+      "to_id": 8,
+      "from_id": 5,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The untrusted caller address msg.sender is emitted in the Received event by the receive function.",
+      "to_id": 4,
+      "from_id": 6,
+      "vuln_type": "none"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The constructor parameter _implementation only carries the value written to the implementation state variable, so it is merged into the constructor function.",
+      "normal_node": "_implementation",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "The assembly local target is a temporary alias of the implementation address consumed directly by the delegatecall unsafe operation.",
+      "normal_node": "target",
+      "merge_into": "delegatecall"
+    },
+    {
+      "reason": "The assembly local result is produced solely by the delegatecall and only determines whether the proxy reverts, so it is merged into the delegatecall operation.",
+      "normal_node": "result",
+      "merge_into": "delegatecall"
+    }
+  ]
+}

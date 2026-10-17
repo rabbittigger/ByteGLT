@@ -1,0 +1,243 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "bets",
+      "is_core": true,
+      "description": "mapping(address => Bet) persistent storage holding each player's bet value and the block height at which the bet was placed"
+    },
+    {
+      "node_id": 1,
+      "type": "function",
+      "id": "makeBet",
+      "is_core": true,
+      "description": "payable public function that rejects an existing open bet, requires msg.value > 10000, and stores value and block.number in bets[msg.sender]"
+    },
+    {
+      "node_id": 2,
+      "type": "function",
+      "id": "resolveBet",
+      "is_core": true,
+      "description": "public function that derives a pseudo-random result from block.blockhash values and transfers the whole contract balance to msg.sender on a win"
+    },
+    {
+      "node_id": 3,
+      "type": "function",
+      "id": "fallback",
+      "is_core": true,
+      "description": "payable fallback function that silently accepts ether sent to the contract"
+    },
+    {
+      "node_id": 4,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "is_core": true,
+      "description": "externally controlled caller address used as the bet mapping key and as the recipient of the balance transfer"
+    },
+    {
+      "node_id": 5,
+      "type": "unsafe_operation",
+      "id": "transfer_send",
+      "is_core": true,
+      "description": "msg.sender.transfer(address(this).balance) external value transfer executed inside resolveBet"
+    },
+    {
+      "node_id": 6,
+      "type": "unsafe_operation",
+      "id": "weak_randomness",
+      "is_core": true,
+      "description": "keccak256(h1,h2) built from block.blockhash(bet.height) and block.blockhash(bet.height+3), a miner-influenceable randomness source"
+    },
+    {
+      "node_id": 7,
+      "type": "unsafe_operation",
+      "id": "arithmetic_div_mod",
+      "is_core": true,
+      "description": "uint16(hashVal / FACTOR) % 1000 division, narrowing cast and modulo used to produce the random outcome"
+    },
+    {
+      "node_id": 8,
+      "type": "local_var",
+      "id": "bet",
+      "is_core": false,
+      "description": "local Bet struct copy read from bets[msg.sender] at the start of resolveBet"
+    },
+    {
+      "node_id": 9,
+      "type": "local_var",
+      "id": "newBet",
+      "is_core": false,
+      "description": "local Bet struct copy of bets[msg.sender] written in makeBet with msg.value and block.number"
+    },
+    {
+      "node_id": 10,
+      "type": "local_var",
+      "id": "dist",
+      "is_core": false,
+      "description": "block.number - bet.height held and validated (dist < 255 && dist > 3) inside resolveBet"
+    },
+    {
+      "node_id": 11,
+      "type": "local_var",
+      "id": "hashVal",
+      "is_core": false,
+      "description": "uint256 keccak256(h1,h2) hash value produced from two block hashes inside resolveBet"
+    },
+    {
+      "node_id": 12,
+      "type": "local_var",
+      "id": "result",
+      "is_core": false,
+      "description": "uint16 random outcome in [0,999] that gates the payout condition result <= 495"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "makeBet reads bets[msg.sender] to check whether an open bet already exists",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 1
+    },
+    {
+      "reason": "makeBet writes value and height back into the bets mapping for msg.sender",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 0
+    },
+    {
+      "reason": "msg.sender is used as the attacker-controlled key indexing bets in makeBet",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 1
+    },
+    {
+      "reason": "resolveBet loads the stored Bet for msg.sender from the bets mapping",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 2
+    },
+    {
+      "reason": "msg.sender selects which stored bet resolveBet reads and resolves",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 2
+    },
+    {
+      "reason": "local newBet holds the values assigned by makeBet before they are persisted",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 1
+    },
+    {
+      "reason": "values written into the local newBet copy are stored into the bets state mapping",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 0
+    },
+    {
+      "reason": "local bet is a copy of the state entry bets[msg.sender] in resolveBet",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 8
+    },
+    {
+      "reason": "dist is computed as block.number minus bet.height taken from the local bet copy",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 10
+    },
+    {
+      "reason": "dist is range-checked by the require statement of resolveBet before hashing",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 2
+    },
+    {
+      "reason": "the randomness operation derives hashVal from block.blockhash values that a miner can influence",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 11
+    },
+    {
+      "reason": "hashVal is the dividend consumed by the division, cast and modulo computation",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 7
+    },
+    {
+      "reason": "the narrowing uint16 cast and modulo of the division result truncate values into the payout-determining variable",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 12
+    },
+    {
+      "reason": "the value of result (<= 495) branches into transferring the entire contract balance, making the payout depend on manipulable block data",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 12,
+      "to_id": 5
+    },
+    {
+      "reason": "resolveBet performs the balance transfer to the caller when the random result wins",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 2,
+      "to_id": 5
+    },
+    {
+      "reason": "msg.sender is the recipient address of the balance transfer operation",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 5
+    },
+    {
+      "reason": "the external value transfer re-enters attacker-controlled code while resolveBet is still executing, though bet.height is reset before the call",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 5,
+      "to_id": 2
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "local Bet copy is only read within resolveBet and should be normalized into that function node",
+      "merge_into": "resolveBet",
+      "normal_node": "bet"
+    },
+    {
+      "reason": "local Bet copy newBet is only written inside makeBet and should be normalized into that function node",
+      "merge_into": "makeBet",
+      "normal_node": "newBet"
+    },
+    {
+      "reason": "dist is a transient computation validated and used only inside resolveBet",
+      "merge_into": "resolveBet",
+      "normal_node": "dist"
+    },
+    {
+      "reason": "hashVal is the direct output of the weak randomness blockhash/keccak256 operation",
+      "merge_into": "weak_randomness",
+      "normal_node": "hashVal"
+    },
+    {
+      "reason": "result is the direct output of the division, cast and modulo arithmetic operation",
+      "merge_into": "arithmetic_div_mod",
+      "normal_node": "result"
+    }
+  ]
+}

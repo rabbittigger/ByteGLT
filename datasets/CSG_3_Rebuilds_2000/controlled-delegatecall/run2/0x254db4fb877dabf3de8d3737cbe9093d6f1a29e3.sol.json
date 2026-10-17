@@ -1,0 +1,194 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Private constant bytes32 sentinel value used as the expected guard state.",
+      "is_core": true,
+      "id": "GUARD_VALUE"
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Address state variable holding the external library targeted by the delegatecall in batchLogs; attacker-influenceable if set to a malicious contract.",
+      "is_core": true,
+      "id": "gatedLogBatcherLib"
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "description": "bytes32 guard state variable initialized to GUARD_VALUE in the constructor and checked by batchLogs; the check require(guard != GUARD_VALUE) always fails as written.",
+      "is_core": true,
+      "id": "guard"
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "description": "Public mapping(address => UnlockSchedule[]) declared in the contract but never read or written.",
+      "is_core": true,
+      "id": "unlockSchedules"
+    },
+    {
+      "node_id": 4,
+      "type": "function",
+      "description": "Deploy-time function that stores the supplied library address into gatedLogBatcherLib and initializes guard to GUARD_VALUE.",
+      "is_core": true,
+      "id": "constructor"
+    },
+    {
+      "node_id": 5,
+      "type": "function",
+      "description": "Public, unpermissioned function that performs a low-level delegatecall to gatedLogBatcherLib with caller-controlled calldata, guarded only by a broken require check, then emits BatchLogs.",
+      "is_core": true,
+      "id": "batchLogs"
+    },
+    {
+      "node_id": 6,
+      "type": "parameter",
+      "description": "Constructor address parameter written into the gatedLogBatcherLib state variable.",
+      "is_core": false,
+      "id": "_gatedLogBatcherLib"
+    },
+    {
+      "node_id": 7,
+      "type": "parameter",
+      "description": "Caller-supplied bytes payload that is ABI-encoded and forwarded into the delegatecall target.",
+      "is_core": false,
+      "id": "logs"
+    },
+    {
+      "node_id": 8,
+      "type": "parameter",
+      "description": "Caller-supplied bytes32 value emitted in the BatchLogs event.",
+      "is_core": false,
+      "id": "contentHash"
+    },
+    {
+      "node_id": 9,
+      "type": "local_var",
+      "description": "Boolean flag returned by the low-level delegatecall; its value is never checked.",
+      "is_core": false,
+      "id": "success"
+    },
+    {
+      "node_id": 10,
+      "type": "local_var",
+      "description": "Raw return data buffer produced by the low-level delegatecall; unused afterwards.",
+      "is_core": false,
+      "id": "data"
+    },
+    {
+      "node_id": 11,
+      "type": "unsafe_operation",
+      "description": "Unrestricted delegatecall to gatedLogBatcherLib executing abi.encodeWithSignature(\"multiSend(bytes)\", logs) in the storage and value context of this contract.",
+      "is_core": true,
+      "id": "delegatecall_multiSend"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "Constructor parameter _gatedLogBatcherLib is assigned into the gatedLogBatcherLib state variable, fixing the later delegatecall target.",
+      "from_id": 6
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The constructor writes the constant GUARD_VALUE into the guard state variable, so the guard can never satisfy require(guard != GUARD_VALUE) afterwards.",
+      "from_id": 4
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "Deployment-time execution determines the address later used as the delegatecall target.",
+      "from_id": 4
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "guard is the access-control condition of batchLogs, but the inverted require(guard != GUARD_VALUE) makes the only possible state fail the check, leaving a broken/ineffective guard.",
+      "from_id": 2
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "reason": "Execution of batchLogs unconditionally reaches the low-level delegatecall, the single dangerous sink of the function.",
+      "from_id": 5
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "reason": "Caller-controlled logs bytes flow directly into the delegatecall calldata, allowing arbitrary external code to run in this contract's context.",
+      "from_id": 7
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "reason": "The state variable gatedLogBatcherLib supplies the delegatecall target address.",
+      "from_id": 1
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "reason": "The delegatecall produces the success flag, whose unchecked result means failed or malicious external execution is silently accepted.",
+      "from_id": 11
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "reason": "The delegatecall returns raw data into the data local variable in this contract's storage context.",
+      "from_id": 11
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "Delegatecalling arbitrary external code lets the callee re-enter batchLogs or manipulate this contract's storage mid-execution.",
+      "from_id": 11
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "Caller-supplied contentHash is consumed by batchLogs when emitting the BatchLogs event.",
+      "from_id": 8
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "constructor",
+      "normal_node": "_gatedLogBatcherLib",
+      "reason": "The constructor parameter only serves to initialize state and is entirely subsumed by the constructor function node."
+    },
+    {
+      "merge_into": "delegatecall_multiSend",
+      "normal_node": "logs",
+      "reason": "The logs parameter is a directly related input of the unsafe delegatecall operation and is meaningless without it."
+    },
+    {
+      "merge_into": "batchLogs",
+      "normal_node": "contentHash",
+      "reason": "contentHash is only used by the emitting function batchLogs for the BatchLogs event."
+    },
+    {
+      "merge_into": "delegatecall_multiSend",
+      "normal_node": "success",
+      "reason": "success is solely the receiver of the delegatecall return value and is subsumed by the unsafe operation."
+    },
+    {
+      "merge_into": "delegatecall_multiSend",
+      "normal_node": "data",
+      "reason": "data is solely the receiver of the delegatecall return payload and is subsumed by the unsafe operation."
+    }
+  ]
+}

@@ -1,0 +1,327 @@
+{
+  "nodes": [
+    {
+      "description": "Immutable reference to the Ponzi game contract at 0xEB82AE50FA5b15FFc2699143b3da1B524127853B, queried by yield() via the Ponzi interface.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "PonziYield.ponzi"
+    },
+    {
+      "description": "mapping(address => uint256) recording the last block.timestamp at which each address claimed yield; used as the 24h cooldown guard.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "PonziYield.lastTime"
+    },
+    {
+      "description": "Inherited ERC20 private total supply, increased by _mint on every yield claim.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 2,
+      "id": "PonziYield._totalSupply"
+    },
+    {
+      "description": "Constructor(uint256 initialSupply) initialises ERC20Detailed metadata and mints the whole initial supply to msg.sender.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "PonziYield.constructor"
+    },
+    {
+      "description": "Public, permissionless yield() function: enforces a 24h cooldown via lastTime, reads the caller's Ponzi player record, computes an unbounded payout and mints it.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 4,
+      "id": "PonziYield.yield"
+    },
+    {
+      "description": "Inherited internal mint function that creates tokens, increases _totalSupply and credits _balances[account]; called by constructor and yield.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 5,
+      "id": "ERC20._mint"
+    },
+    {
+      "description": "Public ERC20 transfer using _msgSender() as the sender; part of the inherited token surface.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 6,
+      "id": "ERC20.transfer"
+    },
+    {
+      "description": "Public ERC20 transferFrom using _msgSender() as the spender whose allowance is consumed.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 7,
+      "id": "ERC20.transferFrom"
+    },
+    {
+      "description": "Caller-controlled address; used as the yield claimant, cooldown key, Ponzi player lookup key, mint recipient and ERC20 sender/spender.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 8,
+      "id": "msg.sender"
+    },
+    {
+      "description": "Miner-adjustable timestamp used for the 24h cooldown check and directly inside the payout arithmetic.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 9,
+      "id": "block.timestamp"
+    },
+    {
+      "description": "External call ponzi.players(msg.sender) on a hard-coded contract; return values (id, deposit, regTime) are implicitly trusted and not validated for freshness or sanity.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 10,
+      "id": "unsafe_operation.ponzi_players_call"
+    },
+    {
+      "description": "Unchecked raw multiplication deposit * (block.timestamp - regTime) in Solidity 0.6.4 without SafeMath, allowing integer overflow of the computed payout value.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 11,
+      "id": "unsafe_operation.payout_mul"
+    },
+    {
+      "description": "Permissionless _mint(msg.sender, payout) in yield(): any address that ever registered as a Ponzi player can inflate the token supply once per 24h with no owner/role check.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 12,
+      "id": "unsafe_operation.unchecked_mint"
+    },
+    {
+      "description": "Constructor parameter controlling the initial token supply minted to the deployer.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 13,
+      "id": "constructor.initialSupply"
+    },
+    {
+      "description": "Player id returned by the ponzi.players external call; unused afterwards.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 14,
+      "id": "yield.id"
+    },
+    {
+      "description": "Player deposit amount returned by ponzi.players; multiplied by elapsed time to derive the payout.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 15,
+      "id": "yield.deposit"
+    },
+    {
+      "description": "Player registration time returned by ponzi.players; used both as a non-participation guard and as the payout time base.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 16,
+      "id": "yield.regTime"
+    },
+    {
+      "description": "Locally computed mint amount = deposit * (block.timestamp - regTime); fully attacker-influenced and unbounded.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 17,
+      "id": "yield.payout"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is the caller of yield() and keys the lastTime mapping lookup.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "block.timestamp gates the 24h cooldown require in yield().",
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "initialSupply parameter flows into the constructor mint.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "Constructor invokes _mint to create the initial supply.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 5
+    },
+    {
+      "reason": "msg.sender is the mint recipient in both constructor and yield().",
+      "from_id": 8,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "lastTime[msg.sender] is overwritten with block.timestamp as the cooldown marker.",
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "lastTime is read in the require that implements the 24h timestamp-dependent access rule.",
+      "from_id": 1,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "yield() performs the external ponzi.players call.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 10
+    },
+    {
+      "reason": "msg.sender is passed as the player argument to ponzi.players.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 10
+    },
+    {
+      "reason": "External call returns id into local variable id.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 14
+    },
+    {
+      "reason": "External call returns deposit into local variable deposit.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 15
+    },
+    {
+      "reason": "External call returns regTime into local variable regTime.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 16
+    },
+    {
+      "reason": "block.timestamp directly feeds the payout multiplication, enabling timestamp manipulation of minted amount.",
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "deposit is the left operand of the unchecked payout multiplication.",
+      "from_id": 15,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "regTime is subtracted from block.timestamp inside the payout computation.",
+      "from_id": 16,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "Unchecked raw multiplication result is assigned to payout in Solidity 0.6.4, so it can overflow silently.",
+      "from_id": 11,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 17
+    },
+    {
+      "reason": "The attacker-influenced, unbounded payout value is minted as new tokens.",
+      "from_id": 17,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "yield() executes the _mint(msg.sender, payout) operation.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 12
+    },
+    {
+      "reason": "Any msg.sender satisfying the cooldown and player check can mint tokens to itself; no privileged role is required.",
+      "from_id": 8,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 12
+    },
+    {
+      "reason": "The unchecked mint in yield() forwards into ERC20._mint.",
+      "from_id": 12,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 5
+    },
+    {
+      "reason": "Repeated permissionless mints inflate _totalSupply without any supply cap.",
+      "from_id": 12,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "The external call to the hard-coded ponzi contract executes arbitrary external code before _mint completes, creating a reentrancy surface into yield().",
+      "from_id": 10,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 4
+    },
+    {
+      "reason": "transfer() uses _msgSender() (msg.sender) as the debited account.",
+      "from_id": 8,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "transferFrom() uses _msgSender() (msg.sender) as the spender whose allowance is consumed.",
+      "from_id": 8,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 7
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The initial supply parameter only exists to feed the constructor mint call and carries no independent security semantics.",
+      "normal_node": "constructor.initialSupply",
+      "merge_into": "PonziYield.constructor"
+    },
+    {
+      "reason": "id is a purely local by-product of the ponzi.players external call and is never used, so it collapses into that call node.",
+      "normal_node": "yield.id",
+      "merge_into": "unsafe_operation.ponzi_players_call"
+    },
+    {
+      "reason": "deposit is only consumed as an operand of the unchecked payout multiplication.",
+      "normal_node": "yield.deposit",
+      "merge_into": "unsafe_operation.payout_mul"
+    },
+    {
+      "reason": "regTime is only consumed as the subtracted time base of the unchecked payout multiplication.",
+      "normal_node": "yield.regTime",
+      "merge_into": "unsafe_operation.payout_mul"
+    },
+    {
+      "reason": "payout is a transient local whose sole purpose is to carry the computed value into the unchecked mint sink.",
+      "normal_node": "yield.payout",
+      "merge_into": "unsafe_operation.unchecked_mint"
+    }
+  ]
+}

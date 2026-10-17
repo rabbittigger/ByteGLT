@@ -1,0 +1,173 @@
+{
+  "nodes": [
+    {
+      "type": "function",
+      "description": "External view function selectWinner(address[] users, uint256 salt) that derives a pseudo-random index from block values and returns the selected user address.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "func_selectWinner"
+    },
+    {
+      "type": "parameter",
+      "description": "Calldata parameter 'users': array of candidate addresses provided by the caller; its length defines the winner index range.",
+      "is_core": false,
+      "node_id": 1,
+      "id": "param_users"
+    },
+    {
+      "type": "parameter",
+      "description": "Calldata parameter 'salt': caller-supplied value mixed into the keccak256 randomness computation.",
+      "is_core": false,
+      "node_id": 2,
+      "id": "param_salt"
+    },
+    {
+      "type": "local_var",
+      "description": "Local variable 'size' holding users.length, used as the modulus of the winner index computation.",
+      "is_core": false,
+      "node_id": 3,
+      "id": "local_size"
+    },
+    {
+      "type": "local_var",
+      "description": "Local variable 'hash' holding the keccak256 digest of block/environment values and the salt.",
+      "is_core": false,
+      "node_id": 4,
+      "id": "local_hash"
+    },
+    {
+      "type": "local_var",
+      "description": "Local variable 'winnerIndex' = uint256(hash) % size, used to index the users array for the returned winner.",
+      "is_core": false,
+      "node_id": 5,
+      "id": "local_winnerIndex"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "block.timestamp: miner/validator-influenced value used as entropy input for the winner selection.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "untrusted_block_timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "keccak256(abi.encode(address(this), block.number, block.timestamp, block.coinbase, block.gaslimit, block.difficulty, blockhash(block.number-5), size, salt)): predictable on-chain randomness derived from miner-controllable block fields.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "unsafe_keccak_randomness"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "uint256(hash) % size: modulo operation whose modulus is attacker-controlled and may be zero, reverting the call (division-by-zero / arithmetic edge case).",
+      "is_core": true,
+      "node_id": 8,
+      "id": "unsafe_modulo"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "controlflow",
+      "reason": "The function selectWinner declares and consumes the calldata parameter users.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "controlflow",
+      "reason": "The function selectWinner declares and consumes the calldata parameter salt.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "users.length is assigned to the local variable size, controlling the selection range.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "The caller-supplied salt is encoded into the keccak256 randomness computation.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "block.timestamp is used as entropy for the winner hash, creating timestamp/block-value dependency and predictable randomness.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "The keccak256 operation produces the digest stored in the local variable hash.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "The local hash value is the dividend converted to uint256 for the modulo operation.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "users.length (size) is the modulus; a zero-length array causes modulo-by-zero revert, an arithmetic edge case.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "The modulo operation yields winnerIndex, later used to index users and return the winner.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "controlflow",
+      "reason": "Execution flow of selectWinner builds the guessable hash used as the pseudo-random source.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 8,
+      "type": "controlflow",
+      "reason": "Execution flow of selectWinner performs the modulo that derives the winner index.",
+      "from_id": 0
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "func_selectWinner",
+      "reason": "The users calldata parameter only exists to serve selectWinner; it is not a core node and should be absorbed into the function node.",
+      "normal_node": "param_users"
+    },
+    {
+      "merge_into": "unsafe_keccak_randomness",
+      "reason": "salt is only used as an input to the keccak256 randomness operation and can be merged into that unsafe operation node.",
+      "normal_node": "param_salt"
+    },
+    {
+      "merge_into": "unsafe_modulo",
+      "reason": "size (users.length) is used exclusively as the modulus of the unsafe modulo operation and can be merged into it.",
+      "normal_node": "local_size"
+    },
+    {
+      "merge_into": "unsafe_keccak_randomness",
+      "reason": "The local variable hash is the direct output of the unsafe keccak256 randomness operation and is redundant as a separate node.",
+      "normal_node": "local_hash"
+    },
+    {
+      "merge_into": "unsafe_modulo",
+      "reason": "winnerIndex is the direct result of the unsafe modulo operation and should be merged into that unsafe operation node.",
+      "normal_node": "local_winnerIndex"
+    }
+  ]
+}

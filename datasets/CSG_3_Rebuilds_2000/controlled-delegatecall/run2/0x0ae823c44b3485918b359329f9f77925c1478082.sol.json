@@ -1,0 +1,211 @@
+{
+  "nodes": [
+    {
+      "id": "Balances.getBalances",
+      "description": "External view function getBalances(address[] users, Token[] tokens) that loops over all user/token pairs, performs an external balanceOf call for each pair and returns a uint[] of balances.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "function"
+    },
+    {
+      "id": "getBalances.users",
+      "description": "Parameter 'users' (address[]) supplied by the caller; its length drives the outer loop and each element is passed as the argument of the external token call.",
+      "is_core": false,
+      "node_id": 1,
+      "type": "parameter"
+    },
+    {
+      "id": "getBalances.tokens",
+      "description": "Parameter 'tokens' (Token[]) supplied by the caller; its length drives the inner loop and each element is the target contract of an external call.",
+      "is_core": false,
+      "node_id": 2,
+      "type": "parameter"
+    },
+    {
+      "id": "getBalances.numUsers",
+      "description": "Local variable cached from users.length, used as the outer loop bound and as an operand of the numUsers * numTokens multiplication.",
+      "is_core": false,
+      "node_id": 3,
+      "type": "local_var"
+    },
+    {
+      "id": "getBalances.numTokens",
+      "description": "Local variable cached from tokens.length, used as the inner loop bound and as an operand of the numUsers * numTokens multiplication.",
+      "is_core": false,
+      "node_id": 4,
+      "type": "local_var"
+    },
+    {
+      "id": "getBalances.result",
+      "description": "Dynamically allocated memory array holding the balances returned by the external calls; it is returned to the caller.",
+      "is_core": false,
+      "node_id": 5,
+      "type": "local_var"
+    },
+    {
+      "id": "getBalances.resultInd",
+      "description": "Local index used to write into result via result[resultInd++]; incremented once per external call without any bounds check.",
+      "is_core": false,
+      "node_id": 6,
+      "type": "local_var"
+    },
+    {
+      "id": "getBalances.userInd",
+      "description": "Outer loop counter iterating over the users array.",
+      "is_core": false,
+      "node_id": 7,
+      "type": "local_var"
+    },
+    {
+      "id": "getBalances.tokenInd",
+      "description": "Inner loop counter iterating over the tokens array.",
+      "is_core": false,
+      "node_id": 8,
+      "type": "local_var"
+    },
+    {
+      "id": "getBalances.arraySizeMultiplication",
+      "description": "Computation new uint[](numUsers * numTokens); the multiplication of two caller-controlled lengths can overflow in Solidity 0.4.23, producing an undersized array and out-of-bounds writes.",
+      "is_core": true,
+      "node_id": 9,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "getBalances.externalBalanceOfCall",
+      "description": "External call tokens[tokenInd].balanceOf(users[userInd]) on a caller-supplied contract, executed inside a nested loop without checking the target or the call result.",
+      "is_core": true,
+      "node_id": 10,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "users.length is read and stored in the local numUsers.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "tokens.length is read and stored in the local numTokens.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "numUsers is an operand of the numUsers * numTokens multiplication that sizes the result array, enabling integer overflow.",
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "numTokens is an operand of the numUsers * numTokens multiplication that sizes the result array, enabling integer overflow.",
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The function body executes the multiplication used to allocate the result array.",
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "from_id": 0,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Elements of the tokens array are used as the callee contract of the balanceOf external call.",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Elements of the users array are passed as the address argument of the balanceOf external call.",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "tokenInd selects the array element tokens[tokenInd] used as the external call target.",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "userInd selects the array element users[userInd] used as the external call argument.",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The nested loops inside getBalances drive the external balanceOf call.",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The value returned by balanceOf is written into result[resultInd++].",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 10,
+      "type": "dataflow"
+    },
+    {
+      "reason": "resultInd is used as the write index into result; unchecked increment can lead to out-of-bounds array access when the array size is miscalculated.",
+      "to_id": 5,
+      "vuln_type": "arithmetic",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The result array is returned by getBalances.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The parameter users is only a pass-through source for the address argument of the external balanceOf call and can be absorbed into that operation node.",
+      "normal_node": "getBalances.users",
+      "merge_into": "getBalances.externalBalanceOfCall"
+    },
+    {
+      "reason": "The parameter tokens is only a pass-through source for the callee contract of the external balanceOf call and can be absorbed into that operation node.",
+      "normal_node": "getBalances.tokens",
+      "merge_into": "getBalances.externalBalanceOfCall"
+    },
+    {
+      "reason": "numUsers is a temporary cache of users.length used solely as an operand of the multiplication sizing the result array.",
+      "normal_node": "getBalances.numUsers",
+      "merge_into": "getBalances.arraySizeMultiplication"
+    },
+    {
+      "reason": "numTokens is a temporary cache of tokens.length used solely as an operand of the multiplication sizing the result array.",
+      "normal_node": "getBalances.numTokens",
+      "merge_into": "getBalances.arraySizeMultiplication"
+    },
+    {
+      "reason": "resultInd is the internal write cursor advanced once per external balanceOf call and is meaningful only in that loop context.",
+      "normal_node": "getBalances.resultInd",
+      "merge_into": "getBalances.externalBalanceOfCall"
+    },
+    {
+      "reason": "userInd is only the outer loop counter selecting the argument of the external balanceOf call.",
+      "normal_node": "getBalances.userInd",
+      "merge_into": "getBalances.externalBalanceOfCall"
+    },
+    {
+      "reason": "tokenInd is only the inner loop counter selecting the target of the external balanceOf call.",
+      "normal_node": "getBalances.tokenInd",
+      "merge_into": "getBalances.externalBalanceOfCall"
+    }
+  ]
+}

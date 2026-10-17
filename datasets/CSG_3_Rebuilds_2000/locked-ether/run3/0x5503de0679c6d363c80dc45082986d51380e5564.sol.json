@@ -1,0 +1,213 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fallback",
+      "description": "Payable fallback function that reads calldata and executes an inline assembly CALL proxy.",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "call_op",
+      "description": "Low-level CALL using user-controlled gas, destination address, and value forwarded from calldata.",
+      "node_id": 1
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_dst",
+      "description": "Assembly local _dst, the destination address loaded from calldataload(0).",
+      "node_id": 2
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_gas",
+      "description": "Assembly local _gas, the gas amount loaded from calldataload(32).",
+      "node_id": 3
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_value",
+      "description": "Assembly local _value, the value loaded from calldataload(64).",
+      "node_id": 4
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_len",
+      "description": "Assembly local _len, the calldata length after the first 96 bytes.",
+      "node_id": 5
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_ret",
+      "description": "Assembly local ret, the success flag returned by the low-level call.",
+      "node_id": 6
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "local_result_len",
+      "description": "Assembly local result_len, the returndatasize after the call.",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "sub_len",
+      "description": "Unchecked assembly subtraction sub(calldatasize, 96) that can underflow when calldata is shorter than 96 bytes.",
+      "node_id": 8
+    }
+  ],
+  "edges": [
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "to_id": 1,
+      "reason": "Fallback executes inline assembly low-level CALL without restricting caller or destination, allowing arbitrary value transfer."
+    },
+    {
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 1,
+      "to_id": 0,
+      "reason": "The low-level CALL can transfer control to an arbitrary callee that may re-enter the fallback."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 2,
+      "reason": "_dst is assigned from calldataload(0) inside the fallback assembly."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 3,
+      "reason": "_gas is assigned from calldataload(32) inside the fallback assembly."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 4,
+      "reason": "_value is assigned from calldataload(64) inside the fallback assembly."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 5,
+      "reason": "_len is assigned from sub(calldatasize, 96) inside the fallback assembly."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 6,
+      "reason": "ret is assigned from the low-level call result."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 7,
+      "reason": "result_len is assigned from returndatasize()."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "arithmetic",
+      "from_id": 0,
+      "to_id": 8,
+      "reason": "Fallback executes unchecked assembly subtraction for calldata length, underflowing when calldatasize is less than 96."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 8,
+      "to_id": 5,
+      "reason": "The underflowing subtraction result is stored in _len."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 2,
+      "to_id": 1,
+      "reason": "_dst is used as the target address argument of the call."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 1,
+      "reason": "_gas is used as the gas argument of the call."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 4,
+      "to_id": 1,
+      "reason": "_value is used as the value argument of the call."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 5,
+      "to_id": 1,
+      "reason": "_len is used as the call data length argument of the call."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 1,
+      "to_id": 6,
+      "reason": "The call returns its success flag into ret."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 1,
+      "to_id": 7,
+      "reason": "returndatasize() after the call is stored in result_len."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "local_dst",
+      "merge_into": "call_op",
+      "reason": "_dst is an assembly local used as the call destination, so it normalizes into the unsafe CALL operation."
+    },
+    {
+      "normal_node": "local_gas",
+      "merge_into": "call_op",
+      "reason": "_gas is an assembly local used as the call gas, so it normalizes into the unsafe CALL operation."
+    },
+    {
+      "normal_node": "local_value",
+      "merge_into": "call_op",
+      "reason": "_value is an assembly local used as the call value, so it normalizes into the unsafe CALL operation."
+    },
+    {
+      "normal_node": "local_len",
+      "merge_into": "sub_len",
+      "reason": "_len is directly produced by the unchecked sub operation, so it normalizes into that unsafe arithmetic operation."
+    },
+    {
+      "normal_node": "local_ret",
+      "merge_into": "call_op",
+      "reason": "ret is the result of the CALL, so it normalizes into the unsafe CALL operation."
+    },
+    {
+      "normal_node": "local_result_len",
+      "merge_into": "call_op",
+      "reason": "result_len is derived from the CALL, so it normalizes into the unsafe CALL operation."
+    }
+  ]
+}

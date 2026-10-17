@@ -1,0 +1,139 @@
+{
+  "nodes": [
+    {
+      "id": "owner",
+      "description": "Private address state variable holding the contract owner; written by the constructor and changeOwner, read by isOwner and getOwner.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "constructor",
+      "description": "Constructor that sets the deployer (msg.sender) as the initial owner and emits OwnerSet.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "function"
+    },
+    {
+      "id": "changeOwner",
+      "description": "Public function guarded by the isOwner modifier that reassigns the owner state variable to newOwner.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "getOwner",
+      "description": "External view function that returns the current owner state variable.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "isOwner",
+      "description": "Modifier performing the access-control check require(msg.sender == owner) before executing the modified function body.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "msg.sender_constructor",
+      "description": "msg.sender used in the constructor as the deployer address that becomes the initial owner.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "msg.sender_isOwner",
+      "description": "msg.sender used inside the isOwner modifier's require statement as the caller identity being checked.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "newOwner",
+      "description": "Address parameter of changeOwner that becomes the new owner value.",
+      "is_core": false,
+      "node_id": 7,
+      "type": "parameter"
+    },
+    {
+      "id": "unsafe_write_owner",
+      "description": "Privileged state write 'owner = newOwner' performed in changeOwner; security depends entirely on the isOwner modifier's access-control check.",
+      "is_core": true,
+      "node_id": 8,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The untrusted msg.sender (deployer) is consumed as input by the constructor.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The constructor writes the owner state variable with msg.sender.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Caller-controlled msg.sender is compared against the stored owner in the isOwner require check; ownership authorization depends on this untrusted value.",
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The owner state variable is read inside the isOwner modifier as the reference value for the access-control comparison.",
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The isOwner modifier gates execution of changeOwner, enforcing that only the current owner can reassign ownership.",
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The newOwner parameter is used inside changeOwner as the value assigned to the owner state variable.",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "changeOwner triggers the privileged owner reassignment operation, whose safety relies on the modifier guard.",
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The unsafe owner-reassignment operation writes the owner state variable, changing contract authority.",
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "getOwner reads the owner state variable to return the current owner address.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The parameter newOwner has no independent security semantics; it only carries the value assigned to the owner state variable inside changeOwner and is fully covered by the isOwner access-control modifier.",
+      "normal_node": "newOwner",
+      "merge_into": "changeOwner"
+    }
+  ]
+}

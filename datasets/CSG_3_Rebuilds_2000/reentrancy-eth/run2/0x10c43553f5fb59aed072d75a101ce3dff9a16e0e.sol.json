@@ -1,0 +1,327 @@
+{
+  "nodes": [
+    {
+      "id": "name",
+      "description": "Public string state variable holding the token name (\"myCryptoWallet\").",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "symbol",
+      "description": "Public string state variable holding the token symbol (\"MCW\").",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "decimals",
+      "description": "Public uint state variable holding the token decimals (10).",
+      "is_core": true,
+      "node_id": 2,
+      "type": "state_var"
+    },
+    {
+      "id": "supply",
+      "description": "Public uint state variable holding the total token supply; mutated by burn and initialized in the constructor.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "state_var"
+    },
+    {
+      "id": "founder",
+      "description": "Public address state variable storing the privileged founder/owner address set from msg.sender.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "state_var"
+    },
+    {
+      "id": "balances",
+      "description": "Public mapping(address => uint) tracking token balances; read and mutated by balanceOf, transfer and burn.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "state_var"
+    },
+    {
+      "id": "constructor",
+      "description": "Constructor that mints the initial supply, assigns founder = msg.sender and credits balances[founder].",
+      "is_core": true,
+      "node_id": 6,
+      "type": "function"
+    },
+    {
+      "id": "totalSupply",
+      "description": "View function returning the current value of the supply state variable.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "function"
+    },
+    {
+      "id": "balanceOf",
+      "description": "View function returning balances[tokenOwner] into the named return variable balance.",
+      "is_core": true,
+      "node_id": 8,
+      "type": "function"
+    },
+    {
+      "id": "transfer",
+      "description": "Public transfer function: requires balances[msg.sender] >= tokens && tokens > 0, then credits balances[to], debits balances[msg.sender] and emits Transfer.",
+      "is_core": true,
+      "node_id": 9,
+      "type": "function"
+    },
+    {
+      "id": "burn",
+      "description": "Public burn function: requires balances[founder] >= _value, then decrements both balances[founder] and supply.",
+      "is_core": true,
+      "node_id": 10,
+      "type": "function"
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller-controlled address; used as founder in the constructor and as the source account in transfer.",
+      "is_core": true,
+      "node_id": 11,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "balances[to] += tokens",
+      "description": "Unchecked addition crediting the recipient balance inside transfer (uint overflow risk).",
+      "is_core": true,
+      "node_id": 12,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "balances[msg.sender] -= tokens",
+      "description": "Unchecked subtraction debiting the caller balance inside transfer (uint underflow risk if invariant broken).",
+      "is_core": true,
+      "node_id": 13,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "balances[founder] -= _value",
+      "description": "Unchecked subtraction from the founder balance inside burn (arithmetic risk).",
+      "is_core": true,
+      "node_id": 14,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "supply -= _value",
+      "description": "Unchecked subtraction from total supply inside burn (arithmetic risk).",
+      "is_core": true,
+      "node_id": 15,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "founder = msg.sender",
+      "description": "Privileged ownership assignment in the constructor taking the caller address directly from untrusted input.",
+      "is_core": true,
+      "node_id": 16,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "tokenOwner",
+      "description": "Address parameter of balanceOf used as the lookup key into balances.",
+      "is_core": false,
+      "node_id": 17,
+      "type": "parameter"
+    },
+    {
+      "id": "to",
+      "description": "Recipient address parameter of transfer used as the destination key of the balances mapping.",
+      "is_core": false,
+      "node_id": 18,
+      "type": "parameter"
+    },
+    {
+      "id": "tokens",
+      "description": "Amount parameter of transfer used in the balance check and in both balance mutations.",
+      "is_core": false,
+      "node_id": 19,
+      "type": "parameter"
+    },
+    {
+      "id": "_value",
+      "description": "Amount parameter of burn used in the founder balance check and in the balance/supply mutations.",
+      "is_core": false,
+      "node_id": 20,
+      "type": "parameter"
+    },
+    {
+      "id": "balance",
+      "description": "Named return variable of balanceOf populated with balances[tokenOwner].",
+      "is_core": false,
+      "node_id": 21,
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is used to look up balances[msg.sender] in the require check that authorizes the transfer.",
+      "to_id": 9,
+      "vuln_type": "access_control",
+      "from_id": 11,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Untrusted caller address is the mapping key whose balance is decremented by an unguarded subtraction.",
+      "to_id": 13,
+      "vuln_type": "arithmetic",
+      "from_id": 11,
+      "type": "dataflow"
+    },
+    {
+      "reason": "founder is set directly from msg.sender in the constructor, granting privileged ownership to the caller.",
+      "to_id": 16,
+      "vuln_type": "access_control",
+      "from_id": 11,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Parameter tokens flows into the unchecked addition of the recipient balance.",
+      "to_id": 12,
+      "vuln_type": "arithmetic",
+      "from_id": 19,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Parameter tokens flows into the unchecked subtraction of the caller balance.",
+      "to_id": 13,
+      "vuln_type": "arithmetic",
+      "from_id": 19,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Parameter to selects the destination slot of the balances mapping that is credited.",
+      "to_id": 12,
+      "vuln_type": "none",
+      "from_id": 18,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Parameter _value flows into the unchecked subtraction of the founder balance.",
+      "to_id": 14,
+      "vuln_type": "arithmetic",
+      "from_id": 20,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Parameter _value flows into the unchecked subtraction of the total supply.",
+      "to_id": 15,
+      "vuln_type": "arithmetic",
+      "from_id": 20,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Parameter tokenOwner is used as the key read from the balances mapping inside balanceOf.",
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 17,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Named return variable balance is assigned the result of balances[tokenOwner] in balanceOf.",
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 21,
+      "type": "dataflow"
+    },
+    {
+      "reason": "State variable supply is read and returned by totalSupply.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "State mapping balances is read by balanceOf.",
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "State mapping balances is both read (check) and written (credit/debit) inside transfer.",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "State mapping balances is read (check) and written (decrement) inside burn.",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "State variable founder is used as the mapping key burned from in burn.",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "After the require guard passes, transfer executes the recipient credit operation.",
+      "to_id": 12,
+      "vuln_type": "arithmetic",
+      "from_id": 9,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Sequential execution: the recipient credit is followed by the caller debit in transfer.",
+      "to_id": 13,
+      "vuln_type": "arithmetic",
+      "from_id": 12,
+      "type": "controlflow"
+    },
+    {
+      "reason": "After the require guard passes, burn executes the founder balance decrement.",
+      "to_id": 14,
+      "vuln_type": "arithmetic",
+      "from_id": 10,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Sequential execution: the founder balance decrement is followed by the supply decrement in burn.",
+      "to_id": 15,
+      "vuln_type": "arithmetic",
+      "from_id": 14,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Constructor execution path performs the privileged founder = msg.sender assignment.",
+      "to_id": 16,
+      "vuln_type": "access_control",
+      "from_id": 6,
+      "type": "controlflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Parameter tokenOwner is only a lookup key local to balanceOf and carries no independent state; fold it into the balanceOf function node.",
+      "normal_node": "tokenOwner",
+      "merge_into": "balanceOf"
+    },
+    {
+      "reason": "Parameter to is only a destination key used by transfer; fold it into the transfer function node.",
+      "normal_node": "to",
+      "merge_into": "transfer"
+    },
+    {
+      "reason": "Parameter tokens is scoped exclusively to transfer and is consumed by its balance mutations; fold it into the transfer function node.",
+      "normal_node": "tokens",
+      "merge_into": "transfer"
+    },
+    {
+      "reason": "Parameter _value is scoped exclusively to burn and drives its balance/supply mutations; fold it into the burn function node.",
+      "normal_node": "_value",
+      "merge_into": "burn"
+    },
+    {
+      "reason": "Local named return variable balance is a temporary read result of balanceOf with no standalone semantics; fold it into the balanceOf function node.",
+      "normal_node": "balance",
+      "merge_into": "balanceOf"
+    }
+  ]
+}

@@ -1,0 +1,210 @@
+{
+  "nodes": [
+    {
+      "id": "state_owner",
+      "description": "Address of the contract owner stored in Ownable; controls privileged access.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "func_Ownable_constructor",
+      "description": "Constructor of Ownable that assigns owner = msg.sender at deployment time.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "function"
+    },
+    {
+      "id": "func_onlyOwner_modifier",
+      "description": "Modifier onlyOwner that requires msg.sender == owner before allowing the guarded function body to run.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "func_transferOwnership",
+      "description": "Owner-only function that validates newOwner != address(0), emits OwnershipTransferred and overwrites the owner state variable.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "func_distribute",
+      "description": "Owner-only function of DistributeETH that loops over _addrs and performs a low-level send of _bals[i] to each address, throwing on failure.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "func_fallback",
+      "description": "Payable fallback function of DistributeETH that accepts plain ETH transfers.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "function"
+    },
+    {
+      "id": "input_msg_sender_constructor",
+      "description": "msg.sender referenced inside the Ownable constructor; becomes the initial owner.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "input_msg_sender_onlyOwner",
+      "description": "msg.sender compared against owner inside the onlyOwner modifier; the sole access-control check.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "param_newOwner",
+      "description": "Address parameter of transferOwnership that is written into the owner state variable.",
+      "is_core": false,
+      "node_id": 8,
+      "type": "parameter"
+    },
+    {
+      "id": "param_addrs",
+      "description": "Array of recipient addresses passed to distribute and used as send targets.",
+      "is_core": false,
+      "node_id": 9,
+      "type": "parameter"
+    },
+    {
+      "id": "param_bals",
+      "description": "Array of wei amounts passed to distribute and used as send values.",
+      "is_core": false,
+      "node_id": 10,
+      "type": "parameter"
+    },
+    {
+      "id": "local_i",
+      "description": "Loop counter in distribute; its range is bounded by _addrs.length and it is incremented with ++.",
+      "is_core": false,
+      "node_id": 11,
+      "type": "local_var"
+    },
+    {
+      "id": "unsafe_send",
+      "description": "Low-level address.send() external call executed inside the distribute loop; forwards value to an arbitrary address and can trigger recipient code.",
+      "is_core": true,
+      "node_id": 12,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The untrusted msg.sender in the constructor is written directly into the owner state variable, making the deployer the privileged account.",
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The onlyOwner modifier depends entirely on the comparison msg.sender == owner; if owner is wrong or zero the guard is meaningless or permanently blocks callers.",
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "from_id": 7,
+      "type": "controlflow"
+    },
+    {
+      "reason": "transferOwnership is guarded by the onlyOwner modifier, so ownership changes are gated by msg.sender == owner.",
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "from_id": 2,
+      "type": "controlflow"
+    },
+    {
+      "reason": "distribute is guarded by the onlyOwner modifier, so only the owner may push funds out of the contract.",
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "from_id": 2,
+      "type": "controlflow"
+    },
+    {
+      "reason": "newOwner is the sole input parameter consumed by transferOwnership.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The newOwner parameter overwrites the owner state variable, handing full access-control rights to the supplied address.",
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "transferOwnership reads the current owner value to emit the OwnershipTransferred event before reassigning it.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The loop counter i indexes the _addrs array; an unbounded loop over attacker-controlled length can exhaust gas or mis-index.",
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "from_id": 11,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The loop counter i indexes the _bals array using only _addrs.length as bound, so mismatched array lengths cause out-of-bounds access and revert.",
+      "to_id": 10,
+      "vuln_type": "arithmetic",
+      "from_id": 11,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Elements of _addrs are used as the recipient of the low-level send, letting the caller choose arbitrary callee contracts.",
+      "to_id": 12,
+      "vuln_type": "reentrancy",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Elements of _bals are forwarded as the wei value of the low-level send.",
+      "to_id": 12,
+      "vuln_type": "none",
+      "from_id": 10,
+      "type": "dataflow"
+    },
+    {
+      "reason": "distribute executes the external send inside a loop without updating any state afterwards, so control flow leaves the contract mid-operation.",
+      "to_id": 12,
+      "vuln_type": "reentrancy",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The recipient of send() can execute its fallback and re-enter distribute before the loop finishes, since no state or reentrancy guard protects the loop.",
+      "to_id": 4,
+      "vuln_type": "reentrancy",
+      "from_id": 12,
+      "type": "callback"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "newOwner is a pure parameter whose only role is to be assigned into the owner state variable by transferOwnership, so it can be folded into that function node.",
+      "normal_node": "param_newOwner",
+      "merge_into": "func_transferOwnership"
+    },
+    {
+      "reason": "_addrs is only consumed by distribute as the send target list and carries no meaning outside that function's execution.",
+      "normal_node": "param_addrs",
+      "merge_into": "func_distribute"
+    },
+    {
+      "reason": "_bals is only consumed by distribute as the value list paired with _addrs and can be merged into the same function node.",
+      "normal_node": "param_bals",
+      "merge_into": "func_distribute"
+    },
+    {
+      "reason": "The local loop counter i exists solely to drive the low-level send call inside distribute, so it is directly related to and can be normalized into the unsafe_operation node.",
+      "normal_node": "local_i",
+      "merge_into": "unsafe_send"
+    }
+  ]
+}

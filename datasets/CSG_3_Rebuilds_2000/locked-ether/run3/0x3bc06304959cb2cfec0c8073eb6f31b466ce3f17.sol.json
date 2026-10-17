@@ -1,0 +1,915 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "EGGS_TO_HATCH_1SHRIMP",
+      "description": "Public constant rate (seconds) used to convert eggs into shrimp; initialised to 86400.",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "STARTING_SHRIMP",
+      "description": "Public constant describing starting shrimp amount (300).",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "PSN",
+      "description": "Trade balancing numerator constant (10000) used by calculateTrade.",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "PSNH",
+      "description": "Trade balancing denominator constant (5000) used by calculateTrade.",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "initialized",
+      "description": "Public flag guarding that the market has been seeded by the CEO.",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "ceoAddress",
+      "description": "Public address of the contract owner that seeds the market and receives dev fees.",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "hatcheryShrimp",
+      "description": "Mapping of address to amount of shrimp owned in the hatchery.",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "claimedEggs",
+      "description": "Mapping of address to eggs already claimed or credited.",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "lastHatch",
+      "description": "Mapping of address to the block timestamp of its last hatch action.",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "referrals",
+      "description": "Mapping of address to its referrer address.",
+      "node_id": 9
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "marketEggs",
+      "description": "Public pool of eggs held by the market, used by the pricing formula.",
+      "node_id": 10
+    },
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "tokenContract",
+      "description": "Reference to the Elyxr token contract used for transfers, balances and dividends.",
+      "node_id": 11
+    },
+    {
+      "is_core": true,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "description": "Caller-controlled address used for ownership checks and mapping keys.",
+      "node_id": 12
+    },
+    {
+      "is_core": true,
+      "type": "untrusted_input",
+      "id": "block.timestamp",
+      "description": "Block timestamp (now) used for lastHatch bookkeeping and egg accrual.",
+      "node_id": 13
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "external_call_tokenContract_transfer",
+      "description": "External call to tokenContract.transfer that moves ELXR tokens to the CEO or to the caller.",
+      "node_id": 14
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "external_call_tokenContract_myTokens",
+      "description": "External call to tokenContract.myTokens() to read this contract's token balance for pricing.",
+      "node_id": 15
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "external_call_tokenContract_reinvest",
+      "description": "External call to tokenContract.reinvest() that triggers token-side dividend reinvestment.",
+      "node_id": 16
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "external_call_tokenContract_myDividends",
+      "description": "External call to tokenContract.myDividends(true) that reads pending dividends.",
+      "node_id": 17
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "assembly_extcodesize",
+      "description": "Inline assembly extcodesize(_user) used to detect whether an address is a contract.",
+      "node_id": 18
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "ElyxrShrimpFarmer_constructor",
+      "description": "Constructor that wires the token contract and sets ceoAddress to the deployer.",
+      "node_id": 19
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fallback",
+      "description": "Payable fallback function that silently accepts ETH.",
+      "node_id": 20
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "tokenFallback",
+      "description": "ERC677 hook that converts incoming ELXR tokens into eggs and credits claimedEggs.",
+      "node_id": 21
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "hatchEggs",
+      "description": "Converts accrued eggs into shrimp, stores referral and boosts the market pool.",
+      "node_id": 22
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "sellEggs",
+      "description": "Sells accrued eggs for ELXR tokens, paying a dev fee and the remainder to the caller.",
+      "node_id": 23
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "seedMarket",
+      "description": "CEO-only initialisation of the egg market; sets initialized and marketEggs.",
+      "node_id": 24
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "reinvest",
+      "description": "Public function that forwards dividend reinvestment to the token contract when dividends exceed 1.",
+      "node_id": 25
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "calculateTrade",
+      "description": "Magic trade balancing algorithm converting between reserve and balance using PSN/PSNH.",
+      "node_id": 26
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "calculateEggSell",
+      "description": "Prices eggs to sell against marketEggs and the contract token balance.",
+      "node_id": 27
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "calculateEggBuy",
+      "description": "Prices tokens to buy against a supplied contract balance and marketEggs.",
+      "node_id": 28
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "calculateEggBuySimple",
+      "description": "Convenience wrapper pricing tokens using the live myTokens() balance.",
+      "node_id": 29
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "devFee",
+      "description": "Returns 4% of the supplied amount as the developer fee.",
+      "node_id": 30
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "getMyShrimp",
+      "description": "Returns hatcheryShrimp for the caller.",
+      "node_id": 31
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "getMyEggs",
+      "description": "Returns claimedEggs plus eggs accrued since the last hatch for the caller.",
+      "node_id": 32
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "getEggsSinceLastHatch",
+      "description": "Computes eggs accrued since an address last hatched using timestamp deltas.",
+      "node_id": 33
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "getContractDividends",
+      "description": "Returns the pending dividends reported by the token contract.",
+      "node_id": 34
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "getBalance",
+      "description": "Returns this contract's ELXR token balance via myTokens().",
+      "node_id": 35
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "_isContract",
+      "description": "Internal helper returning true when extcodesize of the address is non-zero.",
+      "node_id": 36
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "min",
+      "description": "Private pure helper returning the smaller of two uint256 values.",
+      "node_id": 37
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "_from",
+      "description": "Token sender address passed to tokenFallback, used as the credited account.",
+      "node_id": 38
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "_value",
+      "description": "Amount of tokens transferred into tokenFallback.",
+      "node_id": 39
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "_data",
+      "description": "Transaction metadata bytes passed to tokenFallback.",
+      "node_id": 40
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "ref",
+      "description": "Referrer address supplied to hatchEggs.",
+      "node_id": 41
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "eggs",
+      "description": "Initial egg amount supplied to seedMarket.",
+      "node_id": 42
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "amount",
+      "description": "Amount from which the 4% dev fee is computed.",
+      "node_id": 43
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "adr",
+      "description": "Address whose pending eggs are computed in getEggsSinceLastHatch.",
+      "node_id": 44
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "_user",
+      "description": "Address whose code size is checked in _isContract.",
+      "node_id": 45
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "a",
+      "description": "First operand of the min helper.",
+      "node_id": 46
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "b",
+      "description": "Second operand of the min helper.",
+      "node_id": 47
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "eggsBought",
+      "description": "Local holding the net eggs credited to the token sender.",
+      "node_id": 48
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "ElyxrBalance",
+      "description": "Local caching of tokenContract.myTokens() during tokenFallback.",
+      "node_id": 49
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "eggsUsed",
+      "description": "Local holding the caller's accrued eggs consumed by hatchEggs.",
+      "node_id": 50
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "newShrimp",
+      "description": "Local holding the shrimp minted from eggsUsed.",
+      "node_id": 51
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "hasEggs",
+      "description": "Local holding the eggs being sold in sellEggs.",
+      "node_id": 52
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "eggValue",
+      "description": "Local holding the token value of the eggs being sold.",
+      "node_id": 53
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "fee",
+      "description": "Local holding the dev fee deducted from eggValue.",
+      "node_id": 54
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "secondsPassed",
+      "description": "Local holding min(EGGS_TO_HATCH_1SHRIMP, now - lastHatch[adr]).",
+      "node_id": 55
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "size",
+      "description": "Local receiving the extcodesize result in _isContract.",
+      "node_id": 56
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 12,
+      "to_id": 5,
+      "reason": "Constructor assigns ceoAddress directly from msg.sender, making ownership deployer controlled."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 12,
+      "to_id": 21,
+      "reason": "onlyTokenContract modifier requires msg.sender == address(tokenContract) before tokenFallback runs."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 12,
+      "to_id": 6,
+      "reason": "hatcheryShrimp is read and written using msg.sender as the mapping key."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 12,
+      "to_id": 7,
+      "reason": "claimedEggs is read and written using msg.sender as the mapping key."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 12,
+      "to_id": 8,
+      "reason": "lastHatch is written using msg.sender as the mapping key."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 12,
+      "to_id": 9,
+      "reason": "referrals lookup and assignment are keyed by msg.sender."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 12,
+      "to_id": 24,
+      "reason": "seedMarket requires msg.sender == ceoAddress to initialise the market."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 13,
+      "to_id": 8,
+      "reason": "block.timestamp (now) is written into lastHatch, creating timestamp dependency."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 13,
+      "to_id": 33,
+      "reason": "getEggsSinceLastHatch subtracts now from lastHatch, making accrual timestamp dependent."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 13,
+      "to_id": 55,
+      "reason": "secondsPassed is derived from now, so the reward rate depends on miner-controllable time."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 38,
+      "to_id": 7,
+      "reason": "claimedEggs[_from] is credited with eggsBought for the token sender."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 39,
+      "to_id": 48,
+      "reason": "_value is priced through calculateEggBuy and stored into eggsBought."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 39,
+      "to_id": 14,
+      "reason": "devFee(_value) is transferred out of the contract to the CEO address."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 48,
+      "to_id": 7,
+      "reason": "Net eggsBought is added to claimedEggs[_from]."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 49,
+      "to_id": 48,
+      "reason": "Cached token balance ElyxrBalance is passed to calculateEggBuy to derive eggsBought."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 15,
+      "to_id": 49,
+      "reason": "tokenContract.myTokens() result is stored into ElyxrBalance."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 15,
+      "to_id": 21,
+      "reason": "tokenFallback queries the external token balance through myTokens()."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 42,
+      "to_id": 10,
+      "reason": "seedMarket assigns the eggs parameter to marketEggs."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 41,
+      "to_id": 9,
+      "reason": "The ref parameter becomes the caller's referrer in the referrals mapping."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 50,
+      "to_id": 51,
+      "reason": "eggsUsed is divided by EGGS_TO_HATCH_1SHRIMP to produce newShrimp."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 51,
+      "to_id": 6,
+      "reason": "newShrimp is added to hatcheryShrimp[msg.sender]."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "arithmetic",
+      "from_id": 50,
+      "to_id": 7,
+      "reason": "Referral bonus is computed as SafeMath.div(eggsUsed, 5) and credited to claimedEggs[referrer]."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 50,
+      "to_id": 10,
+      "reason": "marketEggs is inflated by SafeMath.div(eggsUsed, 10) to nerf hoarding."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 43,
+      "to_id": 30,
+      "reason": "devFee multiplies the amount parameter by 4 and divides by 100."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 44,
+      "to_id": 33,
+      "reason": "adr indexes lastHatch and hatcheryShrimp inside getEggsSinceLastHatch."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 45,
+      "to_id": 18,
+      "reason": "_user is passed into the extcodesize assembly block."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 52,
+      "to_id": 53,
+      "reason": "hasEggs is priced by calculateEggSell into eggValue."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 53,
+      "to_id": 54,
+      "reason": "fee is derived from eggValue through devFee."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 53,
+      "to_id": 14,
+      "reason": "The remaining eggValue minus fee is transferred to the seller."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 54,
+      "to_id": 14,
+      "reason": "The computed fee is transferred to ceoAddress."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 21,
+      "to_id": 25,
+      "reason": "tokenFallback invokes reinvest() before crediting eggs."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 21,
+      "to_id": 16,
+      "reason": "reinvest() forwards the call to the external tokenContract.reinvest()."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 21,
+      "to_id": 28,
+      "reason": "tokenFallback calls calculateEggBuy to price the incoming tokens."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 28,
+      "to_id": 26,
+      "reason": "calculateEggBuy delegates the pricing math to calculateTrade."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 27,
+      "to_id": 26,
+      "reason": "calculateEggSell delegates the pricing math to calculateTrade."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 29,
+      "to_id": 28,
+      "reason": "calculateEggBuySimple wraps calculateEggBuy."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 32,
+      "to_id": 33,
+      "reason": "getMyEggs adds the result of getEggsSinceLastHatch for the caller."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 33,
+      "to_id": 37,
+      "reason": "getEggsSinceLastHatch clamps elapsed time using the min helper."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 36,
+      "to_id": 18,
+      "reason": "_isContract executes the extcodesize assembly to measure code size."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 21,
+      "to_id": 36,
+      "reason": "tokenFallback requires !_isContract(_from), rejecting contract senders."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 23,
+      "to_id": 25,
+      "reason": "sellEggs calls reinvest() before paying out."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 23,
+      "to_id": 27,
+      "reason": "sellEggs calls calculateEggSell to value the eggs."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 23,
+      "to_id": 14,
+      "reason": "sellEggs performs external token transfers for the fee and payout."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 25,
+      "to_id": 17,
+      "reason": "reinvest reads tokenContract.myDividends(true) before reinvesting."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 34,
+      "to_id": 17,
+      "reason": "getContractDividends queries tokenContract.myDividends(true)."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 35,
+      "to_id": 15,
+      "reason": "getBalance reads the token balance via myTokens()."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 27,
+      "to_id": 15,
+      "reason": "calculateEggSell reads the live token balance via myTokens()."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 29,
+      "to_id": 15,
+      "reason": "calculateEggBuySimple reads the live token balance via myTokens()."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 21,
+      "to_id": 15,
+      "reason": "tokenFallback reads myTokens() twice to derive the contract balance."
+    },
+    {
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 14,
+      "to_id": 21,
+      "reason": "The external token transfer can re-enter tokenFallback in a malicious or hooked token contract."
+    },
+    {
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 14,
+      "to_id": 23,
+      "reason": "Transfers in sellEggs occur after reinvest() and can be re-entered to repeat the payout path."
+    },
+    {
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 16,
+      "to_id": 21,
+      "reason": "The external reinvest() call is made before eggs are credited, allowing cross-function re-entry."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 46,
+      "to_id": 37,
+      "reason": "Parameter a is compared inside the min helper."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 47,
+      "to_id": 37,
+      "reason": "Parameter b is compared inside the min helper."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 40,
+      "to_id": 21,
+      "reason": "_data metadata is accepted by tokenFallback and kept for ERC677 compatibility."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 18,
+      "to_id": 56,
+      "reason": "The extcodesize result is stored into the size local variable."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 12,
+      "to_id": 22,
+      "reason": "hatchEggs uses msg.sender for referral resolution and shrimp/egg bookkeeping."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 12,
+      "to_id": 23,
+      "reason": "sellEggs credits and pays the caller identified by msg.sender."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 12,
+      "to_id": 31,
+      "reason": "getMyShrimp returns hatcheryShrimp indexed by msg.sender."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "_from",
+      "merge_into": "tokenFallback",
+      "reason": "The sender parameter only exists to key claimedEggs and validate the caller inside tokenFallback."
+    },
+    {
+      "normal_node": "_value",
+      "merge_into": "tokenFallback",
+      "reason": "The token amount parameter is consumed entirely by the tokenFallback pricing and fee logic."
+    },
+    {
+      "normal_node": "_data",
+      "merge_into": "tokenFallback",
+      "reason": "The metadata blob is an unused ERC677 compatibility argument of tokenFallback."
+    },
+    {
+      "normal_node": "ref",
+      "merge_into": "hatchEggs",
+      "reason": "The referrer parameter is only used to populate the referrals mapping in hatchEggs."
+    },
+    {
+      "normal_node": "eggs",
+      "merge_into": "seedMarket",
+      "reason": "The egg amount parameter only initialises marketEggs in the CEO seeding function."
+    },
+    {
+      "normal_node": "amount",
+      "merge_into": "devFee",
+      "reason": "The amount parameter exists solely to compute the 4% developer fee."
+    },
+    {
+      "normal_node": "adr",
+      "merge_into": "getEggsSinceLastHatch",
+      "reason": "The address parameter is only used to index lastHatch and hatcheryShrimp in the accrual helper."
+    },
+    {
+      "normal_node": "_user",
+      "merge_into": "_isContract",
+      "reason": "The address parameter is only consumed by the extcodesize check in _isContract."
+    },
+    {
+      "normal_node": "a",
+      "merge_into": "min",
+      "reason": "First operand of the pure min helper, folded into the helper function."
+    },
+    {
+      "normal_node": "b",
+      "merge_into": "min",
+      "reason": "Second operand of the pure min helper, folded into the helper function."
+    },
+    {
+      "normal_node": "eggsBought",
+      "merge_into": "tokenFallback",
+      "reason": "Temporary pricing result inside tokenFallback that is immediately credited to claimedEggs."
+    },
+    {
+      "normal_node": "ElyxrBalance",
+      "merge_into": "tokenFallback",
+      "reason": "Cached token balance local scoped to the tokenFallback buy calculation."
+    },
+    {
+      "normal_node": "eggsUsed",
+      "merge_into": "hatchEggs",
+      "reason": "Locally cached accrued eggs consumed by the hatchEggs conversion and referral payout."
+    },
+    {
+      "normal_node": "newShrimp",
+      "merge_into": "hatchEggs",
+      "reason": "Intermediate shrimp amount minted and stored inside hatchEggs."
+    },
+    {
+      "normal_node": "hasEggs",
+      "merge_into": "sellEggs",
+      "reason": "Locally cached egg balance sold inside sellEggs."
+    },
+    {
+      "normal_node": "eggValue",
+      "merge_into": "sellEggs",
+      "reason": "Intermediate token value of the sold eggs inside sellEggs."
+    },
+    {
+      "normal_node": "fee",
+      "merge_into": "sellEggs",
+      "reason": "Dev fee deducted from the sale proceeds inside sellEggs."
+    },
+    {
+      "normal_node": "secondsPassed",
+      "merge_into": "getEggsSinceLastHatch",
+      "reason": "Timestamp-derived intermediate that exists only inside the accrual helper."
+    },
+    {
+      "normal_node": "size",
+      "merge_into": "_isContract",
+      "reason": "Assembly output local whose sole purpose is the boolean returned by _isContract."
+    }
+  ]
+}

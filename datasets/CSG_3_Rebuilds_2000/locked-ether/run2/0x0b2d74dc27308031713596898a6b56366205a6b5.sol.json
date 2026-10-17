@@ -1,0 +1,107 @@
+{
+  "nodes": [
+    {
+      "id": "compute",
+      "description": "External pure function compute(uint256 x) returns uint256 result; evaluates a large polynomial over a prime field using Horner's method implemented in inline assembly.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "function"
+    },
+    {
+      "id": "x",
+      "description": "Input parameter x of compute, the evaluation point of the polynomial; used as the multiplicand in every mulmod Horner iteration.",
+      "is_core": false,
+      "node_id": 1,
+      "type": "parameter"
+    },
+    {
+      "id": "PRIME",
+      "description": "Local constant PRIME = 0x800000000000011000000000000000000000000000000000000000000000001 used as the modulus for the field arithmetic.",
+      "is_core": false,
+      "node_id": 2,
+      "type": "local_var"
+    },
+    {
+      "id": "result",
+      "description": "Local accumulator returned by compute; repeatedly updated by the batched Horner iterations and finally reduced modulo PRIME.",
+      "is_core": false,
+      "node_id": 3,
+      "type": "local_var"
+    },
+    {
+      "id": "assembly_horner",
+      "description": "Inline assembly block performing chained add/mulmod Horner evaluations over PRIME, operating directly on EVM words without Solidity overflow checks.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Execution of compute flows directly into the inline assembly block that performs the polynomial evaluation.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Caller-supplied argument x is bound to the x parameter of compute before any computation occurs.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Parameter x is consumed inside the assembly as the multiplicand of every mulmod(result, x, PRIME) Horner step.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Local PRIME is consumed inside the assembly as the modulus argument of each mulmod call.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Local result is fed into the assembly as the running accumulator of the Horner iterations.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The assembly block assigns each successive Horner value back to the local result variable.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The value produced by the assembly (result % PRIME) is returned as the output of compute.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The parameter x is only meaningful as the input of compute and carries no standalone behavior, so it is folded into the function node.",
+      "normal_node": "x",
+      "merge_into": "compute"
+    },
+    {
+      "reason": "The local constant PRIME is used exclusively as the modulus inside the assembly arithmetic, so it is merged into the unsafe_operation node.",
+      "normal_node": "PRIME",
+      "merge_into": "assembly_horner"
+    },
+    {
+      "reason": "The local accumulator result is mutated and finally produced by the inline assembly, so it is merged into the unsafe_operation node.",
+      "normal_node": "result",
+      "merge_into": "assembly_horner"
+    }
+  ]
+}

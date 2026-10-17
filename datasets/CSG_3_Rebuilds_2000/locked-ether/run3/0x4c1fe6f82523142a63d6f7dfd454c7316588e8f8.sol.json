@@ -1,0 +1,156 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "implementation",
+      "description": "Address of the fixed implementation contract used by the fallback delegatecall.",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "constructor",
+      "description": "Constructor that initializes the implementation state variable.",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fallback",
+      "description": "Payable fallback that delegatecalls all calls to the implementation contract.",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "receive",
+      "description": "Payable receive function that emits the Received event.",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "description": "Caller address used in the receive function event emission.",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "delegatecall",
+      "description": "Delegatecall to the implementation contract executed in the fallback assembly.",
+      "node_id": 5
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "_implementation",
+      "description": "Constructor parameter that sets the implementation state variable.",
+      "node_id": 6
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "target",
+      "description": "Assembly local variable holding the implementation address loaded via sload(0).",
+      "node_id": 7
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "result",
+      "description": "Assembly local variable holding the delegatecall result.",
+      "node_id": 8
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 6,
+      "to_id": 0,
+      "reason": "Constructor parameter _implementation is assigned to the implementation state variable."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 1,
+      "to_id": 0,
+      "reason": "Constructor writes the implementation state variable."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 0,
+      "to_id": 5,
+      "reason": "Delegatecall target is loaded from the implementation state variable via sload(0), enabling external code execution."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "reentrancy",
+      "from_id": 2,
+      "to_id": 5,
+      "reason": "Fallback executes a delegatecall to the implementation address."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 2,
+      "to_id": 0,
+      "reason": "Fallback reads the implementation state variable via sload(0)."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 4,
+      "to_id": 3,
+      "reason": "Receive reads msg.sender for the Received event."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 7,
+      "reason": "sload(0) loads the implementation address into the target assembly local variable."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "from_id": 7,
+      "to_id": 5,
+      "reason": "Target assembly local variable is used as the delegatecall target address."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 5,
+      "to_id": 8,
+      "reason": "Delegatecall result is stored in the result assembly local variable."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 8,
+      "to_id": 2,
+      "reason": "Fallback switches on the result assembly local variable to return or revert."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "_implementation",
+      "merge_into": "constructor",
+      "reason": "Constructor parameter _implementation is assigned to the implementation state variable; normalize into the constructor."
+    },
+    {
+      "normal_node": "target",
+      "merge_into": "delegatecall",
+      "reason": "Assembly local target holds the delegatecall target address; normalize into the delegatecall unsafe operation."
+    },
+    {
+      "normal_node": "result",
+      "merge_into": "delegatecall",
+      "reason": "Assembly local result captures the delegatecall outcome; normalize into the delegatecall unsafe operation."
+    }
+  ]
+}

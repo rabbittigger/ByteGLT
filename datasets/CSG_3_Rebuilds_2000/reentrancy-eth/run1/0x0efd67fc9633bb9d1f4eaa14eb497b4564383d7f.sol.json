@@ -1,0 +1,208 @@
+{
+  "nodes": [
+    {
+      "description": "BalanceReader.allBalances(address[] _tokens, address _who): public view that loops over a caller-supplied token list and statically calls balanceOf/depositLock on each token wrapper.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 0,
+      "id": "fn_allBalances"
+    },
+    {
+      "description": "address[] _tokens - caller-supplied array of arbitrary contract addresses used as call targets and as the loop bound.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 1,
+      "id": "param_tokens"
+    },
+    {
+      "description": "address _who - caller-supplied account address forwarded as argument to each external balance query.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 2,
+      "id": "param_who"
+    },
+    {
+      "description": "uint256[] balances - newly allocated result array filled with the return value of the external balanceOf calls.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 3,
+      "id": "var_balances"
+    },
+    {
+      "description": "uint256[] locks - newly allocated result array filled with the return value of the external depositLock calls.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 4,
+      "id": "var_locks"
+    },
+    {
+      "description": "uint i - loop counter bounded by _tokens.length and used as the index for the external call targets.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 5,
+      "id": "var_i"
+    },
+    {
+      "description": "External call WrapperInterface(_tokens[i]).balanceOf(_who) on an unvalidated user-controlled address inside a loop (view/static-call, but target and argument are attacker-chosen).",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 6,
+      "id": "unsafe_extcall_balanceOf"
+    },
+    {
+      "description": "External call WrapperInterface(_tokens[i]).depositLock(_who) on an unvalidated user-controlled address inside a loop.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 7,
+      "id": "unsafe_extcall_depositLock"
+    },
+    {
+      "description": "Loop counter arithmetic i++ on Solidity 0.4.25 with no overflow protection; bound is the caller-controlled array length.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 8,
+      "id": "unsafe_loop_increment"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "allBalances transfers control to an attacker-supplied contract address during the loop, enabling reentrant behaviour if the target calls back into the caller's state.",
+      "from_id": 0,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 6
+    },
+    {
+      "reason": "Second externally controlled callback in the same loop iteration, same reentrancy surface.",
+      "from_id": 0,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 7
+    },
+    {
+      "reason": "The loop is driven by an unchecked increment of i under pragma 0.4.25, where integer arithmetic wraps silently.",
+      "from_id": 0,
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "to_id": 8
+    },
+    {
+      "reason": "_tokens[i] is an unvalidated caller-supplied address that becomes the callee of the external call, so the caller fully controls the code that executes.",
+      "from_id": 1,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "Same unvalidated _tokens[i] address is reused as the callee of the depositLock call.",
+      "from_id": 1,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "_who is forwarded unchanged as the argument of balanceOf.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "_who is forwarded unchanged as the argument of depositLock.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "_tokens.length determines the size of the freshly allocated balances array.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "_tokens.length determines the size of the freshly allocated locks array.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "Loop counter i indexes into the balances result array.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "Loop counter i indexes into the locks result array.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "Loop counter i selects which attacker-controlled token address is invoked by the external call.",
+      "from_id": 5,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "Loop counter i selects which attacker-controlled token address is invoked by the second external call.",
+      "from_id": 5,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "i is the operand of the unchecked i++ increment operation.",
+      "from_id": 5,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "Return value of the external balanceOf call is written into balances[i].",
+      "from_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "Return value of the external depositLock call is written into locks[i].",
+      "from_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "_tokens is only meaningful as the source of the unvalidated callee address for the external balanceOf call and its loop bound, so it can be folded into that core unsafe operation.",
+      "normal_node": "param_tokens",
+      "merge_into": "unsafe_extcall_balanceOf"
+    },
+    {
+      "reason": "_who has no independent on-chain effect; it is merely forwarded as the argument of the external query and is absorbed by the core call node.",
+      "normal_node": "param_who",
+      "merge_into": "unsafe_extcall_balanceOf"
+    },
+    {
+      "reason": "The temporary balances array exists only to hold the return value of the external balanceOf call and is discarded after the call, so it collapses into the core unsafe operation.",
+      "normal_node": "var_balances",
+      "merge_into": "unsafe_extcall_balanceOf"
+    },
+    {
+      "reason": "The temporary locks array exists only to hold the return value of the external depositLock call and merges into that core unsafe operation.",
+      "normal_node": "var_locks",
+      "merge_into": "unsafe_extcall_depositLock"
+    },
+    {
+      "reason": "i is a pure loop index whose only security-relevant behaviour is the unchecked increment, so it is merged into the core arithmetic unsafe operation.",
+      "normal_node": "var_i",
+      "merge_into": "unsafe_loop_increment"
+    }
+  ]
+}

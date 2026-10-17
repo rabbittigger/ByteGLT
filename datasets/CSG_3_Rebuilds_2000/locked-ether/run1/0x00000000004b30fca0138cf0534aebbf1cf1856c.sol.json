@@ -1,0 +1,226 @@
+{
+  "nodes": [
+    {
+      "description": "Owner address state variable in Ownable; controls all privileged functions.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "_owner"
+    },
+    {
+      "description": "Payable destination address in Receiver that receives the contract balance.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "addr"
+    },
+    {
+      "description": "Context helper returning msg.sender; used as identity source for ownership.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 2,
+      "id": "_msgSender"
+    },
+    {
+      "description": "Ownable.transferOwnership, external and onlyOwner guarded; updates owner.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "transferOwnership"
+    },
+    {
+      "description": "Ownable private setter that writes the _owner state variable.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 4,
+      "id": "_setOwner"
+    },
+    {
+      "description": "Access control modifier requiring _owner == _msgSender().",
+      "is_core": true,
+      "type": "function",
+      "node_id": 5,
+      "id": "onlyOwner"
+    },
+    {
+      "description": "Receiver.changeAddress, onlyOwner guarded; writes the payout address state variable.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 6,
+      "id": "changeAddress"
+    },
+    {
+      "description": "Receiver.transfer, onlyOwner guarded; reads contract balance and sends it to addr.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 7,
+      "id": "transfer"
+    },
+    {
+      "description": "Receiver receive/fallback payable functions accepting plain Ether.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 8,
+      "id": "receive"
+    },
+    {
+      "description": "Caller-controlled address used for ownership comparison.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 9,
+      "id": "msg.sender"
+    },
+    {
+      "description": "Value transfer of the full contract balance to the stored payout address; external call executed after balance read.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 10,
+      "id": "addr.transfer(balance)"
+    },
+    {
+      "description": "Parameter of transferOwnership carrying the new owner address.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 11,
+      "id": "newOwner"
+    },
+    {
+      "description": "Parameter of changeAddress carrying the new payout address.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 12,
+      "id": "newaddr"
+    },
+    {
+      "description": "Local variable holding address(this).balance inside transfer().",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 13,
+      "id": "balance"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "onlyOwner modifier compares _owner against msg.sender, so the untrusted caller controls whether the guard passes.",
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 5
+    },
+    {
+      "reason": "_msgSender returns msg.sender, propagating the untrusted caller identity.",
+      "from_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "onlyOwner gates execution of transferOwnership.",
+      "from_id": 5,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 3
+    },
+    {
+      "reason": "onlyOwner gates execution of changeAddress.",
+      "from_id": 5,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 6
+    },
+    {
+      "reason": "onlyOwner gates execution of transfer, restricting who can drain the balance.",
+      "from_id": 5,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 7
+    },
+    {
+      "reason": "The _owner state variable is read inside the onlyOwner check.",
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "newOwner parameter is forwarded to _setOwner.",
+      "from_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "_setOwner writes the _owner state variable.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "newaddr parameter is written into the payout address by changeAddress.",
+      "from_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "changeAddress updates the addr state variable.",
+      "from_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "The addr state variable is the destination of the value transfer.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 10
+    },
+    {
+      "reason": "transfer reads address(this).balance into the local variable.",
+      "from_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 13
+    },
+    {
+      "reason": "The balance local variable determines the amount transferred.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 10
+    },
+    {
+      "reason": "transfer() branches on balance > 0 and then executes the value transfer.",
+      "from_id": 7,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 10
+    },
+    {
+      "reason": "addr.transfer executes recipient code (receive/fallback) which can re-enter the contract after the balance was read.",
+      "from_id": 10,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 7
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "newOwner is only a formal parameter of transferOwnership and has no independent semantics outside that function.",
+      "normal_node": "newOwner",
+      "merge_into": "transferOwnership"
+    },
+    {
+      "reason": "newaddr is only a formal parameter of changeAddress and exists solely to update the addr state variable.",
+      "normal_node": "newaddr",
+      "merge_into": "changeAddress"
+    },
+    {
+      "reason": "balance is a transient local that only feeds the amount argument of the external value transfer.",
+      "normal_node": "balance",
+      "merge_into": "addr.transfer(balance)"
+    }
+  ]
+}

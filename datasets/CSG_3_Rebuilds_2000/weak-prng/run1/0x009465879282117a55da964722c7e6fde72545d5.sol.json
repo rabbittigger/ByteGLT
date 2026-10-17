@@ -1,0 +1,967 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "sv_owner",
+      "is_core": true,
+      "description": "Address of the contract owner, set to msg.sender in the constructor and changeable via changeOwner."
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "id": "sv_bankroll",
+      "is_core": true,
+      "description": "Address of the bankroll account that receives dividends and holds ZTH approvals."
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "id": "sv_totalSpins",
+      "is_core": true,
+      "description": "Counter of total number of spins performed."
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "id": "sv_totalZTHWagered",
+      "is_core": true,
+      "description": "Accumulated total of ZTH tokens wagered."
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "id": "sv_contractBalance",
+      "is_core": true,
+      "description": "Tracked ZTH balance of the contract, increased on spin and reduced on payout."
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "id": "sv_gameActive",
+      "is_core": true,
+      "description": "Boolean flag controlling whether betting is enabled; toggled by pauseGame/resumeGame."
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "id": "sv_ZTHTKNADDR",
+      "is_core": true,
+      "description": "Address of the ZTH token contract accepted for bets."
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "id": "sv_ZTHBANKROLL",
+      "is_core": true,
+      "description": "Bankroll address passed in the constructor and used for token approvals."
+    },
+    {
+      "node_id": 8,
+      "type": "state_var",
+      "id": "sv_ZTHTKN",
+      "is_core": true,
+      "description": "ZTHInterface instance used to transfer/approve ZTH tokens."
+    },
+    {
+      "node_id": 9,
+      "type": "state_var",
+      "id": "sv_validTokenBet",
+      "is_core": true,
+      "description": "Mapping of allowed wager amounts (5,10,25,50 ZTH and owner-added amounts)."
+    },
+    {
+      "node_id": 10,
+      "type": "state_var",
+      "id": "sv_playerSpins",
+      "is_core": true,
+      "description": "Mapping of player address to pending spin struct (tokenValue, blockn)."
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "id": "fn_constructor",
+      "is_core": true,
+      "description": "Constructor: stores Zethr/bankroll addresses, sets owner = msg.sender, grants infinite approvals and seeds valid bets."
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "id": "fn_fallback",
+      "is_core": true,
+      "description": "Payable fallback that simply accepts ETH."
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "id": "fn_tokenFallback",
+      "is_core": true,
+      "description": "ERC223 tokenFallback entry point that packages the transfer into a TKN struct and calls _spinTokens."
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "id": "fn_spinTokens",
+      "is_core": true,
+      "description": "Private spin executor: validates sender, bet size, jackpot guard, records the spin and finishes a previous one."
+    },
+    {
+      "node_id": 15,
+      "type": "function",
+      "id": "fn_finishSpin",
+      "is_core": true,
+      "description": "Public wrapper (gameIsActive) that finishes the caller's pending spin and returns the result."
+    },
+    {
+      "node_id": 16,
+      "type": "function",
+      "id": "fn_doFinishSpin",
+      "is_core": true,
+      "description": "Private spin settlement: derives the random result, computes profit and transfers the payout."
+    },
+    {
+      "node_id": 17,
+      "type": "function",
+      "id": "fn_jackpotGuard",
+      "is_core": true,
+      "description": "View check ensuring 25x the wager does not exceed half of contractBalance."
+    },
+    {
+      "node_id": 18,
+      "type": "function",
+      "id": "fn_maxRandom",
+      "is_core": true,
+      "description": "View randomness source hashing blockhash(blockn) with an entropy address."
+    },
+    {
+      "node_id": 19,
+      "type": "function",
+      "id": "fn_random",
+      "is_core": true,
+      "description": "Internal helper returning maxRandom(blockn, entropy) % upper."
+    },
+    {
+      "node_id": 20,
+      "type": "function",
+      "id": "fn_balanceOf",
+      "is_core": true,
+      "description": "View returning the tracked contractBalance."
+    },
+    {
+      "node_id": 21,
+      "type": "function",
+      "id": "fn_addNewBetAmount",
+      "is_core": true,
+      "description": "Owner-only function adding a new valid wager amount."
+    },
+    {
+      "node_id": 22,
+      "type": "function",
+      "id": "fn_pauseGame",
+      "is_core": true,
+      "description": "Owner-only function setting gameActive to false."
+    },
+    {
+      "node_id": 23,
+      "type": "function",
+      "id": "fn_resumeGame",
+      "is_core": true,
+      "description": "Owner-only function setting gameActive to true."
+    },
+    {
+      "node_id": 24,
+      "type": "function",
+      "id": "fn_changeOwner",
+      "is_core": true,
+      "description": "Owner-only function transferring ownership."
+    },
+    {
+      "node_id": 25,
+      "type": "function",
+      "id": "fn_changeBankroll",
+      "is_core": true,
+      "description": "Owner-only function changing the bankroll address."
+    },
+    {
+      "node_id": 26,
+      "type": "function",
+      "id": "fn_divertDividends",
+      "is_core": true,
+      "description": "Owner-only function forwarding the contract ETH balance to the bankroll."
+    },
+    {
+      "node_id": 27,
+      "type": "function",
+      "id": "fn_testingSelfDestruct",
+      "is_core": true,
+      "description": "Owner-only function transferring remaining tokens to owner and self-destructing."
+    },
+    {
+      "node_id": 28,
+      "type": "function",
+      "id": "fn_zthToken",
+      "is_core": true,
+      "description": "Private view verifying that the calling token contract is the registered ZTH token."
+    },
+    {
+      "node_id": 29,
+      "type": "untrusted_input",
+      "id": "ui_msg_sender",
+      "is_core": true,
+      "description": "msg.sender, attacker-controlled caller used for ownership, spin target and access control."
+    },
+    {
+      "node_id": 30,
+      "type": "unsafe_operation",
+      "id": "uo_payout_transfer",
+      "is_core": true,
+      "description": "ZTHTKN.transfer(target, profit) external token payout performed before state reset in _finishSpin."
+    },
+    {
+      "node_id": 31,
+      "type": "unsafe_operation",
+      "id": "uo_selfdestruct",
+      "is_core": true,
+      "description": "selfdestruct(owner) destroying the contract and forcing ETH to the owner."
+    },
+    {
+      "node_id": 32,
+      "type": "unsafe_operation",
+      "id": "uo_bankroll_transfer",
+      "is_core": true,
+      "description": "bankroll.transfer(address(this).balance) ETH transfer to an arbitrary bankroll address."
+    },
+    {
+      "node_id": 33,
+      "type": "unsafe_operation",
+      "id": "uo_testing_transfer",
+      "is_core": true,
+      "description": "ZTHTKN.transfer(owner, contractBalance) sweeping all tracked tokens to the owner."
+    },
+    {
+      "node_id": 34,
+      "type": "unsafe_operation",
+      "id": "uo_approve",
+      "is_core": true,
+      "description": "ZTHTKN.approve of 2**256-1 to bankroll and owner during construction."
+    },
+    {
+      "node_id": 35,
+      "type": "unsafe_operation",
+      "id": "uo_profit_mul",
+      "is_core": true,
+      "description": "Profit multiplication of spin.tokenValue by jackpot/multiplier factors."
+    },
+    {
+      "node_id": 36,
+      "type": "unsafe_operation",
+      "id": "uo_balance_sub",
+      "is_core": true,
+      "description": "contractBalance.sub(profit) accounting reduction executed together with the payout."
+    },
+    {
+      "node_id": 37,
+      "type": "parameter",
+      "id": "p_from",
+      "is_core": false,
+      "description": "Parameter _from of tokenFallback, the token sender address."
+    },
+    {
+      "node_id": 38,
+      "type": "parameter",
+      "id": "p_value",
+      "is_core": false,
+      "description": "Parameter _value of tokenFallback, the token amount transferred."
+    },
+    {
+      "node_id": 39,
+      "type": "parameter",
+      "id": "p_tkn",
+      "is_core": false,
+      "description": "Parameter _tkn (TKN struct) of _spinTokens carrying sender and value."
+    },
+    {
+      "node_id": 40,
+      "type": "local_var",
+      "id": "l_customerAddress",
+      "is_core": false,
+      "description": "Local _customerAddress = _tkn.sender inside _spinTokens."
+    },
+    {
+      "node_id": 41,
+      "type": "local_var",
+      "id": "l_wagered",
+      "is_core": false,
+      "description": "Local _wagered = _tkn.value inside _spinTokens."
+    },
+    {
+      "node_id": 42,
+      "type": "local_var",
+      "id": "l_spinLocal",
+      "is_core": false,
+      "description": "Memory playerSpin loaded from playerSpins inside _spinTokens."
+    },
+    {
+      "node_id": 43,
+      "type": "parameter",
+      "id": "p_target",
+      "is_core": false,
+      "description": "Parameter target (player address) of _finishSpin."
+    },
+    {
+      "node_id": 44,
+      "type": "local_var",
+      "id": "l_finishSpin",
+      "is_core": false,
+      "description": "Memory playerSpin of the target inside _finishSpin."
+    },
+    {
+      "node_id": 45,
+      "type": "local_var",
+      "id": "l_profit",
+      "is_core": false,
+      "description": "Local profit amount computed in _finishSpin."
+    },
+    {
+      "node_id": 46,
+      "type": "local_var",
+      "id": "l_result",
+      "is_core": false,
+      "description": "Local random result used for win/lose branching in _finishSpin."
+    },
+    {
+      "node_id": 47,
+      "type": "parameter",
+      "id": "p_wager",
+      "is_core": false,
+      "description": "Parameter _wager of jackpotGuard."
+    },
+    {
+      "node_id": 48,
+      "type": "local_var",
+      "id": "l_maxProfit",
+      "is_core": false,
+      "description": "Local maxProfit = _wager * 25 in jackpotGuard."
+    },
+    {
+      "node_id": 49,
+      "type": "local_var",
+      "id": "l_halfBalance",
+      "is_core": false,
+      "description": "Local halfContractBalance = contractBalance / 2 in jackpotGuard."
+    },
+    {
+      "node_id": 50,
+      "type": "parameter",
+      "id": "p_blockn",
+      "is_core": false,
+      "description": "Parameter blockn (past block number) of maxRandom."
+    },
+    {
+      "node_id": 51,
+      "type": "parameter",
+      "id": "p_entropy",
+      "is_core": false,
+      "description": "Parameter entropy address of maxRandom."
+    },
+    {
+      "node_id": 52,
+      "type": "parameter",
+      "id": "p_upper",
+      "is_core": false,
+      "description": "Parameter upper modulus of random."
+    },
+    {
+      "node_id": 53,
+      "type": "parameter",
+      "id": "p_tokenAmount",
+      "is_core": false,
+      "description": "Parameter _tokenAmount of addNewBetAmount."
+    },
+    {
+      "node_id": 54,
+      "type": "parameter",
+      "id": "p_newOwner",
+      "is_core": false,
+      "description": "Parameter _newOwner of changeOwner."
+    },
+    {
+      "node_id": 55,
+      "type": "parameter",
+      "id": "p_newBankroll",
+      "is_core": false,
+      "description": "Parameter _newBankroll of changeBankroll."
+    },
+    {
+      "node_id": 56,
+      "type": "parameter",
+      "id": "p_zethrAddress",
+      "is_core": false,
+      "description": "Constructor parameter ZethrAddress (ZTH token contract)."
+    },
+    {
+      "node_id": 57,
+      "type": "parameter",
+      "id": "p_bankrollAddress",
+      "is_core": false,
+      "description": "Constructor parameter BankrollAddress."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor assigns ownership from the untrusted msg.sender.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 11
+    },
+    {
+      "reason": "Constructor writes owner = msg.sender.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 0
+    },
+    {
+      "reason": "Constructor initializes bankroll from ZTHBANKROLL.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 1
+    },
+    {
+      "reason": "Constructor stores the ZTH token address.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 6
+    },
+    {
+      "reason": "Constructor stores the bankroll address.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 7
+    },
+    {
+      "reason": "Constructor instantiates the ZTHInterface.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 8
+    },
+    {
+      "reason": "Constructor seeds the valid bet amounts mapping.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 9
+    },
+    {
+      "reason": "Constructor sets gameActive to true.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 5
+    },
+    {
+      "reason": "Constructor performs infinite token approvals.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 11,
+      "to_id": 34
+    },
+    {
+      "reason": "Approvals are issued through the ZTH token instance.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 34,
+      "to_id": 8
+    },
+    {
+      "reason": "onlyOwner modifier guards pauseGame with the owner address.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 0,
+      "to_id": 22
+    },
+    {
+      "reason": "onlyOwner modifier guards resumeGame with the owner address.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 0,
+      "to_id": 23
+    },
+    {
+      "reason": "onlyOwner modifier guards addNewBetAmount.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 0,
+      "to_id": 21
+    },
+    {
+      "reason": "onlyOwner modifier guards changeOwner.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 0,
+      "to_id": 24
+    },
+    {
+      "reason": "onlyOwner modifier guards changeBankroll.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 0,
+      "to_id": 25
+    },
+    {
+      "reason": "onlyOwner modifier guards divertDividendsToBankroll.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 0,
+      "to_id": 26
+    },
+    {
+      "reason": "onlyOwner modifier guards testingSelfDestruct.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 0,
+      "to_id": 27
+    },
+    {
+      "reason": "msg.sender is compared against owner to authorize pauseGame.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 22
+    },
+    {
+      "reason": "msg.sender is compared against owner to authorize resumeGame.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 23
+    },
+    {
+      "reason": "msg.sender is compared against owner to authorize addNewBetAmount.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 21
+    },
+    {
+      "reason": "msg.sender is compared against owner to authorize changeOwner.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 24
+    },
+    {
+      "reason": "msg.sender is compared against owner to authorize changeBankroll.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 25
+    },
+    {
+      "reason": "msg.sender is compared against owner to authorize divertDividendsToBankroll.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 26
+    },
+    {
+      "reason": "msg.sender is compared against owner to authorize testingSelfDestruct.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 27
+    },
+    {
+      "reason": "changeOwner overwrites the owner state variable.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 24,
+      "to_id": 0
+    },
+    {
+      "reason": "changeBankroll overwrites the bankroll state variable.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 25,
+      "to_id": 1
+    },
+    {
+      "reason": "addNewBetAmount enables a new entry in validTokenBet.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 9
+    },
+    {
+      "reason": "Payable fallback increases the contract ETH balance backing the game.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 4
+    },
+    {
+      "reason": "tokenFallback forwards the incoming token transfer into _spinTokens.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 13,
+      "to_id": 14
+    },
+    {
+      "reason": "_spinTokens requires _zthToken(msg.sender) before processing.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 14,
+      "to_id": 28
+    },
+    {
+      "reason": "_zthToken compares the caller token contract against ZTHTKNADDR.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 28,
+      "to_id": 6
+    },
+    {
+      "reason": "msg.sender drives the token-origin validation and player identity in _spinTokens.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 14
+    },
+    {
+      "reason": "_spinTokens requires validTokenBet[_tkn.value].",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 9
+    },
+    {
+      "reason": "_spinTokens requires gameActive to be true.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 14,
+      "to_id": 5
+    },
+    {
+      "reason": "_spinTokens calls jackpotGuard to bound the maximum payout.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 14,
+      "to_id": 17
+    },
+    {
+      "reason": "jackpotGuard reads contractBalance to compute the payout ceiling.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 4
+    },
+    {
+      "reason": "_spinTokens adds the wager to contractBalance.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 4
+    },
+    {
+      "reason": "_spinTokens calls _finishSpin to settle a previously pending spin.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 14,
+      "to_id": 16
+    },
+    {
+      "reason": "_spinTokens reads the stored playerSpin from playerSpins.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 14
+    },
+    {
+      "reason": "_spinTokens writes the new spin struct into playerSpins.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 10
+    },
+    {
+      "reason": "_spinTokens increments totalSpins.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 2
+    },
+    {
+      "reason": "_spinTokens accumulates totalZTHWagered.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 3
+    },
+    {
+      "reason": "finishSpin delegates settlement to _finishSpin.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 15,
+      "to_id": 16
+    },
+    {
+      "reason": "gameIsActive modifier gates the public finishSpin entry point.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 5,
+      "to_id": 15
+    },
+    {
+      "reason": "finishSpin settles the spin belonging to the untrusted msg.sender.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 15
+    },
+    {
+      "reason": "_finishSpin loads the target player's spin from playerSpins.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 16
+    },
+    {
+      "reason": "_finishSpin clears the player's spin struct after settlement.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 10
+    },
+    {
+      "reason": "_finishSpin calls random to derive the game result.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 16,
+      "to_id": 19
+    },
+    {
+      "reason": "random delegates to maxRandom for the entropy hash.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 19,
+      "to_id": 18
+    },
+    {
+      "reason": "maxRandom returns the pseudo-random value used by _finishSpin.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 16
+    },
+    {
+      "reason": "_finishSpin computes profit by multiplying spin.tokenValue with multiplier factors.",
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "from_id": 16,
+      "to_id": 35
+    },
+    {
+      "reason": "_finishSpin reduces contractBalance by the profit.",
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "from_id": 16,
+      "to_id": 36
+    },
+    {
+      "reason": "_finishSpin performs the external token payout to the winning player.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 16,
+      "to_id": 30
+    },
+    {
+      "reason": "The payout amount is derived from tracked contractBalance/profit before state reset.",
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 30
+    },
+    {
+      "reason": "The payout is executed through the ZTH token instance.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 30
+    },
+    {
+      "reason": "The external token transfer can re-enter _finishSpin before playerSpins is cleared.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 30,
+      "to_id": 16
+    },
+    {
+      "reason": "An ERC223 token transfer invokes tokenFallback, allowing callback re-entry.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 30,
+      "to_id": 13
+    },
+    {
+      "reason": "divertDividendsToBankroll sends the ETH balance to bankroll.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 26,
+      "to_id": 32
+    },
+    {
+      "reason": "bankroll is the destination of the ETH transfer.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 32
+    },
+    {
+      "reason": "testingSelfDestruct transfers the contract token balance to owner.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 27,
+      "to_id": 33
+    },
+    {
+      "reason": "The sweep transfer is executed through the ZTH token instance.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 33
+    },
+    {
+      "reason": "owner is the recipient of the token sweep.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 33
+    },
+    {
+      "reason": "testingSelfDestruct destroys the contract.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 27,
+      "to_id": 31
+    },
+    {
+      "reason": "owner receives the forced ETH from selfdestruct.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 31
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Parameter _from only feeds the TKN struct sender used by tokenFallback.",
+      "merge_into": "fn_tokenFallback",
+      "normal_node": "p_from"
+    },
+    {
+      "reason": "Parameter _value only feeds the TKN struct value validated in tokenFallback.",
+      "merge_into": "fn_tokenFallback",
+      "normal_node": "p_value"
+    },
+    {
+      "reason": "The TKN struct parameter is consumed entirely by _spinTokens.",
+      "merge_into": "fn_spinTokens",
+      "normal_node": "p_tkn"
+    },
+    {
+      "reason": "Local _customerAddress is only used for the TokensWagered event and spin bookkeeping in _spinTokens.",
+      "merge_into": "fn_spinTokens",
+      "normal_node": "l_customerAddress"
+    },
+    {
+      "reason": "Local _wagered is the validated bet amount handled inside _spinTokens.",
+      "merge_into": "fn_spinTokens",
+      "normal_node": "l_wagered"
+    },
+    {
+      "reason": "The memory playerSpin is loaded, updated and stored back only in _spinTokens.",
+      "merge_into": "fn_spinTokens",
+      "normal_node": "l_spinLocal"
+    },
+    {
+      "reason": "Parameter target selects the playerSpins entry settled by _finishSpin.",
+      "merge_into": "fn_doFinishSpin",
+      "normal_node": "p_target"
+    },
+    {
+      "reason": "The memory spin struct is only read/written within _finishSpin.",
+      "merge_into": "fn_doFinishSpin",
+      "normal_node": "l_finishSpin"
+    },
+    {
+      "reason": "Local profit is the exact amount passed to the external token payout.",
+      "merge_into": "uo_payout_transfer",
+      "normal_node": "l_profit"
+    },
+    {
+      "reason": "Local result governs the win/lose branching inside _finishSpin.",
+      "merge_into": "fn_doFinishSpin",
+      "normal_node": "l_result"
+    },
+    {
+      "reason": "Parameter _wager is used solely to bound the jackpot in jackpotGuard.",
+      "merge_into": "fn_jackpotGuard",
+      "normal_node": "p_wager"
+    },
+    {
+      "reason": "Local maxProfit is an intermediate value of jackpotGuard.",
+      "merge_into": "fn_jackpotGuard",
+      "normal_node": "l_maxProfit"
+    },
+    {
+      "reason": "Local halfContractBalance is an intermediate value of jackpotGuard.",
+      "merge_into": "fn_jackpotGuard",
+      "normal_node": "l_halfBalance"
+    },
+    {
+      "reason": "Parameter blockn selects the past blockhash in maxRandom.",
+      "merge_into": "fn_maxRandom",
+      "normal_node": "p_blockn"
+    },
+    {
+      "reason": "Parameter entropy is packed with the blockhash in maxRandom.",
+      "merge_into": "fn_maxRandom",
+      "normal_node": "p_entropy"
+    },
+    {
+      "reason": "Parameter upper is the modulus applied in random.",
+      "merge_into": "fn_random",
+      "normal_node": "p_upper"
+    },
+    {
+      "reason": "Parameter _tokenAmount is the mapping key written by addNewBetAmount.",
+      "merge_into": "fn_addNewBetAmount",
+      "normal_node": "p_tokenAmount"
+    },
+    {
+      "reason": "Parameter _newOwner is assigned to the owner state variable.",
+      "merge_into": "fn_changeOwner",
+      "normal_node": "p_newOwner"
+    },
+    {
+      "reason": "Parameter _newBankroll is assigned to the bankroll state variable.",
+      "merge_into": "fn_changeBankroll",
+      "normal_node": "p_newBankroll"
+    },
+    {
+      "reason": "Constructor parameter sets ZTHTKNADDR/ZTHTKN.",
+      "merge_into": "fn_constructor",
+      "normal_node": "p_zethrAddress"
+    },
+    {
+      "reason": "Constructor parameter sets ZTHBANKROLL/bankroll.",
+      "merge_into": "fn_constructor",
+      "normal_node": "p_bankrollAddress"
+    }
+  ]
+}

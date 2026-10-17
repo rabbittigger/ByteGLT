@@ -1,0 +1,237 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Private uint16 constant-like state variable used as the threshold for the 'Free Will' outcome and in the modulo denominator.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "FREE_WILL"
+    },
+    {
+      "type": "state_var",
+      "description": "Private uint16 state variable used in the modulo denominator (FREE_WILL + FATE) for random generation.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "FATE"
+    },
+    {
+      "type": "state_var",
+      "description": "Private state variable holding the untrusted external contract IReflectionsDataChannel at a fixed address; its methods are invoked for outbound messages.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "channel"
+    },
+    {
+      "type": "state_var",
+      "description": "Public address state variable set from msg.sender in the constructor and used as the sole access-control authority.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "owner"
+    },
+    {
+      "type": "function",
+      "description": "Constructor that assigns owner = msg.sender, granting deployer privileges.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "FateVsFreeWill.constructor"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only function computing pseudo-randomness from block data and msg.sender, then making two external calls on the channel contract (postMessage and updateOwner), which is state-changing after external interaction.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "FateVsFreeWill.decide"
+    },
+    {
+      "type": "function",
+      "description": "Backup owner-only function that calls the external channel.updateOwner(owner), performing an external call without any state update or reentrancy guard.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "FateVsFreeWill.restoreOwner"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used for owner assignment, access-control checks (require msg.sender == owner) and mixed into the randomness preimage.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "msg.sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Miner/validator-influenceable timestamp included in the keccak256 randomness preimage, making the outcome predictable/manipulable.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "local_var",
+      "description": "Local uint256 result of keccak256(...) % (FREE_WILL + FATE) used to branch between 'Free Will' and 'Fate'.",
+      "is_core": false,
+      "node_id": 9,
+      "id": "random"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External call to an untrusted contract (channel.postMessage) executed before the function completes, with no reentrancy protection or effects-first ordering.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "channel.postMessage"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External call to an untrusted contract (channel.updateOwner) performed at the end of decide() and inside restoreOwner(), enabling reentrancy into owner-gated functions.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "channel.updateOwner"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Weak randomness / arithmetic operation: keccak256 over blockhash, coinbase, difficulty, timestamp and msg.sender, then modulo (FREE_WILL + FATE); both predictable entropy and unchecked assumptions on the uint16 sum.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "random_calculation"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "Constructor assigns owner from msg.sender, letting the caller become the access-control authority.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "Constructor writes the owner state variable.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "msg.sender is encoded into the keccak256 preimage that produces the local random value.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "block.timestamp is part of the random preimage, so the outcome depends on miner-influenceable block data.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "FREE_WILL is used in the (FREE_WILL + FATE) denominator and in the comparison for the result branch.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "FATE is used in the (FREE_WILL + FATE) denominator of the modulo operation.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "Result of the randomness/arithmetic computation is stored in the local variable random.",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "controlflow",
+      "reason": "decide() computes and controls the local random variable used for branching.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "FREE_WILL is read in the 'random < FREE_WILL' branch condition.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 10,
+      "type": "controlflow",
+      "reason": "decide() invokes the untrusted external contract via channel.postMessage without a reentrancy guard.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "decide() invokes the untrusted external contract via channel.updateOwner as the last statement.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "decide() reads owner in 'require(msg.sender == owner)' to gate privileged execution.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 5,
+      "type": "controlflow",
+      "reason": "Caller-controlled msg.sender determines whether decide() proceeds past the owner check.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 6,
+      "type": "controlflow",
+      "reason": "Caller-controlled msg.sender determines whether restoreOwner() proceeds past the owner check.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "restoreOwner() reads owner to validate the caller's authorization.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "restoreOwner() performs an external call to the untrusted channel contract with no guard.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 5,
+      "type": "callback",
+      "reason": "The untrusted channel contract could re-enter decide() during channel.postMessage before execution completes.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 5,
+      "type": "callback",
+      "reason": "The untrusted channel contract could re-enter decide() during channel.updateOwner.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 6,
+      "type": "callback",
+      "reason": "The untrusted channel contract could re-enter restoreOwner() during channel.updateOwner.",
+      "from_id": 11
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "FateVsFreeWill.decide",
+      "reason": "The local variable random exists only inside decide() and should be collapsed into that function node, keeping the dataflow from block.timestamp/msg.sender and the unsafe randomness operation attached to the function.",
+      "normal_node": "random"
+    }
+  ]
+}

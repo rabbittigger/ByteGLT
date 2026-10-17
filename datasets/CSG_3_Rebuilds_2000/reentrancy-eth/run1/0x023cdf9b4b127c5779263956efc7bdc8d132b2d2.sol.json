@@ -1,0 +1,687 @@
+{
+  "nodes": [
+    {
+      "id": "msg_sender",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "msg.sender - caller address that supplies funds, receives shares, and triggers deposit/withdraw/redeem flows",
+      "node_id": 0
+    },
+    {
+      "id": "block_timestamp",
+      "is_core": true,
+      "type": "untrusted_input",
+      "description": "block.timestamp (now) used to build Uniswap swap deadlines via now.add(1800)",
+      "node_id": 1
+    },
+    {
+      "id": "pool",
+      "is_core": true,
+      "type": "state_var",
+      "description": "pool: cached pool value in DAI used for share pricing",
+      "node_id": 2
+    },
+    {
+      "id": "yeldToken",
+      "is_core": true,
+      "type": "state_var",
+      "description": "YELD ERC20 token used for staking reward transfers and burn accounting",
+      "node_id": 3
+    },
+    {
+      "id": "yeldDAIInstance",
+      "is_core": true,
+      "type": "state_var",
+      "description": "IYeldDAI instance used for mint/burn/price/decimals queries",
+      "node_id": 4
+    },
+    {
+      "id": "staked",
+      "is_core": true,
+      "type": "state_var",
+      "description": "mapping(address => uint256) tracking staked DAI per user",
+      "node_id": 5
+    },
+    {
+      "id": "deposited",
+      "is_core": true,
+      "type": "state_var",
+      "description": "mapping(address => uint256) tracking deposited yDAI per user",
+      "node_id": 6
+    },
+    {
+      "id": "retirementYeldTreasury",
+      "is_core": true,
+      "type": "state_var",
+      "description": "payable treasury address receiving ETH profit transfers",
+      "node_id": 7
+    },
+    {
+      "id": "uniswapRouter",
+      "is_core": true,
+      "type": "state_var",
+      "description": "Uniswap router address used for token swaps",
+      "node_id": 8
+    },
+    {
+      "id": "maximumTokensToBurn",
+      "is_core": true,
+      "type": "state_var",
+      "description": "cap on YELD tokens burned from staking profits",
+      "node_id": 9
+    },
+    {
+      "id": "token",
+      "is_core": true,
+      "type": "state_var",
+      "description": "underlying DAI token address",
+      "node_id": 10
+    },
+    {
+      "id": "deposit",
+      "is_core": true,
+      "type": "function",
+      "description": "deposit(uint256) external nonReentrant: pulls DAI, mints yDAI, mints shares",
+      "node_id": 11
+    },
+    {
+      "id": "withdraw",
+      "is_core": true,
+      "type": "function",
+      "description": "withdraw(uint256) external nonReentrant: burns shares, pulls funds, converts profits and transfers DAI",
+      "node_id": 12
+    },
+    {
+      "id": "redeemYeld",
+      "is_core": true,
+      "type": "function",
+      "description": "redeemYeld(): burns deposited yDAI and transfers YELD rewards to msg.sender",
+      "node_id": 13
+    },
+    {
+      "id": "checkIfRedeemableBalance",
+      "is_core": true,
+      "type": "function",
+      "description": "checkIfRedeemableBalance() public view: returns whether caller holds yDAI",
+      "node_id": 14
+    },
+    {
+      "id": "daiToETH",
+      "is_core": true,
+      "type": "function",
+      "description": "daiToETH(uint256) internal: swaps DAI for ETH via Uniswap router",
+      "node_id": 15
+    },
+    {
+      "id": "buyNBurn",
+      "is_core": true,
+      "type": "function",
+      "description": "buyNBurn(uint256) internal: swaps ETH for YELD via Uniswap router",
+      "node_id": 16
+    },
+    {
+      "id": "setUniswapRouter",
+      "is_core": true,
+      "type": "function",
+      "description": "setUniswapRouter(address) public onlyOwner: updates router address",
+      "node_id": 17
+    },
+    {
+      "id": "extractTokensIfStuck",
+      "is_core": true,
+      "type": "function",
+      "description": "extractTokensIfStuck(address,uint256) public onlyOwner: transfers arbitrary tokens out",
+      "node_id": 18
+    },
+    {
+      "id": "extractETHIfStuck",
+      "is_core": true,
+      "type": "function",
+      "description": "extractETHIfStuck() public onlyOwner: sends contract ETH balance to owner",
+      "node_id": 19
+    },
+    {
+      "id": "approveToken",
+      "is_core": true,
+      "type": "function",
+      "description": "approveToken() public: grants unlimited token approvals to lending protocols",
+      "node_id": 20
+    },
+    {
+      "id": "unsafe_safeTransferFrom",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "IERC20(token).safeTransferFrom(msg.sender, address(this), _amount) - external token pull",
+      "node_id": 21
+    },
+    {
+      "id": "unsafe_yeldMint",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "yeldDAIInstance.mint(msg.sender, yeldDAIToReceive) - external mint call",
+      "node_id": 22
+    },
+    {
+      "id": "unsafe_mintShares",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "_mint(msg.sender, shares) - share accounting update",
+      "node_id": 23
+    },
+    {
+      "id": "unsafe_burnAndTransferYeld",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "yeldDAIInstance.burn(msg.sender, deposited[msg.sender]) and yeldToken.transfer(msg.sender, yeldToRedeem)",
+      "node_id": 24
+    },
+    {
+      "id": "unsafe_uniswapTokensForETH",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "IUniswap(uniswapRouter).swapExactTokensForETH(...) - external swap with timestamp deadline",
+      "node_id": 25
+    },
+    {
+      "id": "unsafe_uniswapETHForTokens",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "IUniswap(uniswapRouter).swapExactETHForTokens.value(_ethToSwap)(...) - external value-carrying swap",
+      "node_id": 26
+    },
+    {
+      "id": "unsafe_treasuryTransfer",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "retirementYeldTreasury.transfer(retirementYeld) - ETH transfer to treasury",
+      "node_id": 27
+    },
+    {
+      "id": "unsafe_safeTransfer",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "IERC20(token).safeTransfer(msg.sender, r) - external token transfer to user",
+      "node_id": 28
+    },
+    {
+      "id": "unsafe_extractTransfer",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "IERC20(_token).transfer(msg.sender, _amount) - arbitrary token transfer by owner",
+      "node_id": 29
+    },
+    {
+      "id": "unsafe_ownerTransfer",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "owner().transfer(address(this).balance) - ETH send to owner",
+      "node_id": 30
+    },
+    {
+      "id": "unsafe_routerAssignment",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "description": "uniswapRouter = _uniswapRouter - privileged router state assignment",
+      "node_id": 31
+    },
+    {
+      "id": "param_amount_deposit",
+      "is_core": false,
+      "type": "parameter",
+      "description": "_amount parameter of deposit: DAI amount supplied by caller",
+      "node_id": 32
+    },
+    {
+      "id": "local_shares",
+      "is_core": false,
+      "type": "local_var",
+      "description": "shares local in deposit: minted share amount derived from pool math",
+      "node_id": 33
+    },
+    {
+      "id": "param_shares_withdraw",
+      "is_core": false,
+      "type": "parameter",
+      "description": "_shares parameter of withdraw: shares burned by caller",
+      "node_id": 34
+    },
+    {
+      "id": "local_halfProfits",
+      "is_core": false,
+      "type": "local_var",
+      "description": "halfProfits local in withdraw: (r.sub(staked[msg.sender])).div(2)",
+      "node_id": 35
+    },
+    {
+      "id": "param_ethToSwap",
+      "is_core": false,
+      "type": "parameter",
+      "description": "_ethToSwap parameter of buyNBurn: ETH used to buy YELD",
+      "node_id": 36
+    },
+    {
+      "id": "param_uniswapRouter",
+      "is_core": false,
+      "type": "parameter",
+      "description": "_uniswapRouter parameter of setUniswapRouter",
+      "node_id": 37
+    },
+    {
+      "id": "param_token_extract",
+      "is_core": false,
+      "type": "parameter",
+      "description": "_token parameter of extractTokensIfStuck",
+      "node_id": 38
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 0,
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "msg.sender invokes deposit and supplies the funds"
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "msg.sender invokes withdraw"
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "msg.sender invokes redeemYeld"
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "onlyOwner-gated privileged extraction sends funds to msg.sender"
+    },
+    {
+      "from_id": 1,
+      "vuln_type": "access_control",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "timestamp-derived deadline now.add(1800) controls swap validity in daiToETH"
+    },
+    {
+      "from_id": 1,
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "timestamp-derived deadline now.add(1800) controls swap validity in buyNBurn"
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "reentrancy",
+      "to_id": 11,
+      "type": "callback",
+      "reason": "caller-controlled addresses are called during deposit enabling reentrant callbacks"
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "reentrancy",
+      "to_id": 12,
+      "type": "callback",
+      "reason": "token/ETH transfers to caller in withdraw can re-enter the contract"
+    },
+    {
+      "from_id": 0,
+      "vuln_type": "reentrancy",
+      "to_id": 13,
+      "type": "callback",
+      "reason": "external burn and yeldToken transfer to caller in redeemYeld allow callbacks"
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "deposit reads and rewrites pool for share pricing"
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "deposit updates staked[msg.sender]"
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "deposit updates deposited[msg.sender]"
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "deposit reads YELD balance for the 2% requirement"
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "deposit queries yeldDAIInstance for price, decimals and mint"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "withdraw recomputes pool value for redemption math"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "withdraw reads staked to compute staking profits"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "withdraw routes profit percentage to retirementYeldTreasury"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "withdraw compares burned tokens against maximumTokensToBurn"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "withdraw reads yeldToken.balanceOf(address(0)) for burn accounting"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "withdraw checks/updates yeldDAI price before redeeming"
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "redeemYeld resets deposited[msg.sender] after burn"
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "redeemYeld transfers YELD rewards to caller"
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "redeemYeld reads yeldDAIInstance balance, price and decimals"
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "daiToETH approves and swaps through uniswapRouter"
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "buyNBurn swaps ETH through uniswapRouter"
+    },
+    {
+      "from_id": 17,
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "setUniswapRouter writes the uniswapRouter address"
+    },
+    {
+      "from_id": 18,
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "extractTokensIfStuck transfers the given token held by the contract"
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "controlflow",
+      "reason": "deposit executes the DAI safeTransferFrom pull"
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "controlflow",
+      "reason": "deposit executes yeldDAIInstance.mint"
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "controlflow",
+      "reason": "deposit executes share minting"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 28,
+      "type": "controlflow",
+      "reason": "withdraw executes the final DAI safeTransfer to caller"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "controlflow",
+      "reason": "withdraw executes treasury ETH transfer"
+    },
+    {
+      "from_id": 13,
+      "vuln_type": "none",
+      "to_id": 24,
+      "type": "controlflow",
+      "reason": "redeemYeld executes burn and YELD transfer"
+    },
+    {
+      "from_id": 15,
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "controlflow",
+      "reason": "daiToETH executes the Uniswap tokens-for-ETH swap"
+    },
+    {
+      "from_id": 16,
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "controlflow",
+      "reason": "buyNBurn executes the Uniswap ETH-for-tokens swap"
+    },
+    {
+      "from_id": 18,
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "controlflow",
+      "reason": "extractTokensIfStuck executes the arbitrary token transfer"
+    },
+    {
+      "from_id": 19,
+      "vuln_type": "none",
+      "to_id": 30,
+      "type": "controlflow",
+      "reason": "extractETHIfStuck executes owner ETH transfer"
+    },
+    {
+      "from_id": 17,
+      "vuln_type": "none",
+      "to_id": 31,
+      "type": "controlflow",
+      "reason": "setUniswapRouter executes the privileged router assignment"
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "deposit calls redeemYeld when a redeemable balance exists"
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "controlflow",
+      "reason": "deposit calls checkIfRedeemableBalance"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "withdraw calls redeemYeld"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "controlflow",
+      "reason": "withdraw calls checkIfRedeemableBalance"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "controlflow",
+      "reason": "withdraw calls daiToETH to convert staking profits"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "controlflow",
+      "reason": "withdraw calls buyNBurn to burn YELD profits"
+    },
+    {
+      "from_id": 11,
+      "vuln_type": "arithmetic",
+      "to_id": 33,
+      "type": "dataflow",
+      "reason": "share computation (_amount.mul(_totalSupply)).div(pool) is integer arithmetic on user input"
+    },
+    {
+      "from_id": 12,
+      "vuln_type": "arithmetic",
+      "to_id": 35,
+      "type": "dataflow",
+      "reason": "profit computation (r.sub(staked[msg.sender])).div(2) performs subtraction that can revert"
+    },
+    {
+      "from_id": 32,
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "_amount is the user-supplied DAI amount for deposit"
+    },
+    {
+      "from_id": 33,
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "shares local is produced and consumed inside deposit"
+    },
+    {
+      "from_id": 34,
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "_shares is the user-supplied share amount for withdraw"
+    },
+    {
+      "from_id": 35,
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "halfProfits local is consumed by withdraw profit logic"
+    },
+    {
+      "from_id": 36,
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "_ethToSwap is the ETH amount passed to the Uniswap swap"
+    },
+    {
+      "from_id": 37,
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "_uniswapRouter is the value written to the router state variable"
+    },
+    {
+      "from_id": 38,
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "_token selects which token is transferred out"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "deposit",
+      "normal_node": "param_amount_deposit",
+      "reason": "_amount parameter only exists to feed the deposit function state changes and external calls"
+    },
+    {
+      "merge_into": "deposit",
+      "normal_node": "local_shares",
+      "reason": "shares is a transient local computed and consumed entirely within deposit"
+    },
+    {
+      "merge_into": "withdraw",
+      "normal_node": "param_shares_withdraw",
+      "reason": "_shares parameter only drives the withdraw function burn and transfer logic"
+    },
+    {
+      "merge_into": "withdraw",
+      "normal_node": "local_halfProfits",
+      "reason": "halfProfits is a transient local used only inside withdraw profit conversion"
+    },
+    {
+      "merge_into": "buyNBurn",
+      "normal_node": "param_ethToSwap",
+      "reason": "_ethToSwap parameter only exists to be forwarded to the Uniswap swap call"
+    },
+    {
+      "merge_into": "setUniswapRouter",
+      "normal_node": "param_uniswapRouter",
+      "reason": "_uniswapRouter parameter only exists to be assigned to the router state variable"
+    },
+    {
+      "merge_into": "extractTokensIfStuck",
+      "normal_node": "param_token_extract",
+      "reason": "_token parameter only selects the asset for the owner-only transfer out"
+    }
+  ]
+}

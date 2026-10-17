@@ -1,0 +1,811 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "ethRebPrice0CumulativeLast",
+      "is_core": true,
+      "description": "Cumulative ETH/REB price0 stored on the oracle, updated by update()."
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "id": "ethRebPrice1CumulativeLast",
+      "is_core": true,
+      "description": "Cumulative ETH/REB price1 stored on the oracle, updated by update()."
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "id": "ethRebBlockTimestampLast",
+      "is_core": true,
+      "description": "Last block timestamp recorded for the ETH/REB pair, used as subtraction base."
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "id": "usdcEthPrice0CumulativeLast",
+      "is_core": true,
+      "description": "Cumulative USDC/ETH price0 stored on the oracle, updated by update()."
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "id": "usdcEthPrice1CumulativeLast",
+      "is_core": true,
+      "description": "Cumulative USDC/ETH price1 stored on the oracle, updated by update()."
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "id": "usdcEthBlockTimestampLast",
+      "is_core": true,
+      "description": "Last block timestamp recorded for the USDC/ETH pair, used as subtraction base."
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "id": "lastUpdate",
+      "is_core": true,
+      "description": "Timestamp of the last oracle update; used for the PERIOD rate-limit check."
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "id": "PERIOD",
+      "is_core": true,
+      "description": "Constant of 6 hours; minimum delay enforced between updates."
+    },
+    {
+      "node_id": 8,
+      "type": "function",
+      "id": "constructor",
+      "is_core": true,
+      "description": "Constructor initializing all cumulative price and timestamp state variables from both Uniswap pairs."
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "id": "update",
+      "is_core": true,
+      "description": "External, unpermissioned state-updating function; reads block.timestamp and writes all cumulative state variables."
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "id": "getRebEthRate",
+      "is_core": true,
+      "description": "View function computing the average REB/ETH price from cumulative deltas and elapsed time."
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "id": "getUsdcEthRate",
+      "is_core": true,
+      "description": "View function computing the average USDC/ETH price from cumulative deltas and elapsed time."
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "id": "getData",
+      "is_core": true,
+      "description": "IOracle implementation returning the REB price in USD terms derived from both average rates."
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "id": "currentBlockTimestamp",
+      "is_core": true,
+      "description": "Library helper casting block.timestamp into a uint32 range."
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "id": "currentCumulativePrices",
+      "is_core": true,
+      "description": "Library helper reading pair reserves and counterfactually updating cumulative prices."
+    },
+    {
+      "node_id": 15,
+      "type": "untrusted_input",
+      "id": "block_timestamp",
+      "is_core": true,
+      "description": "block.timestamp, attacker-influenceable within tolerance and used for rate math."
+    },
+    {
+      "node_id": 16,
+      "type": "unsafe_operation",
+      "id": "unsafe_timestamp_truncation",
+      "is_core": true,
+      "description": "uint32(block.timestamp % 2**32) truncates the timestamp, creating wraparound/timestamp dependency."
+    },
+    {
+      "node_id": 17,
+      "type": "unsafe_operation",
+      "id": "unsafe_timeElapsed_underflow",
+      "is_core": true,
+      "description": "timeElapsed = lastUpdate - timeStamp is a reversed unsigned subtraction that can underflow."
+    },
+    {
+      "node_id": 18,
+      "type": "unsafe_operation",
+      "id": "unsafe_div_rebEth",
+      "is_core": true,
+      "description": "Division by (_blockTimestamp - ethRebBlockTimestampLast), which can be zero causing a revert."
+    },
+    {
+      "node_id": 19,
+      "type": "unsafe_operation",
+      "id": "unsafe_div_usdcEth",
+      "is_core": true,
+      "description": "Division by (_blockTimestamp - usdcEthBlockTimestampLast), which can be zero causing a revert."
+    },
+    {
+      "node_id": 20,
+      "type": "unsafe_operation",
+      "id": "unsafe_div_average_price",
+      "is_core": true,
+      "description": "answer = (rebEthAverage * 1e18) / usdcEthAverage, unchecked multiplication and unguarded division."
+    },
+    {
+      "node_id": 21,
+      "type": "local_var",
+      "id": "timeStamp",
+      "is_core": false,
+      "description": "Local copy of block.timestamp inside update()."
+    },
+    {
+      "node_id": 22,
+      "type": "local_var",
+      "id": "timeElapsed",
+      "is_core": false,
+      "description": "Local elapsed-time value computed in update() as lastUpdate - timeStamp."
+    },
+    {
+      "node_id": 23,
+      "type": "local_var",
+      "id": "_pepe",
+      "is_core": false,
+      "description": "Throwaway local in update() discarding the fourth return value of the rate getters."
+    },
+    {
+      "node_id": 24,
+      "type": "local_var",
+      "id": "price0Cumulative_reb",
+      "is_core": false,
+      "description": "Local cumulative price0 returned by currentCumulativePrices in getRebEthRate."
+    },
+    {
+      "node_id": 25,
+      "type": "local_var",
+      "id": "price1Cumulative_reb",
+      "is_core": false,
+      "description": "Local cumulative price1 returned by currentCumulativePrices in getRebEthRate."
+    },
+    {
+      "node_id": 26,
+      "type": "local_var",
+      "id": "_blockTimestamp_reb",
+      "is_core": false,
+      "description": "Local block timestamp returned by currentCumulativePrices in getRebEthRate."
+    },
+    {
+      "node_id": 27,
+      "type": "local_var",
+      "id": "rebEthAverage",
+      "is_core": false,
+      "description": "Local FixedPoint uq112x112 average REB/ETH price in getRebEthRate."
+    },
+    {
+      "node_id": 28,
+      "type": "local_var",
+      "id": "price0Cumulative_usdc",
+      "is_core": false,
+      "description": "Local cumulative price0 returned by currentCumulativePrices in getUsdcEthRate."
+    },
+    {
+      "node_id": 29,
+      "type": "local_var",
+      "id": "price1Cumulative_usdc",
+      "is_core": false,
+      "description": "Local cumulative price1 returned by currentCumulativePrices in getUsdcEthRate."
+    },
+    {
+      "node_id": 30,
+      "type": "local_var",
+      "id": "_blockTimestamp_usdc",
+      "is_core": false,
+      "description": "Local block timestamp returned by currentCumulativePrices in getUsdcEthRate."
+    },
+    {
+      "node_id": 31,
+      "type": "local_var",
+      "id": "usdcEthAverage",
+      "is_core": false,
+      "description": "Local FixedPoint uq112x112 average USDC/ETH price in getUsdcEthRate."
+    },
+    {
+      "node_id": 32,
+      "type": "local_var",
+      "id": "_dummy1",
+      "is_core": false,
+      "description": "Discarded reserve0 value read from getReserves() in the constructor."
+    },
+    {
+      "node_id": 33,
+      "type": "local_var",
+      "id": "_dummy2",
+      "is_core": false,
+      "description": "Discarded reserve1 value read from getReserves() in the constructor."
+    },
+    {
+      "node_id": 34,
+      "type": "local_var",
+      "id": "_price0CumulativeLast",
+      "is_core": false,
+      "description": "Local receiving cumulative price0 values inside getData."
+    },
+    {
+      "node_id": 35,
+      "type": "local_var",
+      "id": "_price1CumulativeLast",
+      "is_core": false,
+      "description": "Local receiving cumulative price1 values inside getData."
+    },
+    {
+      "node_id": 36,
+      "type": "local_var",
+      "id": "_blockTimestampLast",
+      "is_core": false,
+      "description": "Local receiving block timestamp values inside getData."
+    },
+    {
+      "node_id": 37,
+      "type": "local_var",
+      "id": "rebEthAverage_data",
+      "is_core": false,
+      "description": "Local REB/ETH average price returned to getData."
+    },
+    {
+      "node_id": 38,
+      "type": "local_var",
+      "id": "usdcEthAverage_data",
+      "is_core": false,
+      "description": "Local USDC/ETH average price returned to getData."
+    },
+    {
+      "node_id": 39,
+      "type": "local_var",
+      "id": "answer",
+      "is_core": false,
+      "description": "Local final oracle answer returned by getData."
+    },
+    {
+      "node_id": 40,
+      "type": "parameter",
+      "id": "pair",
+      "is_core": false,
+      "description": "Pair address parameter of currentCumulativePrices."
+    },
+    {
+      "node_id": 41,
+      "type": "local_var",
+      "id": "timeElapsed_counterfactual",
+      "is_core": false,
+      "description": "Local elapsed time used for counterfactual cumulative price accrual."
+    },
+    {
+      "node_id": 42,
+      "type": "local_var",
+      "id": "blockTimestampLast",
+      "is_core": false,
+      "description": "Local reserve timestamp decoded from getReserves() in currentCumulativePrices."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "ethRebPrice0CumulativeLast is subtracted from the freshly read cumulative price inside getRebEthRate.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 10
+    },
+    {
+      "reason": "ethRebPrice1CumulativeLast is subtracted from the freshly read cumulative price inside getRebEthRate.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 10
+    },
+    {
+      "reason": "ethRebBlockTimestampLast is the divisor base of the average-rate computation and can equal the current timestamp.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 18
+    },
+    {
+      "reason": "usdcEthPrice0CumulativeLast is subtracted from the freshly read cumulative price inside getUsdcEthRate.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 11
+    },
+    {
+      "reason": "usdcEthPrice1CumulativeLast is subtracted from the freshly read cumulative price inside getUsdcEthRate.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 11
+    },
+    {
+      "reason": "usdcEthBlockTimestampLast is the divisor base of the average-rate computation and can equal the current timestamp.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 19
+    },
+    {
+      "reason": "lastUpdate is subtracted from the current timestamp to compute timeElapsed in update().",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 22
+    },
+    {
+      "reason": "lastUpdate is read by update() to enforce the PERIOD rate limit.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 9
+    },
+    {
+      "reason": "PERIOD constant is compared against timeElapsed in the update() require statement.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 9
+    },
+    {
+      "reason": "Constructor initializes ethRebPrice0CumulativeLast from the pair.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 0
+    },
+    {
+      "reason": "Constructor initializes ethRebPrice1CumulativeLast from the pair.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 1
+    },
+    {
+      "reason": "Constructor initializes ethRebBlockTimestampLast from pair reserves.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 2
+    },
+    {
+      "reason": "Constructor initializes usdcEthPrice0CumulativeLast from the pair.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 3
+    },
+    {
+      "reason": "Constructor initializes usdcEthPrice1CumulativeLast from the pair.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 4
+    },
+    {
+      "reason": "Constructor initializes usdcEthBlockTimestampLast from pair reserves.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 5
+    },
+    {
+      "reason": "Constructor assigns discarded reserve0 into _dummy1.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 32
+    },
+    {
+      "reason": "Constructor assigns discarded reserve1 into _dummy2.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 33
+    },
+    {
+      "reason": "update() writes the current timestamp into lastUpdate.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 6
+    },
+    {
+      "reason": "update() invokes getRebEthRate() to refresh ETH/REB state variables.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 9,
+      "to_id": 10
+    },
+    {
+      "reason": "update() invokes getUsdcEthRate() to refresh USDC/ETH state variables.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 9,
+      "to_id": 11
+    },
+    {
+      "reason": "getRebEthRate() returns updated cumulative values into update() state variables.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 9
+    },
+    {
+      "reason": "getUsdcEthRate() returns updated cumulative values into update() state variables.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 9
+    },
+    {
+      "reason": "getRebEthRate() calls currentCumulativePrices on the ETH/REB pair.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 10,
+      "to_id": 14
+    },
+    {
+      "reason": "getRebEthRate() computes the average using a raw division that can divide by zero.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 18
+    },
+    {
+      "reason": "getRebEthRate() result is discarded into _pepe inside update().",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 23
+    },
+    {
+      "reason": "getRebEthRate() outputs are assigned to _price0CumulativeLast inside getData.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 34
+    },
+    {
+      "reason": "getRebEthRate() returns the REB/ETH average into getData.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 37
+    },
+    {
+      "reason": "getUsdcEthRate() calls currentCumulativePrices on the USDC/ETH pair.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 11,
+      "to_id": 14
+    },
+    {
+      "reason": "getUsdcEthRate() computes the average using a raw division that can divide by zero.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 19
+    },
+    {
+      "reason": "getUsdcEthRate() result is discarded into _pepe inside update().",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 23
+    },
+    {
+      "reason": "getUsdcEthRate() returns the USDC/ETH average into getData.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 38
+    },
+    {
+      "reason": "getData() calls getRebEthRate().",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 12,
+      "to_id": 10
+    },
+    {
+      "reason": "getData() calls getUsdcEthRate().",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 12,
+      "to_id": 11
+    },
+    {
+      "reason": "getData() performs the unchecked multiplication and division producing the final answer.",
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "from_id": 12,
+      "to_id": 20
+    },
+    {
+      "reason": "currentBlockTimestamp() truncates block.timestamp to uint32, making the oracle depend on miner-controlled time.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 16
+    },
+    {
+      "reason": "currentCumulativePrices() calls currentBlockTimestamp().",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 14,
+      "to_id": 13
+    },
+    {
+      "reason": "currentCumulativePrices() returns cumulative price0 to getRebEthRate.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 24
+    },
+    {
+      "reason": "currentCumulativePrices() returns cumulative price1 to getRebEthRate.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 25
+    },
+    {
+      "reason": "currentCumulativePrices() returns the block timestamp to getRebEthRate.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 26
+    },
+    {
+      "reason": "currentCumulativePrices() returns cumulative price0 to getUsdcEthRate.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 28
+    },
+    {
+      "reason": "currentCumulativePrices() returns cumulative price1 to getUsdcEthRate.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 29
+    },
+    {
+      "reason": "currentCumulativePrices() returns the block timestamp to getUsdcEthRate.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 30
+    },
+    {
+      "reason": "currentCumulativePrices() reads the pair reserve timestamp into blockTimestampLast.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 42
+    },
+    {
+      "reason": "block.timestamp is consumed by currentBlockTimestamp().",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 13
+    },
+    {
+      "reason": "block.timestamp is truncated modulo 2**32 in the unsafe timestamp operation.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 16
+    },
+    {
+      "reason": "block.timestamp is copied into the timeStamp local of update().",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 21
+    },
+    {
+      "reason": "timeStamp is subtracted from lastUpdate to produce timeElapsed.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 22
+    },
+    {
+      "reason": "timeElapsed gates update() via require(timeElapsed > PERIOD) but the subtraction itself can underflow.",
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "from_id": 22,
+      "to_id": 9
+    },
+    {
+      "reason": "timeElapsed feeds the reversed unsigned subtraction that can underflow.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 17
+    },
+    {
+      "reason": "_blockTimestamp is the minuend of the denominator in the getRebEthRate division.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 26,
+      "to_id": 18
+    },
+    {
+      "reason": "_blockTimestamp is the minuend of the denominator in the getUsdcEthRate division.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 30,
+      "to_id": 19
+    },
+    {
+      "reason": "rebEthAverage is multiplied by 1e18 in the final oracle answer computation.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 37,
+      "to_id": 20
+    },
+    {
+      "reason": "usdcEthAverage is the divisor of the final oracle answer computation.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 38,
+      "to_id": 20
+    },
+    {
+      "reason": "answer is returned by getData as the oracle result after unchecked arithmetic.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 39,
+      "to_id": 12
+    },
+    {
+      "reason": "pair parameter selects which Uniswap pair currentCumulativePrices reads.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 40,
+      "to_id": 14
+    },
+    {
+      "reason": "blockTimestampLast is subtracted from the current timestamp to yield timeElapsed (intentional wraparound).",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 42,
+      "to_id": 41
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Local alias of block.timestamp used only inside update(); collapse into the update function node.",
+      "merge_into": "update",
+      "normal_node": "timeStamp"
+    },
+    {
+      "reason": "Intermediate elapsed-time value in update(); its effect is captured by the update control flow.",
+      "merge_into": "update",
+      "normal_node": "timeElapsed"
+    },
+    {
+      "reason": "Throwaway local receiving a discarded return value in update().",
+      "merge_into": "update",
+      "normal_node": "_pepe"
+    },
+    {
+      "reason": "Local output of currentCumulativePrices consumed only in getRebEthRate.",
+      "merge_into": "getRebEthRate",
+      "normal_node": "price0Cumulative_reb"
+    },
+    {
+      "reason": "Local output of currentCumulativePrices consumed only in getRebEthRate.",
+      "merge_into": "getRebEthRate",
+      "normal_node": "price1Cumulative_reb"
+    },
+    {
+      "reason": "Local timestamp value used only as a divisor term in getRebEthRate.",
+      "merge_into": "getRebEthRate",
+      "normal_node": "_blockTimestamp_reb"
+    },
+    {
+      "reason": "Local FixedPoint average computed and returned solely by getRebEthRate.",
+      "merge_into": "getRebEthRate",
+      "normal_node": "rebEthAverage"
+    },
+    {
+      "reason": "Local output of currentCumulativePrices consumed only in getUsdcEthRate.",
+      "merge_into": "getUsdcEthRate",
+      "normal_node": "price0Cumulative_usdc"
+    },
+    {
+      "reason": "Local output of currentCumulativePrices consumed only in getUsdcEthRate.",
+      "merge_into": "getUsdcEthRate",
+      "normal_node": "price1Cumulative_usdc"
+    },
+    {
+      "reason": "Local timestamp value used only as a divisor term in getUsdcEthRate.",
+      "merge_into": "getUsdcEthRate",
+      "normal_node": "_blockTimestamp_usdc"
+    },
+    {
+      "reason": "Local FixedPoint average computed and returned solely by getUsdcEthRate.",
+      "merge_into": "getUsdcEthRate",
+      "normal_node": "usdcEthAverage"
+    },
+    {
+      "reason": "Discarded reserve0 placeholder local inside the constructor.",
+      "merge_into": "constructor",
+      "normal_node": "_dummy1"
+    },
+    {
+      "reason": "Discarded reserve1 placeholder local inside the constructor.",
+      "merge_into": "constructor",
+      "normal_node": "_dummy2"
+    },
+    {
+      "reason": "Temporary receiver of cumulative price0 values inside getData.",
+      "merge_into": "getData",
+      "normal_node": "_price0CumulativeLast"
+    },
+    {
+      "reason": "Temporary receiver of cumulative price1 values inside getData.",
+      "merge_into": "getData",
+      "normal_node": "_price1CumulativeLast"
+    },
+    {
+      "reason": "Temporary receiver of block timestamp values inside getData.",
+      "merge_into": "getData",
+      "normal_node": "_blockTimestampLast"
+    },
+    {
+      "reason": "Local average price used only inside getData to build the answer.",
+      "merge_into": "getData",
+      "normal_node": "rebEthAverage_data"
+    },
+    {
+      "reason": "Local average price used only inside getData to build the answer.",
+      "merge_into": "getData",
+      "normal_node": "usdcEthAverage_data"
+    },
+    {
+      "reason": "Final computed value produced by the unsafe division/multiplication operation.",
+      "merge_into": "unsafe_div_average_price",
+      "normal_node": "answer"
+    },
+    {
+      "reason": "External pair address parameter that is only forwarded into library reads.",
+      "merge_into": "currentCumulativePrices",
+      "normal_node": "pair"
+    },
+    {
+      "reason": "Local elapsed-time accumulator with intentional overflow inside the library helper.",
+      "merge_into": "currentCumulativePrices",
+      "normal_node": "timeElapsed_counterfactual"
+    },
+    {
+      "reason": "Local reserve timestamp decoded from getReserves() inside the library helper.",
+      "merge_into": "currentCumulativePrices",
+      "normal_node": "blockTimestampLast"
+    }
+  ]
+}

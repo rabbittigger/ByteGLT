@@ -1,0 +1,303 @@
+{
+  "nodes": [
+    {
+      "description": "Address of the contract admin, assigned from msg.sender in the constructor; bypasses the burn/fee logic and gates withdraw.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "state_var_admin"
+    },
+    {
+      "description": "Burn fee percentage (2) applied on every sell/transfer.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "state_var_burnFee"
+    },
+    {
+      "description": "Boolean flag marking whether the first transfer already happened.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 2,
+      "id": "state_var_firstTransfer"
+    },
+    {
+      "description": "Block number recorded on the first transfer, used for the anti-bot buy limit window.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 3,
+      "id": "state_var_firstBlock"
+    },
+    {
+      "description": "Mapping of account balances, mutated by _transfer and addBalance.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 4,
+      "id": "state_var__balances"
+    },
+    {
+      "description": "Nested mapping of owner to spender allowances.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 5,
+      "id": "state_var__allowances"
+    },
+    {
+      "description": "Total token supply, reduced by the burn on each transfer.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 6,
+      "id": "state_var__totalSupply"
+    },
+    {
+      "description": "External admin-only function that sends the contract balance to msg.sender.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 7,
+      "id": "function_withdraw"
+    },
+    {
+      "description": "Internal transfer routine that computes the burn, enforces the early-block buy limit, updates balances and total supply.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 8,
+      "id": "function__transfer"
+    },
+    {
+      "description": "Public transferFrom that moves tokens and decreases the allowance via SafeMath.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 9,
+      "id": "function_transferFrom"
+    },
+    {
+      "description": "Public transfer that forwards _msgSender as the sender to _transfer.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 10,
+      "id": "function_transfer"
+    },
+    {
+      "description": "View function returning block.number - firstBlock, exposing the anti-bot window state.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 11,
+      "id": "function_getFirstBlockTime"
+    },
+    {
+      "description": "Internal minting helper that increases a balance and the total supply.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 12,
+      "id": "function_addBalance"
+    },
+    {
+      "description": "Internal helper that writes the allowances mapping.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 13,
+      "id": "function__approve"
+    },
+    {
+      "description": "msg.sender as returned by _msgSender(); controls transfers, allowance spending, admin checks and receives withdrawn funds.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 14,
+      "id": "untrusted_input_msg_sender"
+    },
+    {
+      "description": "msg.sender.transfer(address(this).balance) external value call performed in withdraw.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 15,
+      "id": "unsafe_operation_external_call_withdraw"
+    },
+    {
+      "description": "Arithmetic burn computation amount.mul(burnFee).div(100) and amount.sub(amountBurn) driving balance and supply updates.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 16,
+      "id": "unsafe_operation_arithmetic_burn"
+    },
+    {
+      "description": "Amount argument of _transfer used in the buy-limit require and burn math.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 17,
+      "id": "parameter_amount"
+    },
+    {
+      "description": "Local holding the amount actually credited to the recipient after burn.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 18,
+      "id": "local_var_amountRec"
+    },
+    {
+      "description": "Local holding the computed burn amount removed from total supply.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 19,
+      "id": "local_var_amountBurn"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "withdraw is gated by require(msg.sender == admin), so msg.sender controls privileged fund withdrawal.",
+      "from_id": 14,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 7
+    },
+    {
+      "reason": "msg.sender is the destination of the external value transfer in withdraw, enabling reentrant/recipient-controlled callbacks.",
+      "from_id": 14,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 15
+    },
+    {
+      "reason": "_msgSender() from transfer/transferFrom flows into _transfer as the sender whose balance is debited.",
+      "from_id": 14,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "firstBlock participates in the block.number < firstBlock + 20 buy-limit branch that restricts early buyers.",
+      "from_id": 3,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "burnFee is multiplied into the amount inside the burn arithmetic operation.",
+      "from_id": 1,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 16
+    },
+    {
+      "reason": "The amount parameter feeds the mul/div/sub burn computation and the amountLimit require.",
+      "from_id": 17,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 16
+    },
+    {
+      "reason": "The burn arithmetic determines the debit/re-credit values written into _balances.",
+      "from_id": 16,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "The computed burn is subtracted from _totalSupply.",
+      "from_id": 16,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "amountRec is credited to the recipient balance in _balances.",
+      "from_id": 18,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "amountBurn is subtracted from _totalSupply, permanently reducing supply.",
+      "from_id": 19,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "_transfer writes debit and credit entries into the _balances mapping.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "_transfer mutates _totalSupply through the burn subtraction.",
+      "from_id": 8,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "transferFrom invokes the internal _transfer routine.",
+      "from_id": 9,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 8
+    },
+    {
+      "reason": "transfer invokes the internal _transfer routine.",
+      "from_id": 10,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 8
+    },
+    {
+      "reason": "transferFrom reads and deducts _allowances[sender][msg.sender], a spender-controlled authorization check.",
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "_approve writes the spender amount into the _allowances mapping.",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "addBalance increases the target account entry in _balances.",
+      "from_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "addBalance increases _totalSupply when minting initial liquidity.",
+      "from_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "getFirstBlockTime exposes block.number - firstBlock, leaking the anti-bot window state.",
+      "from_id": 3,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 11
+    },
+    {
+      "reason": "_transfer reads and sets the firstTransfer flag on the first executed transfer.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The amount parameter has no independent semantics and is fully consumed by the _transfer burn/limit logic, so it should be folded into the _transfer function node.",
+      "normal_node": "parameter_amount",
+      "merge_into": "function__transfer"
+    },
+    {
+      "reason": "amountRec is a transient intermediate value produced inside _transfer before being written to balances; it carries no distinct behavior and merges into _transfer.",
+      "normal_node": "local_var_amountRec",
+      "merge_into": "function__transfer"
+    },
+    {
+      "reason": "amountBurn exists only as the output of the burn arithmetic operation and directly feeds the supply/balance updates, so it merges into the unsafe arithmetic operation node.",
+      "normal_node": "local_var_amountBurn",
+      "merge_into": "unsafe_operation_arithmetic_burn"
+    }
+  ]
+}

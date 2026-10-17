@@ -1,0 +1,140 @@
+{
+  "nodes": [
+    {
+      "id": "univ2Factory",
+      "description": "State variable holding the UniswapFactory interface instance hard-coded to address 0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac; used to read the factory's pair registry.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "getPairs",
+      "description": "Public view function getPairs(uint256 start, uint256 cnt) that allocates an array of size cnt, loops cnt times reading univ2Factory.allPairs(i+start) and returns the collected pair addresses.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "function"
+    },
+    {
+      "id": "start",
+      "description": "First parameter of getPairs; offset added to the loop counter when indexing the factory's allPairs array.",
+      "is_core": false,
+      "node_id": 2,
+      "type": "parameter"
+    },
+    {
+      "id": "cnt",
+      "description": "Second parameter of getPairs; controls both the allocated array length and the number of loop iterations.",
+      "is_core": false,
+      "node_id": 3,
+      "type": "parameter"
+    },
+    {
+      "id": "out",
+      "description": "Memory array of addresses of length cnt that collects the pair addresses and is returned by getPairs.",
+      "is_core": false,
+      "node_id": 4,
+      "type": "local_var"
+    },
+    {
+      "id": "i",
+      "description": "Loop counter local variable of getPairs, incremented from 0 up to cnt.",
+      "is_core": false,
+      "node_id": 5,
+      "type": "local_var"
+    },
+    {
+      "id": "univ2Factory.allPairs(i+start)",
+      "description": "External call to univ2Factory.allPairs with index i+start computed by unchecked Solidity 0.6 arithmetic, allowing silent uint256 overflow and an out-of-range external registry lookup.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "new address[](cnt)",
+      "description": "Memory allocation new address[](cnt) whose size is fully attacker-controlled, enabling unbounded memory expansion / gas exhaustion (denial of service) for large cnt values.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "getPairs reads the univ2Factory state variable to query the Uniswap factory pair registry.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The user-controlled allocation new address[](cnt) produces the out array that getPairs returns.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The cnt parameter directly determines the memory allocation size of the out array, giving the caller control over memory expansion.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "cnt bounds the loop condition i < cnt, so the caller controls how many iterations execute.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The loop counter i is added to start and passed as the array index to the external allPairs call without overflow checking in Solidity 0.6.",
+      "to_id": 6,
+      "vuln_type": "arithmetic",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The caller-supplied start offset is added to i in an unchecked uint256 addition that feeds the external allPairs index.",
+      "to_id": 6,
+      "vuln_type": "arithmetic",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The address returned by the external univ2Factory.allPairs(i+start) call is written into out[i].",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The local array out is returned as the result of getPairs, exposing loop results to the caller.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The start parameter only exists to be added into the external allPairs index expression, so it is normalized into that unsafe external call.",
+      "normal_node": "start",
+      "merge_into": "univ2Factory.allPairs(i+start)"
+    },
+    {
+      "reason": "The cnt parameter exists only to size the memory allocation and bound the loop, so it is normalized into the user-controlled allocation operation.",
+      "normal_node": "cnt",
+      "merge_into": "new address[](cnt)"
+    },
+    {
+      "reason": "The out local variable is a purely internal temporary that is filled and immediately returned by getPairs, so it merges into the enclosing function.",
+      "normal_node": "out",
+      "merge_into": "getPairs"
+    },
+    {
+      "reason": "The loop counter i is a purely internal temporary whose only external effect is the unchecked index arithmetic passed to allPairs.",
+      "normal_node": "i",
+      "merge_into": "univ2Factory.allPairs(i+start)"
+    }
+  ]
+}

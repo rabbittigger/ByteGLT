@@ -1,0 +1,783 @@
+{
+  "nodes": [
+    {
+      "id": "state_owner",
+      "type": "state_var",
+      "node_id": 0,
+      "is_core": true,
+      "description": "address private owner; privileged address set to msg.sender in constructor, gates init/setTradeAddress/batchSend/delegate and is whitelisted in ensure()"
+    },
+    {
+      "id": "state_balanceOf",
+      "type": "state_var",
+      "node_id": 1,
+      "is_core": true,
+      "description": "mapping(address=>uint) public balanceOf; token ledger mutated by transferFrom, batchSend and constructor"
+    },
+    {
+      "id": "state_allowance",
+      "type": "state_var",
+      "node_id": 2,
+      "is_core": true,
+      "description": "mapping(address=>mapping(address=>uint)) public allowance; spend approvals written by approve and reduced in transferFrom"
+    },
+    {
+      "id": "state_totalSupply",
+      "type": "state_var",
+      "node_id": 3,
+      "is_core": true,
+      "description": "uint public totalSupply; set once in constructor from _supply*(10**decimals)"
+    },
+    {
+      "id": "state_tradeAddress",
+      "type": "state_var",
+      "node_id": 4,
+      "is_core": true,
+      "description": "address tradeAddress; extra whitelisted address settable only by owner, bypasses sale conditions in ensure()"
+    },
+    {
+      "id": "state_UNI",
+      "type": "state_var",
+      "node_id": 5,
+      "is_core": true,
+      "description": "address constant UNI = 0x7a250d...488D; hardcoded router address, never compared as sender but used in ensure logic"
+    },
+    {
+      "id": "state_onSaleNum",
+      "type": "state_var",
+      "node_id": 6,
+      "is_core": true,
+      "description": "mapping(address=>uint256) private _onSaleNum; per-address sale counter incremented in transferFrom, read by condition()"
+    },
+    {
+      "id": "state_canSale",
+      "type": "state_var",
+      "node_id": 7,
+      "is_core": true,
+      "description": "mapping(address=>bool) private canSale; whitelist consulted by ensure() (always false, never written)"
+    },
+    {
+      "id": "state_minSale",
+      "type": "state_var",
+      "node_id": 8,
+      "is_core": true,
+      "description": "uint256 private _minSale; lower bound on transfer value enforced in condition(), written by init()"
+    },
+    {
+      "id": "state_maxSale",
+      "type": "state_var",
+      "node_id": 9,
+      "is_core": true,
+      "description": "uint256 private _maxSale; upper bound on transfer value enforced in condition(), written by init()"
+    },
+    {
+      "id": "state_saleNum",
+      "type": "state_var",
+      "node_id": 10,
+      "is_core": true,
+      "description": "uint256 private _saleNum; max number of sales per address enforced in condition(), written by init()"
+    },
+    {
+      "id": "fn_transfer",
+      "type": "function",
+      "node_id": 11,
+      "is_core": true,
+      "description": "function transfer(address _to, uint _value) public payable; forwards to transferFrom(msg.sender,_to,_value)"
+    },
+    {
+      "id": "fn_transferFrom",
+      "type": "function",
+      "node_id": 12,
+      "is_core": true,
+      "description": "function transferFrom(address _from, address _to, uint _value) public payable; core value-moving routine: allowance decrement, ensure() gate, balance moves and _onSaleNum increment"
+    },
+    {
+      "id": "fn_approve",
+      "type": "function",
+      "node_id": 13,
+      "is_core": true,
+      "description": "function approve(address _spender, uint _value) public payable; writes allowance[msg.sender][_spender] without zero-first check"
+    },
+    {
+      "id": "fn_ensure",
+      "type": "function",
+      "node_id": 14,
+      "is_core": true,
+      "description": "function ensure(address _from, address _to, uint _value) internal view; whitelist bypass (owner/tradeAddress/canSale/_UNI) else requires condition()"
+    },
+    {
+      "id": "fn_condition",
+      "type": "function",
+      "node_id": 15,
+      "is_core": true,
+      "description": "function condition(address _from, uint _value) internal view; sale-window checks against _saleNum/_minSale/_maxSale/_onSaleNum"
+    },
+    {
+      "id": "fn_delegate",
+      "type": "function",
+      "node_id": 16,
+      "is_core": true,
+      "description": "function delegate(address a, bytes memory b) public payable; owner-only arbitrary delegatecall to attacker-supplied target and calldata"
+    },
+    {
+      "id": "fn_init",
+      "type": "function",
+      "node_id": 17,
+      "is_core": true,
+      "description": "function init(uint256 saleNum, uint256 token, uint256 maxToken) public; owner-only configuration of _minSale/_maxSale/_saleNum (payable return-less path)"
+    },
+    {
+      "id": "fn_batchSend",
+      "type": "function",
+      "node_id": 18,
+      "is_core": true,
+      "description": "function batchSend(address[] memory _tos, uint _value) public payable; owner-only mass distribution with unchecked multiplications/additions and duplicated Transfer events"
+    },
+    {
+      "id": "fn_setTradeAddress",
+      "type": "function",
+      "node_id": 19,
+      "is_core": true,
+      "description": "function setTradeAddress(address addr) public; owner-only setter of the whitelisted tradeAddress used to bypass ensure()"
+    },
+    {
+      "id": "fn_pairFor",
+      "type": "function",
+      "node_id": 20,
+      "is_core": true,
+      "description": "function pairFor(address factory, address tokenA, address tokenB) internal pure; CREATE2 address derivation used by ensure() for the _UNI comparison"
+    },
+    {
+      "id": "fn_constructor",
+      "type": "function",
+      "node_id": 21,
+      "is_core": true,
+      "description": "constructor(string,string,uint256) payable; sets owner=msg.sender, mints totalSupply to owner and grants infinite allowance to the router"
+    },
+    {
+      "id": "untrusted_msg_sender",
+      "type": "untrusted_input",
+      "node_id": 22,
+      "is_core": true,
+      "description": "msg.sender; caller-controlled address used as _from in transfer, as owner check in privileged functions and in approve"
+    },
+    {
+      "id": "unsafe_delegatecall",
+      "type": "unsafe_operation",
+      "node_id": 23,
+      "is_core": true,
+      "description": "a.delegatecall(b) inside delegate(); executes arbitrary code supplied by the caller in the token's storage context"
+    },
+    {
+      "id": "unsafe_allowance_sub",
+      "type": "unsafe_operation",
+      "node_id": 24,
+      "is_core": true,
+      "description": "allowance[_from][msg.sender] -= _value; unchecked subtraction guarded only by a require on the read value"
+    },
+    {
+      "id": "unsafe_balance_sub",
+      "type": "unsafe_operation",
+      "node_id": 25,
+      "is_core": true,
+      "description": "balanceOf[_from] -= _value; unchecked subtraction in transferFrom relying on a preceding require"
+    },
+    {
+      "id": "unsafe_balance_add",
+      "type": "unsafe_operation",
+      "node_id": 26,
+      "is_core": true,
+      "description": "balanceOf[_to] += _value and uint total = _value * _tos.length in batchSend; unchecked addition/multiplication can overflow"
+    },
+    {
+      "id": "param__from",
+      "type": "parameter",
+      "node_id": 27,
+      "is_core": false,
+      "description": "parameter _from of transferFrom/ensure; debited address, whitelist subject"
+    },
+    {
+      "id": "param__to",
+      "type": "parameter",
+      "node_id": 28,
+      "is_core": false,
+      "description": "parameter _to of transferFrom/ensure; credited address, not validated against address(0)"
+    },
+    {
+      "id": "param__value",
+      "type": "parameter",
+      "node_id": 29,
+      "is_core": false,
+      "description": "parameter _value of transfer/transferFrom/ensure/condition; transfer amount compared against sale bounds"
+    },
+    {
+      "id": "param__spender",
+      "type": "parameter",
+      "node_id": 30,
+      "is_core": false,
+      "description": "parameter _spender of approve(); approval target without zero-address or zero-allowance checks"
+    },
+    {
+      "id": "param_a",
+      "type": "parameter",
+      "node_id": 31,
+      "is_core": false,
+      "description": "parameter a of delegate(); arbitrary target contract of the delegatecall"
+    },
+    {
+      "id": "param_b",
+      "type": "parameter",
+      "node_id": 32,
+      "is_core": false,
+      "description": "parameter b of delegate(); arbitrary calldata executed inside the token context"
+    },
+    {
+      "id": "param_saleNum",
+      "type": "parameter",
+      "node_id": 33,
+      "is_core": false,
+      "description": "parameter saleNum of init(); written to _saleNum"
+    },
+    {
+      "id": "param_token",
+      "type": "parameter",
+      "node_id": 34,
+      "is_core": false,
+      "description": "parameter token of init(); min sale amount basis, scaled by decimals"
+    },
+    {
+      "id": "param_maxToken",
+      "type": "parameter",
+      "node_id": 35,
+      "is_core": false,
+      "description": "parameter maxToken of init(); max sale amount basis, scaled by decimals"
+    },
+    {
+      "id": "param__tos",
+      "type": "parameter",
+      "node_id": 36,
+      "is_core": false,
+      "description": "parameter _tos (address[]) of batchSend(); recipient list, unbounded loop length"
+    },
+    {
+      "id": "param_batch_value",
+      "type": "parameter",
+      "node_id": 37,
+      "is_core": false,
+      "description": "parameter _value of batchSend(); per-recipient amount, multiplied by array length"
+    },
+    {
+      "id": "param_addr",
+      "type": "parameter",
+      "node_id": 38,
+      "is_core": false,
+      "description": "parameter addr of setTradeAddress(); becomes the whitelisted tradeAddress that bypasses ensure()"
+    },
+    {
+      "id": "local_total",
+      "type": "local_var",
+      "node_id": 39,
+      "is_core": false,
+      "description": "local uint total = _value * _tos.length in batchSend; unchecked multiplication"
+    },
+    {
+      "id": "local_i",
+      "type": "local_var",
+      "node_id": 40,
+      "is_core": false,
+      "description": "loop index uint i in batchSend; drives the unbounded recipient iteration"
+    },
+    {
+      "id": "local__UNI",
+      "type": "local_var",
+      "node_id": 41,
+      "is_core": false,
+      "description": "local address _UNI = pairFor(...) in ensure(); computed pair address compared against _from"
+    },
+    {
+      "id": "state_decimals",
+      "type": "state_var",
+      "node_id": 42,
+      "is_core": true,
+      "description": "uint constant public decimals = 18; scaling factor for totalSupply and init() sale bounds"
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "msg.sender is passed as the _from argument when transfer() forwards to transferFrom()"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "msg.sender controls _from and is compared against _from for the allowance branch in transferFrom()"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 13,
+      "vuln_type": "none",
+      "reason": "approve() writes allowance[msg.sender][_spender] from caller-controlled input"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 16,
+      "vuln_type": "access_control",
+      "reason": "caller controls execution of delegate(); the only guard is require(msg.sender == owner)"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 17,
+      "vuln_type": "access_control",
+      "reason": "init() is gated solely by require(msg.sender == owner), letting the owner rewrite sale bounds"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 18,
+      "vuln_type": "access_control",
+      "reason": "batchSend() is gated solely by require(msg.sender == owner) and mints balances to attacker-chosen recipients"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 19,
+      "vuln_type": "access_control",
+      "reason": "setTradeAddress() is gated solely by require(msg.sender == owner) and installs a whitelist bypass"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 21,
+      "vuln_type": "access_control",
+      "reason": "deployer becomes owner in the constructor and receives the entire supply plus infinite router allowance"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 11,
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "transfer() returns transferFrom(msg.sender, _to, _value), so the caller enters the core transfer routine"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 12,
+      "to_id": 14,
+      "vuln_type": "none",
+      "reason": "transferFrom() requires ensure(_from, _to, _value) before mutating balances"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 14,
+      "to_id": 15,
+      "vuln_type": "none",
+      "reason": "ensure() falls through to require(condition(_from, _value)) when no whitelist match is found"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 14,
+      "to_id": 20,
+      "vuln_type": "none",
+      "reason": "ensure() derives the pair address through pairFor() before the whitelist comparison"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 16,
+      "to_id": 23,
+      "vuln_type": "none",
+      "reason": "delegate() reaches the arbitrary a.delegatecall(b) instruction after the owner check"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 24,
+      "vuln_type": "arithmetic",
+      "reason": "_value flows from transferFrom() into the unchecked allowance[_from][msg.sender] -= _value decrement"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 25,
+      "vuln_type": "arithmetic",
+      "reason": "_value flows from transferFrom() into the unchecked balanceOf[_from] -= _value decrement"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 26,
+      "vuln_type": "arithmetic",
+      "reason": "_value and _tos.length flow into unchecked uint total = _value * _tos.length and balanceOf[_to] += _value"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "transferFrom() reads and writes balanceOf[_from] and balanceOf[_to]"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "transferFrom() reads and decrements allowance[_from][msg.sender]"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "approve() writes allowance[msg.sender][_spender] = _value"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "transfer() ultimately moves balances through the shared balanceOf ledger"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "batchSend() decrements balanceOf[msg.sender] and credits balanceOf[_to] for each recipient"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "ensure() compares _from and _to against owner for the whitelist bypass"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "ensure() allows any transfer where _from equals the owner-settable tradeAddress"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "ensure() compares _from against the hardcoded UNI constant"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "ensure() delegates value/sale-limit enforcement that reads _onSaleNum"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "ensure() consults canSale[_from] as an additional whitelist bypass"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "condition() reads _onSaleNum[_from] and rejects callers that already exceeded _saleNum"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "condition() requires _value >= _minSale when _minSale is set"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "condition() requires _value <= _maxSale when _maxSale is set"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "condition() returns false when _saleNum == 0 and both bounds are zero, otherwise enforces it per address"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "init() writes _minSale from the token parameter scaled by decimals"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 9,
+      "vuln_type": "none",
+      "reason": "init() writes _maxSale from the maxToken parameter scaled by decimals"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "init() writes _saleNum from the saleNum parameter"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 42,
+      "vuln_type": "none",
+      "reason": "init() uses the decimals constant to scale the min/max sale bounds"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 19,
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "setTradeAddress() writes the owner-chosen addr into tradeAddress"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "reason": "the constructor sets owner = msg.sender, granting every privileged function to the deployer"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "the constructor credits balanceOf[msg.sender] with the whole totalSupply"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "the constructor sets allowance[msg.sender][router] = uint(-1) (infinite approval)"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "the constructor initializes totalSupply = _supply*(10**decimals)"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 27,
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "the _from parameter is the debited account and allowance owner in transferFrom()"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 27,
+      "to_id": 14,
+      "vuln_type": "none",
+      "reason": "the _from parameter is the subject of every whitelist comparison in ensure()"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 28,
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "the _to parameter is the credited account in transferFrom()"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "the _value parameter drives the allowance and balance arithmetic in transferFrom()"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 14,
+      "vuln_type": "none",
+      "reason": "the _value parameter is forwarded from ensure() into the sale-condition check"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 15,
+      "vuln_type": "none",
+      "reason": "the _value parameter is compared against _minSale and _maxSale in condition()"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 30,
+      "to_id": 13,
+      "vuln_type": "none",
+      "reason": "the _spender parameter becomes the approval key in allowance[msg.sender][_spender]"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 31,
+      "to_id": 16,
+      "vuln_type": "none",
+      "reason": "the a parameter is the arbitrary delegatecall target in delegate()"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 32,
+      "to_id": 16,
+      "vuln_type": "none",
+      "reason": "the b parameter is the arbitrary calldata passed to the delegatecall in delegate()"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 33,
+      "to_id": 17,
+      "vuln_type": "none",
+      "reason": "the saleNum parameter is stored into _saleNum by init()"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 34,
+      "to_id": 17,
+      "vuln_type": "none",
+      "reason": "the token parameter is scaled by decimals into _minSale by init()"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 35,
+      "to_id": 17,
+      "vuln_type": "none",
+      "reason": "the maxToken parameter is scaled by decimals into _maxSale by init()"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 36,
+      "to_id": 18,
+      "vuln_type": "none",
+      "reason": "the _tos array bounds the unbounded loop and multiplies the transferred total in batchSend()"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 37,
+      "to_id": 18,
+      "vuln_type": "none",
+      "reason": "the batchSend _value parameter is multiplied by _tos.length and added per recipient"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 38,
+      "to_id": 19,
+      "vuln_type": "none",
+      "reason": "the addr parameter is written into the whitelist-bypassing tradeAddress state variable"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 39,
+      "to_id": 18,
+      "vuln_type": "none",
+      "reason": "the local total is computed and checked against balanceOf[msg.sender] before distribution"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 40,
+      "to_id": 18,
+      "vuln_type": "none",
+      "reason": "the loop index i controls iteration over the caller-supplied recipient array"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 41,
+      "to_id": 14,
+      "vuln_type": "none",
+      "reason": "the local _UNI computed via pairFor() is compared with _from in the whitelist check"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param__from",
+      "merge_into": "fn_transferFrom",
+      "reason": "the _from parameter only carries the debited/allowance-owner address into transferFrom and ensure"
+    },
+    {
+      "normal_node": "param__to",
+      "merge_into": "fn_transferFrom",
+      "reason": "the _to parameter only carries the credited address into transferFrom"
+    },
+    {
+      "normal_node": "param__value",
+      "merge_into": "fn_transferFrom",
+      "reason": "the _value parameter is the amount consumed by transferFrom arithmetic and condition checks"
+    },
+    {
+      "normal_node": "param__spender",
+      "merge_into": "fn_approve",
+      "reason": "the _spender parameter exists only as the approval key written by approve"
+    },
+    {
+      "normal_node": "param_a",
+      "merge_into": "fn_delegate",
+      "reason": "the a parameter is the delegatecall target reached solely through delegate"
+    },
+    {
+      "normal_node": "param_b",
+      "merge_into": "fn_delegate",
+      "reason": "the b parameter is the delegatecall payload reached solely through delegate"
+    },
+    {
+      "normal_node": "param_saleNum",
+      "merge_into": "fn_init",
+      "reason": "the saleNum parameter is merely stored into _saleNum by init"
+    },
+    {
+      "normal_node": "param_token",
+      "merge_into": "fn_init",
+      "reason": "the token parameter is merely scaled into _minSale by init"
+    },
+    {
+      "normal_node": "param_maxToken",
+      "merge_into": "fn_init",
+      "reason": "the maxToken parameter is merely scaled into _maxSale by init"
+    },
+    {
+      "normal_node": "param__tos",
+      "merge_into": "fn_batchSend",
+      "reason": "the _tos array is the recipient list iterated by batchSend"
+    },
+    {
+      "normal_node": "param_batch_value",
+      "merge_into": "unsafe_balance_add",
+      "reason": "the batchSend _value feeds the unchecked multiplication/addition that overflows balances"
+    },
+    {
+      "normal_node": "param_addr",
+      "merge_into": "fn_setTradeAddress",
+      "reason": "the addr parameter is stored verbatim into tradeAddress by setTradeAddress"
+    },
+    {
+      "normal_node": "local_total",
+      "merge_into": "unsafe_balance_add",
+      "reason": "the local total is the unchecked _value * _tos.length product guarded only by a require"
+    },
+    {
+      "normal_node": "local_i",
+      "merge_into": "fn_batchSend",
+      "reason": "the loop index i exists only to drive the batchSend recipient loop"
+    },
+    {
+      "normal_node": "local__UNI",
+      "merge_into": "fn_ensure",
+      "reason": "the local _UNI is the pairFor-derived address used solely in the ensure whitelist comparison"
+    }
+  ]
+}

@@ -1,0 +1,154 @@
+{
+  "nodes": [
+    {
+      "id": "state_var_proxy_implementation_slot",
+      "is_core": true,
+      "node_id": 0,
+      "description": "Storage slot keccak256(\"PROXIABLE\")=0xc5f16f0fcc639fa48a6947836d9850f504798523bf8c9a3a87d5876cf622bcf7 holding the logic contract address used as delegatecall target.",
+      "type": "state_var"
+    },
+    {
+      "id": "function_constructor",
+      "is_core": true,
+      "node_id": 1,
+      "description": "Constructor that stores contractLogic in the PROXIABLE slot and delegatecalls constructData to initialize the implementation.",
+      "type": "function"
+    },
+    {
+      "id": "function_fallback",
+      "is_core": true,
+      "node_id": 2,
+      "description": "Payable fallback that loads the stored logic address and delegatecalls all incoming calldata to it, bubbling up revert or return data.",
+      "type": "function"
+    },
+    {
+      "id": "unsafe_operation_delegatecall_constructor",
+      "is_core": true,
+      "node_id": 3,
+      "description": "delegatecall(contractLogic, constructData) executed in the constructor with an externally supplied logic address and initialization payload.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_operation_delegatecall_fallback",
+      "is_core": true,
+      "node_id": 4,
+      "description": "delegatecall(gas(), contractLogic, 0x0, calldatasize(), 0, 0) executed in the fallback, forwarding arbitrary calldata to the stored implementation inside the proxy storage context.",
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "param_constructData",
+      "is_core": false,
+      "node_id": 5,
+      "description": "Constructor parameter constructData: raw initialization calldata forwarded to the logic contract via delegatecall.",
+      "type": "parameter"
+    },
+    {
+      "id": "param_contractLogic",
+      "is_core": false,
+      "node_id": 6,
+      "description": "Constructor parameter contractLogic: address of the implementation that is stored and later delegatecalled.",
+      "type": "parameter"
+    },
+    {
+      "id": "local_success_constructor",
+      "is_core": false,
+      "node_id": 7,
+      "description": "Local bool 'success' in the constructor capturing the return status of the delegatecall.",
+      "type": "local_var"
+    },
+    {
+      "id": "local_success_fallback",
+      "is_core": false,
+      "node_id": 8,
+      "description": "Local variable 'success' in the fallback assembly capturing the return status of the delegatecall.",
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "from_id": 1,
+      "to_id": 0,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The constructor writes contractLogic into the PROXIABLE storage slot (sstore), establishing the implementation address."
+    },
+    {
+      "from_id": 6,
+      "to_id": 0,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The contractLogic parameter value is the data written into the implementation storage slot."
+    },
+    {
+      "from_id": 1,
+      "to_id": 3,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "The constructor execution path performs the delegatecall to the logic contract with constructData."
+    },
+    {
+      "from_id": 6,
+      "to_id": 3,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "contractLogic supplied by the caller is used directly as the delegatecall target address."
+    },
+    {
+      "from_id": 5,
+      "to_id": 3,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "constructData supplied by the caller is passed as the calldata payload of the delegatecall."
+    },
+    {
+      "from_id": 3,
+      "to_id": 7,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The delegatecall return status is captured in the local 'success' variable checked by require."
+    },
+    {
+      "from_id": 2,
+      "to_id": 4,
+      "type": "controlflow",
+      "vuln_type": "none",
+      "reason": "The fallback execution path performs the delegatecall to the stored logic address."
+    },
+    {
+      "from_id": 0,
+      "to_id": 4,
+      "type": "dataflow",
+      "vuln_type": "reentrancy",
+      "reason": "The fallback reads the logic address from the PROXIABLE slot (sload) and delegatecalls it with user-controlled calldata inside the proxy's own storage context, allowing arbitrary external code execution and reentrant state manipulation."
+    },
+    {
+      "from_id": 4,
+      "to_id": 8,
+      "type": "dataflow",
+      "vuln_type": "none",
+      "reason": "The delegatecall success flag is stored in the fallback assembly local 'success' and used to decide between revert and return."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param_constructData",
+      "merge_into": "unsafe_operation_delegatecall_constructor",
+      "reason": "constructData is a parameter only used as the calldata payload of the constructor delegatecall, so it can be folded into that unsafe operation."
+    },
+    {
+      "normal_node": "param_contractLogic",
+      "merge_into": "unsafe_operation_delegatecall_constructor",
+      "reason": "contractLogic is a parameter consumed as the delegatecall target address and as the value stored in the implementation slot."
+    },
+    {
+      "normal_node": "local_success_constructor",
+      "merge_into": "unsafe_operation_delegatecall_constructor",
+      "reason": "The local success flag exists solely to hold the return status of the constructor delegatecall."
+    },
+    {
+      "normal_node": "local_success_fallback",
+      "merge_into": "unsafe_operation_delegatecall_fallback",
+      "reason": "The local success flag exists solely to hold the return status of the fallback delegatecall."
+    }
+  ]
+}

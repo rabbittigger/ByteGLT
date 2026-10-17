@@ -1,0 +1,175 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Immutable address of the logic (implementation) contract used as delegatecall target in the fallback.",
+      "id": "logic",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Constructor that stores the logic address and performs a delegatecall with the supplied initialization calldata.",
+      "id": "NonReceivableInitializedProxy.constructor",
+      "type": "function",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Payable fallback that delegatecalls into the stored logic address with raw calldata and returns/reverts with the raw returndata.",
+      "id": "NonReceivableInitializedProxy.fallback",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": false,
+      "description": "Constructor parameter holding the logic contract address that is written to the immutable state variable and used as delegatecall target.",
+      "id": "_logic",
+      "type": "parameter",
+      "node_id": 3
+    },
+    {
+      "is_core": false,
+      "description": "Constructor parameter containing the raw initialization calldata forwarded to the logic contract via delegatecall.",
+      "id": "_initializationCalldata",
+      "type": "parameter",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "Delegatecall in the constructor to the attacker-supplied logic address with arbitrary initialization calldata; executes foreign code in the proxy's storage context.",
+      "id": "constructor.delegatecall",
+      "type": "unsafe_operation",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "Assembly delegatecall in the fallback forwarding untouched calldata to the immutable logic address and bubbling raw returndata.",
+      "id": "fallback.delegatecall",
+      "type": "unsafe_operation",
+      "node_id": 6
+    },
+    {
+      "is_core": false,
+      "description": "Local variable in the fallback assigned from the immutable logic state variable and used as the delegatecall target.",
+      "id": "_impl",
+      "type": "local_var",
+      "node_id": 7
+    },
+    {
+      "is_core": false,
+      "description": "Free-memory pointer used for calldatacopy/returndatacopy buffers feeding and receiving the fallback delegatecall.",
+      "id": "ptr",
+      "type": "local_var",
+      "node_id": 8
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "Constructor consumes the _logic parameter and assigns it to the immutable logic state variable.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "The _logic constructor parameter is written into the logic immutable state variable.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "The constructor invokes the low-level delegatecall unsafe operation during deployment.",
+      "type": "controlflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "reason": "The caller-controlled _logic parameter becomes the target of the constructor delegatecall, allowing arbitrary logic code to be executed at deployment.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "reason": "The caller-controlled _initializationCalldata parameter is forwarded verbatim into the constructor delegatecall, allowing arbitrary state initialization.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "The fallback function body executes the assembly delegatecall unsafe operation.",
+      "type": "controlflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "The immutable logic state variable is read into the _impl local variable in the fallback.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "The immutable logic address flows into the fallback delegatecall target.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "The _impl local variable is used directly as the delegatecall target in the fallback assembly block.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "The ptr free-memory pointer supplies the calldata and returndata buffers for the fallback delegatecall.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "reentrancy",
+      "reason": "The fallback delegatecall executes arbitrary logic code which can call back into the proxy fallback before state is settled, enabling reentrant execution.",
+      "type": "callback",
+      "from_id": 6
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "Returndata from the fallback delegatecall is copied back through the shared storage context of the logic contract bound to the logic state variable.",
+      "type": "dataflow",
+      "from_id": 6
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "constructor.delegatecall",
+      "reason": "The _logic parameter is only a temporary carrier of the delegatecall target address and should be normalized into the constructor delegatecall unsafe operation.",
+      "normal_node": "_logic"
+    },
+    {
+      "merge_into": "constructor.delegatecall",
+      "reason": "The _initializationCalldata parameter is only a temporary carrier of the calldata forwarded to the constructor delegatecall and should be normalized into that unsafe operation.",
+      "normal_node": "_initializationCalldata"
+    },
+    {
+      "merge_into": "fallback.delegatecall",
+      "reason": "The _impl local variable is a direct copy of the logic state variable used solely as the fallback delegatecall target and should be normalized into that unsafe operation.",
+      "normal_node": "_impl"
+    },
+    {
+      "merge_into": "fallback.delegatecall",
+      "reason": "The ptr local variable only supplies the calldata/returndata buffers for the fallback delegatecall and should be normalized into that unsafe operation.",
+      "normal_node": "ptr"
+    }
+  ]
+}

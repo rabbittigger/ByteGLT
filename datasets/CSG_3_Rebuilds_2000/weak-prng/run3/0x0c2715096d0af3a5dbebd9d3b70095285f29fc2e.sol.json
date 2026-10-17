@@ -1,0 +1,63 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "description": "Public state variable 'uint entropy' that stores the accumulated XOR entropy and is both read and written by getRandomNumber, acting as the contract's pseudo-random seed.",
+      "id": "entropy",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "description": "Public function getRandomNumber() that mutates the entropy state variable with a blockhash-derived value and returns it; exposed to any external caller with no access control and no randomness commitment.",
+      "id": "getRandomNumber",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "description": "Statement 'entropy ^= uint(blockhash(entropy % block.number));' - an unsafe entropy/randomness computation that derives its value from blockhash and block.number, both miner-influenceable, and directly writes the result into persistent state, enabling prediction/manipulation of the returned 'random' number.",
+      "id": "entropy_xor_blockhash",
+      "type": "unsafe_operation",
+      "is_core": true
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The current value of state variable 'entropy' is read as the left operand of the XOR and as the mod operand (entropy % block.number) inside the computation.",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "reason": "The unsafe XOR-with-blockhash computation writes its result back into the 'entropy' state variable, persistently updating the seed used by future calls.",
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "reason": "Invoking getRandomNumber() unconditionally executes the entropy ^= blockhash(...) statement as the first instruction of the function body.",
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "controlflow",
+      "from_id": 1
+    },
+    {
+      "reason": "Any external caller may invoke getRandomNumber() and thereby read and mutate the 'entropy' state variable without any authorization check, so the state change is reachable by arbitrary msg.sender addresses.",
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "controlflow",
+      "from_id": 1
+    },
+    {
+      "reason": "The function's return value is the post-update value of the 'entropy' state variable, flowing from state storage back into the function's return path.",
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "from_id": 0
+    }
+  ],
+  "normalization_plan": []
+}

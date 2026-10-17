@@ -1,0 +1,404 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "TORN",
+      "is_core": true,
+      "description": "Immutable IERC20 token handle pointing to the Tornado Cash TORN token contract (0x77777FeDdddFfC19Ff86DB637967013e6C6A116C); used for transfer and approve calls."
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "id": "GOV_VESTING",
+      "is_core": true,
+      "description": "Immutable Vesting interface handle (0x179f48C78f57A3A78f0608cC9197B8972921d1D2) used to query vested/released amounts, start timestamp and to trigger release()."
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "id": "SABLIER",
+      "is_core": true,
+      "description": "Immutable ISablier handle (0xA4fc358455Febe425536fd1878bE67FfDBDEC59a) used to create the token streaming contract."
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "id": "COMMUNITY_MULTISIG",
+      "is_core": true,
+      "description": "Immutable destination address (0xb04E030140b30C27bcdfaafFFA98C57d80eDa7B4) that receives the treasury tokens and the Sablier stream."
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "id": "PERCENT_OF_TREASURY",
+      "is_core": true,
+      "description": "Constant 5 (5%) share of the vested treasury allocated to the community multisig."
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "id": "SECOND_PER_MONTH",
+      "is_core": true,
+      "description": "Constant 30 days used to convert elapsed seconds into elapsed months."
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "id": "MONTH_PER_YEAR",
+      "is_core": true,
+      "description": "Constant 12 months used to project the yearly vesting amount."
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "id": "SECOND_PER_YEAR",
+      "is_core": true,
+      "description": "Constant SECOND_PER_MONTH * MONTH_PER_YEAR (360 days) used both as the Sablier stream duration and as the deposit rounding modulus."
+    },
+    {
+      "node_id": 8,
+      "type": "state_var",
+      "id": "HUNDRED",
+      "is_core": true,
+      "description": "Constant 100 used as the percentage denominator for the treasury share computations."
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "id": "executeProposal",
+      "is_core": true,
+      "description": "Public, permissionless entry point that claims vested TORN, transfers 5% of already vested funds to the multisig, computes the per-month vesting rate and creates a 12-month Sablier stream with 5% of next-year vesting."
+    },
+    {
+      "node_id": 10,
+      "type": "untrusted_input",
+      "id": "block.timestamp",
+      "is_core": true,
+      "description": "Block timestamp used to compute the elapsed vesting months and as the Sablier stream start/stop times; miner-influenceable."
+    },
+    {
+      "node_id": 11,
+      "type": "unsafe_operation",
+      "id": "TORN.transfer",
+      "is_core": true,
+      "description": "External call transferring 5% of the released funds to the community multisig; executes arbitrary code in the token contract."
+    },
+    {
+      "node_id": 12,
+      "type": "unsafe_operation",
+      "id": "GOV_VESTING.release",
+      "is_core": true,
+      "description": "External call into the vesting contract that releases newly vested tokens to this proposal contract; state-changing external call."
+    },
+    {
+      "node_id": 13,
+      "type": "unsafe_operation",
+      "id": "TORN.approve",
+      "is_core": true,
+      "description": "External approval granting the Sablier contract spending rights over the adjusted deposit amount."
+    },
+    {
+      "node_id": 14,
+      "type": "unsafe_operation",
+      "id": "SABLIER.createStream",
+      "is_core": true,
+      "description": "External call creating the Sablier token stream, pulling the approved TORN and depending on block.timestamp for the stream window."
+    },
+    {
+      "node_id": 15,
+      "type": "local_var",
+      "id": "releasedFunds",
+      "is_core": false,
+      "description": "Amount of tokens already released by the governance vesting contract; base for the 5% transfer and the per-month rate."
+    },
+    {
+      "node_id": 16,
+      "type": "local_var",
+      "id": "elapsedMonths",
+      "is_core": false,
+      "description": "Number of complete months elapsed since the vesting start timestamp, derived from block.timestamp; can be zero and is used as a divisor."
+    },
+    {
+      "node_id": 17,
+      "type": "local_var",
+      "id": "vestingPerMonth",
+      "is_core": false,
+      "description": "Average tokens vested per elapsed month (releasedFunds / elapsedMonths)."
+    },
+    {
+      "node_id": 18,
+      "type": "local_var",
+      "id": "sablierDeposit",
+      "is_core": false,
+      "description": "Deposit for Sablier: 5% of the projected next-12-month vesting amount."
+    },
+    {
+      "node_id": 19,
+      "type": "local_var",
+      "id": "sablierAdjustedDeposit",
+      "is_core": false,
+      "description": "Deposit rounded down to a multiple of SECOND_PER_YEAR before being approved and streamed."
+    },
+    {
+      "node_id": 20,
+      "type": "unsafe_operation",
+      "id": "division_vestingPerMonth",
+      "is_core": true,
+      "description": "Arithmetic operation releasedFunds / elapsedMonths; if elapsedMonths is zero the transaction reverts (Solidity 0.8 division by zero), and the multiply/divide chain performs truncating integer arithmetic."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "executeProposal conditionally invokes the external GOV_VESTING.release() when vestedAmount() > 0, giving the external vesting contract execution control in the middle of the proposal flow.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 9,
+      "to_id": 12
+    },
+    {
+      "reason": "The GOV_VESTING state variable is the target contract on which release() is invoked.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 12
+    },
+    {
+      "reason": "release() is an external state-changing call whose callee could re-enter executeProposal before the released amount is consumed, a classic reentrancy window.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 12,
+      "to_id": 9
+    },
+    {
+      "reason": "releasedFunds is read from GOV_VESTING.released() after the release() call.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 15
+    },
+    {
+      "reason": "executeProposal assigns and relies on the releasedFunds local variable.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 9,
+      "to_id": 15
+    },
+    {
+      "reason": "releasedFunds flows into the TORN.transfer amount (releasedFunds * PERCENT_OF_TREASURY / HUNDRED).",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 11
+    },
+    {
+      "reason": "PERCENT_OF_TREASURY (5) scales the transferred amount.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 11
+    },
+    {
+      "reason": "HUNDRED is the divisor that normalizes the 5% transfer amount.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 11
+    },
+    {
+      "reason": "COMMUNITY_MULTISIG is the recipient of the TORN.transfer call.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 11
+    },
+    {
+      "reason": "executeProposal performs the external token transfer before creating the Sablier stream, allowing the token contract execution control.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 9,
+      "to_id": 11
+    },
+    {
+      "reason": "TORN.transfer is an external call to a token contract that could re-enter executeProposal before the stream is created.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 11,
+      "to_id": 9
+    },
+    {
+      "reason": "elapsedMonths is computed from block.timestamp, making the payout sizing dependent on miner-controllable time.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 16
+    },
+    {
+      "reason": "SECOND_PER_MONTH is the divisor converting elapsed seconds into elapsed months.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 16
+    },
+    {
+      "reason": "releasedFunds is the numerator when computing vestingPerMonth.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 17
+    },
+    {
+      "reason": "elapsedMonths is the divisor of releasedFunds; a zero or attacker-skewed value breaks pricing and can revert the transaction (division by zero).",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 17
+    },
+    {
+      "reason": "elapsedMonths feeds the division operation that is vulnerable to division-by-zero and truncation.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 20
+    },
+    {
+      "reason": "releasedFunds is the numerator of the division operation.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 20
+    },
+    {
+      "reason": "vestingPerMonth is multiplied by MONTH_PER_YEAR and PERCENT_OF_TREASURY with truncating integer division to produce sablierDeposit.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 18
+    },
+    {
+      "reason": "MONTH_PER_YEAR (12) projects the monthly vesting into a yearly figure.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 18
+    },
+    {
+      "reason": "PERCENT_OF_TREASURY scales the projected yearly amount by 5%.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 18
+    },
+    {
+      "reason": "HUNDRED normalizes the sablierDeposit percentage computation.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 18
+    },
+    {
+      "reason": "sablierAdjustedDeposit = sablierDeposit - sablierDeposit % SECOND_PER_YEAR, a modulo/subtraction rounding that can render the deposit zero.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 19
+    },
+    {
+      "reason": "SECOND_PER_YEAR is the modulus used to round the Sablier deposit down.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 19
+    },
+    {
+      "reason": "sablierAdjustedDeposit is the amount approved to the Sablier contract.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 19,
+      "to_id": 13
+    },
+    {
+      "reason": "executeProposal performs an external TORN.approve call before creating the stream.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 9,
+      "to_id": 13
+    },
+    {
+      "reason": "TORN.approve is an external call to a token contract that could re-enter executeProposal.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 13,
+      "to_id": 9
+    },
+    {
+      "reason": "sablierAdjustedDeposit is passed as the deposit argument of SABLIER.createStream.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 19,
+      "to_id": 14
+    },
+    {
+      "reason": "COMMUNITY_MULTISIG is the recipient argument of the Sablier stream.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 14
+    },
+    {
+      "reason": "block.timestamp is used as both startTime and the basis for stopTime of the Sablier stream, making the vesting window time-dependent on the miner-controlled timestamp.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 14
+    },
+    {
+      "reason": "executeProposal makes the final external call SABLIER.createStream, which pulls funds via the prior approval and can re-enter the proposal logic.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 9,
+      "to_id": 14
+    },
+    {
+      "reason": "SABLIER.createStream transfers tokens from this contract and invokes an external contract, creating a reentrancy vector against executeProposal.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 14,
+      "to_id": 9
+    },
+    {
+      "reason": "The SABLIER state variable is the target contract of createStream.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 14
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "releasedFunds is a transient value derived from GOV_VESTING.released() and consumed directly as the basis of the TORN.transfer amount, so it can be normalized into that core unsafe operation.",
+      "merge_into": "TORN.transfer",
+      "normal_node": "releasedFunds"
+    },
+    {
+      "reason": "elapsedMonths exists only to serve as the divisor of the releasedFunds/elapsedMonths operation and can be folded into that core arithmetic unsafe operation.",
+      "merge_into": "division_vestingPerMonth",
+      "normal_node": "elapsedMonths"
+    },
+    {
+      "reason": "vestingPerMonth is an intermediate scalar local to executeProposal with no independent semantic role beyond feeding the Sablier deposit computation.",
+      "merge_into": "executeProposal",
+      "normal_node": "vestingPerMonth"
+    },
+    {
+      "reason": "sablierDeposit is an intermediate value used only to derive the amount passed to the Sablier stream creation call and can be merged into it.",
+      "merge_into": "SABLIER.createStream",
+      "normal_node": "sablierDeposit"
+    },
+    {
+      "reason": "sablierAdjustedDeposit is the rounded value consecutively approved and deposited into createStream, so it normalizes into that core unsafe operation.",
+      "merge_into": "SABLIER.createStream",
+      "normal_node": "sablierAdjustedDeposit"
+    }
+  ]
+}

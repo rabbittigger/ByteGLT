@@ -1,0 +1,168 @@
+{
+  "nodes": [
+    {
+      "id": "state_adapterType",
+      "description": "Public constant state variable adapterType = \"Asset\"; overrides ProtocolAdapter.adapterType().",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "state_tokenType",
+      "description": "Public constant state variable tokenType = \"ERC20\"; overrides ProtocolAdapter.tokenType().",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "state_TOKEN_CONTROLLER",
+      "description": "Internal constant address TOKEN_CONTROLLER (0x5407381b...) used as the target of the totalBalanceOf external call.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "state_var"
+    },
+    {
+      "id": "state_NXM",
+      "description": "Internal constant address NXM (0xd7c49CEE...) used as the ERC20 token whose balanceOf is queried.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "state_var"
+    },
+    {
+      "id": "function_getBalance",
+      "description": "External view function getBalance(address, address account) returns uint256; computes totalBalance - tokenBalance for the given account.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "unsafe_op_subtraction",
+      "description": "Unchecked subtraction totalBalance - tokenBalance; reverts/underflows when tokenBalance exceeds totalBalance.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "param_account",
+      "description": "Named parameter account of getBalance; passed to TokenController.totalBalanceOf and ERC20(NXM).balanceOf.",
+      "is_core": false,
+      "node_id": 6,
+      "type": "parameter"
+    },
+    {
+      "id": "param_unnamed_address",
+      "description": "Unnamed address parameter in the getBalance signature; declared but never used in the body.",
+      "is_core": false,
+      "node_id": 7,
+      "type": "parameter"
+    },
+    {
+      "id": "local_totalBalance",
+      "description": "Local variable totalBalance, result of TokenController(TOKEN_CONTROLLER).totalBalanceOf(account).",
+      "is_core": false,
+      "node_id": 8,
+      "type": "local_var"
+    },
+    {
+      "id": "local_tokenBalance",
+      "description": "Local variable tokenBalance, result of ERC20(NXM).balanceOf(account).",
+      "is_core": false,
+      "node_id": 9,
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "State variable TOKEN_CONTROLLER is read inside getBalance to build the TokenController contract target.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "State variable NXM is read inside getBalance to build the ERC20 token target.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Parameter account flows into getBalance body and is forwarded to both external balance queries.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Unnamed address parameter is declared in the getBalance signature.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "TOKEN_CONTROLLER address is used in the external call whose return value is stored in totalBalance.",
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "NXM address is used in the ERC20 call whose return value is stored in tokenBalance.",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "getBalance executes the subtraction expression that returns the function result.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "totalBalance is the minuend of the unchecked subtraction, enabling integer underflow.",
+      "to_id": 5,
+      "vuln_type": "arithmetic",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "tokenBalance is the subtrahend of the unchecked subtraction, enabling integer underflow.",
+      "to_id": 5,
+      "vuln_type": "arithmetic",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "getBalance performs the external ERC20 balanceOf call that assigns tokenBalance.",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "controlflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "account is only meaningful as the input passed to the external balance lookups inside getBalance.",
+      "normal_node": "param_account",
+      "merge_into": "function_getBalance"
+    },
+    {
+      "reason": "The unnamed address parameter belongs solely to the getBalance signature and carries no independent state.",
+      "normal_node": "param_unnamed_address",
+      "merge_into": "function_getBalance"
+    },
+    {
+      "reason": "totalBalance exists only to feed the subtraction that produces the returned balance.",
+      "normal_node": "local_totalBalance",
+      "merge_into": "unsafe_op_subtraction"
+    },
+    {
+      "reason": "tokenBalance exists only to feed the subtraction that produces the returned balance.",
+      "normal_node": "local_tokenBalance",
+      "merge_into": "unsafe_op_subtraction"
+    }
+  ]
+}

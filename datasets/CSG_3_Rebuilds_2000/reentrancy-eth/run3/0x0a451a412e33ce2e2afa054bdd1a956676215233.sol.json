@@ -1,0 +1,324 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "IERC20 public state variable holding the FIRE token address; set once by setFIREAddress and read during TheBigBurn.",
+      "id": "FireVault.FIRE",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "uint constant public = 1608854400, the unlock timestamp used to gate TheBigBurn.",
+      "id": "FireVault.TheBigBurnTime",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "address private _owner; set in the constructor and updated by transferOwnership/renounceOwnership, checked by onlyOwner.",
+      "id": "Ownable._owner",
+      "type": "state_var",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "external function; requires block.timestamp >= TheBigBurnTime and FIRE set, then calls FIRE.burnMyTokensFOREVER with the vault's balance held as FIRE tokens.",
+      "id": "FireVault.TheBigBurn",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "external onlyOwner function that assigns the FIRE token address once, reverting if already set.",
+      "id": "FireVault.setFIREAddress",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "modifier enforcing _owner == _msgSender() before executing the guarded function body.",
+      "id": "Ownable.onlyOwner",
+      "type": "function",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "constructor that sets _owner to _msgSender() and emits OwnershipTransferred.",
+      "id": "Ownable.constructor",
+      "type": "function",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "internal view function returning msg.sender as address payable.",
+      "id": "Context._msgSender",
+      "type": "function",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "msg.sender, attacker-controllable caller identity used for ownership checks and owner initialization.",
+      "id": "untrusted.msg.sender",
+      "type": "untrusted_input",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "description": "block.timestamp, miner/validator-influenced value compared against TheBigBurnTime in TheBigBurn.",
+      "id": "untrusted.block.timestamp",
+      "type": "untrusted_input",
+      "node_id": 9
+    },
+    {
+      "is_core": true,
+      "description": "external call FIRE.burnMyTokensFOREVER(FIRE.balanceOf(address(this))) that hands control to an arbitrary token contract before/without state finalization; reentrancy exposure.",
+      "id": "unsafe.burnMyTokensFOREVER",
+      "type": "unsafe_operation",
+      "node_id": 10
+    },
+    {
+      "is_core": true,
+      "description": "external call FIRE.balanceOf(address(this)) whose return value is used as the burn amount; call to untrusted token contract.",
+      "id": "unsafe.FIRE.balanceOf",
+      "type": "unsafe_operation",
+      "node_id": 11
+    },
+    {
+      "is_core": true,
+      "description": "require(block.timestamp >= TheBigBurnTime) gate whose outcome depends on a manipulable timestamp.",
+      "id": "unsafe.timestampRequire",
+      "type": "unsafe_operation",
+      "node_id": 12
+    },
+    {
+      "is_core": true,
+      "description": "public view function returning the stored _owner address.",
+      "id": "Ownable.owner",
+      "type": "function",
+      "node_id": 13
+    },
+    {
+      "is_core": true,
+      "description": "public virtual onlyOwner function that validates newOwner != address(0) and writes _owner.",
+      "id": "Ownable.transferOwnership",
+      "type": "function",
+      "node_id": 14
+    },
+    {
+      "is_core": true,
+      "description": "public virtual onlyOwner function that sets _owner to address(0).",
+      "id": "Ownable.renounceOwnership",
+      "type": "function",
+      "node_id": 15
+    },
+    {
+      "is_core": false,
+      "description": "IERC20 _addr input parameter of setFIREAddress; becomes the FIRE token address.",
+      "id": "param._addr",
+      "type": "parameter",
+      "node_id": 16
+    },
+    {
+      "is_core": false,
+      "description": "address newOwner input parameter of transferOwnership; becomes the new _owner.",
+      "id": "param.newOwner",
+      "type": "parameter",
+      "node_id": 17
+    },
+    {
+      "is_core": false,
+      "description": "local variable msgSender in the Offable constructor holding _msgSender() result before assignment to _owner.",
+      "id": "local.msgSender",
+      "type": "local_var",
+      "node_id": 18
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "block.timestamp flows into TheBigBurn and controls whether execution proceeds, creating a timestamp-dependency gate.",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "access_control",
+      "reason": "TheBigBurn executes the require comparing block.timestamp to TheBigBurnTime, branching on a manipulable timestamp.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "access_control",
+      "reason": "The constant TheBigBurnTime is read as the right-hand operand of the timestamp comparison in the require.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "reason": "If the timestamp require passes, control proceeds to the external burnMyTokensFOREVER call on the token contract.",
+      "type": "controlflow",
+      "from_id": 12
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "reason": "The FIRE state variable supplies the callee address for the external burnMyTokensFOREVER call.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "reason": "TheBigBurn makes an external call into an arbitrary token contract, which may call back into the vault (no reentrancy guard).",
+      "type": "callback",
+      "from_id": 3
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "reason": "The balanceOf return value is passed directly as the burn amount argument to burnMyTokensFOREVER.",
+      "type": "dataflow",
+      "from_id": 11
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "reason": "FIRE state variable supplies the callee address for the external balanceOf call.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "reason": "TheBigBurn invokes balanceOf on the untrusted token contract before the burn call.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "setFIREAddress writes the FIRE state variable with the supplied token address.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "The _addr parameter is the sole input that becomes the FIRE state variable value.",
+      "type": "dataflow",
+      "from_id": 14
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "reason": "The onlyOwner modifier gates execution of setFIREAddress.",
+      "type": "controlflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "reason": "onlyOwner obtains the caller identity via Context._msgSender.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "reason": "_msgSender returns msg.sender, the untrusted caller used in ownership checks.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "reason": "The constructor calls _msgSender() to determine the initial owner.",
+      "type": "controlflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "reason": "msg.sender flows into the constructor and becomes the initial _owner.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "The Ownable constructor writes the _owner state variable.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "reason": "transferOwnership is guarded by the onlyOwner modifier.",
+      "type": "controlflow",
+      "from_id": 14
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "none",
+      "reason": "The newOwner parameter flows into the _owner assignment in transferOwnership.",
+      "type": "dataflow",
+      "from_id": 17
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "transferOwnership writes the _owner state variable.",
+      "type": "dataflow",
+      "from_id": 14
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "reason": "renounceOwnership is guarded by the onlyOwner modifier.",
+      "type": "controlflow",
+      "from_id": 15
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "renounceOwnership writes _owner to address(0).",
+      "type": "dataflow",
+      "from_id": 15
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "owner() reads the _owner state variable.",
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "reason": "The local msgSender variable receives the result of _msgSender() in the constructor.",
+      "type": "dataflow",
+      "from_id": 18
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "FireVault.setFIREAddress",
+      "reason": "The _addr parameter exists only as the input that is stored into FIRE by setFIREAddress; fold it into that function node.",
+      "normal_node": "param._addr"
+    },
+    {
+      "merge_into": "Ownable.transferOwnership",
+      "reason": "The newOwner parameter is used solely for the ownership assignment inside transferOwnership; fold it into that function node.",
+      "normal_node": "param.newOwner"
+    },
+    {
+      "merge_into": "Ownable.constructor",
+      "reason": "The msgSender local variable is a temporary alias of _msgSender() within the constructor and is immediately written to _owner; fold it into the constructor node.",
+      "normal_node": "local.msgSender"
+    }
+  ]
+}

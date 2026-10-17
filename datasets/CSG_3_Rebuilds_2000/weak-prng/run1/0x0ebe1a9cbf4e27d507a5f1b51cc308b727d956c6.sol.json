@@ -1,0 +1,184 @@
+{
+  "nodes": [
+    {
+      "description": "Constant address of the trade reserve that receives Ether and ERC20 tokens.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "TradeReserveEtherReceiver._TRADE_RESERVE"
+    },
+    {
+      "description": "Fallback receive function allowing the contract to accept Ether.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 1,
+      "id": "TradeReserveEtherReceiver.receive"
+    },
+    {
+      "description": "External function that sends the contract's entire Ether balance to _TRADE_RESERVE.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 2,
+      "id": "TradeReserveEtherReceiver.settleEther"
+    },
+    {
+      "description": "External function that transfers the contract's entire balance of an ERC20 token to _TRADE_RESERVE.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "TradeReserveEtherReceiver.settleERC20"
+    },
+    {
+      "description": "Low-level call forwarding the contract's Ether balance to _TRADE_RESERVE.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 4,
+      "id": "unsafe_operation.settleEther._TRADE_RESERVE.call"
+    },
+    {
+      "description": "External call to token.balanceOf(address(this)) on the provided ERC20 token.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 5,
+      "id": "unsafe_operation.settleERC20.token.balanceOf"
+    },
+    {
+      "description": "External call to token.transfer(_TRADE_RESERVE, balance) on the provided ERC20 token.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 6,
+      "id": "unsafe_operation.settleERC20.token.transfer"
+    },
+    {
+      "description": "ERC20 token contract address passed into settleERC20.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 7,
+      "id": "parameter.settleERC20.token"
+    },
+    {
+      "description": "Boolean success flag returned by the low-level Ether call in settleEther.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 8,
+      "id": "local_var.settleEther.ok"
+    },
+    {
+      "description": "Boolean success flag returned by token.transfer in settleERC20.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 9,
+      "id": "local_var.settleERC20.ok"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The constant state variable _TRADE_RESERVE is used as the target address for the low-level call in settleEther.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "settleEther makes the low-level call that sends its Ether balance to _TRADE_RESERVE.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 4
+    },
+    {
+      "reason": "The success boolean returned by the low-level call is assigned to the local variable ok in settleEther.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 8
+    },
+    {
+      "reason": "settleERC20 calls token.balanceOf(address(this)) to determine the amount to transfer.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 5
+    },
+    {
+      "reason": "The token parameter is the contract on which balanceOf is called.",
+      "from_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "The balanceOf return value is passed as the amount argument to token.transfer.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "settleERC20 calls token.transfer to send tokens to _TRADE_RESERVE.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 6
+    },
+    {
+      "reason": "The token parameter is the contract on which transfer is called.",
+      "from_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "The boolean returned by token.transfer is assigned to the local variable ok in settleERC20.",
+      "from_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 9
+    },
+    {
+      "reason": "The constant _TRADE_RESERVE is passed as the recipient address in token.transfer.",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "If token is malicious, token.transfer can call back into settleEther, enabling reentrancy before the transfer returns.",
+      "from_id": 6,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 2
+    },
+    {
+      "reason": "If token is malicious, token.transfer can call back into settleERC20, enabling reentrancy before the transfer returns.",
+      "from_id": 6,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 3
+    },
+    {
+      "reason": "The low-level call to _TRADE_RESERVE can invoke a fallback that reenters settleEther, although no state is changed after the call.",
+      "from_id": 4,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 2
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The token parameter is only used within settleERC20 to call external token methods; normalize it into the enclosing function.",
+      "normal_node": "parameter.settleERC20.token",
+      "merge_into": "TradeReserveEtherReceiver.settleERC20"
+    },
+    {
+      "reason": "The local variable ok only holds the success flag of the low-level call; normalize it into the unsafe operation that produces it.",
+      "normal_node": "local_var.settleEther.ok",
+      "merge_into": "unsafe_operation.settleEther._TRADE_RESERVE.call"
+    },
+    {
+      "reason": "The local variable ok only holds the success flag of token.transfer; normalize it into the unsafe operation that produces it.",
+      "normal_node": "local_var.settleERC20.ok",
+      "merge_into": "unsafe_operation.settleERC20.token.transfer"
+    }
+  ]
+}

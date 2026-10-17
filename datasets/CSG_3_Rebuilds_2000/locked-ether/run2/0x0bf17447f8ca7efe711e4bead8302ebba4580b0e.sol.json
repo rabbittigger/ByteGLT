@@ -1,0 +1,212 @@
+{
+  "nodes": [
+    {
+      "id": "oracle",
+      "description": "AggregatorInterface public state variable holding the Chainlink aggregator address used by the adapter",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "priceMultiplier",
+      "description": "uint256 public state variable storing the decimal scaling factor applied to the oracle answer",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "constructor",
+      "description": "Public constructor that sets oracle and computes priceMultiplier from the supplied decimals",
+      "is_core": true,
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "read",
+      "description": "External view function that reads the aggregator answer, coerces it to uint256 and scales it",
+      "is_core": true,
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "SafeMath.mul",
+      "description": "SafeMath library multiplication implementing the overflow-checked multiply used by read()",
+      "is_core": true,
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "_oracle",
+      "description": "Constructor parameter of type AggregatorInterface assigned to the oracle state variable",
+      "is_core": false,
+      "node_id": 5,
+      "type": "parameter"
+    },
+    {
+      "id": "_priceMultiplierDecimals",
+      "description": "Constructor parameter supplying the number of decimals used in the 10 ** decimals exponentiation",
+      "is_core": false,
+      "node_id": 6,
+      "type": "parameter"
+    },
+    {
+      "id": "oracleOutput",
+      "description": "Local variable in read() holding the coerced uint256 value of the aggregator answer",
+      "is_core": false,
+      "node_id": 7,
+      "type": "local_var"
+    },
+    {
+      "id": "pow_price_multiplier",
+      "description": "Exponentiation 10 ** _priceMultiplierDecimals executed in the constructor without bound checks",
+      "is_core": true,
+      "node_id": 8,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "oracle_call_coercion",
+      "description": "External call oracle.latestAnswer() whose int256 result is coerced to uint256, an unchecked cast",
+      "is_core": true,
+      "node_id": 9,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "mul_price_multiplier",
+      "description": "Multiplication oracleOutput.mul(priceMultiplier) scaling the oracle value to 18 decimals",
+      "is_core": true,
+      "node_id": 10,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor parameter _oracle is written directly into the oracle state variable, making the untrusted external aggregator address persistent state",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_oracle is consumed as an input argument of the constructor function",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "_priceMultiplierDecimals is consumed as an input argument of the constructor function",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The constructor stores the aggregator address in the oracle state variable",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The exponent _priceMultiplierDecimals flows into the 10 ** decimals exponentiation, which can overflow or underflow the scaling factor",
+      "to_id": 8,
+      "vuln_type": "arithmetic",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The exponentiation result is assigned to the priceMultiplier state variable, so any arithmetic error propagates to all future price reads",
+      "to_id": 1,
+      "vuln_type": "arithmetic",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The constructor writes the computed multiplier into the priceMultiplier state variable",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The oracle state variable supplies the contract address invoked by the external latestAnswer() call",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The int256 answer returned by the external oracle is cast to uint256 and stored in the oracleOutput local variable, an unchecked narrowing/sign conversion",
+      "to_id": 7,
+      "vuln_type": "arithmetic",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The oracleOutput local variable is the first operand of the price scaling multiplication",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The priceMultiplier state variable is the second operand of the price scaling multiplication",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The SafeMath.mul library function implements the overflow-checked multiplication used by the scaling operation",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "read() invokes the external oracle.latestAnswer() call whose result is coerced",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "read() declares and assigns the oracleOutput local variable",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The scaled multiplication result is returned as the output of read()",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 10,
+      "type": "dataflow"
+    },
+    {
+      "reason": "read() performs an external call into the externally controlled oracle contract referenced by the oracle state variable, giving that untrusted address control flow back into the adapter",
+      "to_id": 0,
+      "vuln_type": "reentrancy",
+      "from_id": 3,
+      "type": "callback"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The constructor parameter _oracle is a non-core input that only exists to configure the constructor and is merged into the constructor function node",
+      "normal_node": "_oracle",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "The constructor parameter _priceMultiplierDecimals is a non-core input consumed by the constructor and is merged into the constructor function node",
+      "normal_node": "_priceMultiplierDecimals",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "The local variable oracleOutput is a non-core temporary whose only role is to feed the price scaling multiplication and is merged into that unsafe_operation node",
+      "normal_node": "oracleOutput",
+      "merge_into": "mul_price_multiplier"
+    }
+  ]
+}

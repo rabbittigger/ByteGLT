@@ -1,0 +1,130 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "uint64 contract state variable _seed initialized to 0, used both as entropy input and as pseudo-random output.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "Random._seed"
+    },
+    {
+      "type": "function",
+      "description": "Public function random(uint64 upper) that derives a new _seed from blockhash, previous seed and now, then returns _seed % upper.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "Random.random"
+    },
+    {
+      "type": "parameter",
+      "description": "Input parameter upper of random(), used as the modulus of _seed and as the upper bound of the returned pseudo-random number.",
+      "is_core": false,
+      "node_id": 2,
+      "id": "Random.random.upper"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "now / block.timestamp, miner-influenced value hashed into the seed, making the pseudo-randomness predictable and manipulable.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Modulo operation _seed % upper: arithmetic hazard, reverts with division-by-zero when upper == 0 and has no lower-bound validation.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "Random.random.modulo"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Seed derivation _seed = uint64(sha3(sha3(blockhash(block.number), _seed), now)): weak on-chain randomness dependent on blockhash and block.timestamp.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "Random.random.seed_update"
+    },
+    {
+      "type": "local_var",
+      "description": "Named return variable randomNumber holding the pseudo-random result of the modulo operation.",
+      "is_core": false,
+      "node_id": 6,
+      "id": "Random.random.randomNumber"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "Parameter upper flows directly into the modulo _seed % upper, so a zero or attacker-chosen value triggers division-by-zero or bounds manipulation.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "Parameter upper is consumed by the function random() to bound the returned value.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "block.timestamp (now) is hashed into the seed, giving timestamp/miner influence over the generated random number.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "The current state variable _seed is read as input to the sha3 seed derivation.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "The result of the sha3 seed derivation is written back into the state variable _seed.",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "The updated state variable _seed is read as the dividend of the modulo operation.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "The modulo result is bound to the named return variable randomNumber.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "controlflow",
+      "reason": "The modulo result is returned from the random() function execution path.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "controlflow",
+      "reason": "Execution of random() mutates the contract state variable _seed.",
+      "from_id": 1
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "Random.random.modulo",
+      "reason": "Parameter upper is a non-core node whose only security-relevant use is as the modulus operand of the unsafe modulo operation, so it is absorbed into the operation node.",
+      "normal_node": "Random.random.upper"
+    },
+    {
+      "merge_into": "Random.random",
+      "reason": "Local variable randomNumber is the return slot of the function and carries no independent security semantics, so it is merged into the enclosing core function node.",
+      "normal_node": "Random.random.randomNumber"
+    }
+  ]
+}

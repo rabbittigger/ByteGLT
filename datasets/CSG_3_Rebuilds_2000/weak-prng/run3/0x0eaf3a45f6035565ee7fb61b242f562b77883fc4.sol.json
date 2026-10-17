@@ -1,0 +1,247 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "bytes32 state variable holding the keccak256 hash of the secret key that gates the withdrawal.",
+      "id": "keyHash",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "address state variable set to msg.sender in the constructor; recipient of selfdestruct and gate for extract().",
+      "id": "owner",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "constructor() public: assigns owner = msg.sender at deployment.",
+      "id": "constructor",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "withdraw(string key) payable: requires msg.sender == tx.origin, compares keccak256(key) to keyHash and transfers the whole contract balance when msg.value > 0.5 ether.",
+      "id": "withdraw",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "setup(string key) public: initializes keyHash with keccak256(key) if keyHash is still zero.",
+      "id": "setup",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "new_hash(bytes32 _keyHash) public: initializes keyHash directly if keyHash is still zero.",
+      "id": "new_hash",
+      "type": "function",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "extract() public: requires msg.sender == owner and then calls selfdestruct(owner).",
+      "id": "extract",
+      "type": "function",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "get_owner() public view: returns the owner address.",
+      "id": "get_owner",
+      "type": "function",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "fallback function () public payable: accepts plain ether transfers without any logic.",
+      "id": "fallback",
+      "type": "function",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "description": "Caller-controlled address used as owner, as an authorization check and as the recipient of the balance transfer.",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "node_id": 9
+    },
+    {
+      "is_core": true,
+      "description": "Transaction origin used in the withdraw authorization check msg.sender == tx.origin.",
+      "id": "tx.origin",
+      "type": "untrusted_input",
+      "node_id": 10
+    },
+    {
+      "is_core": true,
+      "description": "msg.sender.transfer(address(this).balance): external value transfer of the entire contract balance to an untrusted caller inside withdraw().",
+      "id": "unsafe_transfer",
+      "type": "unsafe_operation",
+      "node_id": 11
+    },
+    {
+      "is_core": true,
+      "description": "selfdestruct(owner): destroys the contract and forwards the whole balance to owner in extract().",
+      "id": "unsafe_selfdestruct",
+      "type": "unsafe_operation",
+      "node_id": 12
+    },
+    {
+      "is_core": false,
+      "description": "string key parameter of withdraw(), hashed with keccak256 for the keyHash comparison.",
+      "id": "param_withdraw_key",
+      "type": "parameter",
+      "node_id": 13
+    },
+    {
+      "is_core": false,
+      "description": "string key parameter of setup(), hashed with keccak256 and stored into keyHash.",
+      "id": "param_setup_key",
+      "type": "parameter",
+      "node_id": 14
+    },
+    {
+      "is_core": false,
+      "description": "bytes32 _keyHash parameter of new_hash(), assigned directly to keyHash.",
+      "id": "param_new_hash_key",
+      "type": "parameter",
+      "node_id": 15
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "constructor assigns owner = msg.sender, writing the owner state variable.",
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "access_control",
+      "reason": "Untrusted msg.sender flows into the privileged owner state variable at deployment.",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "withdraw authorizes the caller with require(msg.sender == tx.origin), i.e. an untrusted caller-controlled condition.",
+      "type": "controlflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "reason": "tx.origin is used as an authorization anchor inside withdraw, tying the transaction origin to the withdrawal path.",
+      "type": "controlflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "withdraw reads keyHash to compare it with keccak256(abi.encodePacked(key)).",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "setup writes keyHash when it is still zero.",
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "new_hash writes keyHash when it is still zero.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "reason": "withdraw performs an external value transfer of the entire contract balance to msg.sender before any state is updated.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "reason": "The recipient of the balance transfer is the untrusted msg.sender.",
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "reason": "extract is guarded by require(msg.sender == owner), an untrusted-input authorization check.",
+      "type": "controlflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "extract invokes selfdestruct after passing the owner check.",
+      "type": "controlflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "selfdestruct forwards the remaining contract balance to the owner state variable.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "get_owner returns the owner state variable.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "The key parameter of withdraw is hashed and compared against keyHash.",
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "The key parameter of setup is hashed and stored into keyHash.",
+      "type": "dataflow",
+      "from_id": 14
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "The _keyHash parameter of new_hash is assigned into keyHash.",
+      "type": "dataflow",
+      "from_id": 15
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "withdraw",
+      "reason": "The non-core parameter key only exists to feed the keccak256 comparison inside withdraw and has no standalone semantics.",
+      "normal_node": "param_withdraw_key"
+    },
+    {
+      "merge_into": "setup",
+      "reason": "The non-core parameter key is only used to compute the initial keyHash inside setup.",
+      "normal_node": "param_setup_key"
+    },
+    {
+      "merge_into": "new_hash",
+      "reason": "The non-core parameter _keyHash is only used to initialize keyHash inside new_hash.",
+      "normal_node": "param_new_hash_key"
+    }
+  ]
+}

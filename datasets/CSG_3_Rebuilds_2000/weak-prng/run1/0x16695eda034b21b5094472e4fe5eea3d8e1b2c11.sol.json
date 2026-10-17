@@ -1,0 +1,173 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "function",
+      "id": "function_selectWinner",
+      "is_core": true,
+      "description": "External view function selectWinner(address[] calldata users, uint256 salt) that derives a pseudorandom winner index from block properties and returns users[winnerIndex]."
+    },
+    {
+      "node_id": 1,
+      "type": "parameter",
+      "id": "param_users",
+      "is_core": false,
+      "description": "Calldata array of candidate addresses supplied by the caller; its length drives the winner index bound."
+    },
+    {
+      "node_id": 2,
+      "type": "parameter",
+      "id": "param_salt",
+      "is_core": false,
+      "description": "Caller-supplied uint256 salt mixed into the keccak256 hash used for winner selection."
+    },
+    {
+      "node_id": 3,
+      "type": "local_var",
+      "id": "local_size",
+      "is_core": false,
+      "description": "Local variable size = users.length, used as the modulus denominator for the winner index."
+    },
+    {
+      "node_id": 4,
+      "type": "local_var",
+      "id": "local_hash",
+      "is_core": false,
+      "description": "Local bytes32 hash = keccak256 over address(this), block values, size and salt; the entropy source for the draw."
+    },
+    {
+      "node_id": 5,
+      "type": "local_var",
+      "id": "local_winnerIndex",
+      "is_core": false,
+      "description": "Local uint256 winnerIndex = uint256(hash) % size, used to index into the users array."
+    },
+    {
+      "node_id": 6,
+      "type": "untrusted_input",
+      "id": "untrusted_block_timestamp",
+      "is_core": true,
+      "description": "block.timestamp, a miner/validator-influenceable value included in the randomness hash, making the draw predictable and manipulable."
+    },
+    {
+      "node_id": 7,
+      "type": "unsafe_operation",
+      "id": "unsafe_modulo",
+      "is_core": true,
+      "description": "Modulo operation uint256(hash) % size with no zero-length guard; reverts or panics when users is empty and produces miner-influenceable randomness."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "selectWinner reads the calldata users array argument.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 1
+    },
+    {
+      "reason": "selectWinner reads the calldata salt argument.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 2
+    },
+    {
+      "reason": "users.length is assigned to the local size variable.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 3
+    },
+    {
+      "reason": "Caller-controlled salt is encoded into the hash used for winner selection.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 4
+    },
+    {
+      "reason": "size is encoded into the hash input, coupling array length to the entropy.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 4
+    },
+    {
+      "reason": "size is used as the modulus denominator without a zero-length check, allowing division-by-zero revert/panic on an empty users array.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 7
+    },
+    {
+      "reason": "The hash value is converted to uint256 and used as the numerator of the modulo operation.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 7
+    },
+    {
+      "reason": "The modulo result is assigned to winnerIndex, propagating the unsafe arithmetic result.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 5
+    },
+    {
+      "reason": "block.timestamp is mixed into the hash, so a miner/validator can bias the random draw by choosing the timestamp (timestamp dependency).",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 4
+    },
+    {
+      "reason": "Execution of selectWinner unconditionally reaches the modulo that bounds the winner index.",
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "from_id": 0,
+      "to_id": 7
+    },
+    {
+      "reason": "winnerIndex is used to index users and the resulting address is returned from the function.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 0
+    },
+    {
+      "reason": "The function's outcome depends on the miner-influenceable block.timestamp, creating a timestamp-dependency weakness in the winner selection.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 6,
+      "to_id": 0
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The users parameter has no independent behavior; it is only consumed by selectWinner and should be folded into the function node.",
+      "merge_into": "function_selectWinner",
+      "normal_node": "param_users"
+    },
+    {
+      "reason": "The salt parameter is only used inside selectWinner's hash computation, so it is abstracted into the function node.",
+      "merge_into": "function_selectWinner",
+      "normal_node": "param_salt"
+    },
+    {
+      "reason": "size exists solely as the denominator of the unsafe modulo operation and is merged into that unsafe_operation node.",
+      "merge_into": "unsafe_modulo",
+      "normal_node": "local_size"
+    },
+    {
+      "reason": "hash is only used as the numerator feeding the unsafe modulo operation and is absorbed by that unsafe_operation node.",
+      "merge_into": "unsafe_modulo",
+      "normal_node": "local_hash"
+    },
+    {
+      "reason": "winnerIndex is the direct product of the unsafe modulo operation and is folded into that unsafe_operation node.",
+      "merge_into": "unsafe_modulo",
+      "normal_node": "local_winnerIndex"
+    }
+  ]
+}

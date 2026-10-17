@@ -1,0 +1,592 @@
+{
+  "nodes": [
+    {
+      "id": "state_taxTotal",
+      "is_core": true,
+      "description": "uint16 public _taxTotal holding the total tax percentage applied to transfers",
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "state_taxPercision",
+      "is_core": true,
+      "description": "uint32 public _taxPercision, denominator (10000) used in tax arithmetic",
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "state_taxActive",
+      "is_core": true,
+      "description": "bool public _taxActive flag controlling whether tax is applied",
+      "node_id": 2,
+      "type": "state_var"
+    },
+    {
+      "id": "state_whitelists",
+      "is_core": true,
+      "description": "mapping(string => mapping(address => bool)) public _whitelists tracking tax-exempt wallets per list",
+      "node_id": 3,
+      "type": "state_var"
+    },
+    {
+      "id": "fn_transferFrom",
+      "is_core": true,
+      "description": "transferFrom override applying tax before moving tokens",
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "fn_transfer",
+      "is_core": true,
+      "description": "transfer override applying tax before moving tokens",
+      "node_id": 5,
+      "type": "function"
+    },
+    {
+      "id": "fn_toggleTax",
+      "is_core": true,
+      "description": "onlyOwner function toggling the _taxActive flag",
+      "node_id": 6,
+      "type": "function"
+    },
+    {
+      "id": "fn_setTax",
+      "is_core": true,
+      "description": "onlyOwner function updating _taxTotal with a maximum check",
+      "node_id": 7,
+      "type": "function"
+    },
+    {
+      "id": "fn_addToWhitelist",
+      "is_core": true,
+      "description": "onlyOwner function adding a wallet to a whitelist list",
+      "node_id": 8,
+      "type": "function"
+    },
+    {
+      "id": "fn_removeFromWhitelist",
+      "is_core": true,
+      "description": "onlyOwner function removing a wallet from a whitelist list",
+      "node_id": 9,
+      "type": "function"
+    },
+    {
+      "id": "fn_withdrawTaxes",
+      "is_core": true,
+      "description": "onlyOwner function transferring the contract token balance to the owner",
+      "node_id": 10,
+      "type": "function"
+    },
+    {
+      "id": "fn_constructor",
+      "is_core": true,
+      "description": "JarInu constructor seeding whitelists and minting initial supply to deployer",
+      "node_id": 11,
+      "type": "function"
+    },
+    {
+      "id": "fn_erc20_transfer",
+      "is_core": true,
+      "description": "ERC20 internal _transfer moving balances and emitting Transfer",
+      "node_id": 12,
+      "type": "function"
+    },
+    {
+      "id": "fn_erc20_mint",
+      "is_core": true,
+      "description": "ERC20 internal _mint creating tokens and increasing total supply",
+      "node_id": 13,
+      "type": "function"
+    },
+    {
+      "id": "fn_erc20_spendAllowance",
+      "is_core": true,
+      "description": "ERC20 internal _spendAllowance deducting allowance",
+      "node_id": 14,
+      "type": "function"
+    },
+    {
+      "id": "input_msgSender",
+      "is_core": true,
+      "description": "msg.sender obtained via _msgSender(), used for ownership checks and transfer routing",
+      "node_id": 15,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "unsafe_taxCalc_transferFrom",
+      "is_core": true,
+      "description": "tax arithmetic amount *_taxTotal / _taxPercision inside transferFrom",
+      "node_id": 16,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_taxCalc_transfer",
+      "is_core": true,
+      "description": "tax arithmetic amount*_taxTotal/_taxPercision inside transfer",
+      "node_id": 17,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_taxCalc_setTax",
+      "is_core": true,
+      "description": "max tax arithmetic 10 * _taxPercision / 100 inside setTax require",
+      "node_id": 18,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_withdrawTransfer",
+      "is_core": true,
+      "description": "_transfer(address(this), msg.sender, amount) inside withdrawTaxes",
+      "node_id": 19,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "param_from",
+      "is_core": false,
+      "description": "address from parameter of transferFrom",
+      "node_id": 20,
+      "type": "parameter"
+    },
+    {
+      "id": "param_to",
+      "is_core": false,
+      "description": "address to parameter of transfer/transferFrom",
+      "node_id": 21,
+      "type": "parameter"
+    },
+    {
+      "id": "param_amount",
+      "is_core": false,
+      "description": "uint256 amount parameter of transfer/transferFrom",
+      "node_id": 22,
+      "type": "parameter"
+    },
+    {
+      "id": "param_newTax",
+      "is_core": false,
+      "description": "uint16 newTax parameter of setTax",
+      "node_id": 23,
+      "type": "parameter"
+    },
+    {
+      "id": "param_list",
+      "is_core": false,
+      "description": "string list parameter of whitelist functions",
+      "node_id": 24,
+      "type": "parameter"
+    },
+    {
+      "id": "param_wallet",
+      "is_core": false,
+      "description": "address wallet parameter of whitelist functions",
+      "node_id": 25,
+      "type": "parameter"
+    },
+    {
+      "id": "local_spender",
+      "is_core": false,
+      "description": "local address spender assigned from _msgSender() in transferFrom",
+      "node_id": 26,
+      "type": "local_var"
+    },
+    {
+      "id": "local_tax",
+      "is_core": false,
+      "description": "local uint256 tax computed from amount and tax percentage",
+      "node_id": 27,
+      "type": "local_var"
+    },
+    {
+      "id": "local_owner",
+      "is_core": false,
+      "description": "local address owner assigned from _msgSender() in transfer",
+      "node_id": 28,
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "from_id": 15,
+      "type": "dataflow",
+      "reason": "msg.sender is used as spender for allowance spending in transferFrom"
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 20,
+      "type": "dataflow",
+      "reason": "from parameter flows into transferFrom balance and transfer logic"
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 21,
+      "type": "dataflow",
+      "reason": "to parameter determines transferFrom recipient"
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 22,
+      "type": "dataflow",
+      "reason": "amount parameter drives transferFrom value and tax"
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 26,
+      "type": "dataflow",
+      "reason": "local spender derived from msg.sender used inside transferFrom"
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "controlflow",
+      "reason": "_taxActive gates the tax branch in transferFrom"
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "controlflow",
+      "reason": "_whitelists gates the tax branch in transferFrom"
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "none",
+      "from_id": 4,
+      "type": "controlflow",
+      "reason": "transferFrom calls _spendAllowance to deduct allowance"
+    },
+    {
+      "to_id": 16,
+      "vuln_type": "arithmetic",
+      "from_id": 4,
+      "type": "controlflow",
+      "reason": "transferFrom triggers the tax arithmetic operation"
+    },
+    {
+      "to_id": 16,
+      "vuln_type": "arithmetic",
+      "from_id": 0,
+      "type": "dataflow",
+      "reason": "_taxTotal used as numerator in transferFrom tax arithmetic"
+    },
+    {
+      "to_id": 16,
+      "vuln_type": "arithmetic",
+      "from_id": 1,
+      "type": "dataflow",
+      "reason": "_taxPercision used as denominator in transferFrom tax arithmetic"
+    },
+    {
+      "to_id": 16,
+      "vuln_type": "arithmetic",
+      "from_id": 22,
+      "type": "dataflow",
+      "reason": "amount multiplied by tax rate in transferFrom tax arithmetic"
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "reentrancy",
+      "from_id": 16,
+      "type": "dataflow",
+      "reason": "computed tax amount is forwarded to _transfer before the main transfer"
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "reentrancy",
+      "from_id": 4,
+      "type": "controlflow",
+      "reason": "transferFrom performs internal _transfer calls moving balances"
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "access_control",
+      "from_id": 15,
+      "type": "dataflow",
+      "reason": "msg.sender becomes the owning address of the transfer"
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 21,
+      "type": "dataflow",
+      "reason": "to parameter determines transfer recipient"
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 22,
+      "type": "dataflow",
+      "reason": "amount parameter drives transfer value and tax"
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 28,
+      "type": "dataflow",
+      "reason": "local owner derived from msg.sender used inside transfer"
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "controlflow",
+      "reason": "_taxActive gates the tax branch in transfer"
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "controlflow",
+      "reason": "_whitelists gates the tax branch in transfer"
+    },
+    {
+      "to_id": 17,
+      "vuln_type": "arithmetic",
+      "from_id": 5,
+      "type": "controlflow",
+      "reason": "transfer triggers the tax arithmetic operation"
+    },
+    {
+      "to_id": 17,
+      "vuln_type": "arithmetic",
+      "from_id": 0,
+      "type": "dataflow",
+      "reason": "_taxTotal used as numerator in transfer tax arithmetic"
+    },
+    {
+      "to_id": 17,
+      "vuln_type": "arithmetic",
+      "from_id": 1,
+      "type": "dataflow",
+      "reason": "_taxPercision used as denominator in transfer tax arithmetic"
+    },
+    {
+      "to_id": 17,
+      "vuln_type": "arithmetic",
+      "from_id": 22,
+      "type": "dataflow",
+      "reason": "amount multiplied by tax rate in transfer tax arithmetic"
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "reentrancy",
+      "from_id": 17,
+      "type": "dataflow",
+      "reason": "computed tax amount forwarded to _transfer before the main transfer"
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "reentrancy",
+      "from_id": 5,
+      "type": "controlflow",
+      "reason": "transfer performs internal _transfer calls moving balances"
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "from_id": 15,
+      "type": "dataflow",
+      "reason": "toggleTax is protected by onlyOwner comparing owner to msg.sender"
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow",
+      "reason": "toggleTax flips and writes _taxActive"
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "from_id": 15,
+      "type": "dataflow",
+      "reason": "setTax is protected by onlyOwner comparing owner to msg.sender"
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 23,
+      "type": "dataflow",
+      "reason": "newTax parameter is validated and written by setTax"
+    },
+    {
+      "to_id": 18,
+      "vuln_type": "arithmetic",
+      "from_id": 7,
+      "type": "controlflow",
+      "reason": "setTax executes the maximum tax arithmetic check"
+    },
+    {
+      "to_id": 18,
+      "vuln_type": "arithmetic",
+      "from_id": 1,
+      "type": "dataflow",
+      "reason": "_taxPercision used in setTax bound arithmetic"
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 18,
+      "type": "dataflow",
+      "reason": "validated newTax value is stored into _taxTotal"
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "from_id": 15,
+      "type": "dataflow",
+      "reason": "addToWhitelist is protected by onlyOwner comparing owner to msg.sender"
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 24,
+      "type": "dataflow",
+      "reason": "list parameter selects the whitelist mapping key"
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 25,
+      "type": "dataflow",
+      "reason": "wallet parameter is the address added to the whitelist"
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "dataflow",
+      "reason": "addToWhitelist writes the _whitelists mapping"
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "access_control",
+      "from_id": 15,
+      "type": "dataflow",
+      "reason": "removeFromWhitelist is protected by onlyOwner comparing owner to msg.sender"
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 24,
+      "type": "dataflow",
+      "reason": "list parameter selects the whitelist mapping key to clear"
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 25,
+      "type": "dataflow",
+      "reason": "wallet parameter is the address removed from the whitelist"
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "dataflow",
+      "reason": "removeFromWhitelist writes the _whitelists mapping"
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "access_control",
+      "from_id": 15,
+      "type": "dataflow",
+      "reason": "withdrawTaxes is protected by onlyOwner comparing owner to msg.sender"
+    },
+    {
+      "to_id": 19,
+      "vuln_type": "none",
+      "from_id": 10,
+      "type": "controlflow",
+      "reason": "withdrawTaxes executes the balance transfer operation"
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "reentrancy",
+      "from_id": 19,
+      "type": "controlflow",
+      "reason": "withdrawTaxes transfers the full contract balance to the owner prior to any state finalization"
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "reentrancy",
+      "from_id": 10,
+      "type": "controlflow",
+      "reason": "withdrawTaxes performs an internal _transfer to msg.sender"
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "from_id": 15,
+      "type": "dataflow",
+      "reason": "constructor mints the initial supply to msg.sender"
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "none",
+      "from_id": 11,
+      "type": "controlflow",
+      "reason": "constructor calls _mint for the deployer"
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "from_id": 13,
+      "type": "controlflow",
+      "reason": "_mint updates balances consistent with _transfer accounting"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "param_from",
+      "merge_into": "fn_transferFrom",
+      "reason": "from parameter is only meaningful within transferFrom transfer flow"
+    },
+    {
+      "normal_node": "param_to",
+      "merge_into": "fn_transferFrom",
+      "reason": "to parameter is a destination address consumed by transferFrom"
+    },
+    {
+      "normal_node": "param_amount",
+      "merge_into": "fn_transferFrom",
+      "reason": "amount parameter feeds the transferFrom tax computation and transfer"
+    },
+    {
+      "normal_node": "param_newTax",
+      "merge_into": "fn_setTax",
+      "reason": "newTax parameter is consumed and validated only by setTax"
+    },
+    {
+      "normal_node": "param_list",
+      "merge_into": "fn_addToWhitelist",
+      "reason": "list parameter selects the whitelist key in addToWhitelist"
+    },
+    {
+      "normal_node": "param_wallet",
+      "merge_into": "fn_addToWhitelist",
+      "reason": "wallet parameter is the address keyed in addToWhitelist"
+    },
+    {
+      "normal_node": "local_spender",
+      "merge_into": "fn_transferFrom",
+      "reason": "spender local is assigned from msg.sender and used only in transferFrom"
+    },
+    {
+      "normal_node": "local_tax",
+      "merge_into": "fn_transferFrom",
+      "reason": "tax local is computed and consumed within the transferFrom tax flow"
+    },
+    {
+      "normal_node": "local_owner",
+      "merge_into": "fn_transfer",
+      "reason": "owner local is assigned from msg.sender and used only in transfer"
+    }
+  ]
+}

@@ -1,0 +1,245 @@
+{
+  "nodes": [
+    {
+      "description": "ERC20 token contract being held by the TokenTimelock",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "_token"
+    },
+    {
+      "description": "Address of the beneficiary that receives tokens after release",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "_beneficiary"
+    },
+    {
+      "description": "Timestamp when token release becomes enabled",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 2,
+      "id": "_releaseTime"
+    },
+    {
+      "description": "Constructor of TokenTimelock that validates releaseTime against block.timestamp and stores token, beneficiary and releaseTime",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "TokenTimelock.constructor"
+    },
+    {
+      "description": "View getter returning the held token",
+      "is_core": true,
+      "type": "function",
+      "node_id": 4,
+      "id": "token()"
+    },
+    {
+      "description": "View getter returning the beneficiary",
+      "is_core": true,
+      "type": "function",
+      "node_id": 5,
+      "id": "beneficiary()"
+    },
+    {
+      "description": "View getter returning the release time",
+      "is_core": true,
+      "type": "function",
+      "node_id": 6,
+      "id": "releaseTime()"
+    },
+    {
+      "description": "Transfers all held tokens to the beneficiary once the release time has passed",
+      "is_core": true,
+      "type": "function",
+      "node_id": 7,
+      "id": "release()"
+    },
+    {
+      "description": "Constructor of CATXTimeLock that forwards token, beneficiary and releaseTime to the TokenTimelock base constructor",
+      "is_core": true,
+      "type": "function",
+      "node_id": 8,
+      "id": "CATXTimeLock.constructor"
+    },
+    {
+      "description": "Block timestamp used for time-based release checks",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 9,
+      "id": "block.timestamp"
+    },
+    {
+      "description": "SafeERC20 external token transfer that hands control to the token contract and transfers funds to the beneficiary",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 10,
+      "id": "safeTransfer"
+    },
+    {
+      "description": "Constructor parameter for the ERC20 token address",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 11,
+      "id": "token"
+    },
+    {
+      "description": "Constructor parameter for the beneficiary address",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 12,
+      "id": "beneficiary"
+    },
+    {
+      "description": "Constructor parameter for the release timestamp",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 13,
+      "id": "releaseTime"
+    },
+    {
+      "description": "Local variable holding the token balance to be released",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 14,
+      "id": "amount"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor parameter token is assigned to the _token state variable",
+      "from_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "Constructor parameter beneficiary is assigned to the _beneficiary state variable",
+      "from_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "Constructor parameter releaseTime is assigned to the _releaseTime state variable",
+      "from_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "Constructor requires releaseTime > block.timestamp, making it dependent on miner-controllable timestamp",
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 3
+    },
+    {
+      "reason": "release() requires block.timestamp >= _releaseTime, a timestamp dependency gating the release",
+      "from_id": 9,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 7
+    },
+    {
+      "reason": "release() reads the _releaseTime state variable to gate the transfer",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "Local variable amount is set from _token.balanceOf(address(this))",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 14
+    },
+    {
+      "reason": "The _token state variable is used as the target of the safeTransfer operation",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 10
+    },
+    {
+      "reason": "The local amount variable is passed as the value to safeTransfer",
+      "from_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 10
+    },
+    {
+      "reason": "The beneficiary that receives the external token transfer is an attacker-influenceable recipient",
+      "from_id": 1,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 10
+    },
+    {
+      "reason": "release() performs the external safeTransfer call before the transaction completes",
+      "from_id": 7,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 10
+    },
+    {
+      "reason": "The external token transfer hands control to an external contract that could re-enter release()",
+      "from_id": 10,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 7
+    },
+    {
+      "reason": "CATXTimeLock constructor invokes the TokenTimelock base constructor",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 3
+    },
+    {
+      "reason": "token() returns the _token state variable",
+      "from_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 4
+    },
+    {
+      "reason": "beneficiary() returns the _beneficiary state variable",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "releaseTime() returns the _releaseTime state variable",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The token constructor parameter has no standalone semantic value and should be absorbed into the TokenTimelock constructor that consumes it",
+      "normal_node": "token",
+      "merge_into": "TokenTimelock.constructor"
+    },
+    {
+      "reason": "The beneficiary constructor parameter only feeds the constructor assignment and should be merged into the TokenTimelock constructor",
+      "normal_node": "beneficiary",
+      "merge_into": "TokenTimelock.constructor"
+    },
+    {
+      "reason": "The releaseTime constructor parameter only feeds the constructor assignment and timestamp check and should be merged into the TokenTimelock constructor",
+      "normal_node": "releaseTime",
+      "merge_into": "TokenTimelock.constructor"
+    },
+    {
+      "reason": "The local amount variable exists only to be passed into the safeTransfer unsafe operation and should be merged into it",
+      "normal_node": "amount",
+      "merge_into": "safeTransfer"
+    }
+  ]
+}

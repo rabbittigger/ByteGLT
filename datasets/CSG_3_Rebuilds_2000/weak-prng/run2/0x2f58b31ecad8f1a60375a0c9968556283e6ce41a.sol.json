@@ -1,0 +1,273 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Address of the contract owner stored in state (Owned.owner).",
+      "is_core": true,
+      "node_id": 0,
+      "id": "OWNED.owner"
+    },
+    {
+      "type": "state_var",
+      "description": "Last block number recorded during Play; used by protect_mining anti-miner check.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "OWNED.last_blocknumber"
+    },
+    {
+      "type": "state_var",
+      "description": "Constant magic = 5 used for max bet divisor and modulo payout condition.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "GAMBLE.magic"
+    },
+    {
+      "type": "function",
+      "description": "Constructor of Owned that sets owner = msg.sender.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "Owned.Owned"
+    },
+    {
+      "type": "function",
+      "description": "Modifier restricting execution to msg.sender == owner.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "Owned.onlyOwner"
+    },
+    {
+      "type": "function",
+      "description": "Public view returning address(this).balance.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "Owned.getBalance"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner function that destroys the contract and sends funds to msg.sender.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "Owned.close"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Irreversible selfdestruct call transferring the whole balance.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "selfdestruct"
+    },
+    {
+      "type": "function",
+      "description": "Public view returning getBalance()/magic, the maximum allowed bet.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "Gamble.getMaxBet"
+    },
+    {
+      "type": "function",
+      "description": "Payable game entry point guarded by protect and protect_mining; pays out on now % magic != 0 and records block.number.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "Gamble.Play"
+    },
+    {
+      "type": "function",
+      "description": "Modifier requiring tx.origin == msg.sender.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "Gamble.protect"
+    },
+    {
+      "type": "function",
+      "description": "Modifier requiring block.number != last_blocknumber as weak miner protection.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "Gamble.protect_mining"
+    },
+    {
+      "type": "function",
+      "description": "Payable fallback function that forwards to Play().",
+      "is_core": true,
+      "node_id": 12,
+      "id": "Gamble.fallback"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used for ownership, origin check, and ether transfers.",
+      "is_core": true,
+      "node_id": 13,
+      "id": "msg.sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Transaction origin used by the protect modifier for the tx.origin == msg.sender check.",
+      "is_core": true,
+      "node_id": 14,
+      "id": "tx.origin"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "now / block.timestamp used to decide whether the player wins (now % magic != 0).",
+      "is_core": true,
+      "node_id": 15,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External ether transfer msg.sender.transfer(msg.value + msg.value/magic) executed before state update.",
+      "is_core": true,
+      "node_id": 16,
+      "id": "transfer"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "Constructor writes msg.sender into the owner state variable.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "msg.sender is read to initialize owner during construction.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "onlyOwner compares msg.sender against the stored owner to gate privileged functions.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 4,
+      "type": "controlflow",
+      "reason": "close() is guarded by the onlyOwner modifier.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "controlflow",
+      "reason": "close() executes selfdestruct(msg.sender) after the onlyOwner check.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "selfdestruct forwards the contract balance to msg.sender.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "Play reads msg.sender and msg.value as the player and wager.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "controlflow",
+      "reason": "Play calls getMaxBet() to validate the bet size.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "controlflow",
+      "reason": "getMaxBet calls getBalance() to read the contract balance.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "getMaxBet divides the balance by the magic constant.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "Play branches on now (block.timestamp) modulo magic, creating timestamp/outcome dependency.",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "Play uses the magic constant in the now % magic payout condition.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 16,
+      "type": "controlflow",
+      "reason": "Play performs an external ether transfer before writing last_blocknumber, violating checks-effects-interactions.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "transfer sends ether to the untrusted msg.sender via an external call before state is updated.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "Play writes block.number into last_blocknumber after the payout transfer.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "protect_mining reads last_blocknumber for the anti-miner comparison.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "controlflow",
+      "reason": "Play is guarded by the protect_mining modifier.",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "protect compares the untrusted tx.origin with msg.sender.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "protect compares tx.origin with the untrusted msg.sender.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 9,
+      "type": "controlflow",
+      "reason": "Play is guarded by the protect modifier enforcing tx.origin == msg.sender.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "controlflow",
+      "reason": "The payable fallback function invokes Play().",
+      "from_id": 12
+    }
+  ],
+  "normalization_plan": []
+}

@@ -1,0 +1,186 @@
+{
+  "nodes": [
+    {
+      "id": "done",
+      "description": "Public boolean state variable acting as a one-time execution guard for the spell.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "description",
+      "description": "Constant string describing the Tinlake CF4 Mainnet Spell - 3.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "ROOT",
+      "description": "Constant address of the Tinlake root contract (0x4B6CA198d257D755A5275648D471FE09931b764A).",
+      "is_core": true,
+      "node_id": 2,
+      "type": "state_var"
+    },
+    {
+      "id": "NAV_FEED",
+      "description": "Constant address of the NAV feed contract (0xcAB9ed8e5EF4607A97f4e22Ad1D984ADB93ce890).",
+      "is_core": true,
+      "node_id": 3,
+      "type": "state_var"
+    },
+    {
+      "id": "ONE",
+      "description": "Constant uint256 scaling factor 10**27 used for risk group ratios.",
+      "is_core": true,
+      "node_id": 4,
+      "type": "state_var"
+    },
+    {
+      "id": "self",
+      "description": "Address state variable set to address(this) so the spell can be relied on the root contract.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "state_var"
+    },
+    {
+      "id": "cast",
+      "description": "Public entry point guarded by the done flag; marks the spell cast and invokes execute().",
+      "is_core": true,
+      "node_id": 6,
+      "type": "function"
+    },
+    {
+      "id": "execute",
+      "description": "Internal function that relies the spell on the root and files new risk groups on the NAV feed.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "function"
+    },
+    {
+      "id": "root",
+      "description": "Local TinlakeRootLike instance bound to the ROOT constant address.",
+      "is_core": false,
+      "node_id": 8,
+      "type": "local_var"
+    },
+    {
+      "id": "navFeed",
+      "description": "Local NAVFeedLike instance bound to the NAV_FEED constant address.",
+      "is_core": false,
+      "node_id": 9,
+      "type": "local_var"
+    },
+    {
+      "id": "relyContractCall",
+      "description": "External call root.relyContract(NAV_FEED, self) granting the spell privileged access on the NAV feed.",
+      "is_core": true,
+      "node_id": 10,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "fileRiskGroupCall",
+      "description": "External calls navFeed.file(...) writing new risk group parameters (groups 6-10).",
+      "is_core": true,
+      "node_id": 11,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "cast() reads and writes the done guard before executing, providing reentrancy protection context.",
+      "to_id": 0,
+      "vuln_type": "reentrancy",
+      "from_id": 6,
+      "type": "controlflow"
+    },
+    {
+      "reason": "cast() invokes execute() after setting the done flag.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "controlflow"
+    },
+    {
+      "reason": "execute() assigns the ROOT constant into the root local variable.",
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "execute() assigns the NAV_FEED constant into the navFeed local variable.",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "execute() sets self = address(this) stored in state.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "ROOT constant address flows into the root local variable.",
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "NAV_FEED constant address flows into the navFeed local variable.",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "root local is the receiver of the privileged relyContract call.",
+      "to_id": 10,
+      "vuln_type": "access_control",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "self address is passed as the authorized contract in relyContract.",
+      "to_id": 10,
+      "vuln_type": "access_control",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "NAV_FEED address is passed to relyContract to determine which contract gets the new privilege.",
+      "to_id": 10,
+      "vuln_type": "access_control",
+      "from_id": 3,
+      "type": "dataflow"
+    },
+    {
+      "reason": "navFeed local is the receiver of the file(...) risk group writes.",
+      "to_id": 11,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "ONE constant feeds ratio arguments in the risk group file calls.",
+      "to_id": 11,
+      "vuln_type": "arithmetic",
+      "from_id": 4,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Temporary local alias for the ROOT constant created inside execute(); it carries no independent state and only feeds the relyContract unsafe operation.",
+      "normal_node": "root",
+      "merge_into": "execute"
+    },
+    {
+      "reason": "Temporary local alias for the NAV_FEED constant created inside execute(); it carries no independent state and only feeds the file(...) risk group calls.",
+      "normal_node": "navFeed",
+      "merge_into": "execute"
+    }
+  ]
+}

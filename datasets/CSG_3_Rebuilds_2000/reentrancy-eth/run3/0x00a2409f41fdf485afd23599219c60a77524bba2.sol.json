@@ -1,0 +1,783 @@
+{
+  "nodes": [
+    {
+      "id": "balances",
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Mapping address => uint256 tracking ETH deposited before tokens were bought.",
+      "is_core": true
+    },
+    {
+      "id": "balances_after_buy",
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Mapping address => uint256 tracking ETH sent after the token purchase (refund tracking).",
+      "is_core": true
+    },
+    {
+      "id": "bought_tokens",
+      "node_id": 2,
+      "type": "state_var",
+      "description": "Boolean flag indicating the contract already forwarded ETH to the sale.",
+      "is_core": true
+    },
+    {
+      "id": "token_set",
+      "node_id": 3,
+      "type": "state_var",
+      "description": "Boolean flag indicating the ERC20 token address has been configured.",
+      "is_core": true
+    },
+    {
+      "id": "refunded",
+      "node_id": 4,
+      "type": "state_var",
+      "description": "Boolean flag indicating Enjin refunded the contributed ETH.",
+      "is_core": true
+    },
+    {
+      "id": "contract_eth_value",
+      "node_id": 5,
+      "type": "state_var",
+      "description": "Total ETH value the contract contributed to the sale; used as denominator in token math.",
+      "is_core": true
+    },
+    {
+      "id": "kill_switch",
+      "node_id": 6,
+      "type": "state_var",
+      "description": "Boolean flag that disables purchases.",
+      "is_core": true
+    },
+    {
+      "id": "password_hash",
+      "node_id": 7,
+      "type": "state_var",
+      "description": "Hardcoded keccak256 hash used as an alternative authentication secret.",
+      "is_core": true
+    },
+    {
+      "id": "developer",
+      "node_id": 8,
+      "type": "state_var",
+      "description": "Privileged developer address (default 0x0639C169D9265Ca4B4DEce693764CdA8ea5F3882).",
+      "is_core": true
+    },
+    {
+      "id": "sale",
+      "node_id": 9,
+      "type": "state_var",
+      "description": "Address of the Enjin sale multisig that receives the contributed ETH.",
+      "is_core": true
+    },
+    {
+      "id": "token",
+      "node_id": 10,
+      "type": "state_var",
+      "description": "ERC20 instance used for token distribution.",
+      "is_core": true
+    },
+    {
+      "id": "eth_minimum",
+      "node_id": 11,
+      "type": "state_var",
+      "description": "Minimum ETH required (3235 ether) before the buy is triggered.",
+      "is_core": true
+    },
+    {
+      "id": "set_token",
+      "node_id": 12,
+      "type": "function",
+      "description": "Developer-only function that sets the token contract address.",
+      "is_core": true
+    },
+    {
+      "id": "set_refunded",
+      "node_id": 13,
+      "type": "function",
+      "description": "Developer-only function that toggles the refunded flag.",
+      "is_core": true
+    },
+    {
+      "id": "activate_kill_switch",
+      "node_id": 14,
+      "type": "function",
+      "description": "Enables the kill switch; callable by developer or by presenting a password matching password_hash.",
+      "is_core": true
+    },
+    {
+      "id": "personal_withdraw",
+      "node_id": 15,
+      "type": "function",
+      "description": "Withdraws ETH or proportional tokens for msg.sender based on recorded balances.",
+      "is_core": true
+    },
+    {
+      "id": "withdraw_token",
+      "node_id": 16,
+      "type": "function",
+      "description": "Withdraws using a caller-supplied token address instead of the configured one.",
+      "is_core": true
+    },
+    {
+      "id": "purchase_tokens",
+      "node_id": 17,
+      "type": "function",
+      "description": "Developer-only function forwarding the whole balance to the sale.",
+      "is_core": true
+    },
+    {
+      "id": "fallback",
+      "node_id": 18,
+      "type": "function",
+      "description": "Payable fallback recording deposits or after-buy refunds and triggering the buy.",
+      "is_core": true
+    },
+    {
+      "id": "msg.sender",
+      "node_id": 19,
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used for authentication, balance accounting and refund destination.",
+      "is_core": true
+    },
+    {
+      "id": "sale_low_level_call_purchase",
+      "node_id": 20,
+      "type": "unsafe_operation",
+      "description": "sale.call.value(contract_eth_value)() forwarding all ETH via a low-level call in purchase_tokens.",
+      "is_core": true
+    },
+    {
+      "id": "sale_low_level_call_fallback",
+      "node_id": 21,
+      "type": "unsafe_operation",
+      "description": "sale.call.value(contract_eth_value)() forwarding all ETH via a low-level call inside the fallback.",
+      "is_core": true
+    },
+    {
+      "id": "transfer_eth_personal_withdraw",
+      "node_id": 22,
+      "type": "unsafe_operation",
+      "description": "msg.sender.transfer(...) sending ETH out in personal_withdraw.",
+      "is_core": true
+    },
+    {
+      "id": "token_transfer_personal_withdraw",
+      "node_id": 23,
+      "type": "unsafe_operation",
+      "description": "token.transfer(...) calls distributing tokens and the developer fee in personal_withdraw.",
+      "is_core": true
+    },
+    {
+      "id": "transfer_eth_withdraw_token",
+      "node_id": 24,
+      "type": "unsafe_operation",
+      "description": "msg.sender.transfer(...) sending ETH out in withdraw_token.",
+      "is_core": true
+    },
+    {
+      "id": "token_transfer_withdraw_token",
+      "node_id": 25,
+      "type": "unsafe_operation",
+      "description": "myToken.transfer(...) calls distributing tokens and the developer fee in withdraw_token.",
+      "is_core": true
+    },
+    {
+      "id": "param_set_token__token",
+      "node_id": 26,
+      "type": "parameter",
+      "description": "Parameter _token of set_token: the ERC20 address to register.",
+      "is_core": false
+    },
+    {
+      "id": "param_set_refunded__refunded",
+      "node_id": 27,
+      "type": "parameter",
+      "description": "Parameter _refunded of set_refunded: new value of the refunded flag.",
+      "is_core": false
+    },
+    {
+      "id": "param_activate_kill_switch_password",
+      "node_id": 28,
+      "type": "parameter",
+      "description": "Parameter password of activate_kill_switch: pre-image expected to hash to password_hash.",
+      "is_core": false
+    },
+    {
+      "id": "param_withdraw_token__token",
+      "node_id": 29,
+      "type": "parameter",
+      "description": "Parameter _token of withdraw_token: caller-supplied ERC20 address.",
+      "is_core": false
+    },
+    {
+      "id": "local_personal_withdraw_eth_to_withdraw_after_buy",
+      "node_id": 30,
+      "type": "local_var",
+      "description": "Local eth_to_withdraw_after_buy in personal_withdraw, snapshot of the post-buy balance.",
+      "is_core": false
+    },
+    {
+      "id": "local_personal_withdraw_eth_to_withdraw",
+      "node_id": 31,
+      "type": "local_var",
+      "description": "Local eth_to_withdraw in personal_withdraw, snapshot of the pre-buy balance.",
+      "is_core": false
+    },
+    {
+      "id": "local_personal_withdraw_contract_token_balance",
+      "node_id": 32,
+      "type": "local_var",
+      "description": "Local contract_token_balance in personal_withdraw, token balance of the contract.",
+      "is_core": false
+    },
+    {
+      "id": "local_personal_withdraw_tokens_to_withdraw",
+      "node_id": 33,
+      "type": "local_var",
+      "description": "Local tokens_to_withdraw in personal_withdraw, proportional token amount.",
+      "is_core": false
+    },
+    {
+      "id": "local_personal_withdraw_fee",
+      "node_id": 34,
+      "type": "local_var",
+      "description": "Local fee in personal_withdraw, 1% developer fee.",
+      "is_core": false
+    },
+    {
+      "id": "local_withdraw_token_myToken",
+      "node_id": 35,
+      "type": "local_var",
+      "description": "Local myToken in withdraw_token, the caller-supplied ERC20 instance.",
+      "is_core": false
+    },
+    {
+      "id": "local_withdraw_token_eth_to_withdraw_after_buy",
+      "node_id": 36,
+      "type": "local_var",
+      "description": "Local eth_to_withdraw_after_buy in withdraw_token.",
+      "is_core": false
+    },
+    {
+      "id": "local_withdraw_token_eth_to_withdraw",
+      "node_id": 37,
+      "type": "local_var",
+      "description": "Local eth_to_withdraw in withdraw_token.",
+      "is_core": false
+    },
+    {
+      "id": "local_withdraw_token_contract_token_balance",
+      "node_id": 38,
+      "type": "local_var",
+      "description": "Local contract_token_balance in withdraw_token.",
+      "is_core": false
+    },
+    {
+      "id": "local_withdraw_token_tokens_to_withdraw",
+      "node_id": 39,
+      "type": "local_var",
+      "description": "Local tokens_to_withdraw in withdraw_token.",
+      "is_core": false
+    },
+    {
+      "id": "local_withdraw_token_fee",
+      "node_id": 40,
+      "type": "local_var",
+      "description": "Local fee in withdraw_token, 1% developer fee.",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 15,
+      "reason": "msg.sender determines balances read and is the ETH transfer recipient in personal_withdraw, enabling re-entrant withdraw calls before accounting settles.",
+      "type": "dataflow",
+      "from_id": 19,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 16,
+      "reason": "msg.sender selects the balance and receives ETH/tokens in withdraw_token.",
+      "type": "dataflow",
+      "from_id": 19,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 18,
+      "reason": "msg.sender indexes balances/balances_after_buy and can trigger the low-level call in the fallback.",
+      "type": "dataflow",
+      "from_id": 19,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 17,
+      "reason": "purchase_tokens requires msg.sender == developer, an authentication check on caller input.",
+      "type": "dataflow",
+      "from_id": 19,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 12,
+      "reason": "set_token requires msg.sender == developer; developer value gates authorization.",
+      "type": "controlflow",
+      "from_id": 8,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 13,
+      "reason": "set_refunded requires msg.sender == developer.",
+      "type": "controlflow",
+      "from_id": 8,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 14,
+      "reason": "activate_kill_switch allows msg.sender == developer or a password hash match.",
+      "type": "controlflow",
+      "from_id": 8,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 20,
+      "reason": "msg.sender must equal developer before the low-level sale call executes in purchase_tokens.",
+      "type": "dataflow",
+      "from_id": 19,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 10,
+      "reason": "set_token writes the token state variable.",
+      "type": "dataflow",
+      "from_id": 12,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 3,
+      "reason": "set_token writes token_set = true.",
+      "type": "dataflow",
+      "from_id": 12,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 4,
+      "reason": "set_refunded writes the refunded state variable.",
+      "type": "dataflow",
+      "from_id": 13,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 6,
+      "reason": "activate_kill_switch writes kill_switch = true.",
+      "type": "dataflow",
+      "from_id": 14,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 14,
+      "reason": "password_hash is compared against sha3(password) in activate_kill_switch.",
+      "type": "dataflow",
+      "from_id": 7,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 15,
+      "reason": "contract_eth_value is the divisor in token math and is decremented, risking division by zero / underflow.",
+      "type": "dataflow",
+      "from_id": 5,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 15,
+      "reason": "personal_withdraw reads and zeroes balances_after_buy before an ETH transfer.",
+      "type": "dataflow",
+      "from_id": 1,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 15,
+      "reason": "balances[msg.sender] is read, multiplied and used as an operand, risking overflow/underflow.",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 15,
+      "reason": "personal_withdraw branches on bought_tokens.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 15,
+      "reason": "personal_withdraw branches on refunded.",
+      "type": "dataflow",
+      "from_id": 4,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 15,
+      "reason": "personal_withdraw requires token_set before token distribution.",
+      "type": "dataflow",
+      "from_id": 3,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 15,
+      "reason": "personal_withdraw calls token.balanceOf and token.transfer on the configured token.",
+      "type": "dataflow",
+      "from_id": 10,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 22,
+      "reason": "personal_withdraw performs msg.sender.transfer, an external value transfer.",
+      "type": "controlflow",
+      "from_id": 15,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 23,
+      "reason": "personal_withdraw performs token.transfer calls to developer and msg.sender.",
+      "type": "controlflow",
+      "from_id": 15,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "withdraw_token reads and zeroes balances_after_buy before an ETH transfer.",
+      "type": "dataflow",
+      "from_id": 1,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 16,
+      "reason": "balances[msg.sender] is used in multiplication and subtraction in withdraw_token.",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 16,
+      "reason": "withdraw_token branches on bought_tokens.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "withdraw_token branches on refunded.",
+      "type": "dataflow",
+      "from_id": 4,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "contract_eth_value is the divisor and is decremented in withdraw_token.",
+      "type": "dataflow",
+      "from_id": 5,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 24,
+      "reason": "withdraw_token performs msg.sender.transfer, an external value transfer.",
+      "type": "controlflow",
+      "from_id": 16,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 25,
+      "reason": "withdraw_token performs myToken.transfer calls to developer and msg.sender.",
+      "type": "controlflow",
+      "from_id": 16,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "purchase_tokens requires sale != 0 and calls sale.",
+      "type": "dataflow",
+      "from_id": 9,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "purchase_tokens compares this.balance against eth_minimum.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "purchase_tokens sets bought_tokens = true.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "purchase_tokens sets contract_eth_value = this.balance.",
+      "type": "dataflow",
+      "from_id": 5,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "purchase_tokens returns early when kill_switch is set.",
+      "type": "dataflow",
+      "from_id": 6,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 20,
+      "reason": "purchase_tokens executes a low-level value call to sale, an external interaction point.",
+      "type": "controlflow",
+      "from_id": 17,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 18,
+      "reason": "fallback uses sale for comparison and as the call target.",
+      "type": "dataflow",
+      "from_id": 9,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 18,
+      "reason": "fallback compares this.balance against eth_minimum.",
+      "type": "dataflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 18,
+      "reason": "fallback branches on and sets bought_tokens.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 18,
+      "reason": "fallback sets and reads contract_eth_value.",
+      "type": "dataflow",
+      "from_id": 5,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 18,
+      "reason": "fallback returns early when kill_switch is set.",
+      "type": "dataflow",
+      "from_id": 6,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 18,
+      "reason": "fallback sets refunded = true when the sale refunds.",
+      "type": "dataflow",
+      "from_id": 4,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 21,
+      "reason": "fallback executes a low-level value call to sale, an external interaction point reachable by any depositor.",
+      "type": "controlflow",
+      "from_id": 18,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 12,
+      "reason": "Parameter _token feeds set_token.",
+      "type": "dataflow",
+      "from_id": 26,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 13,
+      "reason": "Parameter _refunded feeds set_refunded.",
+      "type": "dataflow",
+      "from_id": 27,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 14,
+      "reason": "Parameter password feeds activate_kill_switch hashing.",
+      "type": "dataflow",
+      "from_id": 28,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "Parameter _token feeds withdraw_token.",
+      "type": "dataflow",
+      "from_id": 29,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "_token is cast to ERC20 and stored into token.",
+      "type": "dataflow",
+      "from_id": 26,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 35,
+      "reason": "_token is cast into the myToken local in withdraw_token.",
+      "type": "dataflow",
+      "from_id": 29,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 30,
+      "reason": "personal_withdraw declares eth_to_withdraw_after_buy.",
+      "type": "dataflow",
+      "from_id": 15,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 31,
+      "reason": "personal_withdraw declares eth_to_withdraw.",
+      "type": "dataflow",
+      "from_id": 15,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 32,
+      "reason": "personal_withdraw declares contract_token_balance.",
+      "type": "dataflow",
+      "from_id": 15,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 33,
+      "reason": "personal_withdraw declares tokens_to_withdraw.",
+      "type": "dataflow",
+      "from_id": 15,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 34,
+      "reason": "personal_withdraw declares fee.",
+      "type": "dataflow",
+      "from_id": 15,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 35,
+      "reason": "withdraw_token declares myToken.",
+      "type": "dataflow",
+      "from_id": 16,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 36,
+      "reason": "withdraw_token declares eth_to_withdraw_after_buy.",
+      "type": "dataflow",
+      "from_id": 16,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 37,
+      "reason": "withdraw_token declares eth_to_withdraw.",
+      "type": "dataflow",
+      "from_id": 16,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 38,
+      "reason": "withdraw_token declares contract_token_balance.",
+      "type": "dataflow",
+      "from_id": 16,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 39,
+      "reason": "withdraw_token declares tokens_to_withdraw.",
+      "type": "dataflow",
+      "from_id": 16,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 40,
+      "reason": "withdraw_token declares fee.",
+      "type": "dataflow",
+      "from_id": 16,
+      "vuln_type": "none"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "set_token",
+      "reason": "Local input parameter only meaningful for the set_token authorization flow and its token assignment.",
+      "normal_node": "param_set_token__token"
+    },
+    {
+      "merge_into": "set_refunded",
+      "reason": "Parameter exists only to set the refunded state variable inside set_refunded.",
+      "normal_node": "param_set_refunded__refunded"
+    },
+    {
+      "merge_into": "activate_kill_switch",
+      "reason": "Password pre-image is consumed only by the hash check in activate_kill_switch.",
+      "normal_node": "param_activate_kill_switch_password"
+    },
+    {
+      "merge_into": "withdraw_token",
+      "reason": "Caller-supplied token address is only used by the withdraw_token distribution logic.",
+      "normal_node": "param_withdraw_token__token"
+    },
+    {
+      "merge_into": "personal_withdraw",
+      "reason": "Temporary snapshot variable of the personal_withdraw withdrawal flow.",
+      "normal_node": "local_personal_withdraw_eth_to_withdraw_after_buy"
+    },
+    {
+      "merge_into": "transfer_eth_personal_withdraw",
+      "reason": "Value immediately transferred out via msg.sender.transfer in personal_withdraw.",
+      "normal_node": "local_personal_withdraw_eth_to_withdraw"
+    },
+    {
+      "merge_into": "personal_withdraw",
+      "reason": "Intermediate balance used for the proportional token calculation.",
+      "normal_node": "local_personal_withdraw_contract_token_balance"
+    },
+    {
+      "merge_into": "token_transfer_personal_withdraw",
+      "reason": "Computed amount is directly transferred by the token transfers in personal_withdraw.",
+      "normal_node": "local_personal_withdraw_tokens_to_withdraw"
+    },
+    {
+      "merge_into": "token_transfer_personal_withdraw",
+      "reason": "Fee amount is transferred to the developer by token.transfer in personal_withdraw.",
+      "normal_node": "local_personal_withdraw_fee"
+    },
+    {
+      "merge_into": "withdraw_token",
+      "reason": "Caller-supplied ERC20 instance used only by withdraw_token.",
+      "normal_node": "local_withdraw_token_myToken"
+    },
+    {
+      "merge_into": "withdraw_token",
+      "reason": "Temporary snapshot variable of the withdraw_token withdrawal flow.",
+      "normal_node": "local_withdraw_token_eth_to_withdraw_after_buy"
+    },
+    {
+      "merge_into": "transfer_eth_withdraw_token",
+      "reason": "Value immediately transferred out via msg.sender.transfer in withdraw_token.",
+      "normal_node": "local_withdraw_token_eth_to_withdraw"
+    },
+    {
+      "merge_into": "withdraw_token",
+      "reason": "Intermediate balance used for the proportional token calculation.",
+      "normal_node": "local_withdraw_token_contract_token_balance"
+    },
+    {
+      "merge_into": "token_transfer_withdraw_token",
+      "reason": "Computed amount is directly transferred by the token transfers in withdraw_token.",
+      "normal_node": "local_withdraw_token_tokens_to_withdraw"
+    },
+    {
+      "merge_into": "token_transfer_withdraw_token",
+      "reason": "Fee amount is transferred to the developer by myToken.transfer in withdraw_token.",
+      "normal_node": "local_withdraw_token_fee"
+    }
+  ]
+}

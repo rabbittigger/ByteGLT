@@ -1,0 +1,168 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Storage slot keccak256('PROXIABLE') = 0xc5f16f0fcc639fa48a6947836d9850f504798523bf8c9a3a87d5876cf622bcf7 holding the implementation/logic contract address used by the proxy.",
+      "is_core": true,
+      "id": "logicAddress"
+    },
+    {
+      "node_id": 1,
+      "type": "function",
+      "description": "Constructor(bytes constructData, address contractLogic) that writes contractLogic into the PROXIABLE slot with assembly sstore and then delegatecalls constructData on contractLogic, requiring success.",
+      "is_core": true,
+      "id": "constructor"
+    },
+    {
+      "node_id": 2,
+      "type": "function",
+      "description": "External payable fallback() that loads the logic address from the PROXIABLE slot and forwards all calldata via raw assembly delegatecall, reverting or returning the raw returndata.",
+      "is_core": true,
+      "id": "fallback"
+    },
+    {
+      "node_id": 3,
+      "type": "parameter",
+      "description": "Bytes memory constructor parameter containing the initialization calldata that is forwarded to the logic contract through delegatecall.",
+      "is_core": false,
+      "id": "constructData"
+    },
+    {
+      "node_id": 4,
+      "type": "parameter",
+      "description": "Address constructor parameter naming the logic/implementation contract; it is both stored as logicAddress and used as the delegatecall target.",
+      "is_core": false,
+      "id": "contractLogic"
+    },
+    {
+      "node_id": 5,
+      "type": "local_var",
+      "description": "Boolean local holding the success flag returned by the constructor delegatecall, later used in require(success, \"Construction failed\").",
+      "is_core": false,
+      "id": "success"
+    },
+    {
+      "node_id": 6,
+      "type": "local_var",
+      "description": "Unnamed bytes memory local ('__') capturing the returndata of the constructor delegatecall; it is never used.",
+      "is_core": false,
+      "id": "unusedReturndata"
+    },
+    {
+      "node_id": 7,
+      "type": "unsafe_operation",
+      "description": "Assembly sstore writing contractLogic to the fixed PROXIABLE slot 0xc5f16f0fcc639fa48a6947836d9850f504798523bf8c9a3a87d5876cf622bcf7, bypassing Solidity storage layout checks.",
+      "is_core": true,
+      "id": "sstore_logic_slot"
+    },
+    {
+      "node_id": 8,
+      "type": "unsafe_operation",
+      "description": "Raw delegatecall performed in the constructor to contractLogic with attacker-supplied constructData, executing untrusted code in the context of the proxy and its storage.",
+      "is_core": true,
+      "id": "delegatecall_constructor"
+    },
+    {
+      "node_id": 9,
+      "type": "unsafe_operation",
+      "description": "Unchecked assembly delegatecall in the fallback that forwards msg.data (calldatacopy) to the logic address loaded from storage, giving arbitrary external code full control of proxy storage.",
+      "is_core": true,
+      "id": "delegatecall_fallback"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "The constructor executes the assembly sstore that persists contractLogic into the PROXIABLE slot.",
+      "from_id": 1
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The contractLogic parameter value is the data written by the sstore into the logic address slot.",
+      "from_id": 4
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The contractLogic parameter is used as the delegatecall target in the constructor.",
+      "from_id": 4
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The constructData parameter is the calldata passed to the constructor delegatecall.",
+      "from_id": 3
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "The constructor performs the delegatecall to the logic contract to initialize state.",
+      "from_id": 1
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The success flag of the constructor delegatecall is returned into the success local variable.",
+      "from_id": 8
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The returndata of the constructor delegatecall is captured into the unused bytes local.",
+      "from_id": 8
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "contractLogic is persisted into the logicAddress state variable slot.",
+      "from_id": 4
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "reason": "The fallback sloads the logic address from storage and uses it as the delegatecall target, letting untrusted implementation code re-enter the proxy with full storage control.",
+      "from_id": 0
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "reason": "The fallback performs the raw delegatecall forwarding all calldata to the logic contract, an external call to untrusted code that can recursively invoke the fallback.",
+      "from_id": 2
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "delegatecall_constructor",
+      "normal_node": "constructData",
+      "reason": "constructData is a constructor parameter whose only use is as the calldata of the delegatecall_constructor unsafe operation."
+    },
+    {
+      "merge_into": "delegatecall_constructor",
+      "normal_node": "contractLogic",
+      "reason": "contractLogic is a constructor parameter used directly as the target of delegatecall_constructor and as the value written into the logicAddress slot."
+    },
+    {
+      "merge_into": "delegatecall_constructor",
+      "normal_node": "success",
+      "reason": "success is a local that only carries the boolean result of the delegatecall_constructor for the require check."
+    },
+    {
+      "merge_into": "delegatecall_constructor",
+      "normal_node": "unusedReturndata",
+      "reason": "The unused bytes local only holds the returndata of delegatecall_constructor and has no other effect."
+    }
+  ]
+}

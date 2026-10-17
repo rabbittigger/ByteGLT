@@ -1,0 +1,799 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Public Deployment struct holding cause, causeWallet, splits, owner, ownerWallet, ownerSecret, valuePerEntry and all phase timestamps",
+      "is_core": true,
+      "node_id": 0,
+      "id": "deployment"
+    },
+    {
+      "type": "state_var",
+      "description": "mapping(address => Participant) storing each participant's committed message and entry count",
+      "is_core": true,
+      "node_id": 1,
+      "id": "participants"
+    },
+    {
+      "type": "state_var",
+      "description": "Private Fund[] array of cumulative-entry checkpoints used by the selection binary search",
+      "is_core": true,
+      "node_id": 2,
+      "id": "funds"
+    },
+    {
+      "type": "state_var",
+      "description": "Private State struct tracking cause/owner messages, withdrawal flags, cancelled flag, participants, entries and reveal block data",
+      "is_core": true,
+      "node_id": 3,
+      "id": "_state"
+    },
+    {
+      "type": "function",
+      "description": "Constructor: validates all deployment parameters and writes the Deployment struct, using now as deploy time",
+      "is_core": true,
+      "node_id": 4,
+      "id": "Fundraiser"
+    },
+    {
+      "type": "function",
+      "description": "View function returning the current fundraiser state fields",
+      "is_core": true,
+      "node_id": 5,
+      "id": "state"
+    },
+    {
+      "type": "function",
+      "description": "View function computing the caller's claimable balance based on role split or cancellation refund",
+      "is_core": true,
+      "node_id": 6,
+      "id": "balance"
+    },
+    {
+      "type": "function",
+      "description": "Cause-only function that seeds the cause secret under the participationPhase modifier",
+      "is_core": true,
+      "node_id": 7,
+      "id": "begin"
+    },
+    {
+      "type": "function",
+      "description": "Payable function registering a new participant and forwarding to _raise",
+      "is_core": true,
+      "node_id": 8,
+      "id": "participate"
+    },
+    {
+      "type": "function",
+      "description": "Private function converting msg.value into entries, appending a Fund and immediately refunding excess wei",
+      "is_core": true,
+      "node_id": 9,
+      "id": "_raise"
+    },
+    {
+      "type": "function",
+      "description": "Payable fallback that lets existing participants buy additional entries through _raise",
+      "is_core": true,
+      "node_id": 10,
+      "id": "fallback"
+    },
+    {
+      "type": "function",
+      "description": "Cause-only function revealing the cause message during the recap phase and storing the reveal block number",
+      "is_core": true,
+      "node_id": 11,
+      "id": "reveal"
+    },
+    {
+      "type": "function",
+      "description": "Private view helper verifying a message against a secret via keccak256(_message, msg.sender)",
+      "is_core": true,
+      "node_id": 12,
+      "id": "_decode"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only function that fixes the reveal blockhash, derives entropy and selects the winning participant",
+      "is_core": true,
+      "node_id": 13,
+      "id": "end"
+    },
+    {
+      "type": "function",
+      "description": "Private binary search over the funds array mapping an entry index to a participant address",
+      "is_core": true,
+      "node_id": 14,
+      "id": "_findParticipant"
+    },
+    {
+      "type": "function",
+      "description": "Cancels the fundraiser, open to the community only between expireTime and destructTime",
+      "is_core": true,
+      "node_id": 15,
+      "id": "cancel"
+    },
+    {
+      "type": "function",
+      "description": "Pays out the caller's balance after setting the appropriate withdrawn flag or zeroing refunded entries",
+      "is_core": true,
+      "node_id": 16,
+      "id": "withdraw"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only selfdestruct available only after destructTime",
+      "is_core": true,
+      "node_id": 17,
+      "id": "destroy"
+    },
+    {
+      "type": "function",
+      "description": "Owner-only ERC20 rescue that transfers the trapped token balance to deployment._owner",
+      "is_core": true,
+      "node_id": 18,
+      "id": "recover"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used for role checks, participant indexing and payment destinations",
+      "is_core": true,
+      "node_id": 19,
+      "id": "msg.sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "now/block.timestamp used by all phase modifiers and by cancel() to gate time windows",
+      "is_core": true,
+      "node_id": 20,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "msg.sender.transfer(_refund) inside _raise: external ether send to an attacker-chosen address",
+      "is_core": true,
+      "node_id": 21,
+      "id": "_raise_refund_transfer"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "_wallet.transfer(_balance) inside withdraw: external ether send that closes the payout path",
+      "is_core": true,
+      "node_id": 22,
+      "id": "withdraw_transfer"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "selfdestruct(msg.sender) inside destroy: irreversible destruction of the contract",
+      "is_core": true,
+      "node_id": 23,
+      "id": "selfdestruct_call"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "_state._entries * deployment._valuePerEntry * _split / 1000 multiplication in balance() without SafeMath",
+      "is_core": true,
+      "node_id": 24,
+      "id": "split_arithmetic"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "uint256(_randomNumber) % _state._entries modulo used for participant selection in end()",
+      "is_core": true,
+      "node_id": 25,
+      "id": "entry_modulo"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "block.blockhash(_state._revealBlockNumber) used as a randomness source in end()",
+      "is_core": true,
+      "node_id": 26,
+      "id": "blockhash_randomness"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "_secret == keccak256(_message, msg.sender) commitment check in _decode, address-bound and replayable",
+      "is_core": true,
+      "node_id": 27,
+      "id": "secret_hash_check"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "_erc20.transfer(deployment._owner, _balance) external call in recover to an arbitrary token contract",
+      "is_core": true,
+      "node_id": 28,
+      "id": "token_transfer"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "_participant._entries += _entries and _state._entries += _entries unchecked addition in Solidity 0.4.19",
+      "is_core": true,
+      "node_id": 29,
+      "id": "entries_addition"
+    },
+    {
+      "type": "parameter",
+      "description": "Constructor parameter _cause: cause address stored in Deployment",
+      "is_core": false,
+      "node_id": 30,
+      "id": "_cause_param"
+    },
+    {
+      "type": "parameter",
+      "description": "Constructor parameter _causeSplit: cause share out of 1000",
+      "is_core": false,
+      "node_id": 31,
+      "id": "_causeSplit_param"
+    },
+    {
+      "type": "parameter",
+      "description": "Constructor parameter _ownerSecret: commitment used later by end()",
+      "is_core": false,
+      "node_id": 32,
+      "id": "_ownerSecret_param"
+    },
+    {
+      "type": "parameter",
+      "description": "Constructor parameter _valuePerEntry: wei price of a single entry",
+      "is_core": false,
+      "node_id": 33,
+      "id": "_valuePerEntry_param"
+    },
+    {
+      "type": "parameter",
+      "description": "Constructor parameter _entropy: number of selection loop iterations",
+      "is_core": false,
+      "node_id": 34,
+      "id": "_entropy_param"
+    },
+    {
+      "type": "parameter",
+      "description": "participate() parameter _message: participant commitment message",
+      "is_core": false,
+      "node_id": 35,
+      "id": "_message_participate_param"
+    },
+    {
+      "type": "parameter",
+      "description": "begin() parameter _secret: cause secret seeded into state",
+      "is_core": false,
+      "node_id": 36,
+      "id": "_secret_begin_param"
+    },
+    {
+      "type": "parameter",
+      "description": "reveal() parameter _message: cause message validated against the cause secret",
+      "is_core": false,
+      "node_id": 37,
+      "id": "_message_reveal_param"
+    },
+    {
+      "type": "parameter",
+      "description": "end() parameter _message: owner message validated against the owner secret and used as entropy seed",
+      "is_core": false,
+      "node_id": 38,
+      "id": "_message_end_param"
+    },
+    {
+      "type": "parameter",
+      "description": "_findParticipant() parameter _entry: entry index to resolve to an address",
+      "is_core": false,
+      "node_id": 39,
+      "id": "_entry_param"
+    },
+    {
+      "type": "parameter",
+      "description": "recover() parameter _token: ERC20 token address whose balance is rescued",
+      "is_core": false,
+      "node_id": 40,
+      "id": "_token_param"
+    },
+    {
+      "type": "parameter",
+      "description": "_decode() parameter _secret: commitment compared against the hashed message",
+      "is_core": false,
+      "node_id": 41,
+      "id": "_secret_decode_param"
+    },
+    {
+      "type": "parameter",
+      "description": "_decode() parameter _message: message hashed together with msg.sender",
+      "is_core": false,
+      "node_id": 42,
+      "id": "_message_decode_param"
+    },
+    {
+      "type": "local_var",
+      "description": "Participant storage pointer in participate()/fallback()/withdraw() referring to participants[msg.sender]",
+      "is_core": false,
+      "node_id": 43,
+      "id": "_participant_storage_local"
+    },
+    {
+      "type": "local_var",
+      "description": "Local _entries returned by _raise and emitted in events",
+      "is_core": false,
+      "node_id": 44,
+      "id": "_entries_local"
+    },
+    {
+      "type": "local_var",
+      "description": "Local _refund returned by _raise, sent back to msg.sender",
+      "is_core": false,
+      "node_id": 45,
+      "id": "_refund_local"
+    },
+    {
+      "type": "local_var",
+      "description": "Local _wallet in withdraw() holding the final payout destination",
+      "is_core": false,
+      "node_id": 46,
+      "id": "_wallet_local"
+    },
+    {
+      "type": "local_var",
+      "description": "Local _balance in withdraw() holding the value returned by balance()",
+      "is_core": false,
+      "node_id": 47,
+      "id": "_balance_local"
+    },
+    {
+      "type": "local_var",
+      "description": "Local _randomNumber in end() accumulating keccak256 entropy each loop iteration",
+      "is_core": false,
+      "node_id": 48,
+      "id": "_randomNumber_local"
+    },
+    {
+      "type": "local_var",
+      "description": "Local _split in balance() holding the caller's share out of 1000",
+      "is_core": false,
+      "node_id": 49,
+      "id": "_split_local"
+    },
+    {
+      "type": "local_var",
+      "description": "Local _erc20 in recover() typed as ERC20 at the caller-supplied token address",
+      "is_core": false,
+      "node_id": 50,
+      "id": "_erc20_local"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "access_control",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "balance() branches on msg.sender to decide which role split or refund the caller may claim",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "participate() indexes participants[msg.sender] to register the caller",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "_raise() records msg.sender as the fund participant and as the refund recipient",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "fallback() looks up the existing participants[msg.sender] record before raising",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "withdraw() selects the payout branch from msg.sender and transfers ether to it",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "cancel() compares msg.sender to owner and cause to decide whether the community time window is required",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "_decode() binds the commitment to the caller because msg.sender is part of keccak256(_message, msg.sender)",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "constructor requires _endTime > now and persists now as deployment._deployTime",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "controlflow",
+      "reason": "participationPhase modifier gates begin() on now < deployment._endTime",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 8,
+      "type": "controlflow",
+      "reason": "participationPhase modifier gates participate() on now < deployment._endTime",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 10,
+      "type": "controlflow",
+      "reason": "participationPhase modifier gates the payable fallback on now < deployment._endTime",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "recapPhase modifier gates reveal() on now between _endTime and _expireTime",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "recapPhase modifier gates end() on now between _endTime and _expireTime",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 15,
+      "type": "controlflow",
+      "reason": "cancel() opens community cancellation only when now is between _expireTime and _destructTime",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 17,
+      "type": "controlflow",
+      "reason": "destructionPhase modifier gates destroy() on now >= deployment._destructTime",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "controlflow",
+      "reason": "participate() calls _raise() to convert msg.value into entries",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "controlflow",
+      "reason": "fallback() forwards additional ether to _raise()",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "controlflow",
+      "reason": "withdraw() starts by calling balance() to compute the payable amount",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "reveal() validates the cause message through _decode()",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "end() validates the owner message through _decode()",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "controlflow",
+      "reason": "end() calls _findParticipant() for every entropy iteration to select a winner",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "constructor writes the Deployment struct into the deployment state variable",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "_raise() executes msg.sender.transfer(_refund), an external call to an untrusted address",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "withdraw() executes _wallet.transfer(_balance) after mutating withdrawal state",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "destroy() executes selfdestruct(msg.sender) unconditionally after the time gate",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "balance() multiplies _state._entries, _valuePerEntry and _split before dividing by 1000",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "end() reduces the keccak-derived random number modulo _state._entries, which can divide by zero if entries is 0",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 26,
+      "type": "dataflow",
+      "reason": "end() derives its entropy from block.blockhash, which miners can influence",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "_decode() performs the secret/message equality check that guards reveal() and end()",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 28,
+      "type": "dataflow",
+      "reason": "recover() calls transfer on an arbitrary caller-supplied ERC20 contract",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "_raise() increases participant and global entry counters without SafeMath, allowing overflow",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "balance() reads deployment splits, wallets and valuePerEntry to compute the payout",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "_raise() reads deployment._valuePerEntry to convert wei into entries and refunds",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "end() reads deployment._ownerSecret and deployment._entropy to validate and loop",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "_decode() is only meaningful because deployment roles gate who may call reveal() and end()",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "_raise() mutates the stored Participant entry count for msg.sender",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "balance() reads participants[msg.sender]._entries for the cancellation refund path",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "withdraw() zeroes participants[msg.sender]._entries to prevent double refunds",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "_raise() pushes a new cumulative-entry Fund onto the funds array",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "_findParticipant() binary searches the funds array to resolve an entry index",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "end() writes _state._ownerMessage, _state._revealBlockHash and _state._participant",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "begin() writes _state._causeSecret to open the fundraiser",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "withdraw() flips the withdrawn flags inside _state before paying out ether",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "cancel() sets _state._cancelled to true, changing all later phase behaviour",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 10,
+      "type": "callback",
+      "reason": "the refund transfer inside _raise can re-enter the payable fallback and buy more entries",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 10,
+      "type": "callback",
+      "reason": "the withdraw payout can re-enter the payable fallback before the caller's state is fully settled",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 16,
+      "type": "callback",
+      "reason": "the withdraw payout re-enters withdraw() and re-evaluates balance() for the same caller",
+      "from_id": 22
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "Fundraiser",
+      "reason": "_cause is a constructor argument merged into the Fundraiser constructor node",
+      "normal_node": "_cause_param"
+    },
+    {
+      "merge_into": "Fundraiser",
+      "reason": "_causeSplit is a constructor argument merged into the Fundraiser constructor node",
+      "normal_node": "_causeSplit_param"
+    },
+    {
+      "merge_into": "Fundraiser",
+      "reason": "_ownerSecret is a constructor argument merged into the Fundraiser constructor node",
+      "normal_node": "_ownerSecret_param"
+    },
+    {
+      "merge_into": "Fundraiser",
+      "reason": "_valuePerEntry is a constructor argument merged into the Fundraiser constructor node",
+      "normal_node": "_valuePerEntry_param"
+    },
+    {
+      "merge_into": "Fundraiser",
+      "reason": "_entropy is a constructor argument merged into the Fundraiser constructor node",
+      "normal_node": "_entropy_param"
+    },
+    {
+      "merge_into": "participate",
+      "reason": "_message of participate() belongs to the participate function node",
+      "normal_node": "_message_participate_param"
+    },
+    {
+      "merge_into": "begin",
+      "reason": "_secret of begin() belongs to the begin function node",
+      "normal_node": "_secret_begin_param"
+    },
+    {
+      "merge_into": "reveal",
+      "reason": "_message of reveal() belongs to the reveal function node",
+      "normal_node": "_message_reveal_param"
+    },
+    {
+      "merge_into": "end",
+      "reason": "_message of end() belongs to the end function node",
+      "normal_node": "_message_end_param"
+    },
+    {
+      "merge_into": "_findParticipant",
+      "reason": "_entry is the search key of _findParticipant and merges into that function",
+      "normal_node": "_entry_param"
+    },
+    {
+      "merge_into": "recover",
+      "reason": "_token is the target of recover() and merges into the recover function",
+      "normal_node": "_token_param"
+    },
+    {
+      "merge_into": "_decode",
+      "reason": "_secret of _decode belongs to the _decode function node",
+      "normal_node": "_secret_decode_param"
+    },
+    {
+      "merge_into": "_decode",
+      "reason": "_message of _decode belongs to the _decode function node",
+      "normal_node": "_message_decode_param"
+    },
+    {
+      "merge_into": "participate",
+      "reason": "the Participant storage pointer is bound to participants[msg.sender] inside participate/withdraw",
+      "normal_node": "_participant_storage_local"
+    },
+    {
+      "merge_into": "participate",
+      "reason": "_entries is the value produced by _raise() for participate() and the fallback",
+      "normal_node": "_entries_local"
+    },
+    {
+      "merge_into": "_raise",
+      "reason": "_refund is produced and immediately spent inside _raise via transfer",
+      "normal_node": "_refund_local"
+    },
+    {
+      "merge_into": "withdraw",
+      "reason": "_wallet is the payout destination computed inside withdraw()",
+      "normal_node": "_wallet_local"
+    },
+    {
+      "merge_into": "withdraw",
+      "reason": "_balance is the amount returned by balance() and spent inside withdraw()",
+      "normal_node": "_balance_local"
+    },
+    {
+      "merge_into": "end",
+      "reason": "_randomNumber is the entropy accumulator local to end()",
+      "normal_node": "_randomNumber_local"
+    },
+    {
+      "merge_into": "balance",
+      "reason": "_split is the share selector local to balance()",
+      "normal_node": "_split_local"
+    },
+    {
+      "merge_into": "recover",
+      "reason": "_erc20 is the token handle local to recover()",
+      "normal_node": "_erc20_local"
+    }
+  ]
+}

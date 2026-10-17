@@ -1,0 +1,937 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Pause flag controlling staking/claiming",
+      "is_core": true,
+      "node_id": 0,
+      "id": "_paused"
+    },
+    {
+      "type": "state_var",
+      "description": "Rotating index into random source list",
+      "is_core": true,
+      "node_id": 1,
+      "id": "_randomIndex"
+    },
+    {
+      "type": "state_var",
+      "description": "Counter of random number calls",
+      "is_core": true,
+      "node_id": 2,
+      "id": "_randomCalls"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping of addresses used as randomness entropy",
+      "is_core": true,
+      "node_id": 3,
+      "id": "_randomSource"
+    },
+    {
+      "type": "state_var",
+      "description": "External NFT contract used for transfers and ownership checks",
+      "is_core": true,
+      "node_id": 4,
+      "id": "mferGame"
+    },
+    {
+      "type": "state_var",
+      "description": "External reward token contract used for minting",
+      "is_core": true,
+      "node_id": 5,
+      "id": "coin"
+    },
+    {
+      "type": "state_var",
+      "description": "tokenId to index in owner stake array for honest mfers",
+      "is_core": true,
+      "node_id": 6,
+      "id": "honestMferIndices"
+    },
+    {
+      "type": "state_var",
+      "description": "owner to array of honest mfer Stake structs",
+      "is_core": true,
+      "node_id": 7,
+      "id": "honestMferStake"
+    },
+    {
+      "type": "state_var",
+      "description": "tokenId to index in owner stake array for thiefs",
+      "is_core": true,
+      "node_id": 8,
+      "id": "thiefIndices"
+    },
+    {
+      "type": "state_var",
+      "description": "owner to array of thief Stake structs",
+      "is_core": true,
+      "node_id": 9,
+      "id": "thiefStake"
+    },
+    {
+      "type": "state_var",
+      "description": "Array of addresses holding thief stakes",
+      "is_core": true,
+      "node_id": 10,
+      "id": "thiefHolders"
+    },
+    {
+      "type": "state_var",
+      "description": "Total honest mfers currently staked",
+      "is_core": true,
+      "node_id": 11,
+      "id": "totalHonestMferStaked"
+    },
+    {
+      "type": "state_var",
+      "description": "Total thief tokens currently staked",
+      "is_core": true,
+      "node_id": 12,
+      "id": "totalThiefStaked"
+    },
+    {
+      "type": "state_var",
+      "description": "Tax rewards accumulated while no thiefs staked",
+      "is_core": true,
+      "node_id": 13,
+      "id": "unaccountedRewards"
+    },
+    {
+      "type": "state_var",
+      "description": "Cumulative coin earned counter, capped by MAXIMUM_GLOBAL_COIN",
+      "is_core": true,
+      "node_id": 14,
+      "id": "totalCoinEarned"
+    },
+    {
+      "type": "state_var",
+      "description": "Timestamp of the last earnings accrual",
+      "is_core": true,
+      "node_id": 15,
+      "id": "lastClaimTimestamp"
+    },
+    {
+      "type": "state_var",
+      "description": "Accumulated reward per staked thief",
+      "is_core": true,
+      "node_id": 16,
+      "id": "thiefReward"
+    },
+    {
+      "type": "state_var",
+      "description": "Enables emergency unstaking without rewards",
+      "is_core": true,
+      "node_id": 17,
+      "id": "rescueEnabled"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller address, attacker controllable",
+      "is_core": true,
+      "node_id": 18,
+      "id": "msg.sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Miner influenced timestamp used for rewards and delays",
+      "is_core": true,
+      "node_id": 19,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "coin.mint(msg.sender, owed) external mint call",
+      "is_core": true,
+      "node_id": 20,
+      "id": "coin_mint_call"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "mferGame.safeTransferFrom(address(this), msg.sender, tokenId, \"\") external NFT callback",
+      "is_core": true,
+      "node_id": 21,
+      "id": "mferGame_safeTransferFrom_call"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "mferGame.transferFrom(msg.sender, address(this), tokenIds[i]) external call during staking",
+      "is_core": true,
+      "node_id": 22,
+      "id": "mferGame_transferFrom_call"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Randomness from blockhash/block.coinbase/block.difficulty, predictable",
+      "is_core": true,
+      "node_id": 23,
+      "id": "weak_randomness_keccak"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "thiefReward += (_amount + unaccountedRewards) / totalThiefStaked unchecked arithmetic",
+      "is_core": true,
+      "node_id": 24,
+      "id": "payTax_division_state_update"
+    },
+    {
+      "type": "function",
+      "description": "Stakes a batch of tokenIds for the caller or the game contract",
+      "is_core": true,
+      "node_id": 25,
+      "id": "addTokensToStake"
+    },
+    {
+      "type": "function",
+      "description": "Internal staking of honest mfer tokens",
+      "is_core": true,
+      "node_id": 26,
+      "id": "_stakeHonestMfers"
+    },
+    {
+      "type": "function",
+      "description": "Internal staking of thief tokens",
+      "is_core": true,
+      "node_id": 27,
+      "id": "_stakeThiefs"
+    },
+    {
+      "type": "function",
+      "description": "Claims rewards for a batch of stakes and mints coins",
+      "is_core": true,
+      "node_id": 28,
+      "id": "claimFromStake"
+    },
+    {
+      "type": "function",
+      "description": "Internal claim/unstake of an honest mfer stake",
+      "is_core": true,
+      "node_id": 29,
+      "id": "_claimFromMiner"
+    },
+    {
+      "type": "function",
+      "description": "Internal claim/unstake of a thief stake",
+      "is_core": true,
+      "node_id": 30,
+      "id": "_claimFromThief"
+    },
+    {
+      "type": "function",
+      "description": "Emergency unstake without reward when rescueEnabled",
+      "is_core": true,
+      "node_id": 31,
+      "id": "rescue"
+    },
+    {
+      "type": "function",
+      "description": "Removes an account from thiefHolders when fully unstaked",
+      "is_core": true,
+      "node_id": 32,
+      "id": "updateThiefOwnerAddressList"
+    },
+    {
+      "type": "function",
+      "description": "Distributes tax amount across staked thiefs",
+      "is_core": true,
+      "node_id": 33,
+      "id": "_payTax"
+    },
+    {
+      "type": "function",
+      "description": "Returns a pseudo random thief holder address",
+      "is_core": true,
+      "node_id": 34,
+      "id": "randomThiefOwner"
+    },
+    {
+      "type": "function",
+      "description": "Derives a pseudo random uint16 from block and state entropy",
+      "is_core": true,
+      "node_id": 35,
+      "id": "getSomeRandomNumber"
+    },
+    {
+      "type": "function",
+      "description": "Advances random index and call counter",
+      "is_core": true,
+      "node_id": 36,
+      "id": "updateRandomIndex"
+    },
+    {
+      "type": "function",
+      "description": "Owner only rescue toggle",
+      "is_core": true,
+      "node_id": 37,
+      "id": "setRescueEnabled"
+    },
+    {
+      "type": "function",
+      "description": "Owner only pause toggle",
+      "is_core": true,
+      "node_id": 38,
+      "id": "setPaused"
+    },
+    {
+      "type": "function",
+      "description": "Owner only random source replacement",
+      "is_core": true,
+      "node_id": 39,
+      "id": "changeRandomSource"
+    },
+    {
+      "type": "function",
+      "description": "Owner only random index shuffling",
+      "is_core": true,
+      "node_id": 40,
+      "id": "shuffleSeeds"
+    },
+    {
+      "type": "function",
+      "description": "ERC721 receiver hook, rejects direct transfers",
+      "is_core": true,
+      "node_id": 41,
+      "id": "onERC721Received"
+    },
+    {
+      "type": "function",
+      "description": "Owner only NFT contract setter",
+      "is_core": true,
+      "node_id": 42,
+      "id": "setMferGame"
+    },
+    {
+      "type": "function",
+      "description": "Owner only coin contract setter",
+      "is_core": true,
+      "node_id": 43,
+      "id": "setCoin"
+    },
+    {
+      "type": "function",
+      "description": "Modifier accruing global earnings before staking/claiming",
+      "is_core": true,
+      "node_id": 44,
+      "id": "_updateEarnings"
+    },
+    {
+      "type": "parameter",
+      "description": "Batch of token ids passed to addTokensToStake",
+      "is_core": false,
+      "node_id": 45,
+      "id": "param_tokenIds_addTokensToStake"
+    },
+    {
+      "type": "parameter",
+      "description": "Stake beneficiary account parameter",
+      "is_core": false,
+      "node_id": 46,
+      "id": "param_account_addTokensToStake"
+    },
+    {
+      "type": "parameter",
+      "description": "Token id being claimed or unstaked",
+      "is_core": false,
+      "node_id": 47,
+      "id": "param_tokenId_claimFromMiner"
+    },
+    {
+      "type": "parameter",
+      "description": "Flag selecting unstake versus restake branch",
+      "is_core": false,
+      "node_id": 48,
+      "id": "param_unstake_claimFromMiner"
+    },
+    {
+      "type": "local_var",
+      "description": "Accumulated reward owed across the claim loop",
+      "is_core": false,
+      "node_id": 49,
+      "id": "local_owed_claimFromStake"
+    },
+    {
+      "type": "parameter",
+      "description": "Seed value fed into the randomness hash",
+      "is_core": false,
+      "node_id": 50,
+      "id": "param_seed_getSomeRandomNumber"
+    },
+    {
+      "type": "parameter",
+      "description": "Upper bound applied to the random number modulo",
+      "is_core": false,
+      "node_id": 51,
+      "id": "param_limit_getSomeRandomNumber"
+    },
+    {
+      "type": "local_var",
+      "description": "Memory copy of the Stake struct read from storage",
+      "is_core": false,
+      "node_id": 52,
+      "id": "local_stake_claimFromMiner"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "access_control",
+      "to_id": 25,
+      "type": "controlflow",
+      "reason": "addTokensToStake authorises msg.sender as account or mferGame",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 28,
+      "type": "controlflow",
+      "reason": "Any msg.sender can call claimFromStake for its own stakes",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "honestMferStake index derived from msg.sender, unvalidated ownership path",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 30,
+      "type": "dataflow",
+      "reason": "thiefStake index derived from msg.sender",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 31,
+      "type": "controlflow",
+      "reason": "rescue only unstakes the caller's own tokens",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 35,
+      "type": "dataflow",
+      "reason": "msg.sender is hashed into the pseudo random output",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "Minted coins are sent to msg.sender",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 26,
+      "type": "dataflow",
+      "reason": "Stake value stored as block.timestamp",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "Reward and minimum exit delay computed from block.timestamp",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 35,
+      "type": "dataflow",
+      "reason": "Miner controlled block values enter the randomness hash",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 44,
+      "type": "dataflow",
+      "reason": "Global earnings accrued using block.timestamp delta",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "controlflow",
+      "reason": "Token id batch drives the staking loop",
+      "from_id": 45
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "account determines which stake array receives the token",
+      "from_id": 46
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "tokenId selects the stake entry to claim",
+      "from_id": 47
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "controlflow",
+      "reason": "unstake flag chooses between unstake and restake branches",
+      "from_id": 48
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "owed amount is minted to the caller",
+      "from_id": 49
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 28,
+      "type": "dataflow",
+      "reason": "owed accumulates the per token claim results",
+      "from_id": 49
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 35,
+      "type": "dataflow",
+      "reason": "seed is packed into the randomness hash",
+      "from_id": 50
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 35,
+      "type": "dataflow",
+      "reason": "limit bounds the modulo result",
+      "from_id": 51
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "Memory stake copy is read for owner and timestamp checks",
+      "from_id": 52
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "callback",
+      "reason": "External NFT transferFrom executed while staking",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "controlflow",
+      "reason": "Non thief token ids are staked as honest mfers",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "controlflow",
+      "reason": "Token ids divisible by 10 are staked as thiefs",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "totalHonestMferStaked incremented per stake",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "New Stake struct pushed into honestMferStake",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 44,
+      "type": "controlflow",
+      "reason": "_updateEarnings modifier applied to staking",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "totalThiefStaked incremented per stake",
+      "from_id": 27
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "New Stake struct pushed into thiefStake",
+      "from_id": 27
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "First thief stake pushes account into thiefHolders",
+      "from_id": 27
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "controlflow",
+      "reason": "Honest mfer token ids routed to _claimFromMiner",
+      "from_id": 28
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 30,
+      "type": "controlflow",
+      "reason": "Thief token ids routed to _claimFromThief",
+      "from_id": 28
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "Total owed is minted through the coin interface",
+      "from_id": 28
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 44,
+      "type": "controlflow",
+      "reason": "_updateEarnings modifier applied before claiming",
+      "from_id": 28
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "honestMferStake array read and mutated on claim",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "honestMferIndices used to locate and delete the stake",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "totalHonestMferStaked decremented on unstake",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 33,
+      "type": "controlflow",
+      "reason": "Tax paid to thiefs on unstake or claim",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 35,
+      "type": "dataflow",
+      "reason": "Weak random roll decides whether the stake pays tax before state finalization",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 21,
+      "type": "callback",
+      "reason": "External safeTransferFrom to the NFT contract during unstake, hooks execute before state settles",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "mferGame used for ownerOf and safeTransferFrom",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "thiefStake array read and mutated on claim",
+      "from_id": 30
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "thiefIndices used to locate and delete the stake",
+      "from_id": 30
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "totalThiefStaked decremented on unstake",
+      "from_id": 30
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 21,
+      "type": "callback",
+      "reason": "External safeTransferFrom during thief unstake",
+      "from_id": 30
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 32,
+      "type": "controlflow",
+      "reason": "Holder list updated after thief unstake",
+      "from_id": 30
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 21,
+      "type": "callback",
+      "reason": "rescue performs external NFT transfers in a loop",
+      "from_id": 31
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 32,
+      "type": "controlflow",
+      "reason": "Holder list updated during rescue unstake",
+      "from_id": 31
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "thiefHolders array rewritten and popped",
+      "from_id": 32
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 24,
+      "type": "dataflow",
+      "reason": "thiefReward += (_amount + unaccountedRewards) / totalThiefStaked unbounded state arithmetic",
+      "from_id": 33
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "thiefReward updated with accumulated rewards",
+      "from_id": 33
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "unaccountedRewards accumulates when no thief staked",
+      "from_id": 33
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "Division guarded by totalThiefStaked zero check",
+      "from_id": 33
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 35,
+      "type": "dataflow",
+      "reason": "Holder index chosen with predictable randomness",
+      "from_id": 34
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 36,
+      "type": "controlflow",
+      "reason": "Random index advanced after drawing a number",
+      "from_id": 34
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "thiefHolders indexed by the random holder index",
+      "from_id": 34
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "Balances of _randomSource addresses summed as entropy",
+      "from_id": 35
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "_randomIndex packed into the randomness hash",
+      "from_id": 35
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "_randomCalls packed into the randomness hash",
+      "from_id": 35
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 23,
+      "type": "dataflow",
+      "reason": "keccak over blockhash, coinbase and difficulty is miner predictable",
+      "from_id": 35
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "_randomIndex incremented and wrapped",
+      "from_id": 36
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "_randomCalls incremented",
+      "from_id": 36
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "Owner only toggle of rescueEnabled",
+      "from_id": 37
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "Owner only toggle of _paused",
+      "from_id": 38
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "Owner only replacement of a random source address",
+      "from_id": 39
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 35,
+      "type": "dataflow",
+      "reason": "Owner supplied seed drives the random number",
+      "from_id": 40
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 36,
+      "type": "controlflow",
+      "reason": "Loop calls updateRandomIndex to shuffle",
+      "from_id": 40
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "Hook only accepts transfers with from == address(0)",
+      "from_id": 41
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "Owner only assignment of the NFT contract",
+      "from_id": 42
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "Owner only assignment of the coin contract",
+      "from_id": 43
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "totalCoinEarned += timestamp delta * staked * rate, capped accumulation",
+      "from_id": 44
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "lastClaimTimestamp reset to block.timestamp",
+      "from_id": 44
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "Earnings accrual scales with totalHonestMferStaked",
+      "from_id": 44
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "mferGame is the callee of the external safeTransferFrom",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "coin interface is the callee of mint",
+      "from_id": 5
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "addTokensToStake",
+      "reason": "tokenIds batch parameter only exists to drive the addTokensToStake staking loop",
+      "normal_node": "param_tokenIds_addTokensToStake"
+    },
+    {
+      "merge_into": "addTokensToStake",
+      "reason": "account parameter is only used inside addTokensToStake to select the stake owner",
+      "normal_node": "param_account_addTokensToStake"
+    },
+    {
+      "merge_into": "_claimFromMiner",
+      "reason": "tokenId parameter is only consumed by _claimFromMiner to locate the stake",
+      "normal_node": "param_tokenId_claimFromMiner"
+    },
+    {
+      "merge_into": "_claimFromMiner",
+      "reason": "unstake flag only controls the branch inside _claimFromMiner",
+      "normal_node": "param_unstake_claimFromMiner"
+    },
+    {
+      "merge_into": "claimFromStake",
+      "reason": "owed local is accumulated and consumed by claimFromStake's mint call",
+      "normal_node": "local_owed_claimFromStake"
+    },
+    {
+      "merge_into": "getSomeRandomNumber",
+      "reason": "_seed parameter is only packed into getSomeRandomNumber's hash",
+      "normal_node": "param_seed_getSomeRandomNumber"
+    },
+    {
+      "merge_into": "getSomeRandomNumber",
+      "reason": "_limit parameter only bounds the modulo result in getSomeRandomNumber",
+      "normal_node": "param_limit_getSomeRandomNumber"
+    },
+    {
+      "merge_into": "_claimFromMiner",
+      "reason": "stake local is a memory copy of storage read inside _claimFromMiner",
+      "normal_node": "local_stake_claimFromMiner"
+    }
+  ]
+}

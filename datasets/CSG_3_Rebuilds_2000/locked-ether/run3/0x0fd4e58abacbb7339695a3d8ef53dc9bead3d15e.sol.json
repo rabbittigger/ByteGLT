@@ -1,0 +1,147 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Public address state variable storing the privileged owner of the contract.",
+      "id": "owner",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Constructor that assigns msg.sender as the initial owner.",
+      "id": "constructor",
+      "type": "function",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "External function guarded by an owner check that forwards a transferFrom call on a supplied token.",
+      "id": "transferUniswapV3LessGas",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "Caller-supplied address used for the constructor owner assignment and for the access control require.",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "External call _token.transferFrom(_sender,_receiver,_amount) made to an arbitrary caller-supplied contract address, enabling untrusted code execution.",
+      "id": "token_transferFrom",
+      "type": "unsafe_operation",
+      "node_id": 4
+    },
+    {
+      "is_core": false,
+      "description": "Parameter _token: caller-supplied IERC20Token interface used as the external call target.",
+      "id": "param_token",
+      "type": "parameter",
+      "node_id": 5
+    },
+    {
+      "is_core": false,
+      "description": "Parameter _sender: caller-supplied source address passed to transferFrom.",
+      "id": "param_sender",
+      "type": "parameter",
+      "node_id": 6
+    },
+    {
+      "is_core": false,
+      "description": "Parameter _receiver: caller-supplied destination address passed to transferFrom.",
+      "id": "param_receiver",
+      "type": "parameter",
+      "node_id": 7
+    },
+    {
+      "is_core": false,
+      "description": "Parameter _amount: caller-supplied value passed to transferFrom.",
+      "id": "param_amount",
+      "type": "parameter",
+      "node_id": 8
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "Constructor assigns the untrusted msg.sender value into the owner state variable.",
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "reason": "The require(msg.sender == owner) check gates execution of transferUniswapV3LessGas based on the untrusted caller identity.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "The function body executes the external token transferFrom call after the owner check passes.",
+      "type": "controlflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "The _token parameter flows directly into the external call target of transferFrom.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "The _sender parameter flows directly into the from address argument of transferFrom.",
+      "type": "dataflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "The _receiver parameter flows directly into the to address argument of transferFrom.",
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "The _amount parameter flows directly into the value argument of transferFrom.",
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "reentrancy",
+      "reason": "The external transferFrom call hands control to an arbitrary caller-supplied token contract, which can re-enter transferUniswapV3LessGas before the original call returns.",
+      "type": "callback",
+      "from_id": 4
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "token_transferFrom",
+      "reason": "The _token parameter is only used as the target of the external transferFrom call, so it can be folded into that unsafe operation node.",
+      "normal_node": "param_token"
+    },
+    {
+      "merge_into": "token_transferFrom",
+      "reason": "The _sender parameter is only consumed as the from argument of the external transferFrom call, so it merges into that unsafe operation node.",
+      "normal_node": "param_sender"
+    },
+    {
+      "merge_into": "token_transferFrom",
+      "reason": "The _receiver parameter is only consumed as the to argument of the external transferFrom call, so it merges into that unsafe operation node.",
+      "normal_node": "param_receiver"
+    },
+    {
+      "merge_into": "token_transferFrom",
+      "reason": "The _amount parameter is only consumed as the value argument of the external transferFrom call, so it merges into that unsafe operation node.",
+      "normal_node": "param_amount"
+    }
+  ]
+}

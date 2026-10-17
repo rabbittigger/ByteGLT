@@ -1,0 +1,765 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "key",
+      "is_core": true,
+      "description": "DSToken public key: address of the reward token contract held by the pool"
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "id": "rewardStartTime",
+      "is_core": true,
+      "description": "Timestamp from which reward accrual begins"
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "id": "yearlyRewardPercentage",
+      "is_core": true,
+      "description": "Constant 10 percent of remaining tokens released per year"
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "id": "totalRewardThisYear",
+      "is_core": true,
+      "description": "Reward budget for the current year"
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "id": "collectedTokens",
+      "is_core": true,
+      "description": "Total amount of tokens already collected from the pool"
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "id": "withdrawer",
+      "is_core": true,
+      "description": "Address authorised to collect rewards and recover tokens"
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "id": "owner",
+      "is_core": true,
+      "description": "Address allowed to administrate the pool (owner management, pause)"
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "id": "paused",
+      "is_core": true,
+      "description": "Flag blocking collectToken when true"
+    },
+    {
+      "node_id": 8,
+      "type": "function",
+      "id": "collectToken",
+      "is_core": true,
+      "description": "notPaused/onlyWithdrawer function computing accrued reward and transferring key tokens to withdrawer"
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "id": "yearFor",
+      "is_core": true,
+      "description": "Constant helper computing number of full years elapsed since rewardStartTime"
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "id": "time",
+      "is_core": true,
+      "description": "Returns current block timestamp via now; overridable for testing"
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "id": "setWithdrawer",
+      "is_core": true,
+      "description": "onlyOwner function updating the withdrawer address"
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "id": "setOwner",
+      "is_core": true,
+      "description": "onlyOwner function transferring pool ownership"
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "id": "pauseCollectToken",
+      "is_core": true,
+      "description": "onlyOwner function that sets paused to true"
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "id": "resumeCollectToken",
+      "is_core": true,
+      "description": "onlyOwner function that sets paused to false"
+    },
+    {
+      "node_id": 15,
+      "type": "function",
+      "id": "transferTokens",
+      "is_core": true,
+      "description": "onlyWithdrawer recovery function transferring arbitrary ERC20 tokens out of the pool"
+    },
+    {
+      "node_id": 16,
+      "type": "function",
+      "id": "KeyRewardPool",
+      "is_core": true,
+      "description": "Constructor initialising rewardStartTime, key token, withdrawer, owner and paused"
+    },
+    {
+      "node_id": 17,
+      "type": "function",
+      "id": "transfer",
+      "is_core": true,
+      "description": "DSToken transfer entry point used by the pool to move key tokens"
+    },
+    {
+      "node_id": 18,
+      "type": "function",
+      "id": "transferFrom",
+      "is_core": true,
+      "description": "DSToken transferFrom entry point with allowance accounting"
+    },
+    {
+      "node_id": 19,
+      "type": "function",
+      "id": "approve",
+      "is_core": true,
+      "description": "DSToken approval entry point"
+    },
+    {
+      "node_id": 20,
+      "type": "function",
+      "id": "mint",
+      "is_core": true,
+      "description": "DSToken auth-protected minting of new tokens"
+    },
+    {
+      "node_id": 21,
+      "type": "function",
+      "id": "burn",
+      "is_core": true,
+      "description": "DSToken auth-protected burning of tokens"
+    },
+    {
+      "node_id": 22,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "is_core": true,
+      "description": "Caller address used for ownership, withdrawer and auth checks"
+    },
+    {
+      "node_id": 23,
+      "type": "untrusted_input",
+      "id": "block.timestamp",
+      "is_core": true,
+      "description": "Block timestamp (now) driving reward accrual calculations"
+    },
+    {
+      "node_id": 24,
+      "type": "unsafe_operation",
+      "id": "key_transfer_call",
+      "is_core": true,
+      "description": "External call _key.transfer(withdrawer, canExtract) executed inside collectToken"
+    },
+    {
+      "node_id": 25,
+      "type": "unsafe_operation",
+      "id": "token_transfer_call",
+      "is_core": true,
+      "description": "External call token.transfer(dst, wad) to an arbitrary ERC20 inside transferTokens"
+    },
+    {
+      "node_id": 26,
+      "type": "unsafe_operation",
+      "id": "reward_arithmetic",
+      "is_core": true,
+      "description": "add/mul/div/sub reward math in collectToken (remaining tokens, linear yearly accrual)"
+    },
+    {
+      "node_id": 27,
+      "type": "unsafe_operation",
+      "id": "authority_canCall",
+      "is_core": true,
+      "description": "External call authority.canCall(src, this, sig) performed by DSAuth.isAuthorized"
+    },
+    {
+      "node_id": 28,
+      "type": "parameter",
+      "id": "_rewardStartTime",
+      "is_core": false,
+      "description": "Constructor parameter for the reward start timestamp"
+    },
+    {
+      "node_id": 29,
+      "type": "parameter",
+      "id": "_key",
+      "is_core": false,
+      "description": "Constructor parameter for the reward token address"
+    },
+    {
+      "node_id": 30,
+      "type": "parameter",
+      "id": "_withdrawer",
+      "is_core": false,
+      "description": "Constructor parameter for the withdrawer address"
+    },
+    {
+      "node_id": 31,
+      "type": "parameter",
+      "id": "timestamp",
+      "is_core": false,
+      "description": "yearFor input timestamp"
+    },
+    {
+      "node_id": 32,
+      "type": "parameter",
+      "id": "_withdrawer_",
+      "is_core": false,
+      "description": "setWithdrawer input address"
+    },
+    {
+      "node_id": 33,
+      "type": "parameter",
+      "id": "_owner",
+      "is_core": false,
+      "description": "setOwner input address"
+    },
+    {
+      "node_id": 34,
+      "type": "parameter",
+      "id": "dst",
+      "is_core": false,
+      "description": "Recipient address in transferTokens"
+    },
+    {
+      "node_id": 35,
+      "type": "parameter",
+      "id": "wad",
+      "is_core": false,
+      "description": "Amount of tokens to recover in transferTokens"
+    },
+    {
+      "node_id": 36,
+      "type": "parameter",
+      "id": "_token",
+      "is_core": false,
+      "description": "Token contract address to recover in transferTokens"
+    },
+    {
+      "node_id": 37,
+      "type": "local_var",
+      "id": "_time",
+      "is_core": false,
+      "description": "Cached current time inside collectToken"
+    },
+    {
+      "node_id": 38,
+      "type": "local_var",
+      "id": "local_key",
+      "is_core": false,
+      "description": "Memory copy of the key storage pointer inside collectToken"
+    },
+    {
+      "node_id": 39,
+      "type": "local_var",
+      "id": "balance",
+      "is_core": false,
+      "description": "Pool balance of key tokens at call time"
+    },
+    {
+      "node_id": 40,
+      "type": "local_var",
+      "id": "total",
+      "is_core": false,
+      "description": "collectedTokens plus current balance"
+    },
+    {
+      "node_id": 41,
+      "type": "local_var",
+      "id": "remainingTokens",
+      "is_core": false,
+      "description": "Remaining tokens after yearly decay iterations"
+    },
+    {
+      "node_id": 42,
+      "type": "local_var",
+      "id": "yearCount",
+      "is_core": false,
+      "description": "Number of years elapsed since rewardStartTime"
+    },
+    {
+      "node_id": 43,
+      "type": "local_var",
+      "id": "canExtract",
+      "is_core": false,
+      "description": "Final computed amount the withdrawer can extract"
+    },
+    {
+      "node_id": 44,
+      "type": "local_var",
+      "id": "canExtractThisYear",
+      "is_core": false,
+      "description": "Linearly accrued reward amount within the current year"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor parameter _rewardStartTime is stored in rewardStartTime.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 28,
+      "to_id": 1
+    },
+    {
+      "reason": "Constructor parameter _key is stored in the key state variable.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 0
+    },
+    {
+      "reason": "Constructor parameter _withdrawer is stored in the withdrawer state variable.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 30,
+      "to_id": 5
+    },
+    {
+      "reason": "msg.sender is assigned to owner in the constructor, granting administrative privileges.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 6
+    },
+    {
+      "reason": "onlyWithdrawer modifier gates collectToken on msg.sender.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 22,
+      "to_id": 8
+    },
+    {
+      "reason": "withdrawer state variable is compared against msg.sender to authorise collectToken.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 5,
+      "to_id": 8
+    },
+    {
+      "reason": "withdrawer comparison authorises transferTokens via onlyWithdrawer.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 5,
+      "to_id": 15
+    },
+    {
+      "reason": "onlyOwner modifier checks owner before setWithdrawer executes.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 6,
+      "to_id": 11
+    },
+    {
+      "reason": "onlyOwner modifier checks owner before setOwner executes.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 6,
+      "to_id": 12
+    },
+    {
+      "reason": "onlyOwner modifier checks owner before pauseCollectToken executes.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 6,
+      "to_id": 13
+    },
+    {
+      "reason": "onlyOwner modifier checks owner before resumeCollectToken executes.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 6,
+      "to_id": 14
+    },
+    {
+      "reason": "setWithdrawer parameter overwrites the privileged withdrawer address.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 32,
+      "to_id": 5
+    },
+    {
+      "reason": "setOwner parameter overwrites the owner address.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 33,
+      "to_id": 6
+    },
+    {
+      "reason": "setWithdrawer writes the withdrawer state variable.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 5
+    },
+    {
+      "reason": "setOwner writes the owner state variable.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 6
+    },
+    {
+      "reason": "pauseCollectToken sets paused to true, blocking collection.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 7
+    },
+    {
+      "reason": "resumeCollectToken sets paused to false.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 7
+    },
+    {
+      "reason": "notPaused modifier requires the paused flag to be false before collectToken runs.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 7,
+      "to_id": 8
+    },
+    {
+      "reason": "block.timestamp (now) is returned by time(), making execution timestamp dependent.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 23,
+      "to_id": 10
+    },
+    {
+      "reason": "Timestamp comparison with rewardStartTime drives yearFor computation.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 23,
+      "to_id": 9
+    },
+    {
+      "reason": "time() result feeds the reward accrual logic of collectToken.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 8
+    },
+    {
+      "reason": "time() supplies the timestamp used by yearFor.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 9
+    },
+    {
+      "reason": "Block timestamp influences the arithmetic reward amounts computed in collectToken.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 23,
+      "to_id": 26
+    },
+    {
+      "reason": "collectToken performs add/mul/div/sub reward math sensitive to overflow or rounding.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 26
+    },
+    {
+      "reason": "collectToken makes the external key.transfer call, enabling potential re-entry into pool logic.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 8,
+      "to_id": 24
+    },
+    {
+      "reason": "Computed canExtract amount is the value passed to _key.transfer.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 43,
+      "to_id": 24
+    },
+    {
+      "reason": "withdrawer address is the recipient of the external key transfer.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 24
+    },
+    {
+      "reason": "yearFor timestamp parameter is used in the year arithmetic.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 31,
+      "to_id": 9
+    },
+    {
+      "reason": "transferTokens performs an external ERC20 transfer that could re-enter the pool.",
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "from_id": 15,
+      "to_id": 25
+    },
+    {
+      "reason": "dst parameter is the recipient of the recovered token transfer.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 34,
+      "to_id": 25
+    },
+    {
+      "reason": "wad parameter is the amount of the recovered token transfer.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 35,
+      "to_id": 25
+    },
+    {
+      "reason": "_token parameter determines which external ERC20 contract is called.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 36,
+      "to_id": 25
+    },
+    {
+      "reason": "key state variable is the token contract on which transfer is invoked.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 24
+    },
+    {
+      "reason": "collectedTokens participates in the reward arithmetic.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 26
+    },
+    {
+      "reason": "totalRewardThisYear participates in the reward arithmetic.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 26
+    },
+    {
+      "reason": "yearlyRewardPercentage is multiplied into the reward arithmetic.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 2,
+      "to_id": 26
+    },
+    {
+      "reason": "_time local is populated from the time() (block.timestamp) call.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 37,
+      "to_id": 10
+    },
+    {
+      "reason": "_time local is used in the modular and subtraction reward math.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 37,
+      "to_id": 26
+    },
+    {
+      "reason": "balance local participates in the total and cap arithmetic.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 39,
+      "to_id": 26
+    },
+    {
+      "reason": "total local participates in the reward computation.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 40,
+      "to_id": 26
+    },
+    {
+      "reason": "remainingTokens local is decayed through yearly arithmetic.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 41,
+      "to_id": 26
+    },
+    {
+      "reason": "yearCount loop counter drives the reward arithmetic iterations.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 42,
+      "to_id": 26
+    },
+    {
+      "reason": "canExtractThisYear local is produced by and consumed in the reward arithmetic.",
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "from_id": 44,
+      "to_id": 26
+    },
+    {
+      "reason": "local_key memory copy is used to query the pool token balance.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 38,
+      "to_id": 39
+    },
+    {
+      "reason": "key storage variable is copied into the local_key memory pointer.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 0,
+      "to_id": 38
+    },
+    {
+      "reason": "mint is protected by the auth modifier on msg.sender.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 22,
+      "to_id": 20
+    },
+    {
+      "reason": "burn is protected by the auth modifier on msg.sender.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 22,
+      "to_id": 21
+    },
+    {
+      "reason": "isAuthorized passes msg.sender as src to the external authority.canCall check.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 22,
+      "to_id": 27
+    },
+    {
+      "reason": "collectToken invokes key.transfer, which dispatches into DSToken.transfer.",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 8,
+      "to_id": 17
+    },
+    {
+      "reason": "_token parameter is compared against the key address to forbid recovering the reward token.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 36,
+      "to_id": 0
+    },
+    {
+      "reason": "msg.sender is the debited account in DSToken.transfer balance checks.",
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "from_id": 22,
+      "to_id": 17
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Constructor parameter _rewardStartTime only feeds the KeyRewardPool constructor state assignment.",
+      "merge_into": "KeyRewardPool",
+      "normal_node": "_rewardStartTime"
+    },
+    {
+      "reason": "Constructor parameter _key only feeds the KeyRewardPool constructor state assignment.",
+      "merge_into": "KeyRewardPool",
+      "normal_node": "_key"
+    },
+    {
+      "reason": "Constructor parameter _withdrawer only feeds the KeyRewardPool constructor state assignment.",
+      "merge_into": "KeyRewardPool",
+      "normal_node": "_withdrawer"
+    },
+    {
+      "reason": "yearFor timestamp parameter is local to the yearFor function computation.",
+      "merge_into": "yearFor",
+      "normal_node": "timestamp"
+    },
+    {
+      "reason": "_withdrawer_ parameter is consumed by setWithdrawer when writing withdrawer.",
+      "merge_into": "setWithdrawer",
+      "normal_node": "_withdrawer_"
+    },
+    {
+      "reason": "_owner parameter is consumed by setOwner when writing owner.",
+      "merge_into": "setOwner",
+      "normal_node": "_owner"
+    },
+    {
+      "reason": "dst parameter is consumed by transferTokens for the recovery transfer.",
+      "merge_into": "transferTokens",
+      "normal_node": "dst"
+    },
+    {
+      "reason": "wad parameter is consumed by transferTokens for the recovery transfer amount.",
+      "merge_into": "transferTokens",
+      "normal_node": "wad"
+    },
+    {
+      "reason": "_token parameter is consumed by transferTokens to select the ERC20 called.",
+      "merge_into": "transferTokens",
+      "normal_node": "_token"
+    },
+    {
+      "reason": "_time local variable is a temporary inside collectToken's timestamp-dependent logic.",
+      "merge_into": "collectToken",
+      "normal_node": "_time"
+    },
+    {
+      "reason": "local_key memory copy is a temporary optimisation inside collectToken.",
+      "merge_into": "collectToken",
+      "normal_node": "local_key"
+    },
+    {
+      "reason": "balance local variable is a temporary inside collectToken.",
+      "merge_into": "collectToken",
+      "normal_node": "balance"
+    },
+    {
+      "reason": "total local variable is a temporary inside collectToken.",
+      "merge_into": "collectToken",
+      "normal_node": "total"
+    },
+    {
+      "reason": "remainingTokens local variable is a temporary inside collectToken.",
+      "merge_into": "collectToken",
+      "normal_node": "remainingTokens"
+    },
+    {
+      "reason": "yearCount local variable is a loop temporary inside collectToken.",
+      "merge_into": "collectToken",
+      "normal_node": "yearCount"
+    },
+    {
+      "reason": "canExtract local variable is the amount handed to the external key transfer unsafe operation.",
+      "merge_into": "key_transfer_call",
+      "normal_node": "canExtract"
+    },
+    {
+      "reason": "canExtractThisYear local variable is a temporary computed inside collectToken.",
+      "merge_into": "collectToken",
+      "normal_node": "canExtractThisYear"
+    }
+  ]
+}

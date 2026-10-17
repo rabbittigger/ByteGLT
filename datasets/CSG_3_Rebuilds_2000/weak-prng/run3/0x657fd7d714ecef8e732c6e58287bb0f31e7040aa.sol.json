@@ -1,0 +1,114 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "description": "External view function randomMod that derives a pseudo-random number and returns it modulo mod.",
+      "id": "Randomizer.randomMod",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "description": "Caller-supplied seed value mixed into the keccak256 randomness computation.",
+      "id": "randomMod.seed",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 2,
+      "description": "Caller-supplied nonce value mixed into the keccak256 randomness computation.",
+      "id": "randomMod.nonce",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 3,
+      "description": "Caller-supplied modulus applied to the hashed randomness result.",
+      "id": "randomMod.mod",
+      "type": "parameter",
+      "is_core": false
+    },
+    {
+      "node_id": 4,
+      "description": "Origin address of the transaction, attacker-influenced and used as randomness entropy.",
+      "id": "tx.origin",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "description": "Current block timestamp, miner/validator-influenceable and used as randomness entropy.",
+      "id": "block.timestamp",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 6,
+      "description": "keccak256 over abi.encodePacked(tx.origin, nonce, blockhash, block.timestamp, seed) reduced modulo mod; weak on-chain randomness that is predictable/manipulable.",
+      "id": "unsafe_random_mod",
+      "type": "unsafe_operation",
+      "is_core": true
+    }
+  ],
+  "edges": [
+    {
+      "reason": "tx.origin is read directly as entropy in the randomness hash, letting the transaction origin influence and predict the pseudo-random output.",
+      "vuln_type": "access_control",
+      "to_id": 6,
+      "type": "dataflow",
+      "from_id": 4
+    },
+    {
+      "reason": "block.timestamp is used as randomness entropy, making the result dependent on manipulable block-level state.",
+      "vuln_type": "access_control",
+      "to_id": 6,
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "reason": "seed parameter is encoded into the keccak256 input of the randomness operation.",
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "reason": "nonce parameter is encoded into the keccak256 input of the randomness operation.",
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "reason": "mod parameter controls the modulo reduction applied to the generated hash.",
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "reason": "randomMod executes the hashing and modulo operation as its return expression.",
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "controlflow",
+      "from_id": 0
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The seed parameter has no independent on-chain state; it is only consumed as input to the unsafe randomness operation, so it collapses into that core unsafe_operation node.",
+      "merge_into": "unsafe_random_mod",
+      "normal_node": "randomMod.seed"
+    },
+    {
+      "reason": "The nonce parameter is only used inside the randomness hash and carries no persistent semantics, so it merges into the core unsafe_operation node.",
+      "merge_into": "unsafe_random_mod",
+      "normal_node": "randomMod.nonce"
+    },
+    {
+      "reason": "The mod parameter only parameterizes the modulo reduction inside the randomness operation, so it merges into the core unsafe_operation node.",
+      "merge_into": "unsafe_random_mod",
+      "normal_node": "randomMod.mod"
+    }
+  ]
+}

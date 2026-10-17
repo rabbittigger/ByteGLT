@@ -1,0 +1,233 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "maxLimit",
+      "is_core": true,
+      "description": "Maximum number of NFTs that can be minted, set to 8888"
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "id": "numbers",
+      "is_core": true,
+      "description": "Mapping from tokenId to a number derived from block.timestamp, used as a seed"
+    },
+    {
+      "node_id": 2,
+      "type": "function",
+      "id": "claim",
+      "is_core": true,
+      "description": "Public function to mint a new Fuxi NFT, restricted by nonReentrant"
+    },
+    {
+      "node_id": 3,
+      "type": "function",
+      "id": "_safeMint",
+      "is_core": true,
+      "description": "Internal ERC721 function to safely mint a token, calls onERC721Received if recipient is contract"
+    },
+    {
+      "node_id": 4,
+      "type": "function",
+      "id": "_checkOnERC721Received",
+      "is_core": true,
+      "description": "Internal function that calls onERC721Received on the recipient contract"
+    },
+    {
+      "node_id": 5,
+      "type": "function",
+      "id": "nonReentrant",
+      "is_core": true,
+      "description": "Modifier from ReentrancyGuard that prevents reentrant calls"
+    },
+    {
+      "node_id": 6,
+      "type": "untrusted_input",
+      "id": "block_timestamp",
+      "is_core": true,
+      "description": "block.timestamp used as a random seed in claim"
+    },
+    {
+      "node_id": 7,
+      "type": "untrusted_input",
+      "id": "msg_sender",
+      "is_core": true,
+      "description": "msg.sender used as the recipient of minted tokens"
+    },
+    {
+      "node_id": 8,
+      "type": "unsafe_operation",
+      "id": "external_call_onERC721Received",
+      "is_core": true,
+      "description": "External call to onERC721Received on recipient contract, a potential reentrancy vector"
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "id": "pluck",
+      "is_core": true,
+      "description": "Internal function that selects a string from an array based on tokenId and keyPrefix"
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "id": "random",
+      "is_core": true,
+      "description": "Internal pure function that returns a pseudo-random number from a string input"
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "id": "toString",
+      "is_core": true,
+      "description": "Internal pure function that converts a uint256 to its decimal string representation"
+    },
+    {
+      "node_id": 12,
+      "type": "local_var",
+      "id": "claim_tokenId",
+      "is_core": false,
+      "description": "Local variable in claim: tokenId computed as totalSupply()+1"
+    },
+    {
+      "node_id": 13,
+      "type": "parameter",
+      "id": "pluck_tokenId",
+      "is_core": false,
+      "description": "Parameter tokenId in pluck function"
+    },
+    {
+      "node_id": 14,
+      "type": "local_var",
+      "id": "pluck_number",
+      "is_core": false,
+      "description": "Local variable number in pluck function, read from numbers mapping"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "block.timestamp is used as the value stored in numbers mapping, making randomness predictable",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 1
+    },
+    {
+      "reason": "tokenId is used as key in numbers mapping",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 1
+    },
+    {
+      "reason": "msg.sender is passed as recipient to _safeMint",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 3
+    },
+    {
+      "reason": "tokenId is passed to _safeMint",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 3
+    },
+    {
+      "reason": "claim calls _safeMint",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 2,
+      "to_id": 3
+    },
+    {
+      "reason": "_safeMint calls _checkOnERC721Received",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 3,
+      "to_id": 4
+    },
+    {
+      "reason": "external call to onERC721Received on recipient contract",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 4,
+      "to_id": 8
+    },
+    {
+      "reason": "external call could reenter claim, but nonReentrant prevents",
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "from_id": 8,
+      "to_id": 2
+    },
+    {
+      "reason": "claim uses nonReentrant modifier",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 2,
+      "to_id": 5
+    },
+    {
+      "reason": "pluck reads number from numbers mapping",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 1,
+      "to_id": 14
+    },
+    {
+      "reason": "pluck uses tokenId to index numbers",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 1
+    },
+    {
+      "reason": "pluck calls toString with tokenId+number",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 11
+    },
+    {
+      "reason": "pluck calls toString with tokenId+number",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 11
+    },
+    {
+      "reason": "random uses output of toString as input",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 10
+    },
+    {
+      "reason": "pluck calls random",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 9,
+      "to_id": 10
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Local variable in claim function used to compute tokenId for minting.",
+      "merge_into": "claim",
+      "normal_node": "claim_tokenId"
+    },
+    {
+      "reason": "Parameter of pluck function used to index numbers mapping.",
+      "merge_into": "pluck",
+      "normal_node": "pluck_tokenId"
+    },
+    {
+      "reason": "Local variable in pluck function holding value from numbers mapping.",
+      "merge_into": "pluck",
+      "normal_node": "pluck_number"
+    }
+  ]
+}

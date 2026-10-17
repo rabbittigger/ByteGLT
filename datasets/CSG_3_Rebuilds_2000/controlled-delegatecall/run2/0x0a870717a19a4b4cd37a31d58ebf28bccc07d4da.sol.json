@@ -1,0 +1,63 @@
+{
+  "nodes": [
+    {
+      "id": "chainlink",
+      "description": "Public state variable holding the hardcoded Chainlink oracle address (0xDC3EA94CD0AC27d9A86C180091e7f78C683d3699) used as the price source; it has no setter so it cannot be changed after deployment.",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "getPrice",
+      "description": "External view function getPrice() that reads the Chainlink oracle and returns its latestAnswer scaled down by 100 for the SNX-USDC (decimals=6) conversion.",
+      "is_core": true,
+      "node_id": 1,
+      "type": "function"
+    },
+    {
+      "id": "latestAnswer_call",
+      "description": "External call IChainlink(chainlink).latestAnswer() whose return value is used without any sanity, staleness or validity check, trusting the oracle address stored in state.",
+      "is_core": true,
+      "node_id": 2,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "price_division",
+      "description": "Arithmetic operation latestAnswer() / 100 which truncates the oracle answer to convert 8-decimal Chainlink data; unchecked precision loss / division behavior.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The getPrice function reads the chainlink state variable to know which oracle contract to query.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The chainlink state variable is used as the target address of the external latestAnswer() call, so its value flows into the call.",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Execution of getPrice invokes the external IChainlink.latestAnswer() call as its first statement.",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The value returned by latestAnswer() is the dividend of the / 100 division, so oracle output dataflows into the arithmetic operation and can drive precision loss.",
+      "to_id": 3,
+      "vuln_type": "arithmetic",
+      "from_id": 2,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": []
+}

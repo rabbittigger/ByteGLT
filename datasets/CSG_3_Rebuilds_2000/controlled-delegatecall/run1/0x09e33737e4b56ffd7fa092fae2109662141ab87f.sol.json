@@ -1,0 +1,229 @@
+{
+  "nodes": [
+    {
+      "description": "Owner address state variable of Ownable, set in constructor and updated by transferOwnership.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "owner"
+    },
+    {
+      "description": "Ownable constructor that assigns msg.sender to the owner state variable.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 1,
+      "id": "Ownable_constructor"
+    },
+    {
+      "description": "Ownable function guarded by onlyOwner that lets the current owner reassign ownership to newOwner.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 2,
+      "id": "transferOwnership"
+    },
+    {
+      "description": "Indorser function that loops over recipient and value arrays and performs token transfers.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "multisend"
+    },
+    {
+      "description": "msg.sender used as the initial owner in the Ownable constructor.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 4,
+      "id": "msg_sender_constructor"
+    },
+    {
+      "description": "msg.sender compared against owner in the onlyOwner modifier to enforce access control.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 5,
+      "id": "msg_sender_onlyOwner"
+    },
+    {
+      "description": "External call Token(_tokenAddr).transfer(...) executed inside the multisend loop with attacker-supplied token address, enabling reentrancy.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 6,
+      "id": "external_call_unsafe"
+    },
+    {
+      "description": "Arithmetic loop counter increment i++ on a uint8 whose bound is compared against _to.length, at risk of overflow.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 7,
+      "id": "loop_counter_arithmetic"
+    },
+    {
+      "description": "Address parameter newOwner of transferOwnership, the new ownership target.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 8,
+      "id": "param_newOwner"
+    },
+    {
+      "description": "Address parameter _tokenAddr of multisend, the token contract to call.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 9,
+      "id": "param_tokenAddr"
+    },
+    {
+      "description": "Address array parameter _to of multisend, the recipient list.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 10,
+      "id": "param_to"
+    },
+    {
+      "description": "uint256 array parameter _value of multisend, the amounts to transfer.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 11,
+      "id": "param_value"
+    },
+    {
+      "description": "uint8 local loop counter i used to index _to and _value in multisend.",
+      "is_core": false,
+      "type": "local_var",
+      "node_id": 12,
+      "id": "local_i"
+    },
+    {
+      "description": "Token interface function transfer(address to, uint value) invoked externally by multisend.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 13,
+      "id": "Token_transfer"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is read in the Ownable constructor and assigned as the owner.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "The constructor writes msg.sender into the owner state variable.",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "The onlyOwner modifier checks msg.sender against owner and gates execution of transferOwnership.",
+      "from_id": 5,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 2
+    },
+    {
+      "reason": "newOwner parameter flows into transferOwnership and, if non-zero, into the owner state variable.",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "transferOwnership writes the newOwner value into the owner state variable.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "multisend drives execution of the external Token.transfer call inside its loop.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 6
+    },
+    {
+      "reason": "Attacker-controlled _tokenAddr is used to construct the Token interface for the external call.",
+      "from_id": 9,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "Attacker-controlled _to array supplies recipients to the external Token.transfer call.",
+      "from_id": 10,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "Attacker-controlled _value array supplies amounts to the external Token.transfer call.",
+      "from_id": 11,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "The external call invokes Token.transfer, an untrusted callback that can reenter multisend.",
+      "from_id": 6,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 13
+    },
+    {
+      "reason": "Loop counter i indexes the arrays used in the external call arguments.",
+      "from_id": 12,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "The uint8 loop counter i is incremented in the loop arithmetic, risking overflow.",
+      "from_id": 12,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "_to.length is the loop bound compared against the uint8 counter in the loop arithmetic.",
+      "from_id": 10,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 7
+    },
+    {
+      "reason": "The loop counter arithmetic controls iteration and therefore each external call execution.",
+      "from_id": 7,
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "to_id": 6
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "newOwner is a parameter consumed only by transferOwnership to update the owner state variable.",
+      "normal_node": "param_newOwner",
+      "merge_into": "transferOwnership"
+    },
+    {
+      "reason": "_tokenAddr is a parameter used only to build the Token target of the external call.",
+      "normal_node": "param_tokenAddr",
+      "merge_into": "external_call_unsafe"
+    },
+    {
+      "reason": "_to is a parameter consumed only as recipient list of the external transfer call.",
+      "normal_node": "param_to",
+      "merge_into": "external_call_unsafe"
+    },
+    {
+      "reason": "_value is a parameter consumed only as amount list of the external transfer call.",
+      "normal_node": "param_value",
+      "merge_into": "external_call_unsafe"
+    },
+    {
+      "reason": "i is a temporary counter that exists solely for the loop arithmetic and array indexing.",
+      "normal_node": "local_i",
+      "merge_into": "loop_counter_arithmetic"
+    }
+  ]
+}

@@ -1,0 +1,275 @@
+{
+  "nodes": [
+    {
+      "id": "to",
+      "description": "Constant state variable holding the first hardcoded payout address 0x4135cfC4559df9145479010B7E21C7449fC9CfdE used by withdraw().",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "to1",
+      "description": "Constant state variable holding the second hardcoded payout address 0xDfd67f52D72e5ACFb42e53dB30E633F0Da8bE130 used by withdraw().",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "price",
+      "description": "Public uint256 mint price, initialized to 0.05 ether, read by fallback() and written by set_price().",
+      "is_core": true,
+      "node_id": 2,
+      "type": "state_var"
+    },
+    {
+      "id": "maxSupply",
+      "description": "Public uint256 hard cap of 2100 tokens enforced by fallback() before incrementing totalSupply.",
+      "is_core": true,
+      "node_id": 3,
+      "type": "state_var"
+    },
+    {
+      "id": "totalSupply",
+      "description": "Public uint256 counter of minted tokens, incremented in fallback() and overwritten by set_total_supply().",
+      "is_core": true,
+      "node_id": 4,
+      "type": "state_var"
+    },
+    {
+      "id": "fallback",
+      "description": "fallback() external payable mint entry point: checks msg.value against price, checks totalSupply against maxSupply, derives amount from msg.value and increments totalSupply.",
+      "is_core": true,
+      "node_id": 5,
+      "type": "function"
+    },
+    {
+      "id": "set_price",
+      "description": "Owner-only setter that writes the newprice parameter into the price state variable.",
+      "is_core": true,
+      "node_id": 6,
+      "type": "function"
+    },
+    {
+      "id": "set_total_supply",
+      "description": "Owner-only setter that overwrites the totalSupply state variable with the val parameter.",
+      "is_core": true,
+      "node_id": 7,
+      "type": "function"
+    },
+    {
+      "id": "withdraw",
+      "description": "Owner-only function that performs two external value transfers using address(this).balance and the truncated division balance/6.0.",
+      "is_core": true,
+      "node_id": 8,
+      "type": "function"
+    },
+    {
+      "id": "own",
+      "description": "Access-control modifier 'own' that requires msg.sender to equal the hardcoded owner address 0x5e0a744f101F82E0a661477E36783C6c22d3D791.",
+      "is_core": true,
+      "node_id": 9,
+      "type": "function"
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller-controlled address used as the ownership check in modifier own and emitted in the Minted event by fallback().",
+      "is_core": true,
+      "node_id": 10,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "newprice",
+      "description": "Caller-supplied uint256 parameter of set_price() that becomes the new mint price.",
+      "is_core": false,
+      "node_id": 11,
+      "type": "parameter"
+    },
+    {
+      "id": "val",
+      "description": "Caller-supplied uint256 parameter of set_total_supply() that becomes the new totalSupply.",
+      "is_core": false,
+      "node_id": 12,
+      "type": "parameter"
+    },
+    {
+      "id": "amount",
+      "description": "Local uint256 in fallback() derived from msg.value (1..5) and added to totalSupply.",
+      "is_core": false,
+      "node_id": 13,
+      "type": "local_var"
+    },
+    {
+      "id": "transfer_first",
+      "description": "External value transfer payable(to).transfer(address(this).balance / 6.0): hardcoded recipient plus truncating integer division of the contract balance.",
+      "is_core": true,
+      "node_id": 14,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "transfer_second",
+      "description": "External value transfer payable(to1).transfer(address(this).balance) draining the remaining contract balance to a hardcoded address.",
+      "is_core": true,
+      "node_id": 15,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "supply_update",
+      "description": "State update totalSupply += amount executed after only a pre-increment check totalSupply < maxSupply, allowing the cap of 2100 to be exceeded.",
+      "is_core": true,
+      "node_id": 16,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is compared against a hardcoded owner address inside the own modifier, gating every privileged function.",
+      "to_id": 9,
+      "vuln_type": "access_control",
+      "from_id": 10,
+      "type": "controlflow"
+    },
+    {
+      "reason": "fallback() uses msg.sender as the minter address emitted in the Minted event.",
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 10,
+      "type": "dataflow"
+    },
+    {
+      "reason": "set_price() is guarded by the own modifier, restricting price changes to the hardcoded owner.",
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "from_id": 9,
+      "type": "controlflow"
+    },
+    {
+      "reason": "set_total_supply() is guarded by the own modifier, restricting supply overwrites to the hardcoded owner.",
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "from_id": 9,
+      "type": "controlflow"
+    },
+    {
+      "reason": "withdraw() is guarded by the own modifier, restricting fund extraction to the hardcoded owner.",
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "from_id": 9,
+      "type": "controlflow"
+    },
+    {
+      "reason": "fallback() reads price in require(msg.value >= price) to validate the sent value.",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "fallback() reads maxSupply in require(totalSupply < maxSupply) to bound minting.",
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "fallback() reads and updates totalSupply when minting, allowing the counter to be pushed past maxSupply.",
+      "to_id": 4,
+      "vuln_type": "arithmetic",
+      "from_id": 5,
+      "type": "dataflow"
+    },
+    {
+      "reason": "fallback() branches on msg.value to assign the local amount value between 0 and 5.",
+      "to_id": 13,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Local amount flows into the totalSupply += amount state update only when amount > 0.",
+      "to_id": 16,
+      "vuln_type": "arithmetic",
+      "from_id": 13,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The unchecked-vs-cap supply update writes the new value into the totalSupply state variable.",
+      "to_id": 4,
+      "vuln_type": "arithmetic",
+      "from_id": 16,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The newprice parameter is consumed by set_price() as the value to store.",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 11,
+      "type": "dataflow"
+    },
+    {
+      "reason": "set_price() writes the supplied newprice into the price state variable.",
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The val parameter is consumed by set_total_supply() as the value to store.",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 12,
+      "type": "dataflow"
+    },
+    {
+      "reason": "set_total_supply() overwrites the totalSupply state variable with val.",
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "withdraw() performs an external value transfer to the hardcoded address to with a balance/6.0 amount before any supply/accounting reconciliation.",
+      "to_id": 14,
+      "vuln_type": "reentrancy",
+      "from_id": 8,
+      "type": "controlflow"
+    },
+    {
+      "reason": "withdraw() performs a second external value transfer to the hardcoded address to1 using the remaining contract balance.",
+      "to_id": 15,
+      "vuln_type": "reentrancy",
+      "from_id": 8,
+      "type": "controlflow"
+    },
+    {
+      "reason": "withdraw() reads the constant address to as the destination of the first transfer.",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "withdraw() reads the constant address to1 as the destination of the second transfer.",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "dataflow"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The newprice parameter has no independent behaviour and only exists as the input written into price by set_price(), so it should be merged into that function node.",
+      "normal_node": "newprice",
+      "merge_into": "set_price"
+    },
+    {
+      "reason": "The val parameter has no independent behaviour and only exists as the input written into totalSupply by set_total_supply(), so it should be merged into that function node.",
+      "normal_node": "val",
+      "merge_into": "set_total_supply"
+    },
+    {
+      "reason": "The local amount is only used to compute the totalSupply increment, so it should be merged into the supply_update unsafe_operation that performs the mint accounting.",
+      "normal_node": "amount",
+      "merge_into": "supply_update"
+    }
+  ]
+}

@@ -1,0 +1,517 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Immutable constant uint256 PERIOD = 30 minutes used as the minimum elapsed window between oracle updates.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "Oracle.PERIOD"
+    },
+    {
+      "type": "state_var",
+      "description": "Immutable address of the ICCFactory used to resolve pairs, sort tokens and query pairFor.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "Oracle.factory"
+    },
+    {
+      "type": "state_var",
+      "description": "Private mapping(address => Observation) storing cumulative prices, timestamp and average prices per pair.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "Oracle.pairObservations"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Block timestamp, miner-influenced, used to compute timeElapsed and counterfactual cumulative prices.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "function",
+      "description": "Constructor that sets the immutable factory address and rejects the zero address.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "Oracle.constructor"
+    },
+    {
+      "type": "function",
+      "description": "External view returning the stored observation fields for a token pair.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "Oracle.getObservation"
+    },
+    {
+      "type": "function",
+      "description": "Public function that initialises or refreshes the observation of a pair, computing time-weighted average prices.",
+      "is_core": true,
+      "node_id": 6,
+      "id": "Oracle.updatePair"
+    },
+    {
+      "type": "function",
+      "description": "External function resolving a pair from two tokens and delegating to updatePair.",
+      "is_core": true,
+      "node_id": 7,
+      "id": "Oracle.update"
+    },
+    {
+      "type": "function",
+      "description": "External view returning the amount out using the stored average price of the pair.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "Oracle.consult"
+    },
+    {
+      "type": "function",
+      "description": "Internal view returning block.timestamp truncated to uint32.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "CCOracleLibrary.currentBlockTimestamp"
+    },
+    {
+      "type": "function",
+      "description": "Internal view producing counterfactual cumulative prices for a pair using reserves and elapsed time.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "CCOracleLibrary.currentCumulativePrices"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Unchecked uint32 subtraction timeElapsed = blockTimestamp - observation.blockTimestampLast where wrap-around is intended but affects the PERIOD gate.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "unsafe.updatePair.timeElapsed"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Unchecked accumulation priceCumulative += uint(fraction(reserve)._x) * timeElapsed with deliberate overflow.",
+      "is_core": true,
+      "node_id": 12,
+      "id": "unsafe.currentCumulativePrices.accumulate"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Division (priceCumulative - lastCumulative) / timeElapsed producing the uq112x112 average price.",
+      "is_core": true,
+      "node_id": 13,
+      "id": "unsafe.updatePair.averagePriceDiv"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Fixed-point multiplication of the stored average price by amountIn followed by decode144 in consult.",
+      "is_core": true,
+      "node_id": 14,
+      "id": "unsafe.consult.mulDecode"
+    },
+    {
+      "type": "parameter",
+      "description": "Constructor parameter address _factory used to initialise the immutable factory state variable.",
+      "is_core": false,
+      "node_id": 15,
+      "id": "param.Oracle.constructor._factory"
+    },
+    {
+      "type": "parameter",
+      "description": "First token address parameter of getObservation.",
+      "is_core": false,
+      "node_id": 16,
+      "id": "param.Oracle.getObservation.tokenA"
+    },
+    {
+      "type": "parameter",
+      "description": "Second token address parameter of getObservation.",
+      "is_core": false,
+      "node_id": 17,
+      "id": "param.Oracle.getObservation.tokenB"
+    },
+    {
+      "type": "parameter",
+      "description": "Pair address parameter of updatePair that is used to index pairObservations.",
+      "is_core": false,
+      "node_id": 18,
+      "id": "param.Oracle.updatePair.pair"
+    },
+    {
+      "type": "parameter",
+      "description": "First token address parameter of update.",
+      "is_core": false,
+      "node_id": 19,
+      "id": "param.Oracle.update.tokenA"
+    },
+    {
+      "type": "parameter",
+      "description": "Second token address parameter of update.",
+      "is_core": false,
+      "node_id": 20,
+      "id": "param.Oracle.update.tokenB"
+    },
+    {
+      "type": "parameter",
+      "description": "Input token address parameter of consult.",
+      "is_core": false,
+      "node_id": 21,
+      "id": "param.Oracle.consult.tokenIn"
+    },
+    {
+      "type": "parameter",
+      "description": "Input amount parameter of consult multiplied by the average price.",
+      "is_core": false,
+      "node_id": 22,
+      "id": "param.Oracle.consult.amountIn"
+    },
+    {
+      "type": "parameter",
+      "description": "Output token address parameter of consult.",
+      "is_core": false,
+      "node_id": 23,
+      "id": "param.Oracle.consult.tokenOut"
+    },
+    {
+      "type": "parameter",
+      "description": "Pair address parameter of currentCumulativePrices, cast to ICCPair for reserve and cumulative reads.",
+      "is_core": false,
+      "node_id": 24,
+      "id": "param.CCOracleLibrary.currentCumulativePrices.pair"
+    },
+    {
+      "type": "local_var",
+      "description": "Local address pair resolved via factory.getPair in getObservation.",
+      "is_core": false,
+      "node_id": 25,
+      "id": "local.Oracle.getObservation.pair"
+    },
+    {
+      "type": "local_var",
+      "description": "Local storage pointer observation referencing pairObservations[pair] in updatePair.",
+      "is_core": false,
+      "node_id": 26,
+      "id": "local.Oracle.updatePair.observation"
+    },
+    {
+      "type": "local_var",
+      "description": "Local uint32 timeElapsed computed from the current and previous block timestamps in updatePair.",
+      "is_core": false,
+      "node_id": 27,
+      "id": "local.Oracle.updatePair.timeElapsed"
+    },
+    {
+      "type": "local_var",
+      "description": "Local address pair resolved via factory.getPair in update.",
+      "is_core": false,
+      "node_id": 28,
+      "id": "local.Oracle.update.pair"
+    },
+    {
+      "type": "local_var",
+      "description": "Local address pair resolved via factory.pairFor in consult.",
+      "is_core": false,
+      "node_id": 29,
+      "id": "local.Oracle.consult.pair"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "access_control",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "block.timestamp is read inside currentBlockTimestamp and truncated to uint32, making the timestamp value miner-influenced.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 10,
+      "type": "controlflow",
+      "reason": "currentCumulativePrices invokes currentBlockTimestamp to derive the blockTimestamp used for counterfactual pricing.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "The unchecked cumulative price multiplication and addition is executed inside currentCumulativePrices.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "The block timestamp indirectly determines the counterfactual cumulative price accumulation computed in currentCumulativePrices.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "updatePair computes timeElapsed by unchecked uint32 subtraction of the stored observation timestamp.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "timeElapsed is derived from block.timestamp via currentCumulativePrices, so it depends on the timestamp.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "updatePair divides the cumulative price deltas by timeElapsed to derive the average prices.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 14,
+      "type": "controlflow",
+      "reason": "consult performs the fixed-point multiplication of the stored average price by amountIn and decodes it.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "The constant PERIOD is read in updatePair to require a minimum elapsed window before updating.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "The immutable factory address is used to resolve the pair in getObservation.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "The immutable factory address is used to resolve tokenA/tokenB into a pair in update.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "The immutable factory address is used for pairFor and sortTokens in consult.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "getObservation reads its returned values from the pairObservations mapping.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "updatePair reads and writes the Observation stored in pairObservations for the given pair.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "consult reads the stored average prices from pairObservations.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "controlflow",
+      "reason": "update delegates the whole update logic to updatePair and returns its boolean result.",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 2,
+      "type": "callback",
+      "reason": "In the initialisation branch of updatePair the external calls to ICCPair (price0CumulativeLast, price1CumulativeLast, getReserves) happen before the pairObservations state writes, so a malicious pair contract can re-enter updatePair.",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "Constructor parameter _factory is validated and assigned to the immutable factory state variable.",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "Parameter tokenA is forwarded to factory.getPair in getObservation.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "Parameter tokenB is forwarded to factory.getPair in getObservation.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "Parameter pair indexes pairObservations and is cast to ICCPair in updatePair.",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "Parameter tokenA is passed to factory.getPair in update.",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "Parameter tokenB is passed to factory.getPair in update.",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "Parameter tokenIn selects the pair and the price side in consult.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "Parameter amountIn is multiplied by the stored average price in consult.",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "Parameter tokenOut is used with tokenIn for pairFor and sortTokens in consult.",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "Parameter pair of currentCumulativePrices is used for all ICCPair external calls.",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "Local pair resolved in getObservation is used to index pairObservations.",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "Local storage pointer observation holds the Observation being initialised or refreshed in updatePair.",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "Local timeElapsed gates the PERIOD requirement and divides the cumulative price deltas in updatePair.",
+      "from_id": 27
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "Local pair resolved in update is forwarded to updatePair.",
+      "from_id": 28
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "Local pair resolved in consult is used to load the observation and average prices.",
+      "from_id": 29
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "Oracle.constructor",
+      "reason": "Constructor parameter _factory only feeds the Oracle constructor and is subsumed by that core function node.",
+      "normal_node": "param.Oracle.constructor._factory"
+    },
+    {
+      "merge_into": "Oracle.getObservation",
+      "reason": "Parameter tokenA is only used by getObservation to resolve the pair, so it merges into the function node.",
+      "normal_node": "param.Oracle.getObservation.tokenA"
+    },
+    {
+      "merge_into": "Oracle.getObservation",
+      "reason": "Parameter tokenB is only used by getObservation to resolve the pair, so it merges into the function node.",
+      "normal_node": "param.Oracle.getObservation.tokenB"
+    },
+    {
+      "merge_into": "Oracle.updatePair",
+      "reason": "Parameter pair exists only to index the observation inside updatePair.",
+      "normal_node": "param.Oracle.updatePair.pair"
+    },
+    {
+      "merge_into": "Oracle.update",
+      "reason": "Parameter tokenA is only consumed by the factory.getPair call in update.",
+      "normal_node": "param.Oracle.update.tokenA"
+    },
+    {
+      "merge_into": "Oracle.update",
+      "reason": "Parameter tokenB is only consumed by the factory.getPair call in update.",
+      "normal_node": "param.Oracle.update.tokenB"
+    },
+    {
+      "merge_into": "Oracle.consult",
+      "reason": "Parameter tokenIn only selects the pair and price side inside consult.",
+      "normal_node": "param.Oracle.consult.tokenIn"
+    },
+    {
+      "merge_into": "unsafe.consult.mulDecode",
+      "reason": "Parameter amountIn is the multiplicand of the unsafe fixed-point multiplication executed in consult.",
+      "normal_node": "param.Oracle.consult.amountIn"
+    },
+    {
+      "merge_into": "Oracle.consult",
+      "reason": "Parameter tokenOut is only used with tokenIn for pairFor and sortTokens inside consult.",
+      "normal_node": "param.Oracle.consult.tokenOut"
+    },
+    {
+      "merge_into": "CCOracleLibrary.currentCumulativePrices",
+      "reason": "Parameter pair of the library helper is only used for the ICCPair reads inside currentCumulativePrices.",
+      "normal_node": "param.CCOracleLibrary.currentCumulativePrices.pair"
+    },
+    {
+      "merge_into": "Oracle.getObservation",
+      "reason": "Local pair is the intermediate result of getObservation and merges into that function node.",
+      "normal_node": "local.Oracle.getObservation.pair"
+    },
+    {
+      "merge_into": "Oracle.updatePair",
+      "reason": "Local storage pointer observation belongs to the updatePair state mutation logic.",
+      "normal_node": "local.Oracle.updatePair.observation"
+    },
+    {
+      "merge_into": "unsafe.updatePair.timeElapsed",
+      "reason": "Local timeElapsed is the result of the unsafe unchecked subtraction in updatePair.",
+      "normal_node": "local.Oracle.updatePair.timeElapsed"
+    },
+    {
+      "merge_into": "Oracle.update",
+      "reason": "Local pair of update is a transient result merged into the update function node.",
+      "normal_node": "local.Oracle.update.pair"
+    },
+    {
+      "merge_into": "Oracle.consult",
+      "reason": "Local pair of consult is a transient lookup result merged into the consult function node.",
+      "normal_node": "local.Oracle.consult.pair"
+    }
+  ]
+}

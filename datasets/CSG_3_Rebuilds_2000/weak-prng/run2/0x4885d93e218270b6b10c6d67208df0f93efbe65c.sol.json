@@ -1,0 +1,538 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Boolean flag controlling whether the reward/burn game logic runs during transfers",
+      "is_core": true,
+      "node_id": 0,
+      "id": "state_gameStarted"
+    },
+    {
+      "type": "state_var",
+      "description": "Address of the ETH-X20 Uniswap liquidity pool; transfers originating here can win the game",
+      "is_core": true,
+      "node_id": 1,
+      "id": "state_liquidityPool"
+    },
+    {
+      "type": "state_var",
+      "description": "Incrementing nonce mixed into the pseudo-random keccak256 computation",
+      "is_core": true,
+      "node_id": 2,
+      "id": "state_nonce"
+    },
+    {
+      "type": "state_var",
+      "description": "First secret seed set once by startGame and used by _play/_randModulus",
+      "is_core": true,
+      "node_id": 3,
+      "id": "state_seed1"
+    },
+    {
+      "type": "state_var",
+      "description": "Second seed derived from _randModulus at startGame; used by burn rate and _play",
+      "is_core": true,
+      "node_id": 4,
+      "id": "state_seed2"
+    },
+    {
+      "type": "state_var",
+      "description": "Win chance rate variable set to 100 in startGame (never actually used in the math)",
+      "is_core": true,
+      "node_id": 5,
+      "id": "state_chanceRate"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner initializer that sets liquidityPool, seeds, chanceRate and flips gameStarted to true",
+      "is_core": true,
+      "node_id": 6,
+      "id": "function_startGame"
+    },
+    {
+      "type": "function",
+      "description": "Overridden ERC20 transfer that routes the amount through _getAmount before the base transfer",
+      "is_core": true,
+      "node_id": 7,
+      "id": "function_transfer"
+    },
+    {
+      "type": "function",
+      "description": "Overridden ERC20 transferFrom that routes the amount through _getAmount before the base transferFrom",
+      "is_core": true,
+      "node_id": 8,
+      "id": "function_transferFrom"
+    },
+    {
+      "type": "function",
+      "description": "Private hook that triggers the reward/burn game when gameStarted and returns the adjusted amount",
+      "is_core": true,
+      "node_id": 9,
+      "id": "function__getAmount"
+    },
+    {
+      "type": "function",
+      "description": "Private function that mints a 10x reward when the sender is the liquidity pool and _play wins",
+      "is_core": true,
+      "node_id": 10,
+      "id": "function__sendReward"
+    },
+    {
+      "type": "function",
+      "description": "Private function computing the 1%-10% deflationary burn amount from seed2",
+      "is_core": true,
+      "node_id": 11,
+      "id": "function__getRandomBurnedAmount"
+    },
+    {
+      "type": "function",
+      "description": "Public pseudo-random draw comparing two _randModulus values seeded by seed1/seed2",
+      "is_core": true,
+      "node_id": 12,
+      "id": "function__play"
+    },
+    {
+      "type": "function",
+      "description": "Private PRNG returning keccak256(nonce, seed, now, block.difficulty, msg.sender) % mod and bumping nonce",
+      "is_core": true,
+      "node_id": 13,
+      "id": "function__randModulus"
+    },
+    {
+      "type": "function",
+      "description": "Inherited ERC20 _mint that increases _totalSupply and the recipient balance",
+      "is_core": true,
+      "node_id": 14,
+      "id": "function_erc20_mint"
+    },
+    {
+      "type": "function",
+      "description": "Inherited ERC20 _burn that decreases sender balance and _totalSupply",
+      "is_core": true,
+      "node_id": 15,
+      "id": "function_erc20_burn"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used as sender, as pool comparison value and as PRNG entropy",
+      "is_core": true,
+      "node_id": 16,
+      "id": "untrusted_msg_sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "now / block.timestamp used as entropy inside _randModulus, making randomness miner-influenced",
+      "is_core": true,
+      "node_id": 17,
+      "id": "untrusted_block_timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "_mint(recipient, amount.mul(10)) awards unbacked 10x tokens based on a predictable PRNG outcome",
+      "is_core": true,
+      "node_id": 18,
+      "id": "unsafe_reward_mint"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "_burn(sender, burnAmount) destroys part of the sender balance based on a predictable random burn rate",
+      "is_core": true,
+      "node_id": 19,
+      "id": "unsafe_deflationary_burn"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "keccak256 over nonce, seed, now, block.difficulty and msg.sender: predictable/attacker-influenceable randomness",
+      "is_core": true,
+      "node_id": 20,
+      "id": "unsafe_prng_keccak"
+    },
+    {
+      "type": "parameter",
+      "description": "startGame argument holding the Uniswap pool address",
+      "is_core": false,
+      "node_id": 21,
+      "id": "param__liquidityPool"
+    },
+    {
+      "type": "parameter",
+      "description": "startGame argument assigned to the seed1 state variable",
+      "is_core": false,
+      "node_id": 22,
+      "id": "param__seed1"
+    },
+    {
+      "type": "parameter",
+      "description": "transfer/transferFrom recipient argument passed down into _getAmount and the reward mint",
+      "is_core": false,
+      "node_id": 23,
+      "id": "param_recipient"
+    },
+    {
+      "type": "parameter",
+      "description": "transfer/transferFrom amount argument, later possibly multiplied by 10 or reduced by burn",
+      "is_core": false,
+      "node_id": 24,
+      "id": "param_amount"
+    },
+    {
+      "type": "local_var",
+      "description": "_getAmount local holding the computed burn amount before subtraction",
+      "is_core": false,
+      "node_id": 25,
+      "id": "local_burnAmount"
+    },
+    {
+      "type": "local_var",
+      "description": "_randModulus local holding the keccak256 modulo result",
+      "is_core": false,
+      "node_id": 26,
+      "id": "local_rand"
+    },
+    {
+      "type": "parameter",
+      "description": "_randModulus modulus argument (90, 100 or 10000000)",
+      "is_core": false,
+      "node_id": 27,
+      "id": "param_mod"
+    },
+    {
+      "type": "parameter",
+      "description": "_randModulus seed argument (seed1 or seed2)",
+      "is_core": false,
+      "node_id": 28,
+      "id": "param_seed"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "controlflow",
+      "reason": "transfer delegates amount adjustment to _getAmount before calling the base ERC20 transfer",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "controlflow",
+      "reason": "transferFrom delegates amount adjustment to _getAmount before calling the base ERC20 transferFrom",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "controlflow",
+      "reason": "_getAmount invokes _sendReward when the game is active",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "controlflow",
+      "reason": "_getAmount invokes _getRandomBurnedAmount to compute the deflationary burn",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "_sendReward calls _play to decide whether the reward is won",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "controlflow",
+      "reason": "_sendReward executes the unsafe reward mint operation when the PRNG draw wins",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "_getRandomBurnedAmount derives the burn rate via _randModulus",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "_play calls _randModulus twice for its two PRNG draws",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "controlflow",
+      "reason": "_randModulus performs the keccak256-based pseudo-random operation",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "controlflow",
+      "reason": "_getAmount executes the unsafe burn operation when burnAmount is non-zero",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "controlflow",
+      "reason": "the burn operation invokes ERC20 _burn",
+      "from_id": 19
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "controlflow",
+      "reason": "the reward mint operation invokes ERC20 _mint",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "msg.sender is forwarded as the sender argument into _getAmount, where it decides whether the game is played",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "msg.sender is compared with liquidityPool in _sendReward to authorise the reward path",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "liquidityPool state is compared against the caller to gate reward minting",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "block.timestamp (now) is fed into the randomness computation, creating timestamp dependency",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "msg.sender is used as entropy in the PRNG, letting the caller influence the random outcome",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "nonce is packed into the keccak256 randomness input",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "seed1 state variable is passed as the seed argument to _randModulus",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "seed2 state variable is passed as the seed argument to _randModulus",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "_randModulus reads and increments the nonce state variable",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "startGame writes gameStarted to true, enabling the game logic in transfers",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "startGame writes the liquidity pool address",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "startGame stores seed1",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "startGame stores the derived seed2",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "startGame sets chanceRate to 100",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "_getAmount reads gameStarted to decide whether to run the reward/burn logic",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "_play uses seed1 as the seed for its first PRNG draw",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "_play uses seed2 as the seed for its second PRNG draw",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "_getRandomBurnedAmount uses seed2 to derive the burn rate",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "dataflow",
+      "reason": "the random burn amount is stored in the local burnAmount variable",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "the local burnAmount is passed into the unsafe burn operation",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "the user-supplied amount is passed into _getAmount",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "amount is multiplied by 10 inside the reward mint, an unchecked value amplification",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "the recipient argument receives the minted reward tokens",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "the recipient argument is forwarded into _getAmount and later to the reward mint",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "the _liquidityPool parameter is written into the liquidityPool state variable",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "the _seed1 parameter is written into the seed1 state variable",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "the PRNG result is stored in the local rand variable returned by _randModulus",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "the mod parameter is the modulus applied to the keccak256 result",
+      "from_id": 27
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "the seed parameter is packed into the keccak256 randomness input",
+      "from_id": 28
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "function_startGame",
+      "reason": "The parameter only exists to be stored into the liquidityPool state variable inside startGame",
+      "normal_node": "param__liquidityPool"
+    },
+    {
+      "merge_into": "function_startGame",
+      "reason": "The parameter only exists to seed seed1/seed2 inside startGame",
+      "normal_node": "param__seed1"
+    },
+    {
+      "merge_into": "function_transfer",
+      "reason": "The recipient argument flows from transfer/transferFrom into _getAmount and the reward mint",
+      "normal_node": "param_recipient"
+    },
+    {
+      "merge_into": "function_transfer",
+      "reason": "The amount argument is the value routed through _getAmount, the burn and the reward mint",
+      "normal_node": "param_amount"
+    },
+    {
+      "merge_into": "unsafe_deflationary_burn",
+      "reason": "The local only holds the value consumed by the burn operation",
+      "normal_node": "local_burnAmount"
+    },
+    {
+      "merge_into": "unsafe_prng_keccak",
+      "reason": "The local only holds the modulo result of the unsafe keccak256 PRNG",
+      "normal_node": "local_rand"
+    },
+    {
+      "merge_into": "function__randModulus",
+      "reason": "The modulus parameter is used solely to bound the pseudo-random value in _randModulus",
+      "normal_node": "param_mod"
+    },
+    {
+      "merge_into": "function__randModulus",
+      "reason": "The seed parameter is used solely as keccak256 entropy inside _randModulus",
+      "normal_node": "param_seed"
+    }
+  ]
+}

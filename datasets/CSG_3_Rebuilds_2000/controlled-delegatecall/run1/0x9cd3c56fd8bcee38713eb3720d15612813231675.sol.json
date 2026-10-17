@@ -1,0 +1,686 @@
+{
+  "nodes": [
+    {
+      "id": "sv_bridgeToken",
+      "type": "state_var",
+      "node_id": 0,
+      "is_core": true,
+      "description": "IBridge private _bridgeToken; the BRIDGE token staked and distributed by the contract"
+    },
+    {
+      "id": "sv_rewardPools",
+      "type": "state_var",
+      "node_id": 1,
+      "is_core": true,
+      "description": "mapping(address => RewardPool) public rewardPools; per-token reward pool accounting (accRewardPerShare, totalStakedAmount, totalRewardAmount, lastRewardAmount, rewardToken, interestBearingToken)"
+    },
+    {
+      "id": "sv_stakes",
+      "type": "state_var",
+      "node_id": 2,
+      "is_core": true,
+      "description": "mapping(address => mapping(address => StakerInfo)) public stakes; per-pool per-staker balance, stakeUpdateTime, rewardDebt, poolTokenAddress"
+    },
+    {
+      "id": "sv_buyBackAndBurnContract",
+      "type": "state_var",
+      "node_id": 3,
+      "is_core": true,
+      "description": "IBuyBackAndBurn public buyBackAndBurnContract; destination for rewards of empty pools"
+    },
+    {
+      "id": "sv_defaultRewardPoolWithdrawalFee",
+      "type": "state_var",
+      "node_id": 4,
+      "is_core": true,
+      "description": "uint256 public defaultRewardPoolWithdrawalFee; default withdrawal fee in ppm"
+    },
+    {
+      "id": "sv_rewardPoolWithdrawalFees",
+      "type": "state_var",
+      "node_id": 5,
+      "is_core": true,
+      "description": "mapping(address => uint256) public rewardPoolWithdrawalFees; per-token withdrawal fee in ppm"
+    },
+    {
+      "id": "sv_divPrecision",
+      "type": "state_var",
+      "node_id": 6,
+      "is_core": true,
+      "description": "uint256 private constant _DIV_PRECISION = 1e18; used for reward share math"
+    },
+    {
+      "id": "fn_initialize",
+      "type": "function",
+      "node_id": 7,
+      "is_core": true,
+      "description": "initialize(IBridge, IBuyBackAndBurn) external initializer; sets roles and initial state, approves buyBackAndBurn in bridge token"
+    },
+    {
+      "id": "fn_setDefaultRewardPoolWithdrawalFee",
+      "type": "function",
+      "node_id": 8,
+      "is_core": true,
+      "description": "setDefaultRewardPoolWithdrawalFee(uint256) external; MANAGE_COLLECTED_FEES_ROLE gated, writes defaultRewardPoolWithdrawalFee without bounds"
+    },
+    {
+      "id": "fn_setRewardPoolWithdrawalFee",
+      "type": "function",
+      "node_id": 9,
+      "is_core": true,
+      "description": "setRewardPoolWithdrawalFee(address,uint256) external; MANAGE_COLLECTED_FEES_ROLE gated per-pool fee setter"
+    },
+    {
+      "id": "fn_setMinStakeAmount",
+      "type": "function",
+      "node_id": 10,
+      "is_core": true,
+      "description": "setMinStakeAmount(address,uint256) external; MANAGE_REWARD_POOLS_ROLE gated"
+    },
+    {
+      "id": "fn_setMaxStakeAmount",
+      "type": "function",
+      "node_id": 11,
+      "is_core": true,
+      "description": "setMaxStakeAmount(address,uint256) external; MANAGE_REWARD_POOLS_ROLE gated"
+    },
+    {
+      "id": "fn_setMaxPoolSize",
+      "type": "function",
+      "node_id": 12,
+      "is_core": true,
+      "description": "setMaxPoolSize(address,uint256) external; MANAGE_REWARD_POOLS_ROLE gated"
+    },
+    {
+      "id": "fn_setBuyBackAndBurnContract",
+      "type": "function",
+      "node_id": 13,
+      "is_core": true,
+      "description": "setBuyBackAndBurnContract(IBuyBackAndBurn) external; MANAGE_COLLECTED_FEES_ROLE gated, re-approves bridge allowance"
+    },
+    {
+      "id": "fn_stake",
+      "type": "function",
+      "node_id": 14,
+      "is_core": true,
+      "description": "stake(address,uint256) external whenNotPaused nonReentrant; validates limits, updates rewards, mints interest bearing token, pulls BRIDGE"
+    },
+    {
+      "id": "fn_unstake",
+      "type": "function",
+      "node_id": 15,
+      "is_core": true,
+      "description": "unstake(address,uint256) external whenNotPaused nonReentrant; harvests, burns fee, burns interest token, returns BRIDGE"
+    },
+    {
+      "id": "fn_transferInterestBearingTokenHandler",
+      "type": "function",
+      "node_id": 16,
+      "is_core": true,
+      "description": "transferInterestBearingTokenHandler(address,uint256,address,address) external override whenNotPaused; hook reconciling stakes on interest token transfer, restricted to the interest bearing token contract"
+    },
+    {
+      "id": "fn_updateRewards",
+      "type": "function",
+      "node_id": 17,
+      "is_core": true,
+      "description": "updateRewards(address) public whenNotPaused; recomputes accRewardPerShare from totalRewardAmount and totalStakedAmount"
+    },
+    {
+      "id": "fn_addRewards",
+      "type": "function",
+      "node_id": 18,
+      "is_core": true,
+      "description": "addRewards(IERC20,uint256) external whenNotPaused nonReentrant; creates pool if missing, pulls reward token, routes to buyBackAndBurn when pool empty"
+    },
+    {
+      "id": "fn_harvest",
+      "type": "function",
+      "node_id": 19,
+      "is_core": true,
+      "description": "harvest(address,address) external whenNotPaused nonReentrant; public entry point delegating to _harvest"
+    },
+    {
+      "id": "fn__harvest",
+      "type": "function",
+      "node_id": 20,
+      "is_core": true,
+      "description": "_harvest(address,address) private whenNotPaused; computes and transfers pending rewards, updates rewardDebt"
+    },
+    {
+      "id": "fn_pendingReward",
+      "type": "function",
+      "node_id": 21,
+      "is_core": true,
+      "description": "pendingReward(address,address) external view returns(uint256); off-chain reward preview"
+    },
+    {
+      "id": "ui_msgSender",
+      "type": "untrusted_input",
+      "node_id": 22,
+      "is_core": true,
+      "description": "msg.sender / _msgSender(); attacker-controlled caller used for roles, staker identity and token flows"
+    },
+    {
+      "id": "ui_blockTimestamp",
+      "type": "untrusted_input",
+      "node_id": 23,
+      "is_core": true,
+      "description": "block.timestamp; used as stakeUpdateTime and for reward accrual timing"
+    },
+    {
+      "id": "uo_safeTransferFrom",
+      "type": "unsafe_operation",
+      "node_id": 24,
+      "is_core": true,
+      "description": "_bridgeToken.safeTransferFrom(_msgSender(), address(this), amount) in stake; external token pull"
+    },
+    {
+      "id": "uo_safeTransfer",
+      "type": "unsafe_operation",
+      "node_id": 25,
+      "is_core": true,
+      "description": "_bridgeToken.safeTransfer(_msgSender(), amount - withdrFeeAmount) in unstake; external token push"
+    },
+    {
+      "id": "uo_bridgeBurn",
+      "type": "unsafe_operation",
+      "node_id": 26,
+      "is_core": true,
+      "description": "IBridge(_bridgeToken).burn(withdrFeeAmount) in unstake; external call to bridge token"
+    },
+    {
+      "id": "uo_rewardTokenTransfer",
+      "type": "unsafe_operation",
+      "node_id": 27,
+      "is_core": true,
+      "description": "rewardPools[tokenAddress].rewardToken.safeTransfer(stakerAddress, rewardAmount) in _harvest; external token push of reward funds"
+    },
+    {
+      "id": "uo_depositERC20",
+      "type": "unsafe_operation",
+      "node_id": 28,
+      "is_core": true,
+      "description": "buyBackAndBurnContract.depositERC20(token, amount) in addRewards; external call to arbitrary reward/burn contract"
+    },
+    {
+      "id": "param_tokenAddress_stake",
+      "type": "parameter",
+      "node_id": 29,
+      "is_core": false,
+      "description": "address tokenAddress parameter of stake()"
+    },
+    {
+      "id": "param_amount_stake",
+      "type": "parameter",
+      "node_id": 30,
+      "is_core": false,
+      "description": "uint256 amount parameter of stake()"
+    },
+    {
+      "id": "param_tokenAddress_unstake",
+      "type": "parameter",
+      "node_id": 31,
+      "is_core": false,
+      "description": "address tokenAddress parameter of unstake()"
+    },
+    {
+      "id": "param_amount_unstake",
+      "type": "parameter",
+      "node_id": 32,
+      "is_core": false,
+      "description": "uint256 amount parameter of unstake()"
+    },
+    {
+      "id": "param_stakerAddress",
+      "type": "parameter",
+      "node_id": 33,
+      "is_core": false,
+      "description": "address stakerAddress parameter of _harvest()/harvest()"
+    },
+    {
+      "id": "param_from",
+      "type": "parameter",
+      "node_id": 34,
+      "is_core": false,
+      "description": "address from parameter of transferInterestBearingTokenHandler()"
+    },
+    {
+      "id": "param_to",
+      "type": "parameter",
+      "node_id": 35,
+      "is_core": false,
+      "description": "address to parameter of transferInterestBearingTokenHandler()"
+    },
+    {
+      "id": "local_rewardAmount",
+      "type": "local_var",
+      "node_id": 36,
+      "is_core": false,
+      "description": "uint256 rewardAmount computed in _harvest()"
+    },
+    {
+      "id": "local_accRewardPerShare",
+      "type": "local_var",
+      "node_id": 37,
+      "is_core": false,
+      "description": "uint256 accRewardPerShare computed in pendingReward()"
+    }
+  ],
+  "edges": [
+    {
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 7,
+      "vuln_type": "access_control",
+      "reason": "initialize assigns DEFAULT_ADMIN_ROLE and other roles to _msgSender()"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "reason": "hasRole(MANAGE_COLLECTED_FEES_ROLE, _msgSender()) gates the setter"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 9,
+      "vuln_type": "access_control",
+      "reason": "hasRole(MANAGE_COLLECTED_FEES_ROLE, _msgSender()) gates the setter"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 10,
+      "vuln_type": "access_control",
+      "reason": "hasRole(MANAGE_REWARD_POOLS_ROLE, _msgSender()) gates the setter"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 11,
+      "vuln_type": "access_control",
+      "reason": "hasRole(MANAGE_REWARD_POOLS_ROLE, _msgSender()) gates the setter"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 12,
+      "vuln_type": "access_control",
+      "reason": "hasRole(MANAGE_REWARD_POOLS_ROLE, _msgSender()) gates the setter"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 13,
+      "vuln_type": "access_control",
+      "reason": "hasRole(MANAGE_COLLECTED_FEES_ROLE, _msgSender()) gates the setter"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 14,
+      "vuln_type": "none",
+      "reason": "_msgSender() identifies the staker and is used for transferFrom and interest token mint"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 15,
+      "vuln_type": "none",
+      "reason": "_msgSender() identifies the staker being unstaked and rewarded/refunded"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 16,
+      "vuln_type": "access_control",
+      "reason": "require(_msgSender() == address(rewardPools[tokenAddress].interestBearingToken)) restricts the handler"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 18,
+      "vuln_type": "none",
+      "reason": "addRewards pulls reward tokens from _msgSender()"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 19,
+      "vuln_type": "none",
+      "reason": "any caller may trigger harvest for an arbitrary stakerAddress, affecting reward accrual"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 23,
+      "to_id": 14,
+      "vuln_type": "access_control",
+      "reason": "staker.stakeUpdateTime = block.timestamp; timestamp-dependent stake accounting"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 23,
+      "to_id": 15,
+      "vuln_type": "access_control",
+      "reason": "staker.stakeUpdateTime = block.timestamp; timestamp-dependent unstake accounting"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 23,
+      "to_id": 16,
+      "vuln_type": "access_control",
+      "reason": "stakerSender/stakerReceiver.stakeUpdateTime = block.timestamp; timestamp-dependent transfer accounting"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 24,
+      "vuln_type": "none",
+      "reason": "stake pulls the staked BRIDGE amount from the user via safeTransferFrom"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 14,
+      "to_id": 17,
+      "vuln_type": "none",
+      "reason": "stake calls updateRewards before mutating staker/pool state"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 14,
+      "to_id": 20,
+      "vuln_type": "none",
+      "reason": "stake calls _harvest when the staker already has a balance"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 15,
+      "to_id": 20,
+      "vuln_type": "none",
+      "reason": "unstake harvests pending rewards before withdrawing"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 26,
+      "vuln_type": "none",
+      "reason": "unstake invokes IBridge.burn on the collected withdrawal fee"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 25,
+      "vuln_type": "none",
+      "reason": "unstake returns the remaining BRIDGE balance to the user"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 16,
+      "to_id": 17,
+      "vuln_type": "none",
+      "reason": "transfer handler calls updateRewards before reconciling balances"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 16,
+      "to_id": 20,
+      "vuln_type": "none",
+      "reason": "transfer handler harvests rewards for both transfer participants"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "handler reads and writes staker balances/rewardDebt in the stakes mapping"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "addRewards creates or updates the RewardPool entry"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 18,
+      "to_id": 28,
+      "vuln_type": "none",
+      "reason": "addRewards forwards funds to buyBackAndBurnContract when totalStakedAmount is zero"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 19,
+      "to_id": 20,
+      "vuln_type": "none",
+      "reason": "harvest delegates to the private _harvest implementation"
+    },
+    {
+      "type": "controlflow",
+      "from_id": 20,
+      "to_id": 17,
+      "vuln_type": "none",
+      "reason": "_harvest calls updateRewards to refresh accRewardPerShare"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 20,
+      "to_id": 27,
+      "vuln_type": "reentrancy",
+      "reason": "_harvest performs an external reward token transfer that can re-enter before state is fully settled"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "updateRewards mutates rewardPools[tokenAddress].accRewardPerShare and lastRewardAmount"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 17,
+      "to_id": 6,
+      "vuln_type": "arithmetic",
+      "reason": "updateRewards scales rewards by the _DIV_PRECISION constant during multiplication/division of large values"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 20,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "_harvest reads rewardToken and accRewardPerShare from the reward pool"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 20,
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "_harvest reads and updates staker.balance/rewardDebt in stakes"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 1,
+      "vuln_type": "arithmetic",
+      "reason": "stake updates totalStakedAmount and computes rewardDebt = balance * accRewardPerShare / _DIV_PRECISION"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 14,
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "stake writes balance, stakeUpdateTime and rewardDebt for the staker"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 1,
+      "vuln_type": "arithmetic",
+      "reason": "unstake decrements pool.totalStakedAmount and computes the withdrawal fee amount"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 15,
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "unstake decrements staker.balance and recomputes rewardDebt"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "initialize sets _bridgeToken"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "initialize sets buyBackAndBurnContract"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "initialize sets defaultRewardPoolWithdrawalFee to 300000"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "setBuyBackAndBurnContract overwrites buyBackAndBurnContract"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 13,
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "setBuyBackAndBurnContract re-approves the new contract in _bridgeToken"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "setter writes defaultRewardPoolWithdrawalFee"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 5,
+      "vuln_type": "none",
+      "reason": "setter writes rewardPoolWithdrawalFees[sourceNetworkTokenAddress]"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "setter validates rewardPools[token].exists before writing the fee"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 10,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "setMinStakeAmount writes rewardPools[tokenAddress].minStakeAmount"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "setMaxStakeAmount writes rewardPools[tokenAddress].maxStakeAmount"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 12,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "setMaxPoolSize writes rewardPools[tokenAddress].maxPoolSize"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 14,
+      "vuln_type": "none",
+      "reason": "tokenAddress selects the reward pool and interest token in stake"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 30,
+      "to_id": 14,
+      "vuln_type": "arithmetic",
+      "reason": "amount participates in limit checks and balance arithmetic in stake"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 31,
+      "to_id": 15,
+      "vuln_type": "none",
+      "reason": "tokenAddress selects the reward pool in unstake"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 32,
+      "to_id": 15,
+      "vuln_type": "arithmetic",
+      "reason": "amount participates in balance checks, fee computation and subtraction in unstake"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 33,
+      "to_id": 20,
+      "vuln_type": "none",
+      "reason": "stakerAddress indexes stakes and receives the reward transfer in _harvest"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 34,
+      "to_id": 16,
+      "vuln_type": "none",
+      "reason": "from is the sender whose stake balance and rewardDebt are debited"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 35,
+      "to_id": 16,
+      "vuln_type": "none",
+      "reason": "to is the receiver whose stake balance and rewardDebt are credited"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 20,
+      "to_id": 36,
+      "vuln_type": "arithmetic",
+      "reason": "rewardAmount is derived via accumulated - staker.rewardDebt inside _harvest"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 37,
+      "vuln_type": "arithmetic",
+      "reason": "accRewardPerShare is computed from totalRewardAmount minus lastRewardAmount scaled by _DIV_PRECISION"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "pendingReward reads a memory copy of the RewardPool"
+    },
+    {
+      "type": "dataflow",
+      "from_id": 21,
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "pendingReward reads the StakerInfo of the requested staker"
+    }
+  ],
+  "normalization_plan": []
+}

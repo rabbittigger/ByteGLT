@@ -1,0 +1,205 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Immutable address storing the deployer/owner; used as access-control principal and recipient of withdrawn funds.",
+      "is_core": true,
+      "id": "me"
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Immutable IERC20 reference to the hardcoded WETH address; unused in logic but part of contract state.",
+      "is_core": true,
+      "id": "weth"
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "description": "Constant uint256 value of 1000000000 ether; deceptive name, never used in any code path.",
+      "is_core": true,
+      "id": "sneakyAllowance"
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "description": "Immutable address constant hardcoded to 0xFd49...ba19; never referenced in any function.",
+      "is_core": true,
+      "id": "wallet"
+    },
+    {
+      "node_id": 4,
+      "type": "function",
+      "description": "Bait constructor; assigns msg.sender to the immutable owner slot me.",
+      "is_core": true,
+      "id": "constructor"
+    },
+    {
+      "node_id": 5,
+      "type": "function",
+      "description": "Payable receive fallback that accepts ether with empty body; holds the contract balance.",
+      "is_core": true,
+      "id": "receive"
+    },
+    {
+      "node_id": 6,
+      "type": "function",
+      "description": "External function that requires msg.sender == me and then forwards the full contract balance to me via a low-level call.",
+      "is_core": true,
+      "id": "withdraw"
+    },
+    {
+      "node_id": 7,
+      "type": "function",
+      "description": "External function taking an attacker-supplied address and delegatecalling finesse() on it, giving arbitrary code/storage control.",
+      "is_core": true,
+      "id": "bait"
+    },
+    {
+      "node_id": 8,
+      "type": "untrusted_input",
+      "description": "Caller of the constructor, used to initialize the immutable owner me; trust anchor of the contract.",
+      "is_core": true,
+      "id": "msg.sender@constructor"
+    },
+    {
+      "node_id": 9,
+      "type": "untrusted_input",
+      "description": "Caller of withdraw; compared against me in the access-control require.",
+      "is_core": true,
+      "id": "msg.sender@withdraw"
+    },
+    {
+      "node_id": 10,
+      "type": "unsafe_operation",
+      "description": "Low-level delegatecall to the user-supplied _pickpocket address encoding finesse(); executes arbitrary code in this contract's storage context.",
+      "is_core": true,
+      "id": "delegatecall@bait"
+    },
+    {
+      "node_id": 11,
+      "type": "unsafe_operation",
+      "description": "Low-level call{value: address(this).balance} to me inside withdraw; external value transfer with no reentrancy guard.",
+      "is_core": true,
+      "id": "call@withdraw"
+    },
+    {
+      "node_id": 12,
+      "type": "parameter",
+      "description": "External address parameter of bait(); the arbitrary delegatecall target supplied by the caller.",
+      "is_core": false,
+      "id": "_pickpocket"
+    },
+    {
+      "node_id": 13,
+      "type": "local_var",
+      "description": "Local bool capturing the success flag of the low-level call in withdraw.",
+      "is_core": false,
+      "id": "success@withdraw"
+    },
+    {
+      "node_id": 14,
+      "type": "local_var",
+      "description": "Local bool capturing the success flag of the delegatecall in bait.",
+      "is_core": false,
+      "id": "success@bait"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "msg.sender flows into the constructor, which permanently fixes the access-control principal me.",
+      "from_id": 8
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "constructor writes msg.sender into the immutable state variable me, establishing ownership.",
+      "from_id": 4
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "msg.sender is read in withdraw to enforce require(msg.sender == me), the only privilege check in the contract.",
+      "from_id": 9
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "withdraw reads the immutable me as the comparison target of its access-control require.",
+      "from_id": 0
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "reason": "withdraw triggers an external value transfer of the whole balance to me without a reentrancy guard or effects-first ordering.",
+      "from_id": 6
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "me is used as the recipient of the low-level call inside withdraw.",
+      "from_id": 0
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "bait unconditionally executes a delegatecall, letting any caller run arbitrary code in the contract's storage context.",
+      "from_id": 7
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "The attacker-controlled _pickpocket parameter is used directly as the delegatecall target, so the callee is fully user-controlled.",
+      "from_id": 12
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_pickpocket is the input parameter consumed by bait.",
+      "from_id": 12
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The success flag returned by the low-level call is stored in the local variable checked by require(success).",
+      "from_id": 11
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "The success flag returned by the delegatecall is stored in the local variable checked by require(success).",
+      "from_id": 10
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "bait",
+      "normal_node": "_pickpocket",
+      "reason": "The parameter _pickpocket only exists to feed the delegatecall inside bait; it has no independent identity and should be folded into the bait function node."
+    },
+    {
+      "merge_into": "call@withdraw",
+      "normal_node": "success@withdraw",
+      "reason": "The local bool success in withdraw merely holds the return flag of the low-level call and is only used by the immediate require, so it folds into the call@withdraw unsafe operation."
+    },
+    {
+      "merge_into": "delegatecall@bait",
+      "normal_node": "success@bait",
+      "reason": "The local bool success in bait merely holds the delegatecall return flag used by the immediate require, so it folds into the delegatecall@bait unsafe operation."
+    }
+  ]
+}

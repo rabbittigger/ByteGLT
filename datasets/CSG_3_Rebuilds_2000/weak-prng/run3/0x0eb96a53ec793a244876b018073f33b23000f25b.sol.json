@@ -1,0 +1,353 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Immutable IERC20 liquidity asset escrowed by the FundingLocker.",
+      "id": "FL.liquidityAsset",
+      "type": "state_var",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Immutable address of the Loan that owns/controls this FundingLocker and is the only authorized caller.",
+      "id": "FL.loan",
+      "type": "state_var",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Mapping owner[locker] => owner address, written with msg.sender in newLocker.",
+      "id": "FLF.owner",
+      "type": "state_var",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "Mapping isLocker[locker] => bool flagging lockers created by this factory.",
+      "id": "FLF.isLocker",
+      "type": "state_var",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "Constant factoryType = 2 identifying the FundingLocker factory.",
+      "id": "FLF.factoryType",
+      "type": "state_var",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "Constructor storing the liquidity asset and loan addresses.",
+      "id": "FundingLocker.constructor",
+      "type": "function",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "Loan-only function transferring liquidityAsset to an arbitrary destination via safeTransfer.",
+      "id": "FundingLocker.pull",
+      "type": "function",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "Loan-only function transferring the entire token balance to the loan via safeTransfer.",
+      "id": "FundingLocker.drain",
+      "type": "function",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "Modifier requiring msg.sender == loan, gating pull and drain.",
+      "id": "FundingLocker.isLoan",
+      "type": "function",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "description": "Deploys a new FundingLocker owned by msg.sender and records it in owner/isLocker.",
+      "id": "FundingLockerFactory.newLocker",
+      "type": "function",
+      "node_id": 9
+    },
+    {
+      "is_core": true,
+      "description": "Attacker-controlled caller address used for authorization and ownership assignment.",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "node_id": 10
+    },
+    {
+      "is_core": true,
+      "description": "External IERC20 token call in pull; token address is external and may execute arbitrary code before state is settled.",
+      "id": "op.safeTransfer.pull",
+      "type": "unsafe_operation",
+      "node_id": 11
+    },
+    {
+      "is_core": true,
+      "description": "External IERC20 token call in drain; full-balance transfer to the loan address triggered by an external token contract.",
+      "id": "op.safeTransfer.drain",
+      "type": "unsafe_operation",
+      "node_id": 12
+    },
+    {
+      "is_core": true,
+      "description": "Contract creation in newLocker using msg.sender as the loan parameter, making msg.sender the controller of the new locker.",
+      "id": "op.new.FundingLocker",
+      "type": "unsafe_operation",
+      "node_id": 13
+    },
+    {
+      "is_core": false,
+      "description": "Destination address parameter of pull, forwarded to safeTransfer.",
+      "id": "pull.dst",
+      "type": "parameter",
+      "node_id": 14
+    },
+    {
+      "is_core": false,
+      "description": "Amount parameter of pull, forwarded to safeTransfer.",
+      "id": "pull.amt",
+      "type": "parameter",
+      "node_id": 15
+    },
+    {
+      "is_core": false,
+      "description": "Local balance snapshot used as the transfer amount in drain.",
+      "id": "drain.amt",
+      "type": "local_var",
+      "node_id": 16
+    },
+    {
+      "is_core": false,
+      "description": "Liquidity asset parameter used to construct the new FundingLocker.",
+      "id": "newLocker.liquidityAsset",
+      "type": "parameter",
+      "node_id": 17
+    },
+    {
+      "is_core": false,
+      "description": "Constructor parameter assigned to the immutable liquidityAsset state variable.",
+      "id": "constructor._liquidityAsset",
+      "type": "parameter",
+      "node_id": 18
+    },
+    {
+      "is_core": false,
+      "description": "Constructor parameter assigned to the immutable loan state variable.",
+      "id": "constructor._loan",
+      "type": "parameter",
+      "node_id": 19
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "reason": "Modifier authorization depends on the attacker-controllable msg.sender being equal to the stored loan address.",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "reason": "The immutable loan address is the trusted comparison target inside the isLoan modifier.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "reason": "isLoan gates entry into pull.",
+      "type": "controlflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "reason": "isLoan gates entry into drain.",
+      "type": "controlflow",
+      "from_id": 8
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "reason": "pull executes an external token transfer before any accounting, enabling reentrant calls into pull.",
+      "type": "controlflow",
+      "from_id": 6
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "The liquidityAsset token contract is the target of the external safeTransfer call.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "Unvalidated dst parameter is passed directly as the transfer recipient.",
+      "type": "dataflow",
+      "from_id": 14
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "reason": "Unvalidated amt parameter is passed directly as the transfer amount.",
+      "type": "dataflow",
+      "from_id": 15
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "reentrancy",
+      "reason": "drain performs the full-balance external transfer, giving the token contract control flow.",
+      "type": "controlflow",
+      "from_id": 7
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "liquidityAsset is both queried for balanceOf and used for the transfer in drain.",
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "The loan address is used as the destination of the drained balance.",
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "none",
+      "reason": "The local balance amount is used as the transfer value in drain.",
+      "type": "dataflow",
+      "from_id": 16
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "reason": "A malicious liquidityAsset token can re-enter pull while the transfer is executing.",
+      "type": "callback",
+      "from_id": 11
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "reentrancy",
+      "reason": "A malicious liquidityAsset token can re-enter drain during the balance transfer.",
+      "type": "callback",
+      "from_id": 12
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "none",
+      "reason": "newLocker performs the FundingLocker contract creation.",
+      "type": "controlflow",
+      "from_id": 9
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "access_control",
+      "reason": "msg.sender determines who becomes the owner of the newly created locker and is passed as the loan.",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "none",
+      "reason": "Caller-supplied liquidityAsset parameter flows into the FundingLocker constructor.",
+      "type": "dataflow",
+      "from_id": 17
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "access_control",
+      "reason": "msg.sender is passed as the loan address, granting the caller full control over the new locker.",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "The new locker address is registered in the owner mapping with msg.sender as owner.",
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "msg.sender value is written into the owner mapping.",
+      "type": "dataflow",
+      "from_id": 10
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "The new locker address is flagged true in the isLocker mapping.",
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "Constructor stores the liquidity asset into the immutable state variable.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "Constructor stores the loan address into the immutable state variable.",
+      "type": "dataflow",
+      "from_id": 5
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "Constructor parameter _liquidityAsset initializes the liquidityAsset state variable.",
+      "type": "dataflow",
+      "from_id": 18
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "reason": "Constructor parameter _loan initializes the loan state variable.",
+      "type": "dataflow",
+      "from_id": 19
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "op.safeTransfer.pull",
+      "reason": "The dst parameter is only used as the recipient argument of the external safeTransfer in pull.",
+      "normal_node": "pull.dst"
+    },
+    {
+      "merge_into": "op.safeTransfer.pull",
+      "reason": "The amt parameter is only used as the amount argument of the external safeTransfer in pull.",
+      "normal_node": "pull.amt"
+    },
+    {
+      "merge_into": "op.safeTransfer.drain",
+      "reason": "The local amt is just the balance snapshot feeding the external safeTransfer in drain.",
+      "normal_node": "drain.amt"
+    },
+    {
+      "merge_into": "op.new.FundingLocker",
+      "reason": "The liquidityAsset parameter is only consumed by the FundingLocker contract creation.",
+      "normal_node": "newLocker.liquidityAsset"
+    },
+    {
+      "merge_into": "FundingLocker.constructor",
+      "reason": "The _liquidityAsset parameter is only used to initialize state inside the constructor.",
+      "normal_node": "constructor._liquidityAsset"
+    },
+    {
+      "merge_into": "FundingLocker.constructor",
+      "reason": "The _loan parameter is only used to initialize state inside the constructor.",
+      "normal_node": "constructor._loan"
+    }
+  ]
+}

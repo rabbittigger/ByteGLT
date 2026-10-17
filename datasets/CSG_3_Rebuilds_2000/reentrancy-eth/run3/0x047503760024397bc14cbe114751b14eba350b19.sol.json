@@ -1,0 +1,463 @@
+{
+  "nodes": [
+    {
+      "id": "admin",
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Address payable receiving the marketplace commission; set in constructor and mutable via updateAdmin.",
+      "is_core": true
+    },
+    {
+      "id": "contract_owner",
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Owner of the marketplace, used as the sole authorization check in updateAdmin.",
+      "is_core": true
+    },
+    {
+      "id": "commissionRate",
+      "node_id": 2,
+      "type": "state_var",
+      "description": "Commission rate 0-100 used to split sale/auction proceeds between admin and seller.",
+      "is_core": true
+    },
+    {
+      "id": "sellBidPrice",
+      "node_id": 3,
+      "type": "state_var",
+      "description": "Mapping tokenId => fixed sell price (and last bid marker); drives buy and sell logic and is zeroed after a sale.",
+      "is_core": true
+    },
+    {
+      "id": "auctions",
+      "node_id": 4,
+      "type": "state_var",
+      "description": "Mapping tokenId => Auction struct holding beneficiary, end time, highest bidder, highest bid, open flag and reserve.",
+      "is_core": true
+    },
+    {
+      "id": "_wallets",
+      "node_id": 5,
+      "type": "state_var",
+      "description": "Mapping tokenId => payment address receiving proceeds of a fixed-price sale.",
+      "is_core": true
+    },
+    {
+      "id": "soldFor",
+      "node_id": 6,
+      "type": "state_var",
+      "description": "Mapping tokenId => last price sold or auctioned.",
+      "is_core": true
+    },
+    {
+      "id": "buy",
+      "node_id": 7,
+      "type": "function",
+      "description": "Payable nonReentrant purchase function; transfers NFT via callOptionalReturn and pays seller/admin with low-level calls.",
+      "is_core": true
+    },
+    {
+      "id": "bid",
+      "node_id": 8,
+      "type": "function",
+      "description": "Payable nonReentrant auction bid; refunds previous highest bidder with a low-level call before storing the new bid.",
+      "is_core": true
+    },
+    {
+      "id": "withdraw",
+      "node_id": 9,
+      "type": "function",
+      "description": "NonReentrant refund of the highest bid when the auction cannot be finalized, then deletes the auction.",
+      "is_core": true
+    },
+    {
+      "id": "auctionFinalize",
+      "node_id": 10,
+      "type": "function",
+      "description": "NonReentrant auction settlement; pays beneficiary and admin via low-level calls and transfers the NFT.",
+      "is_core": true
+    },
+    {
+      "id": "sell",
+      "node_id": 11,
+      "type": "function",
+      "description": "Lists a token for fixed-price sale, self-approving the marketplace and setting the payout wallet.",
+      "is_core": true
+    },
+    {
+      "id": "createAuction",
+      "node_id": 12,
+      "type": "function",
+      "description": "Creates an auction for a token owned by the caller and self-approves the marketplace.",
+      "is_core": true
+    },
+    {
+      "id": "updateAdmin",
+      "node_id": 13,
+      "type": "function",
+      "description": "Administrative setter for admin, commissionRate and anyoneCanMint, gated by msg.sender == contract_owner.",
+      "is_core": true
+    },
+    {
+      "id": "callOptionalReturn",
+      "node_id": 14,
+      "type": "function",
+      "description": "Private helper performing a raw low-level call to the token contract and optional return-data decoding.",
+      "is_core": true
+    },
+    {
+      "id": "transferFrom",
+      "node_id": 15,
+      "type": "function",
+      "description": "ERC721 transfer entry point invoked by the marketplace through callOptionalReturn to move the NFT.",
+      "is_core": true
+    },
+    {
+      "id": "approve",
+      "node_id": 16,
+      "type": "function",
+      "description": "ERC721 approval function used by sell/createAuction to grant the marketplace transfer rights.",
+      "is_core": true
+    },
+    {
+      "id": "msg.sender",
+      "node_id": 17,
+      "type": "untrusted_input",
+      "description": "Attacker-controlled caller used for ownership checks, bidding identity and the updateAdmin authorization check.",
+      "is_core": true
+    },
+    {
+      "id": "block.timestamp",
+      "node_id": 18,
+      "type": "untrusted_input",
+      "description": "Block timestamp (now) used to gate bid, canWithdraw, canFinalize and auctionFinalize timing.",
+      "is_core": true
+    },
+    {
+      "id": "tx.origin",
+      "node_id": 19,
+      "type": "untrusted_input",
+      "description": "Origin address of the transaction; no explicit use in this contract, tracked as a potential authorization input.",
+      "is_core": true
+    },
+    {
+      "id": "low_level_call",
+      "node_id": 20,
+      "type": "unsafe_operation",
+      "description": "Low-level .call.value(...)() Ether transfers to _wallets, admin, highestBidder and beneficiary in buy/bid/withdraw/auctionFinalize.",
+      "is_core": true
+    },
+    {
+      "id": "param_buy_tokenId",
+      "node_id": 21,
+      "type": "parameter",
+      "description": "tokenId argument of buy() used to index sellBidPrice, auctions and the token owner lookup.",
+      "is_core": false
+    },
+    {
+      "id": "local_amount4admin",
+      "node_id": 22,
+      "type": "local_var",
+      "description": "Computed commission amount in buy(): msg.value * commissionRate / 100.",
+      "is_core": false
+    },
+    {
+      "id": "local_amount4owner",
+      "node_id": 23,
+      "type": "local_var",
+      "description": "Computed seller proceeds in buy(): msg.value - amount4admin.",
+      "is_core": false
+    },
+    {
+      "id": "param_bid_tokenId",
+      "node_id": 24,
+      "type": "parameter",
+      "description": "tokenId argument of bid() indexing the auctions mapping and owner lookup.",
+      "is_core": false
+    },
+    {
+      "id": "param_sell_price",
+      "node_id": 25,
+      "type": "parameter",
+      "description": "price argument of sell() written into sellBidPrice and used to decide whether the item is for sale.",
+      "is_core": false
+    },
+    {
+      "id": "param_finalize_tokenId",
+      "node_id": 26,
+      "type": "parameter",
+      "description": "tokenId argument of auctionFinalize() used to read settlement data and clear the auction.",
+      "is_core": false
+    },
+    {
+      "id": "local_buy_owner",
+      "node_id": 27,
+      "type": "local_var",
+      "description": "owner = ownerOf(tokenId) cached inside buy() and passed to transferFrom.",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 11,
+      "reason": "sell() authorizes the caller with ownerOf(tokenId)==msg.sender, so msg.sender controls listing rights.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 7,
+      "reason": "buy() uses msg.sender for the self-purchase and recipient checks, driving who receives the NFT.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 8,
+      "reason": "bid() writes msg.sender into auctions[tokenId].highestBidder and refunds that address later.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 13,
+      "reason": "updateAdmin authorizes with msg.sender==contract_owner; control of this input grants admin mutation.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 8,
+      "reason": "bid() depends on block.timestamp (now <= auctionEnd) to accept bids, creating a timestamp dependency.",
+      "type": "dataflow",
+      "from_id": 18,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 9,
+      "reason": "withdraw() depends on block.timestamp via canWithdraw for the auction-end condition.",
+      "type": "dataflow",
+      "from_id": 18,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 10,
+      "reason": "auctionFinalize requires block.timestamp >= auctionEnd, gating settlement timing.",
+      "type": "dataflow",
+      "from_id": 18,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 20,
+      "reason": "buy() sends Ether with a low-level call to _wallets and admin before clearing sellBidPrice and _wallets, enabling reentrancy on state that is still set.",
+      "type": "dataflow",
+      "from_id": 7,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 20,
+      "reason": "bid() refunds the previous highest bidder with a low-level call before updating highestBidder/highestBid, allowing reentrant refunds.",
+      "type": "dataflow",
+      "from_id": 8,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 20,
+      "reason": "withdraw() performs a low-level Ether transfer to the bidder before deleting the auction state.",
+      "type": "dataflow",
+      "from_id": 9,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 20,
+      "reason": "auctionFinalize pays beneficiary and admin with low-level calls before deleting auctions[tokenId] and finalizing ownership.",
+      "type": "dataflow",
+      "from_id": 10,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 20,
+      "reason": "callOptionalReturn performs the raw address(token).call(data) that reaches the unsafe low-level call sink.",
+      "type": "dataflow",
+      "from_id": 14,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 14,
+      "reason": "buy() invokes callOptionalReturn(this, transferFrom selector) to move the NFT from the seller.",
+      "type": "controlflow",
+      "from_id": 7,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 14,
+      "reason": "auctionFinalize invokes callOptionalReturn to transfer the NFT to the highest bidder.",
+      "type": "controlflow",
+      "from_id": 10,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 15,
+      "reason": "The encoded call from callOptionalReturn dispatches into transferFrom on this contract as an external self-call.",
+      "type": "callback",
+      "from_id": 14,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "buy() computes the commission as msg.value.mul(commissionRate).div(100), making the rate feed an arithmetic split.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 10,
+      "reason": "auctionFinalize computes commission from commissionRate and highestBid using mul/div.",
+      "type": "dataflow",
+      "from_id": 2,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 7,
+      "reason": "buy() reads sellBidPrice[tokenId] to validate the sale and require sufficient msg.value.",
+      "type": "dataflow",
+      "from_id": 3,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "bid() reads and writes auctions[tokenId] fields (highestBid, highestBidder, open).",
+      "type": "dataflow",
+      "from_id": 4,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "auctionFinalize reads auction beneficiary, highestBid, reserve and clears the struct.",
+      "type": "dataflow",
+      "from_id": 4,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "buy() pays the sale proceeds to the low-level call target _wallets[tokenId].",
+      "type": "dataflow",
+      "from_id": 5,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 13,
+      "reason": "updateAdmin reassigns the admin address, controlling where future commissions are sent.",
+      "type": "dataflow",
+      "from_id": 0,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 13,
+      "reason": "updateAdmin compares msg.sender against contract_owner; this state var is the authorization source.",
+      "type": "dataflow",
+      "from_id": 1,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 16,
+      "reason": "sell() calls approve(address(this), tokenId) to grant the marketplace transfer rights.",
+      "type": "controlflow",
+      "from_id": 11,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "createAuction() calls approve(address(this), tokenId) so the marketplace can move the NFT on settlement.",
+      "type": "controlflow",
+      "from_id": 12,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "The buy() tokenId parameter indexes sellBidPrice and auctions and is passed to ownerOf.",
+      "type": "dataflow",
+      "from_id": 21,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "amount4admin feeds the low-level Ether transfer to admin inside buy().",
+      "type": "dataflow",
+      "from_id": 22,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 7,
+      "reason": "amount4owner feeds the low-level Ether transfer to _wallets[tokenId] inside buy().",
+      "type": "dataflow",
+      "from_id": 23,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "The cached owner local is passed into the encoded transferFrom call in buy().",
+      "type": "dataflow",
+      "from_id": 27,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "The bid() tokenId parameter selects the auction being bid on and is emitted in HighestBidIncreased.",
+      "type": "dataflow",
+      "from_id": 24,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 11,
+      "reason": "The sell() price parameter is stored in sellBidPrice and determines whether the approve/wallet branch executes.",
+      "type": "dataflow",
+      "from_id": 25,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 10,
+      "reason": "The auctionFinalize tokenId parameter selects the auction to settle and clears it after payment.",
+      "type": "dataflow",
+      "from_id": 26,
+      "vuln_type": "none"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "buy",
+      "reason": "param_buy_tokenId is only used to index the marketplace mappings inside buy(), so it folds into the buy() function node.",
+      "normal_node": "param_buy_tokenId"
+    },
+    {
+      "merge_into": "buy",
+      "reason": "local_amount4admin is a temporary commission value computed and immediately spent by buy(); it collapses into buy().",
+      "normal_node": "local_amount4admin"
+    },
+    {
+      "merge_into": "buy",
+      "reason": "local_amount4owner is a temporary payout value created and spent within buy(); it collapses into buy().",
+      "normal_node": "local_amount4owner"
+    },
+    {
+      "merge_into": "buy",
+      "reason": "local_buy_owner exists only to feed the encoded transferFrom call in buy(), so it merges into buy().",
+      "normal_node": "local_buy_owner"
+    },
+    {
+      "merge_into": "bid",
+      "reason": "param_bid_tokenId is consumed solely by bid() for auction selection, so it merges into bid().",
+      "normal_node": "param_bid_tokenId"
+    },
+    {
+      "merge_into": "sell",
+      "reason": "param_sell_price is written into sellBidPrice and only used by sell(), so it merges into sell().",
+      "normal_node": "param_sell_price"
+    },
+    {
+      "merge_into": "auctionFinalize",
+      "reason": "param_finalize_tokenId is only used to read and delete the auction in auctionFinalize, so it merges into that function.",
+      "normal_node": "param_finalize_tokenId"
+    }
+  ]
+}

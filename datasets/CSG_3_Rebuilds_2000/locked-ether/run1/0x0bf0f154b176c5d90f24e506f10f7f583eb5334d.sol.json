@@ -1,0 +1,167 @@
+{
+  "nodes": [
+    {
+      "description": "owner address state variable initialized to msg.sender; controls withdraw access",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "owner"
+    },
+    {
+      "description": "bytes32 hash of secret number used in guess check",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "secretNumberHash"
+    },
+    {
+      "description": "public withdraw function requiring msg.sender == owner and transferring entire balance",
+      "is_core": true,
+      "type": "function",
+      "node_id": 2,
+      "id": "withdraw"
+    },
+    {
+      "description": "public payable guess function checking hash and paying jackpot",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "guess"
+    },
+    {
+      "description": "msg.sender used as owner, caller, and transfer recipient",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 4,
+      "id": "msg_sender"
+    },
+    {
+      "description": "owner.transfer(this.balance) external call sending entire contract balance to owner",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 5,
+      "id": "transfer_owner_balance"
+    },
+    {
+      "description": "msg.sender.transfer(this.balance + msg.value) external call sending jackpot to caller",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 6,
+      "id": "transfer_msg_sender_jackpot"
+    },
+    {
+      "description": "arithmetic addition this.balance + msg.value used as transfer amount, potential integer overflow",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 7,
+      "id": "arithmetic_balance_plus_msgvalue"
+    },
+    {
+      "description": "uint8 number parameter passed to guess",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 8,
+      "id": "number"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "owner state variable is initialized from msg.sender, granting owner privileges to caller",
+      "from_id": 4,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "owner state variable controls access to withdraw",
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "msg.sender is checked against owner for withdraw access control",
+      "from_id": 4,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 2
+    },
+    {
+      "reason": "owner is recipient of the entire balance transfer in withdraw",
+      "from_id": 0,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "withdraw function performs external call owner.transfer(this.balance)",
+      "from_id": 2,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 5
+    },
+    {
+      "reason": "external call to owner can trigger fallback and reenter withdraw",
+      "from_id": 5,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 2
+    },
+    {
+      "reason": "guess function computes this.balance + msg.value for payout",
+      "from_id": 3,
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "to_id": 7
+    },
+    {
+      "reason": "addition result is used as transfer amount and may overflow",
+      "from_id": 7,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "guess function performs external call msg.sender.transfer(...)",
+      "from_id": 3,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "to_id": 6
+    },
+    {
+      "reason": "msg.sender is recipient of jackpot transfer",
+      "from_id": 4,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "external transfer to msg.sender can trigger fallback and reenter guess",
+      "from_id": 6,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 3
+    },
+    {
+      "reason": "number parameter is used in guess hash check",
+      "from_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "secretNumberHash is compared with keccak256(number) in guess",
+      "from_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "uint8 number is only used as input to guess; its semantics can be absorbed into the guess function node",
+      "normal_node": "number",
+      "merge_into": "guess"
+    }
+  ]
+}

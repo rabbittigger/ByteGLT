@@ -1,0 +1,435 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Public uint256 global pusher tracker used for greed/queue limiting and event compression.",
+      "id": "pusherTracker_",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Public mapping(address => Pusher) storing per-pusher tracker and time state.",
+      "id": "pushers_",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "description": "Public uint256 rate limiter state variable (declared, not used in the shown code).",
+      "id": "rateLimiter_",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "description": "Constant HourglassInterface reference to the external Hourglass (H4D) contract.",
+      "id": "H4Dcontract_",
+      "is_core": true
+    },
+    {
+      "node_id": 4,
+      "type": "function",
+      "description": "Public payable-entry function that buys/sells/reinvests/withdraws on H4D and distributes dividends, guarded by isHuman() modifier.",
+      "id": "distribute",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "type": "function",
+      "description": "External payable function intended to accept ETH for dividend distribution (empty body).",
+      "id": "deposit",
+      "is_core": true
+    },
+    {
+      "node_id": 6,
+      "type": "function",
+      "description": "Public view returning the contract's ETH balance.",
+      "id": "balances",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "type": "function",
+      "description": "Payable fallback function allowing the contract to receive ETH (used so distribute can call H4D.withdraw).",
+      "id": "fallback",
+      "is_core": true
+    },
+    {
+      "node_id": 8,
+      "type": "function",
+      "description": "UintCompressor library helper that packs a value into a bit-range of a uint256.",
+      "id": "insert",
+      "is_core": true
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "description": "UintCompressor library helper that extracts a packed bit-range from a uint256.",
+      "id": "extract",
+      "is_core": true
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "description": "UintCompressor private helper computing 10**position via SafeMath pwr.",
+      "id": "exponent",
+      "is_core": true
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "description": "SafeMath overflow-checked multiplication.",
+      "id": "mul",
+      "is_core": true
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "description": "SafeMath underflow-checked subtraction.",
+      "id": "sub",
+      "is_core": true
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "description": "SafeMath overflow-checked addition.",
+      "id": "add",
+      "is_core": true
+    },
+    {
+      "node_id": 14,
+      "type": "untrusted_input",
+      "description": "Caller-controlled address used as _pusher and compared with tx.origin in isHuman.",
+      "id": "msg.sender",
+      "is_core": true
+    },
+    {
+      "node_id": 15,
+      "type": "untrusted_input",
+      "description": "Transaction origin used by isHuman modifier (require(tx.origin == msg.sender)).",
+      "id": "tx.origin",
+      "is_core": true
+    },
+    {
+      "node_id": 16,
+      "type": "untrusted_input",
+      "description": "Block timestamp (now) used for the greedy/time-limit check and stored into pushers_[].time.",
+      "id": "block.timestamp",
+      "is_core": true
+    },
+    {
+      "node_id": 17,
+      "type": "unsafe_operation",
+      "description": "External payable call H4Dcontract_.buy.value(_bal)(_pusher) — reentrancy exposure on untrusted external contract.",
+      "id": "H4D_buy_call",
+      "is_core": true
+    },
+    {
+      "node_id": 18,
+      "type": "unsafe_operation",
+      "description": "External call H4Dcontract_.sell(...) executed inside the reinvest/sell loop — reentrancy exposure.",
+      "id": "H4D_sell_call",
+      "is_core": true
+    },
+    {
+      "node_id": 19,
+      "type": "unsafe_operation",
+      "description": "External call H4Dcontract_.reinvest() inside the while loop — reentrancy exposure.",
+      "id": "H4D_reinvest_call",
+      "is_core": true
+    },
+    {
+      "node_id": 20,
+      "type": "unsafe_operation",
+      "description": "External call H4Dcontract_.withdraw() after the loop — reentrancy exposure.",
+      "id": "H4D_withdraw_call",
+      "is_core": true
+    },
+    {
+      "node_id": 21,
+      "type": "parameter",
+      "description": "Input percent parameter of distribute, required to be between 1 and 99.",
+      "id": "_percent",
+      "is_core": false
+    },
+    {
+      "node_id": 22,
+      "type": "local_var",
+      "description": "Local variable holding msg.sender used as the pusher address.",
+      "id": "_pusher",
+      "is_core": false
+    },
+    {
+      "node_id": 23,
+      "type": "local_var",
+      "description": "Local variable holding the contract ETH balance at entry.",
+      "id": "_bal",
+      "is_core": false
+    },
+    {
+      "node_id": 24,
+      "type": "local_var",
+      "description": "Local variable holding the computed masternode payout for the event.",
+      "id": "_mnPayout",
+      "is_core": false
+    },
+    {
+      "node_id": 25,
+      "type": "local_var",
+      "description": "Local variable accumulating compressed event data via UintCompressor.insert.",
+      "id": "_compressedData",
+      "is_core": false
+    },
+    {
+      "node_id": 26,
+      "type": "local_var",
+      "description": "Local variable threshold used to terminate the reinvest/sell loop.",
+      "id": "_stop",
+      "is_core": false
+    },
+    {
+      "node_id": 27,
+      "type": "local_var",
+      "description": "Local variable tracking dividendsOf(this) and re-estimated each loop iteration.",
+      "id": "_tracker",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is consumed by distribute as _pusher and in the isHuman requirement.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 14,
+      "to_id": 4
+    },
+    {
+      "reason": "msg.sender is used as the index key into the pushers_ mapping.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 14,
+      "to_id": 1
+    },
+    {
+      "reason": "isHuman modifier compares tx.origin with msg.sender, mixing two caller identities.",
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 15,
+      "to_id": 14
+    },
+    {
+      "reason": "tx.origin gates execution of distribute through the isHuman modifier.",
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 15,
+      "to_id": 4
+    },
+    {
+      "reason": "now (block.timestamp) drives the greed/time-limit branch condition in distribute.",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 16,
+      "to_id": 4
+    },
+    {
+      "reason": "now is written into pushers_[_pusher].time, making stored state timestamp dependent.",
+      "type": "dataflow",
+      "vuln_type": "access_control",
+      "from_id": 16,
+      "to_id": 1
+    },
+    {
+      "reason": "distribute reads and increments the global pusherTracker_ state variable.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 4,
+      "to_id": 0
+    },
+    {
+      "reason": "distribute reads and writes pushers_ mapping entries (tracker and time).",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 4,
+      "to_id": 1
+    },
+    {
+      "reason": "distribute interacts with the external H4Dcontract_ interface reference.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 4,
+      "to_id": 3
+    },
+    {
+      "reason": "distribute performs an external payable buy() call before completing its own state updates.",
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 4,
+      "to_id": 17
+    },
+    {
+      "reason": "distribute calls the external sell() inside the reinvest/sell loop, permitting reentrant control transfer.",
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 4,
+      "to_id": 18
+    },
+    {
+      "reason": "distribute repeatedly calls external reinvest() within the loop.",
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 4,
+      "to_id": 19
+    },
+    {
+      "reason": "distribute calls external withdraw() before the final pusher time update completes.",
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 4,
+      "to_id": 20
+    },
+    {
+      "reason": "H4Dcontract_ state reference is the target of the buy external call.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 17
+    },
+    {
+      "reason": "H4Dcontract_ state reference is the target of the sell external call.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 18
+    },
+    {
+      "reason": "H4Dcontract_ state reference is the target of the reinvest external call.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 19
+    },
+    {
+      "reason": "H4Dcontract_ state reference is the target of the withdraw external call.",
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 3,
+      "to_id": 20
+    },
+    {
+      "reason": "distribute calls UintCompressor.insert to build the compressed event payload.",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 4,
+      "to_id": 8
+    },
+    {
+      "reason": "distribute uses SafeMath.mul for balance and tracker arithmetic.",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 4,
+      "to_id": 11
+    },
+    {
+      "reason": "distribute uses SafeMath.sub for the greed check and stop threshold.",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 4,
+      "to_id": 12
+    },
+    {
+      "reason": "insert uses SafeMath.mul for range math.",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 8,
+      "to_id": 11
+    },
+    {
+      "reason": "insert uses SafeMath.sub to clear the target bit-range.",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 8,
+      "to_id": 12
+    },
+    {
+      "reason": "insert uses SafeMath.add to combine the masked and included segments.",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 8,
+      "to_id": 13
+    },
+    {
+      "reason": "insert computes segment boundaries with exponent().",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 8,
+      "to_id": 10
+    },
+    {
+      "reason": "extract uses SafeMath.mul for range math.",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 9,
+      "to_id": 11
+    },
+    {
+      "reason": "extract uses SafeMath.sub to isolate the requested segment.",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 9,
+      "to_id": 12
+    },
+    {
+      "reason": "extract computes segment boundaries with exponent().",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 9,
+      "to_id": 10
+    },
+    {
+      "reason": "exponent relies on SafeMath.pwr/mul to compute powers of ten.",
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 10,
+      "to_id": 11
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "_percent",
+      "reason": "_percent is a parameter scoped to the distribute function and affects its control flow.",
+      "merge_into": "distribute"
+    },
+    {
+      "normal_node": "_pusher",
+      "reason": "_pusher is a local derived from msg.sender inside distribute.",
+      "merge_into": "distribute"
+    },
+    {
+      "normal_node": "_bal",
+      "reason": "_bal is a local snapshot of the contract balance inside distribute.",
+      "merge_into": "distribute"
+    },
+    {
+      "normal_node": "_mnPayout",
+      "reason": "_mnPayout is a local payout value computed inside distribute.",
+      "merge_into": "distribute"
+    },
+    {
+      "normal_node": "_compressedData",
+      "reason": "_compressedData is a local storage buffer built inside distribute.",
+      "merge_into": "distribute"
+    },
+    {
+      "normal_node": "_stop",
+      "reason": "_stop is a local loop-termination threshold inside distribute.",
+      "merge_into": "distribute"
+    },
+    {
+      "normal_node": "_tracker",
+      "reason": "_tracker is a local loop tracker updated inside distribute.",
+      "merge_into": "distribute"
+    }
+  ]
+}

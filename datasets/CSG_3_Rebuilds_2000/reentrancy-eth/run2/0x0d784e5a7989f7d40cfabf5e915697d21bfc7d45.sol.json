@@ -1,0 +1,175 @@
+{
+  "nodes": [
+    {
+      "id": "collateralAsset",
+      "description": "Immutable IERC20 collateral asset held in custody by the locker",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "loan",
+      "description": "Immutable address of the Loan contract authorized to pull collateral",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "constructor",
+      "description": "Constructor setting collateralAsset and loan immutables from arguments",
+      "is_core": true,
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "pull",
+      "description": "External isLoan-guarded function transferring collateral asset to dst",
+      "is_core": true,
+      "node_id": 3,
+      "type": "function"
+    },
+    {
+      "id": "isLoan",
+      "description": "Modifier requiring msg.sender equals the stored loan address",
+      "is_core": true,
+      "node_id": 4,
+      "type": "function"
+    },
+    {
+      "id": "msg.sender",
+      "description": "Caller address, untrusted input used in the isLoan authorization check",
+      "is_core": true,
+      "node_id": 5,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "collateralAsset.safeTransfer",
+      "description": "External token transfer via SafeERC20 that hands control to the collateral asset contract",
+      "is_core": true,
+      "node_id": 6,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "_collateralAsset",
+      "description": "Constructor parameter for the collateral asset address",
+      "is_core": false,
+      "node_id": 7,
+      "type": "parameter"
+    },
+    {
+      "id": "_loan",
+      "description": "Constructor parameter for the authorized loan address",
+      "is_core": false,
+      "node_id": 8,
+      "type": "parameter"
+    },
+    {
+      "id": "dst",
+      "description": "Destination address of the collateral transfer in pull",
+      "is_core": false,
+      "node_id": 9,
+      "type": "parameter"
+    },
+    {
+      "id": "amt",
+      "description": "Amount of collateral asset transferred in pull",
+      "is_core": false,
+      "node_id": 10,
+      "type": "parameter"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor stores the _collateralAsset parameter into the collateralAsset immutable state variable",
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "Constructor stores the _loan parameter into the loan immutable state variable",
+      "to_id": 1,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "isLoan modifier compares untrusted msg.sender against the stored loan address",
+      "to_id": 4,
+      "vuln_type": "access_control",
+      "from_id": 5,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The isLoan modifier gates execution of pull before the transfer occurs",
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "type": "controlflow"
+    },
+    {
+      "reason": "Only the caller satisfying msg.sender == loan may reach the pull body",
+      "to_id": 3,
+      "vuln_type": "access_control",
+      "from_id": 5,
+      "type": "controlflow"
+    },
+    {
+      "reason": "pull uses the collateralAsset state variable as the token target of safeTransfer",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "dst parameter is forwarded as the recipient of the external safeTransfer",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 9,
+      "type": "dataflow"
+    },
+    {
+      "reason": "amt parameter is forwarded as the value of the external safeTransfer",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 10,
+      "type": "dataflow"
+    },
+    {
+      "reason": "pull performs an external call to the collateral asset contract without a reentrancy guard or state updates",
+      "to_id": 6,
+      "vuln_type": "reentrancy",
+      "from_id": 3,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The external token transfer can callback into pull, reentering the contract",
+      "to_id": 3,
+      "vuln_type": "reentrancy",
+      "from_id": 6,
+      "type": "callback"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Constructor parameter only used to initialize the collateralAsset immutable, so it collapses into the constructor",
+      "normal_node": "_collateralAsset",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "Constructor parameter only used to initialize the loan immutable, so it collapses into the constructor",
+      "normal_node": "_loan",
+      "merge_into": "constructor"
+    },
+    {
+      "reason": "dst is a local parameter of pull consumed by the token transfer and normalizes into the pull function",
+      "normal_node": "dst",
+      "merge_into": "pull"
+    },
+    {
+      "reason": "amt is a local parameter of pull consumed by the token transfer and normalizes into the pull function",
+      "normal_node": "amt",
+      "merge_into": "pull"
+    }
+  ]
+}

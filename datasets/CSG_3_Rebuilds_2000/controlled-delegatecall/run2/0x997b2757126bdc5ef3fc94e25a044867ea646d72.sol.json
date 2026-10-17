@@ -1,0 +1,1199 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "description": "uint32 thisChainId: chain id of the current chain, used to branch lock/burn vs release/mint behaviour",
+      "is_core": true,
+      "id": "sv_thisChainId"
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "description": "address treasury: recipient of cross chain fees, mutable through propose/accept treasury flow",
+      "is_core": true,
+      "id": "sv_treasury"
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "description": "address pendingTreasury: candidate treasury set by current treasury and accepted by the candidate",
+      "is_core": true,
+      "id": "sv_pendingTreasury"
+    },
+    {
+      "node_id": 3,
+      "type": "state_var",
+      "description": "Supervisor contract used to validate validator signatures for cross chain completions",
+      "is_core": true,
+      "id": "sv_supervisor"
+    },
+    {
+      "node_id": 4,
+      "type": "state_var",
+      "description": "IXYToken xyToken: the XY token that is locked, burned, minted or transferred by this contract",
+      "is_core": true,
+      "id": "sv_xyToken"
+    },
+    {
+      "node_id": 5,
+      "type": "state_var",
+      "description": "uint256 maxCrossChainAmount: upper bound for a single cross chain request amount",
+      "is_core": true,
+      "id": "sv_maxCrossChainAmount"
+    },
+    {
+      "node_id": 6,
+      "type": "state_var",
+      "description": "uint256 numCrossChainRequests: monotonically increasing counter used as cross chain request id",
+      "is_core": true,
+      "id": "sv_numCrossChainRequests"
+    },
+    {
+      "node_id": 7,
+      "type": "state_var",
+      "description": "mapping(uint32 => mapping(uint256 => bool)) completedCrossChainRequest: replay protection for relayed requests",
+      "is_core": true,
+      "id": "sv_completedCrossChainRequest"
+    },
+    {
+      "node_id": 8,
+      "type": "function",
+      "description": "initialize(...): initializer setting chain id, treasury, supervisor, xyToken, max amount and access control roles",
+      "is_core": true,
+      "id": "fn_initialize"
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "description": "_lockXYToken(address,uint256): pulls XY token from sender and burns it when this chain is not ETH chain",
+      "is_core": true,
+      "id": "fn_lockXYToken"
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "description": "_releaseXYToken(address,uint256,uint256): transfers from the contract on ETH chain, otherwise mints, plus fee to treasury",
+      "is_core": true,
+      "id": "fn_releaseXYToken"
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "description": "proposeNewTreasury(address): only current treasury can nominate a pending treasury",
+      "is_core": true,
+      "id": "fn_proposeNewTreasury"
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "description": "acceptNewTreasury(): pending treasury accepts ownership of the treasury address",
+      "is_core": true,
+      "id": "fn_acceptNewTreasury"
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "description": "_authorizeUpgrade(address): UUPS authorization hook restricted to ROLE_OWNER",
+      "is_core": true,
+      "id": "fn_authorizeUpgrade"
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "description": "rescue(IERC20[]): owner-only sweep of accidentally sent tokens, XY token excluded",
+      "is_core": true,
+      "id": "fn_rescue"
+    },
+    {
+      "node_id": 15,
+      "type": "function",
+      "description": "pause(): manager-only emergency stop",
+      "is_core": true,
+      "id": "fn_pause"
+    },
+    {
+      "node_id": 16,
+      "type": "function",
+      "description": "unpause(): manager-only resumption of operations",
+      "is_core": true,
+      "id": "fn_unpause"
+    },
+    {
+      "node_id": 17,
+      "type": "function",
+      "description": "setMaxCrossChainAmount(uint256): manager-only update of the cross chain amount cap",
+      "is_core": true,
+      "id": "fn_setMaxCrossChainAmount"
+    },
+    {
+      "node_id": 18,
+      "type": "function",
+      "description": "completeCrossChainRequest(...): staff-only relay completion validating supervisor signatures before releasing tokens",
+      "is_core": true,
+      "id": "fn_completeCrossChainRequest"
+    },
+    {
+      "node_id": 19,
+      "type": "function",
+      "description": "requestCrossChain(uint32,address,uint256): user entry point that locks XY token and emits a cross chain request",
+      "is_core": true,
+      "id": "fn_requestCrossChain"
+    },
+    {
+      "node_id": 20,
+      "type": "untrusted_input",
+      "description": "msg.sender: external caller, used for treasury checks, role checks, token source and rescue recipient",
+      "is_core": true,
+      "id": "ti_msg_sender"
+    },
+    {
+      "node_id": 21,
+      "type": "unsafe_operation",
+      "description": "xyToken.safeTransferFrom(sender, address(this), amount): external ERC20 call in _lockXYToken",
+      "is_core": true,
+      "id": "op_safeTransferFrom"
+    },
+    {
+      "node_id": 22,
+      "type": "unsafe_operation",
+      "description": "xyToken.burn(amount): external burn call executed when thisChainId != ETH_CHAIN_ID",
+      "is_core": true,
+      "id": "op_burn"
+    },
+    {
+      "node_id": 23,
+      "type": "unsafe_operation",
+      "description": "xyToken.safeTransfer(receiver/treasury, amount): external ERC20 outbound call in _releaseXYToken",
+      "is_core": true,
+      "id": "op_safeTransfer"
+    },
+    {
+      "node_id": 24,
+      "type": "unsafe_operation",
+      "description": "xyToken.mint(receiver/treasury, amount): external mint call in _releaseXYToken on non-ETH chains",
+      "is_core": true,
+      "id": "op_mint"
+    },
+    {
+      "node_id": 25,
+      "type": "unsafe_operation",
+      "description": "supervisor.checkSignatures(sigIdHash, signatures): external call to the Supervisor contract for validator threshold validation",
+      "is_core": true,
+      "id": "op_checkSignatures"
+    },
+    {
+      "node_id": 26,
+      "type": "unsafe_operation",
+      "description": "token.safeTransfer(msg.sender, balance): external ERC20 transfer out of arbitrary user supplied token in rescue",
+      "is_core": true,
+      "id": "op_rescue_safeTransfer"
+    },
+    {
+      "node_id": 27,
+      "type": "unsafe_operation",
+      "description": "delegatecall to the new implementation inside _upgradeToAndCallSecure reached via upgradeTo/upgradeToAndCall",
+      "is_core": true,
+      "id": "op_upgrade_delegatecall"
+    },
+    {
+      "node_id": 28,
+      "type": "parameter",
+      "description": "sender parameter of _lockXYToken, source address of the token transfer",
+      "is_core": false,
+      "id": "p_lock_sender"
+    },
+    {
+      "node_id": 29,
+      "type": "parameter",
+      "description": "amount parameter of _lockXYToken, number of tokens pulled and possibly burned",
+      "is_core": false,
+      "id": "p_lock_amount"
+    },
+    {
+      "node_id": 30,
+      "type": "parameter",
+      "description": "receiver parameter of _releaseXYToken, destination of the released tokens",
+      "is_core": false,
+      "id": "p_release_receiver"
+    },
+    {
+      "node_id": 31,
+      "type": "parameter",
+      "description": "amount parameter of _releaseXYToken, tokens transferred or minted to the receiver",
+      "is_core": false,
+      "id": "p_release_amount"
+    },
+    {
+      "node_id": 32,
+      "type": "parameter",
+      "description": "fee parameter of _releaseXYToken, tokens transferred or minted to the treasury",
+      "is_core": false,
+      "id": "p_release_fee"
+    },
+    {
+      "node_id": 33,
+      "type": "parameter",
+      "description": "newTreasury parameter of proposeNewTreasury, stored into pendingTreasury",
+      "is_core": false,
+      "id": "p_newTreasury"
+    },
+    {
+      "node_id": 34,
+      "type": "parameter",
+      "description": "newMaxCrossChainAmount parameter of setMaxCrossChainAmount, written into maxCrossChainAmount",
+      "is_core": false,
+      "id": "p_newMaxAmount"
+    },
+    {
+      "node_id": 35,
+      "type": "parameter",
+      "description": "requestId parameter of completeCrossChainRequest, source chain request identifier",
+      "is_core": false,
+      "id": "p_requestId"
+    },
+    {
+      "node_id": 36,
+      "type": "parameter",
+      "description": "sourceChainId parameter of completeCrossChainRequest, key for the completed request mapping",
+      "is_core": false,
+      "id": "p_sourceChainId"
+    },
+    {
+      "node_id": 37,
+      "type": "parameter",
+      "description": "receiver parameter of completeCrossChainRequest, final token recipient",
+      "is_core": false,
+      "id": "p_cccr_receiver"
+    },
+    {
+      "node_id": 38,
+      "type": "parameter",
+      "description": "amount parameter of completeCrossChainRequest, gross amount signed by validators",
+      "is_core": false,
+      "id": "p_cccr_amount"
+    },
+    {
+      "node_id": 39,
+      "type": "parameter",
+      "description": "fee parameter of completeCrossChainRequest, deducted from the gross amount",
+      "is_core": false,
+      "id": "p_cccr_fee"
+    },
+    {
+      "node_id": 40,
+      "type": "parameter",
+      "description": "signatures parameter of completeCrossChainRequest, validator signature array forwarded to the Supervisor",
+      "is_core": false,
+      "id": "p_signatures"
+    },
+    {
+      "node_id": 41,
+      "type": "local_var",
+      "description": "sigId local: keccak256 digest of the cross chain request fields",
+      "is_core": false,
+      "id": "l_sigId"
+    },
+    {
+      "node_id": 42,
+      "type": "local_var",
+      "description": "sigIdHash local: EIP-191 signed message hash of sigId sent to checkSignatures",
+      "is_core": false,
+      "id": "l_sigIdHash"
+    },
+    {
+      "node_id": 43,
+      "type": "local_var",
+      "description": "amountSubFee local: amount minus fee, passed as the released amount",
+      "is_core": false,
+      "id": "l_amountSubFee"
+    },
+    {
+      "node_id": 44,
+      "type": "parameter",
+      "description": "destChainId parameter of requestCrossChain, destination chain of the transfer",
+      "is_core": false,
+      "id": "p_destChainId"
+    },
+    {
+      "node_id": 45,
+      "type": "parameter",
+      "description": "receiver parameter of requestCrossChain, recipient on the destination chain",
+      "is_core": false,
+      "id": "p_rc_receiver"
+    },
+    {
+      "node_id": 46,
+      "type": "parameter",
+      "description": "amount parameter of requestCrossChain, tokens locked from msg.sender",
+      "is_core": false,
+      "id": "p_rc_amount"
+    },
+    {
+      "node_id": 47,
+      "type": "local_var",
+      "description": "id local of requestCrossChain, value of numCrossChainRequests before increment",
+      "is_core": false,
+      "id": "l_requestId"
+    },
+    {
+      "node_id": 48,
+      "type": "parameter",
+      "description": "tokens parameter of rescue, array of ERC20 addresses to sweep",
+      "is_core": false,
+      "id": "p_tokens"
+    },
+    {
+      "node_id": 49,
+      "type": "local_var",
+      "description": "token local of rescue, current ERC20 being swept",
+      "is_core": false,
+      "id": "l_token"
+    },
+    {
+      "node_id": 50,
+      "type": "local_var",
+      "description": "_tokenBalance local of rescue, balance of the contract in the swept token",
+      "is_core": false,
+      "id": "l_tokenBalance"
+    },
+    {
+      "node_id": 51,
+      "type": "parameter",
+      "description": "chainId parameter of initialize, assigned to thisChainId",
+      "is_core": false,
+      "id": "p_init_chainId"
+    },
+    {
+      "node_id": 52,
+      "type": "parameter",
+      "description": "_treasury parameter of initialize, assigned to treasury",
+      "is_core": false,
+      "id": "p_init_treasury"
+    },
+    {
+      "node_id": 53,
+      "type": "parameter",
+      "description": "_supervisor parameter of initialize, contract-checked and assigned to supervisor",
+      "is_core": false,
+      "id": "p_init_supervisor"
+    },
+    {
+      "node_id": 54,
+      "type": "parameter",
+      "description": "owner parameter of initialize, granted ROLE_OWNER",
+      "is_core": false,
+      "id": "p_init_owner"
+    },
+    {
+      "node_id": 55,
+      "type": "parameter",
+      "description": "manager parameter of initialize, granted ROLE_MANAGER",
+      "is_core": false,
+      "id": "p_init_manager"
+    },
+    {
+      "node_id": 56,
+      "type": "parameter",
+      "description": "staff parameter of initialize, granted ROLE_STAFF",
+      "is_core": false,
+      "id": "p_init_staff"
+    },
+    {
+      "node_id": 57,
+      "type": "parameter",
+      "description": "_xyToken parameter of initialize, contract-checked and assigned to xyToken",
+      "is_core": false,
+      "id": "p_init_xyToken"
+    },
+    {
+      "node_id": 58,
+      "type": "parameter",
+      "description": "_maxCrossChainAmount parameter of initialize, assigned to maxCrossChainAmount",
+      "is_core": false,
+      "id": "p_init_maxAmount"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "chainId argument flows into initialize and is stored as thisChainId",
+      "from_id": 51
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_treasury argument flows into initialize and is stored as treasury",
+      "from_id": 52
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_supervisor argument flows into initialize and is stored as supervisor",
+      "from_id": 53
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "owner argument flows into initialize and is granted ROLE_OWNER, defining the privileged account set",
+      "from_id": 54
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "manager argument flows into initialize and is granted ROLE_MANAGER",
+      "from_id": 55
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "staff argument flows into initialize and is granted ROLE_STAFF",
+      "from_id": 56
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_xyToken argument flows into initialize and is stored as xyToken",
+      "from_id": 57
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_maxCrossChainAmount argument flows into initialize and is stored as maxCrossChainAmount",
+      "from_id": 58
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "initialize writes thisChainId",
+      "from_id": 8
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "initialize writes treasury",
+      "from_id": 8
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "initialize writes the supervisor contract reference",
+      "from_id": 8
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "initialize writes the xyToken contract reference",
+      "from_id": 8
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "initialize writes maxCrossChainAmount",
+      "from_id": 8
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "sender parameter is consumed by _lockXYToken",
+      "from_id": 28
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "amount parameter is consumed by _lockXYToken",
+      "from_id": 29
+    },
+    {
+      "to_id": 21,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "xyToken state variable is the target of the safeTransferFrom external call",
+      "from_id": 4
+    },
+    {
+      "to_id": 21,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "sender parameter is the from address of the token pull",
+      "from_id": 28
+    },
+    {
+      "to_id": 21,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "amount parameter is the value moved by safeTransferFrom",
+      "from_id": 29
+    },
+    {
+      "to_id": 21,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_lockXYToken triggers the external token transfer",
+      "from_id": 9
+    },
+    {
+      "to_id": 22,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "thisChainId decides whether the burn branch is executed",
+      "from_id": 0
+    },
+    {
+      "to_id": 22,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_lockXYToken invokes burn on non-ETH chains",
+      "from_id": 9
+    },
+    {
+      "to_id": 22,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "amount parameter is passed to burn",
+      "from_id": 29
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "receiver parameter is consumed by _releaseXYToken",
+      "from_id": 30
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "amount parameter is consumed by _releaseXYToken",
+      "from_id": 31
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "fee parameter is consumed by _releaseXYToken",
+      "from_id": 32
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "thisChainId decides between transfer and mint branches",
+      "from_id": 0
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "treasury is read as the fee recipient in _releaseXYToken",
+      "from_id": 1
+    },
+    {
+      "to_id": 23,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "xyToken is the target of safeTransfer",
+      "from_id": 4
+    },
+    {
+      "to_id": 23,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "receiver is the destination of the released token transfer",
+      "from_id": 30
+    },
+    {
+      "to_id": 23,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "amount is the value of the released token transfer",
+      "from_id": 31
+    },
+    {
+      "to_id": 23,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_releaseXYToken performs the outbound token transfer",
+      "from_id": 10
+    },
+    {
+      "to_id": 24,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "xyToken is the target of mint",
+      "from_id": 4
+    },
+    {
+      "to_id": 24,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "receiver is the beneficiary of the mint",
+      "from_id": 30
+    },
+    {
+      "to_id": 24,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "amount is the minted value for the receiver",
+      "from_id": 31
+    },
+    {
+      "to_id": 24,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "treasury is the beneficiary of the fee mint",
+      "from_id": 1
+    },
+    {
+      "to_id": 24,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_releaseXYToken performs the mint on non-ETH chains",
+      "from_id": 10
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "msg.sender must equal treasury to propose a new treasury",
+      "from_id": 20
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "newTreasury parameter is stored in proposeNewTreasury",
+      "from_id": 33
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "proposeNewTreasury writes pendingTreasury",
+      "from_id": 11
+    },
+    {
+      "to_id": 12,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "msg.sender must equal pendingTreasury to accept the treasury role",
+      "from_id": 20
+    },
+    {
+      "to_id": 1,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "acceptNewTreasury sets treasury to msg.sender, transferring privileged control",
+      "from_id": 12
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "acceptNewTreasury clears pendingTreasury",
+      "from_id": 12
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "msg.sender is checked against ROLE_OWNER before an upgrade is authorized",
+      "from_id": 20
+    },
+    {
+      "to_id": 27,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "_authorizeUpgrade gates the delegatecall based implementation replacement",
+      "from_id": 13
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "tokens array drives the rescue loop",
+      "from_id": 48
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "msg.sender must hold ROLE_OWNER to call rescue",
+      "from_id": 20
+    },
+    {
+      "to_id": 26,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "rescue executes the token sweep transfer",
+      "from_id": 14
+    },
+    {
+      "to_id": 26,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "token local is the ERC20 transferred in the rescue loop",
+      "from_id": 49
+    },
+    {
+      "to_id": 26,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "_tokenBalance local is the amount transferred out",
+      "from_id": 50
+    },
+    {
+      "to_id": 26,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "msg.sender is the recipient of the rescued tokens",
+      "from_id": 20
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "xyToken address is compared to prevent rescuing the protocol token",
+      "from_id": 4
+    },
+    {
+      "to_id": 15,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "msg.sender must hold ROLE_MANAGER to pause",
+      "from_id": 20
+    },
+    {
+      "to_id": 16,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "msg.sender must hold ROLE_MANAGER to unpause",
+      "from_id": 20
+    },
+    {
+      "to_id": 17,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "msg.sender must hold ROLE_MANAGER to change the cross chain cap",
+      "from_id": 20
+    },
+    {
+      "to_id": 17,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "newMaxCrossChainAmount parameter is consumed by the setter",
+      "from_id": 34
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "setMaxCrossChainAmount writes maxCrossChainAmount",
+      "from_id": 17
+    },
+    {
+      "to_id": 18,
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "reason": "msg.sender must hold ROLE_STAFF to complete a cross chain request",
+      "from_id": 20
+    },
+    {
+      "to_id": 18,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "requestId parameter is consumed by completeCrossChainRequest",
+      "from_id": 35
+    },
+    {
+      "to_id": 18,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "sourceChainId parameter keys the replay protection mapping",
+      "from_id": 36
+    },
+    {
+      "to_id": 18,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "receiver parameter is consumed by completeCrossChainRequest",
+      "from_id": 37
+    },
+    {
+      "to_id": 18,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "amount parameter is consumed by completeCrossChainRequest",
+      "from_id": 38
+    },
+    {
+      "to_id": 18,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "fee parameter is consumed by completeCrossChainRequest",
+      "from_id": 39
+    },
+    {
+      "to_id": 18,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "signatures parameter is consumed by completeCrossChainRequest",
+      "from_id": 40
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "completeCrossChainRequest marks the request as completed",
+      "from_id": 18
+    },
+    {
+      "to_id": 18,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "maxCrossChainAmount is read by the amount bound check",
+      "from_id": 5
+    },
+    {
+      "to_id": 25,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "supervisor state variable is the target of the signature check call",
+      "from_id": 3
+    },
+    {
+      "to_id": 25,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "signatures array is forwarded to supervisor.checkSignatures",
+      "from_id": 40
+    },
+    {
+      "to_id": 42,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "sigId is hashed into sigIdHash with the EIP-191 prefix",
+      "from_id": 41
+    },
+    {
+      "to_id": 25,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "sigIdHash is the digest verified against the validator signatures",
+      "from_id": 42
+    },
+    {
+      "to_id": 25,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "reason": "completeCrossChainRequest calls the external Supervisor contract before releasing funds",
+      "from_id": 18
+    },
+    {
+      "to_id": 43,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "reason": "amount feeds the amount - fee subtraction",
+      "from_id": 38
+    },
+    {
+      "to_id": 43,
+      "vuln_type": "arithmetic",
+      "type": "dataflow",
+      "reason": "fee feeds the amount - fee subtraction",
+      "from_id": 39
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "amountSubFee is forwarded as the release amount",
+      "from_id": 43
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "reason": "completeCrossChainRequest calls the internal release routine that performs external token calls after state updates",
+      "from_id": 18
+    },
+    {
+      "to_id": 19,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "msg.sender is the token source of the cross chain request",
+      "from_id": 20
+    },
+    {
+      "to_id": 19,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "destChainId parameter is consumed by requestCrossChain",
+      "from_id": 44
+    },
+    {
+      "to_id": 19,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "receiver parameter is consumed by requestCrossChain",
+      "from_id": 45
+    },
+    {
+      "to_id": 19,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "amount parameter is consumed by requestCrossChain",
+      "from_id": 46
+    },
+    {
+      "to_id": 19,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "maxCrossChainAmount bounds the requested amount",
+      "from_id": 5
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "requestCrossChain increments numCrossChainRequests",
+      "from_id": 19
+    },
+    {
+      "to_id": 47,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "the request id local receives the pre-increment counter value",
+      "from_id": 6
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "reason": "msg.sender is forwarded as the sender argument of _lockXYToken",
+      "from_id": 20
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "reentrancy",
+      "type": "controlflow",
+      "reason": "requestCrossChain invokes the locking routine that performs external token calls before the request is fully recorded",
+      "from_id": 19
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "the external token transferFrom can re-enter while _lockXYToken has not finished its state transitions",
+      "from_id": 21
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "the external token transfer can re-enter _releaseXYToken before the release completes",
+      "from_id": 23
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "the external mint call can re-enter _releaseXYToken",
+      "from_id": 24
+    },
+    {
+      "to_id": 14,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "the rescued token transfer can re-enter the rescue loop",
+      "from_id": 26
+    },
+    {
+      "to_id": 13,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "reason": "the implementation delegatecall can re-enter the upgrade authorization path",
+      "from_id": 27
+    },
+    {
+      "to_id": 27,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "reason": "the owner restricted hook is the only guard before the upgrade delegatecall is executed",
+      "from_id": 13
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "fn_lockXYToken",
+      "normal_node": "p_lock_sender",
+      "reason": "sender parameter only exists as the from address of the lock transfer inside _lockXYToken"
+    },
+    {
+      "merge_into": "fn_lockXYToken",
+      "normal_node": "p_lock_amount",
+      "reason": "amount parameter is only used by the lock/burn logic of _lockXYToken"
+    },
+    {
+      "merge_into": "fn_releaseXYToken",
+      "normal_node": "p_release_receiver",
+      "reason": "receiver parameter is only the destination of the release transfer/mint"
+    },
+    {
+      "merge_into": "fn_releaseXYToken",
+      "normal_node": "p_release_amount",
+      "reason": "amount parameter is only the value released to the receiver"
+    },
+    {
+      "merge_into": "fn_releaseXYToken",
+      "normal_node": "p_release_fee",
+      "reason": "fee parameter is only the value released to the treasury"
+    },
+    {
+      "merge_into": "fn_proposeNewTreasury",
+      "normal_node": "p_newTreasury",
+      "reason": "newTreasury exists solely to be written into pendingTreasury by proposeNewTreasury"
+    },
+    {
+      "merge_into": "fn_setMaxCrossChainAmount",
+      "normal_node": "p_newMaxAmount",
+      "reason": "newMaxCrossChainAmount exists solely to be written into maxCrossChainAmount"
+    },
+    {
+      "merge_into": "fn_completeCrossChainRequest",
+      "normal_node": "p_requestId",
+      "reason": "requestId is only consumed as the replay protection key of the completion flow"
+    },
+    {
+      "merge_into": "fn_completeCrossChainRequest",
+      "normal_node": "p_sourceChainId",
+      "reason": "sourceChainId is only consumed as the source chain key of the completion flow"
+    },
+    {
+      "merge_into": "op_safeTransfer",
+      "normal_node": "p_cccr_receiver",
+      "reason": "receiver is the destination of the external token transfer executed inside _releaseXYToken"
+    },
+    {
+      "merge_into": "fn_completeCrossChainRequest",
+      "normal_node": "p_cccr_amount",
+      "reason": "amount is only used for the signature digest and the amount-fee computation"
+    },
+    {
+      "merge_into": "fn_completeCrossChainRequest",
+      "normal_node": "p_cccr_fee",
+      "reason": "fee is only used for the signature digest and the amount-fee computation"
+    },
+    {
+      "merge_into": "op_checkSignatures",
+      "normal_node": "p_signatures",
+      "reason": "signatures parameter is forwarded verbatim to supervisor.checkSignatures"
+    },
+    {
+      "merge_into": "fn_completeCrossChainRequest",
+      "normal_node": "l_sigId",
+      "reason": "sigId is a transient digest built inside completeCrossChainRequest"
+    },
+    {
+      "merge_into": "op_checkSignatures",
+      "normal_node": "l_sigIdHash",
+      "reason": "sigIdHash exists only as the argument of the external signature check"
+    },
+    {
+      "merge_into": "fn_releaseXYToken",
+      "normal_node": "l_amountSubFee",
+      "reason": "amountSubFee is only forwarded as the release amount argument"
+    },
+    {
+      "merge_into": "fn_requestCrossChain",
+      "normal_node": "p_destChainId",
+      "reason": "destChainId is only emitted and validated inside requestCrossChain"
+    },
+    {
+      "merge_into": "fn_requestCrossChain",
+      "normal_node": "p_rc_receiver",
+      "reason": "receiver is only emitted as the destination recipient of the request"
+    },
+    {
+      "merge_into": "fn_requestCrossChain",
+      "normal_node": "p_rc_amount",
+      "reason": "amount is only validated and locked by requestCrossChain"
+    },
+    {
+      "merge_into": "fn_requestCrossChain",
+      "normal_node": "l_requestId",
+      "reason": "id local only captures the request counter value used in the event"
+    },
+    {
+      "merge_into": "fn_rescue",
+      "normal_node": "p_tokens",
+      "reason": "tokens array is only iterated inside rescue"
+    },
+    {
+      "merge_into": "op_rescue_safeTransfer",
+      "normal_node": "l_token",
+      "reason": "token local exists only as the ERC20 target of the rescue transfer"
+    },
+    {
+      "merge_into": "op_rescue_safeTransfer",
+      "normal_node": "l_tokenBalance",
+      "reason": "_tokenBalance local exists only as the amount of the rescue transfer"
+    },
+    {
+      "merge_into": "fn_initialize",
+      "normal_node": "p_init_chainId",
+      "reason": "chainId only initializes thisChainId inside initialize"
+    },
+    {
+      "merge_into": "fn_initialize",
+      "normal_node": "p_init_treasury",
+      "reason": "_treasury only initializes the treasury state variable"
+    },
+    {
+      "merge_into": "fn_initialize",
+      "normal_node": "p_init_supervisor",
+      "reason": "_supervisor is contract-checked and only initializes the supervisor reference"
+    },
+    {
+      "merge_into": "fn_initialize",
+      "normal_node": "p_init_owner",
+      "reason": "owner only receives ROLE_OWNER during initialization"
+    },
+    {
+      "merge_into": "fn_initialize",
+      "normal_node": "p_init_manager",
+      "reason": "manager only receives ROLE_MANAGER during initialization"
+    },
+    {
+      "merge_into": "fn_initialize",
+      "normal_node": "p_init_staff",
+      "reason": "staff only receives ROLE_STAFF during initialization"
+    },
+    {
+      "merge_into": "fn_initialize",
+      "normal_node": "p_init_xyToken",
+      "reason": "_xyToken is contract-checked and only initializes the xyToken reference"
+    },
+    {
+      "merge_into": "fn_initialize",
+      "normal_node": "p_init_maxAmount",
+      "reason": "_maxCrossChainAmount only initializes maxCrossChainAmount"
+    }
+  ]
+}

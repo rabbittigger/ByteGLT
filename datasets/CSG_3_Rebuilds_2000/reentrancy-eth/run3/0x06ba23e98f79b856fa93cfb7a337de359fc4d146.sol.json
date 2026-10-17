@@ -1,0 +1,1321 @@
+{
+  "nodes": [
+    {
+      "id": "admin",
+      "node_id": 0,
+      "type": "state_var",
+      "description": "Administrator address, initialised to msg.sender; guard for onlyAdmin functions and part of the onlyAuthorized check.",
+      "is_core": true
+    },
+    {
+      "id": "controller",
+      "node_id": 1,
+      "type": "state_var",
+      "description": "Controller contract address; authorized caller and source of the treasury address used in harvest().",
+      "is_core": true
+    },
+    {
+      "id": "vault",
+      "node_id": 2,
+      "type": "state_var",
+      "description": "Immutable vault address; authorized caller and counterparty of underlying token transfers.",
+      "is_core": true
+    },
+    {
+      "id": "underlying",
+      "node_id": 3,
+      "type": "state_var",
+      "description": "Immutable underlying ERC20 token (BUSD); protected from sweep().",
+      "is_core": true
+    },
+    {
+      "id": "totalDebt",
+      "node_id": 4,
+      "type": "state_var",
+      "description": "Total underlying transferred from the vault; updated by _increaseDebt, _decreaseDebt, skim and harvest.",
+      "is_core": true
+    },
+    {
+      "id": "performanceFee",
+      "node_id": 5,
+      "type": "state_var",
+      "description": "Performance fee in basis points, capped by PERFORMANCE_FEE_CAP, applied to harvest profit.",
+      "is_core": true
+    },
+    {
+      "id": "slippage",
+      "node_id": 6,
+      "type": "state_var",
+      "description": "Slippage tolerance used to compute the min amount for Curve add/remove liquidity calls.",
+      "is_core": true
+    },
+    {
+      "id": "delta",
+      "node_id": 7,
+      "type": "state_var",
+      "description": "Multiplier used in skim() to bound totalAssets against totalDebt * delta / DELTA_MIN.",
+      "is_core": true
+    },
+    {
+      "id": "forceExit",
+      "node_id": 8,
+      "type": "state_var",
+      "description": "Flag that, when true, makes exit() return immediately instead of exiting the strategy.",
+      "is_core": true
+    },
+    {
+      "id": "PERFORMANCE_FEE_CAP",
+      "node_id": 9,
+      "type": "state_var",
+      "description": "Constant upper limit (2000) enforced by setPerformanceFee.",
+      "is_core": true
+    },
+    {
+      "id": "PERFORMANCE_FEE_MAX",
+      "node_id": 10,
+      "type": "state_var",
+      "description": "Constant denominator (10000) for the performance fee computation in harvest().",
+      "is_core": true
+    },
+    {
+      "id": "SLIPPAGE_MAX",
+      "node_id": 11,
+      "type": "state_var",
+      "description": "Constant denominator (10000) used in the slippage min-amount computation.",
+      "is_core": true
+    },
+    {
+      "id": "DELTA_MIN",
+      "node_id": 12,
+      "type": "state_var",
+      "description": "Constant denominator (10000) for the delta based manipulation guard in skim().",
+      "is_core": true
+    },
+    {
+      "id": "underlyingIndex",
+      "node_id": 13,
+      "type": "state_var",
+      "description": "Curve pool index of the underlying token, set to 3 (BUSD) by StrategyBusdBusdV2.",
+      "is_core": true
+    },
+    {
+      "id": "PRECISION_DIV",
+      "node_id": 14,
+      "type": "state_var",
+      "description": "Per-index precision divisors converting 1e18 amounts to the underlying token decimals.",
+      "is_core": true
+    },
+    {
+      "id": "msg.sender",
+      "node_id": 15,
+      "type": "untrusted_input",
+      "description": "Attacker-controlled caller address used for admin initialisation and access-control modifiers.",
+      "is_core": true
+    },
+    {
+      "id": "block.timestamp",
+      "node_id": 16,
+      "type": "untrusted_input",
+      "description": "Miner-influenced timestamp passed directly as the Uniswap swap deadline in _swap.",
+      "is_core": true
+    },
+    {
+      "id": "StrategyERC20.constructor",
+      "node_id": 17,
+      "type": "function",
+      "description": "Sets admin, controller, vault and underlying; validates non-zero addresses.",
+      "is_core": true
+    },
+    {
+      "id": "onlyAdmin",
+      "node_id": 18,
+      "type": "function",
+      "description": "Modifier requiring msg.sender == admin.",
+      "is_core": true
+    },
+    {
+      "id": "onlyAuthorized",
+      "node_id": 19,
+      "type": "function",
+      "description": "Modifier requiring msg.sender to be admin, controller or vault.",
+      "is_core": true
+    },
+    {
+      "id": "setAdmin",
+      "node_id": 20,
+      "type": "function",
+      "description": "Admin-only update of the admin address.",
+      "is_core": true
+    },
+    {
+      "id": "setController",
+      "node_id": 21,
+      "type": "function",
+      "description": "Admin-only update of the controller address.",
+      "is_core": true
+    },
+    {
+      "id": "setPerformanceFee",
+      "node_id": 22,
+      "type": "function",
+      "description": "Admin-only update of performanceFee, bounded by PERFORMANCE_FEE_CAP.",
+      "is_core": true
+    },
+    {
+      "id": "setSlippage",
+      "node_id": 23,
+      "type": "function",
+      "description": "Admin-only update of slippage, bounded by SLIPPAGE_MAX.",
+      "is_core": true
+    },
+    {
+      "id": "setDelta",
+      "node_id": 24,
+      "type": "function",
+      "description": "Admin-only update of delta, lower bounded by DELTA_MIN.",
+      "is_core": true
+    },
+    {
+      "id": "setForceExit",
+      "node_id": 25,
+      "type": "function",
+      "description": "Admin-only toggle of the forceExit flag.",
+      "is_core": true
+    },
+    {
+      "id": "_increaseDebt",
+      "node_id": 26,
+      "type": "function",
+      "description": "Pulls underlying from the vault via safeTransferFrom and increases totalDebt by the balance delta.",
+      "is_core": true
+    },
+    {
+      "id": "_decreaseDebt",
+      "node_id": 27,
+      "type": "function",
+      "description": "Sends underlying to the vault via safeTransfer and decreases totalDebt by the balance delta.",
+      "is_core": true
+    },
+    {
+      "id": "totalAssets",
+      "node_id": 28,
+      "type": "function",
+      "description": "External view returning the strategy's underlying value via the virtual _totalAssets().",
+      "is_core": true
+    },
+    {
+      "id": "deposit",
+      "node_id": 29,
+      "type": "function",
+      "description": "Authorized entry point that increases debt and invests underlying into Curve/gauge.",
+      "is_core": true
+    },
+    {
+      "id": "_getShares",
+      "node_id": 30,
+      "type": "function",
+      "description": "Converts an underlying amount into LP shares using the proportional formula.",
+      "is_core": true
+    },
+    {
+      "id": "withdraw",
+      "node_id": 31,
+      "type": "function",
+      "description": "Authorized entry point that redeems shares and transfers underlying back to the vault.",
+      "is_core": true
+    },
+    {
+      "id": "_withdrawAll",
+      "node_id": 32,
+      "type": "function",
+      "description": "Redeems all shares, repays the vault and zeroes totalDebt.",
+      "is_core": true
+    },
+    {
+      "id": "withdrawAll",
+      "node_id": 33,
+      "type": "function",
+      "description": "Authorized external wrapper around _withdrawAll().",
+      "is_core": true
+    },
+    {
+      "id": "skim",
+      "node_id": 34,
+      "type": "function",
+      "description": "Authorized profit accounting with price-manipulation guard based on delta.",
+      "is_core": true
+    },
+    {
+      "id": "StrategyBusdV2.constructor",
+      "node_id": 35,
+      "type": "function",
+      "description": "Deploys the Curve BUSD strategy and grants unlimited CRV approval to Uniswap.",
+      "is_core": true
+    },
+    {
+      "id": "StrategyBusdV2._totalAssets",
+      "node_id": 36,
+      "type": "function",
+      "description": "Values the gauge LP balance using Curve get_virtual_price and precision divisors.",
+      "is_core": true
+    },
+    {
+      "id": "_depositIntoCurve",
+      "node_id": 37,
+      "type": "function",
+      "description": "Approves and adds liquidity to Curve DepositBusd, then stakes the LP tokens in the gauge.",
+      "is_core": true
+    },
+    {
+      "id": "_deposit",
+      "node_id": 38,
+      "type": "function",
+      "description": "Deposits the underlying token into Curve via _depositIntoCurve.",
+      "is_core": true
+    },
+    {
+      "id": "_getTotalShares",
+      "node_id": 39,
+      "type": "function",
+      "description": "Returns the gauge LP balance owned by the strategy.",
+      "is_core": true
+    },
+    {
+      "id": "StrategyBusdV2._withdraw",
+      "node_id": 40,
+      "type": "function",
+      "description": "Unstakes LP from the gauge and removes liquidity from Curve into the underlying token.",
+      "is_core": true
+    },
+    {
+      "id": "_getMostPremiumToken",
+      "node_id": 41,
+      "type": "function",
+      "description": "Reads Curve balances and returns the address and index of the lowest-balance pool token.",
+      "is_core": true
+    },
+    {
+      "id": "_swap",
+      "node_id": 42,
+      "type": "function",
+      "description": "Swaps a token to another through Uniswap using block.timestamp as deadline.",
+      "is_core": true
+    },
+    {
+      "id": "_claimRewards",
+      "node_id": 43,
+      "type": "function",
+      "description": "Mints CRV through the Minter and swaps it into the target underlying token.",
+      "is_core": true
+    },
+    {
+      "id": "StrategyBusdV2.harvest",
+      "node_id": 44,
+      "type": "function",
+      "description": "Authorized harvest: claims rewards, pays performance fee to treasury and reinvests.",
+      "is_core": true
+    },
+    {
+      "id": "exit",
+      "node_id": 45,
+      "type": "function",
+      "description": "Authorized exit: claims rewards into underlying and withdraws everything to the vault.",
+      "is_core": true
+    },
+    {
+      "id": "sweep",
+      "node_id": 46,
+      "type": "function",
+      "description": "Admin-only rescue of accidentally sent tokens, blocking the underlying token.",
+      "is_core": true
+    },
+    {
+      "id": "StrategyBusdBusdV2.constructor",
+      "node_id": 47,
+      "type": "function",
+      "description": "Concrete BUSD strategy constructor; sets underlyingIndex = 3.",
+      "is_core": true
+    },
+    {
+      "id": "Address.functionCallWithValue",
+      "node_id": 48,
+      "type": "function",
+      "description": "Performs a low-level value call to an arbitrary target with arbitrary data.",
+      "is_core": true
+    },
+    {
+      "id": "Address.sendValue",
+      "node_id": 49,
+      "type": "function",
+      "description": "Sends ETH to an arbitrary payable recipient using a low-level call.",
+      "is_core": true
+    },
+    {
+      "id": "SafeERC20._callOptionalReturn",
+      "node_id": 50,
+      "type": "function",
+      "description": "Builds calldata for an ERC20 call and routes it through Address.functionCall.",
+      "is_core": true
+    },
+    {
+      "id": "uniswap.swapExactTokensForTokens",
+      "node_id": 51,
+      "type": "unsafe_operation",
+      "description": "External Uniswap swap with amountOutMin = 1, i.e. effectively no slippage protection.",
+      "is_core": true
+    },
+    {
+      "id": "DepositBusd.add_liquidity",
+      "node_id": 52,
+      "type": "unsafe_operation",
+      "description": "External Curve add_liquidity call minting LP tokens with a min-amount guard.",
+      "is_core": true
+    },
+    {
+      "id": "DepositBusd.remove_liquidity_one_coin",
+      "node_id": 53,
+      "type": "unsafe_operation",
+      "description": "External Curve remove_liquidity_one_coin call with donateDust = false.",
+      "is_core": true
+    },
+    {
+      "id": "LiquidityGauge.deposit",
+      "node_id": 54,
+      "type": "unsafe_operation",
+      "description": "External gauge staking call that locks LP tokens.",
+      "is_core": true
+    },
+    {
+      "id": "LiquidityGauge.withdraw",
+      "node_id": 55,
+      "type": "unsafe_operation",
+      "description": "External gauge unstaking call that returns LP tokens.",
+      "is_core": true
+    },
+    {
+      "id": "Minter.mint",
+      "node_id": 56,
+      "type": "unsafe_operation",
+      "description": "External Curve Minter call that mints CRV to the gauge.",
+      "is_core": true
+    },
+    {
+      "id": "IERC20.safeTransfer_safeTransferFrom",
+      "node_id": 57,
+      "type": "unsafe_operation",
+      "description": "External ERC20 value transfers (to vault, treasury, admin or from vault).",
+      "is_core": true
+    },
+    {
+      "id": "Address.low_level_call",
+      "node_id": 58,
+      "type": "unsafe_operation",
+      "description": "Raw .call{value:}() transferring control to an arbitrary external address.",
+      "is_core": true
+    },
+    {
+      "id": "_controller",
+      "node_id": 59,
+      "type": "parameter",
+      "description": "Constructor parameter for the controller address.",
+      "is_core": false
+    },
+    {
+      "id": "_vault",
+      "node_id": 60,
+      "type": "parameter",
+      "description": "Constructor parameter for the vault address.",
+      "is_core": false
+    },
+    {
+      "id": "_underlying",
+      "node_id": 61,
+      "type": "parameter",
+      "description": "Constructor parameter for the underlying token address.",
+      "is_core": false
+    },
+    {
+      "id": "_admin",
+      "node_id": 62,
+      "type": "parameter",
+      "description": "New admin address passed to setAdmin.",
+      "is_core": false
+    },
+    {
+      "id": "_fee",
+      "node_id": 63,
+      "type": "parameter",
+      "description": "New performance fee passed to setPerformanceFee.",
+      "is_core": false
+    },
+    {
+      "id": "_slippage",
+      "node_id": 64,
+      "type": "parameter",
+      "description": "New slippage tolerance passed to setSlippage.",
+      "is_core": false
+    },
+    {
+      "id": "_delta",
+      "node_id": 65,
+      "type": "parameter",
+      "description": "New delta multiplier passed to setDelta.",
+      "is_core": false
+    },
+    {
+      "id": "_forceExit",
+      "node_id": 66,
+      "type": "parameter",
+      "description": "New forceExit flag passed to setForceExit.",
+      "is_core": false
+    },
+    {
+      "id": "_underlyingAmount_deposit",
+      "node_id": 67,
+      "type": "parameter",
+      "description": "Amount of underlying to pull from the vault in deposit().",
+      "is_core": false
+    },
+    {
+      "id": "_underlyingAmount_withdraw",
+      "node_id": 68,
+      "type": "parameter",
+      "description": "Amount of underlying to return to the vault in withdraw().",
+      "is_core": false
+    },
+    {
+      "id": "_token",
+      "node_id": 69,
+      "type": "parameter",
+      "description": "Token address to rescue in sweep(); must not be the underlying token.",
+      "is_core": false
+    },
+    {
+      "id": "_index",
+      "node_id": 70,
+      "type": "parameter",
+      "description": "Curve pool index of the token being deposited in _depositIntoCurve.",
+      "is_core": false
+    },
+    {
+      "id": "_lpAmount",
+      "node_id": 71,
+      "type": "parameter",
+      "description": "LP share amount to redeem in StrategyBusdV2._withdraw.",
+      "is_core": false
+    },
+    {
+      "id": "bal_harvest",
+      "node_id": 72,
+      "type": "local_var",
+      "description": "Underlying token balance of the strategy inside harvest().",
+      "is_core": false
+    },
+    {
+      "id": "fee_harvest",
+      "node_id": 73,
+      "type": "local_var",
+      "description": "Performance fee amount computed from the harvested balance.",
+      "is_core": false
+    },
+    {
+      "id": "treasury_harvest",
+      "node_id": 74,
+      "type": "local_var",
+      "description": "Treasury address fetched from the controller during harvest().",
+      "is_core": false
+    },
+    {
+      "id": "minIndex",
+      "node_id": 75,
+      "type": "local_var",
+      "description": "Index of the lowest-balance Curve pool token in _getMostPremiumToken.",
+      "is_core": false
+    },
+    {
+      "id": "profit_skim",
+      "node_id": 76,
+      "type": "local_var",
+      "description": "Difference between total underlying and total debt in skim().",
+      "is_core": false
+    },
+    {
+      "id": "max_skim",
+      "node_id": 77,
+      "type": "local_var",
+      "description": "Manipulation bound totalDebt * delta / DELTA_MIN used in skim().",
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 18,
+      "reason": "onlyAdmin compares msg.sender with the stored admin address to gate privileged functions.",
+      "type": "dataflow",
+      "from_id": 15,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 19,
+      "reason": "onlyAuthorized accepts msg.sender if it equals admin, controller or vault.",
+      "type": "dataflow",
+      "from_id": 15,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 17,
+      "reason": "The constructor assigns ownership of the strategy to msg.sender (admin = msg.sender).",
+      "type": "dataflow",
+      "from_id": 15,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 42,
+      "reason": "_swap uses block.timestamp directly as the Uniswap deadline, creating timestamp dependency.",
+      "type": "dataflow",
+      "from_id": 16,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 51,
+      "reason": "The miner-influenced timestamp is forwarded as an always-valid swap deadline to Uniswap.",
+      "type": "dataflow",
+      "from_id": 16,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 20,
+      "reason": "setAdmin is protected by the onlyAdmin modifier.",
+      "type": "controlflow",
+      "from_id": 18,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 21,
+      "reason": "setController is protected by the onlyAdmin modifier.",
+      "type": "controlflow",
+      "from_id": 18,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 22,
+      "reason": "setPerformanceFee is protected by the onlyAdmin modifier.",
+      "type": "controlflow",
+      "from_id": 18,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 23,
+      "reason": "setSlippage is protected by the onlyAdmin modifier.",
+      "type": "controlflow",
+      "from_id": 18,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 24,
+      "reason": "setDelta is protected by the onlyAdmin modifier.",
+      "type": "controlflow",
+      "from_id": 18,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 25,
+      "reason": "setForceExit is protected by the onlyAdmin modifier.",
+      "type": "controlflow",
+      "from_id": 18,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 46,
+      "reason": "sweep is protected by the onlyAdmin modifier.",
+      "type": "controlflow",
+      "from_id": 18,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 29,
+      "reason": "deposit is restricted to admin, controller or vault via onlyAuthorized.",
+      "type": "controlflow",
+      "from_id": 19,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 31,
+      "reason": "withdraw is restricted to admin, controller or vault via onlyAuthorized.",
+      "type": "controlflow",
+      "from_id": 19,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 33,
+      "reason": "withdrawAll is restricted to admin, controller or vault via onlyAuthorized.",
+      "type": "controlflow",
+      "from_id": 19,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 34,
+      "reason": "skim is restricted to admin, controller or vault via onlyAuthorized.",
+      "type": "controlflow",
+      "from_id": 19,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 44,
+      "reason": "harvest is restricted to admin, controller or vault via onlyAuthorized.",
+      "type": "controlflow",
+      "from_id": 19,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 45,
+      "reason": "exit is restricted to admin, controller or vault via onlyAuthorized.",
+      "type": "controlflow",
+      "from_id": 19,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 0,
+      "reason": "Constructor stores msg.sender into the admin state variable.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 1,
+      "reason": "Constructor writes the supplied controller address into state.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 2,
+      "reason": "Constructor writes the supplied vault address into immutable state.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 3,
+      "reason": "Constructor writes the supplied underlying address into immutable state.",
+      "type": "dataflow",
+      "from_id": 17,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "setAdmin overwrites the admin state variable.",
+      "type": "dataflow",
+      "from_id": 20,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 1,
+      "reason": "setController overwrites the controller state variable.",
+      "type": "dataflow",
+      "from_id": 21,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 5,
+      "reason": "setPerformanceFee overwrites performanceFee after the cap check.",
+      "type": "dataflow",
+      "from_id": 22,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 6,
+      "reason": "setSlippage overwrites slippage after the max check.",
+      "type": "dataflow",
+      "from_id": 23,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "setDelta overwrites delta after the min check.",
+      "type": "dataflow",
+      "from_id": 24,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "setForceExit overwrites the forceExit flag.",
+      "type": "dataflow",
+      "from_id": 25,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "The _controller constructor parameter is consumed by the StrategyERC20 constructor.",
+      "type": "dataflow",
+      "from_id": 59,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 2,
+      "reason": "The _vault constructor parameter initialises the immutable vault field.",
+      "type": "dataflow",
+      "from_id": 60,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 3,
+      "reason": "The _underlying constructor parameter initialises the immutable underlying field.",
+      "type": "dataflow",
+      "from_id": 61,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 0,
+      "reason": "The _admin parameter of setAdmin becomes the new admin.",
+      "type": "dataflow",
+      "from_id": 62,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 5,
+      "reason": "The _fee parameter becomes the new performance fee.",
+      "type": "dataflow",
+      "from_id": 63,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 6,
+      "reason": "The _slippage parameter becomes the new slippage tolerance.",
+      "type": "dataflow",
+      "from_id": 64,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 7,
+      "reason": "The _delta parameter becomes the new delta multiplier.",
+      "type": "dataflow",
+      "from_id": 65,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "The _forceExit parameter becomes the new forceExit flag.",
+      "type": "dataflow",
+      "from_id": 66,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 29,
+      "reason": "The deposit amount parameter controls how much underlying is pulled from the vault.",
+      "type": "dataflow",
+      "from_id": 67,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 31,
+      "reason": "The withdraw amount parameter controls share redemption and vault repayment.",
+      "type": "dataflow",
+      "from_id": 68,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 46,
+      "reason": "The sweep token parameter selects which token balance is transferred to admin.",
+      "type": "dataflow",
+      "from_id": 69,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 37,
+      "reason": "The index parameter selects the Curve pool position used for add_liquidity.",
+      "type": "dataflow",
+      "from_id": 70,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 40,
+      "reason": "The LP amount parameter drives the gauge withdrawal and Curve removal.",
+      "type": "dataflow",
+      "from_id": 71,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 44,
+      "reason": "The harvested token balance determines whether fees are paid and funds reinvested.",
+      "type": "dataflow",
+      "from_id": 72,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 44,
+      "reason": "The computed fee is transferred to the treasury inside harvest.",
+      "type": "dataflow",
+      "from_id": 73,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 44,
+      "reason": "The treasury address returned by the controller receives the performance fee.",
+      "type": "dataflow",
+      "from_id": 74,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 41,
+      "reason": "minIndex tracks the lowest-balance Curve pool token in _getMostPremiumToken.",
+      "type": "dataflow",
+      "from_id": 75,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 34,
+      "reason": "profit = totalUnderlying - totalDebt drives the debt increase or withdrawal branch.",
+      "type": "dataflow",
+      "from_id": 76,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 34,
+      "reason": "max bounds totalUnderlying to detect possible price manipulation in skim.",
+      "type": "dataflow",
+      "from_id": 77,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 57,
+      "reason": "_increaseDebt performs an external safeTransferFrom pulling underlying from the vault.",
+      "type": "dataflow",
+      "from_id": 26,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 4,
+      "reason": "totalDebt is increased by balance delta using SafeMath inside _increaseDebt.",
+      "type": "dataflow",
+      "from_id": 26,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 57,
+      "reason": "_decreaseDebt performs an external safeTransfer of underlying to the vault.",
+      "type": "dataflow",
+      "from_id": 27,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 4,
+      "reason": "totalDebt is decreased by the balance difference inside _decreaseDebt.",
+      "type": "dataflow",
+      "from_id": 27,
+      "vuln_type": "arithmetic"
+    },
+    {
+      "to_id": 26,
+      "reason": "deposit calls _increaseDebt to account for the newly received underlying.",
+      "type": "controlflow",
+      "from_id": 29,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 38,
+      "reason": "deposit calls the virtual _deposit implementation to invest into Curve.",
+      "type": "controlflow",
+      "from_id": 29,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 30,
+      "reason": "withdraw converts the requested underlying amount into LP shares.",
+      "type": "controlflow",
+      "from_id": 31,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 40,
+      "reason": "withdraw calls the virtual _withdraw to redeem share tokens.",
+      "type": "controlflow",
+      "from_id": 31,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 27,
+      "reason": "withdraw calls _decreaseDebt to return underlying to the vault.",
+      "type": "controlflow",
+      "from_id": 31,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 39,
+      "reason": "_withdrawAll reads the total shares held by the strategy.",
+      "type": "controlflow",
+      "from_id": 32,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 40,
+      "reason": "_withdrawAll redeems all shares through the virtual _withdraw.",
+      "type": "controlflow",
+      "from_id": 32,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 27,
+      "reason": "_withdrawAll repays the vault using _decreaseDebt.",
+      "type": "controlflow",
+      "from_id": 32,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 32,
+      "reason": "withdrawAll is a thin wrapper around _withdrawAll.",
+      "type": "controlflow",
+      "from_id": 33,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 30,
+      "reason": "skim computes the shares corresponding to the profit amount.",
+      "type": "controlflow",
+      "from_id": 34,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 40,
+      "reason": "skim redeems profit shares through the virtual _withdraw when out of bounds.",
+      "type": "controlflow",
+      "from_id": 34,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 57,
+      "reason": "skim transfers the withdrawn profit to the vault.",
+      "type": "dataflow",
+      "from_id": 34,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 4,
+      "reason": "skim increases or reconciles totalDebt based on the profit.",
+      "type": "dataflow",
+      "from_id": 34,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 52,
+      "reason": "_depositIntoCurve approves and calls DepositBusd.add_liquidity.",
+      "type": "dataflow",
+      "from_id": 37,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 54,
+      "reason": "_depositIntoCurve stakes the minted LP tokens via LiquidityGauge.deposit.",
+      "type": "dataflow",
+      "from_id": 37,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 14,
+      "reason": "_depositIntoCurve uses PRECISION_DIV to normalise the deposited amount.",
+      "type": "dataflow",
+      "from_id": 37,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 6,
+      "reason": "_depositIntoCurve derives the min LP amount from the slippage setting.",
+      "type": "dataflow",
+      "from_id": 37,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 37,
+      "reason": "_deposit forwards the underlying token and index to _depositIntoCurve.",
+      "type": "controlflow",
+      "from_id": 38,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 55,
+      "reason": "StrategyBusdV2._withdraw unstakes LP tokens from the gauge.",
+      "type": "dataflow",
+      "from_id": 40,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 53,
+      "reason": "StrategyBusdV2._withdraw removes liquidity from Curve via remove_liquidity_one_coin.",
+      "type": "dataflow",
+      "from_id": 40,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 14,
+      "reason": "StrategyBusdV2._withdraw uses PRECISION_DIV to compute the underlying amount.",
+      "type": "dataflow",
+      "from_id": 40,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 6,
+      "reason": "StrategyBusdV2._withdraw derives the min underlying amount from slippage.",
+      "type": "dataflow",
+      "from_id": 40,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 51,
+      "reason": "_swap invokes the external Uniswap router swapExactTokensForTokens.",
+      "type": "dataflow",
+      "from_id": 42,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 16,
+      "reason": "_swap passes block.timestamp as the swap deadline.",
+      "type": "dataflow",
+      "from_id": 42,
+      "vuln_type": "access_control"
+    },
+    {
+      "to_id": 56,
+      "reason": "_claimRewards calls the Curve Minter to mint CRV to the gauge.",
+      "type": "dataflow",
+      "from_id": 43,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 42,
+      "reason": "_claimRewards swaps the claimed CRV for the target token via _swap.",
+      "type": "controlflow",
+      "from_id": 43,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 41,
+      "reason": "harvest first selects the most premium token via _getMostPremiumToken.",
+      "type": "controlflow",
+      "from_id": 44,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 43,
+      "reason": "harvest claims and swaps rewards through _claimRewards.",
+      "type": "controlflow",
+      "from_id": 44,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 57,
+      "reason": "harvest transfers the performance fee to the treasury address.",
+      "type": "dataflow",
+      "from_id": 44,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 37,
+      "reason": "harvest reinvests the remaining balance via _depositIntoCurve.",
+      "type": "controlflow",
+      "from_id": 44,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 8,
+      "reason": "exit reads the forceExit flag to decide whether to abort.",
+      "type": "dataflow",
+      "from_id": 45,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 43,
+      "reason": "exit claims rewards converted into the underlying token.",
+      "type": "controlflow",
+      "from_id": 45,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 32,
+      "reason": "exit withdraws all strategy funds back to the vault.",
+      "type": "controlflow",
+      "from_id": 45,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 3,
+      "reason": "sweep verifies the rescued token is not the protected underlying token.",
+      "type": "dataflow",
+      "from_id": 46,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 57,
+      "reason": "sweep transfers the full token balance to the admin.",
+      "type": "dataflow",
+      "from_id": 46,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 35,
+      "reason": "StrategyBusdBusdV2 constructor invokes the StrategyBusdV2 constructor.",
+      "type": "controlflow",
+      "from_id": 47,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 13,
+      "reason": "StrategyBusdBusdV2 constructor sets underlyingIndex to 3 (BUSD).",
+      "type": "dataflow",
+      "from_id": 47,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 17,
+      "reason": "StrategyBusdV2 constructor invokes the StrategyERC20 constructor.",
+      "type": "controlflow",
+      "from_id": 35,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 1,
+      "reason": "StrategyBusdV2 constructor initialises the controller address.",
+      "type": "dataflow",
+      "from_id": 35,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 2,
+      "reason": "StrategyBusdV2 constructor initialises the immutable vault address.",
+      "type": "dataflow",
+      "from_id": 35,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 48,
+      "reason": "_callOptionalReturn routes token calls through Address.functionCall/functionCallWithValue.",
+      "type": "controlflow",
+      "from_id": 50,
+      "vuln_type": "none"
+    },
+    {
+      "to_id": 58,
+      "reason": "functionCallWithValue performs a low-level call with value to an arbitrary target, enabling reentrancy.",
+      "type": "dataflow",
+      "from_id": 48,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 58,
+      "reason": "sendValue performs a low-level .call{value:} to an arbitrary recipient, enabling reentrancy.",
+      "type": "dataflow",
+      "from_id": 49,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 44,
+      "reason": "The Uniswap router call made during harvest re-enters attacker-controlled code while harvest still holds tokens.",
+      "type": "callback",
+      "from_id": 51,
+      "vuln_type": "reentrancy"
+    },
+    {
+      "to_id": 34,
+      "reason": "The Curve remove_liquidity_one_coin call reachable from skim can re-enter before totalDebt is reconciled.",
+      "type": "callback",
+      "from_id": 53,
+      "vuln_type": "reentrancy"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "StrategyERC20.constructor",
+      "reason": "Constructor parameter used only to initialise the controller state variable.",
+      "normal_node": "_controller"
+    },
+    {
+      "merge_into": "StrategyERC20.constructor",
+      "reason": "Constructor parameter used only to initialise the immutable vault state variable.",
+      "normal_node": "_vault"
+    },
+    {
+      "merge_into": "StrategyERC20.constructor",
+      "reason": "Constructor parameter used only to initialise the immutable underlying state variable.",
+      "normal_node": "_underlying"
+    },
+    {
+      "merge_into": "setAdmin",
+      "reason": "Only input to setAdmin; directly assigned to the admin state variable.",
+      "normal_node": "_admin"
+    },
+    {
+      "merge_into": "setPerformanceFee",
+      "reason": "Only input to setPerformanceFee; bounded then written to performanceFee.",
+      "normal_node": "_fee"
+    },
+    {
+      "merge_into": "setSlippage",
+      "reason": "Only input to setSlippage; bounded then written to slippage.",
+      "normal_node": "_slippage"
+    },
+    {
+      "merge_into": "setDelta",
+      "reason": "Only input to setDelta; bounded then written to delta.",
+      "normal_node": "_delta"
+    },
+    {
+      "merge_into": "setForceExit",
+      "reason": "Only input to setForceExit; written directly to the forceExit flag.",
+      "normal_node": "_forceExit"
+    },
+    {
+      "merge_into": "deposit",
+      "reason": "Drives the vault pull and debt increase in deposit; no independent semantic identity.",
+      "normal_node": "_underlyingAmount_deposit"
+    },
+    {
+      "merge_into": "withdraw",
+      "reason": "Drives share redemption and vault repayment in withdraw.",
+      "normal_node": "_underlyingAmount_withdraw"
+    },
+    {
+      "merge_into": "sweep",
+      "reason": "Selects the token to rescue in sweep and is checked against the protected underlying.",
+      "normal_node": "_token"
+    },
+    {
+      "merge_into": "_depositIntoCurve",
+      "reason": "Selects the Curve pool position and precision divisor during the deposit.",
+      "normal_node": "_index"
+    },
+    {
+      "merge_into": "StrategyBusdV2._withdraw",
+      "reason": "Amount of gauge shares unstaked and converted back to the underlying token.",
+      "normal_node": "_lpAmount"
+    },
+    {
+      "merge_into": "StrategyBusdV2.harvest",
+      "reason": "Transient harvested balance that gates fee payment and reinvestment inside harvest.",
+      "normal_node": "bal_harvest"
+    },
+    {
+      "merge_into": "StrategyBusdV2.harvest",
+      "reason": "Derived performance fee value that is immediately transferred to the treasury.",
+      "normal_node": "fee_harvest"
+    },
+    {
+      "merge_into": "StrategyBusdV2.harvest",
+      "reason": "Address fetched from the controller solely to receive the fee inside harvest.",
+      "normal_node": "treasury_harvest"
+    },
+    {
+      "merge_into": "_getMostPremiumToken",
+      "reason": "Loop accumulator used only to choose the returned token and index.",
+      "normal_node": "minIndex"
+    },
+    {
+      "merge_into": "skim",
+      "reason": "Intermediate subtraction result that drives the skim branching logic.",
+      "normal_node": "profit_skim"
+    },
+    {
+      "merge_into": "skim",
+      "reason": "Manipulation bound computed from delta and totalDebt, used only inside skim.",
+      "normal_node": "max_skim"
+    }
+  ]
+}

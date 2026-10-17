@@ -1,0 +1,309 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "description": "Internal view function that computes an exchange rate by optionally multiplying and dividing the result of external Chainlink aggregator latestAnswer() calls; core arithmetic/price computation of the oracle.",
+      "id": "ChainlinkOracleV2._get",
+      "type": "function",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "description": "Pure helper that abi-encodes (multiply, divide, decimals) into the bytes blob consumed by get/peek.",
+      "id": "ChainlinkOracleV2.getDataParameter",
+      "type": "function",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "description": "Public state-reading entrypoint: decodes caller supplied calldata into (multiply, divide, decimals) and forwards to _get, returning (true, rate).",
+      "id": "ChainlinkOracleV2.get",
+      "type": "function",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "description": "View entrypoint identical to get: decodes calldata and forwards to _get to read the latest rate without state changes.",
+      "id": "ChainlinkOracleV2.peek",
+      "type": "function",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "description": "External view wrapper that discards success flag and returns only the rate from peek(data).",
+      "id": "ChainlinkOracleV2.peekSpot",
+      "type": "function",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "description": "View function returning the constant string 'Chainlink'; no external interaction.",
+      "id": "ChainlinkOracleV2.name",
+      "type": "function",
+      "node_id": 5
+    },
+    {
+      "is_core": true,
+      "description": "View function returning the constant string 'LINK'; no external interaction.",
+      "id": "ChainlinkOracleV2.symbol",
+      "type": "function",
+      "node_id": 6
+    },
+    {
+      "is_core": true,
+      "description": "Multiplication price = price.mul(uint256(IAggregator(multiply).latestAnswer())) (or price.mul(1e18)) using BoringMath overflow-checked multiplication inside _get.",
+      "id": "unsafe_op_mul_price",
+      "type": "unsafe_operation",
+      "node_id": 7
+    },
+    {
+      "is_core": true,
+      "description": "Division price = price / uint256(IAggregator(divide).latestAnswer()) inside _get; divisor is fully attacker-supplied oracle output and is not checked for zero.",
+      "id": "unsafe_op_div_oracle_answer",
+      "type": "unsafe_operation",
+      "node_id": 8
+    },
+    {
+      "is_core": true,
+      "description": "Final scaling division price / decimals inside _get; decimals is attacker-controlled calldata and a zero value would revert/be manipulable.",
+      "id": "unsafe_op_div_decimals",
+      "type": "unsafe_operation",
+      "node_id": 9
+    },
+    {
+      "is_core": true,
+      "description": "External call to the caller-supplied aggregator address (IAggregator(multiply/divide).latestAnswer()) invoked from _get; the target contract is untrusted.",
+      "id": "unsafe_op_external_call_latestAnswer",
+      "type": "unsafe_operation",
+      "node_id": 10
+    },
+    {
+      "is_core": true,
+      "description": "External interface function on the untrusted Chainlink aggregator contract that returns int256 answer and is invoked by _get during rate computation.",
+      "id": "IAggregator.latestAnswer",
+      "type": "function",
+      "node_id": 11
+    },
+    {
+      "is_core": false,
+      "description": "address multiply parameter of _get: non-zero value triggers multiplication by that aggregator's latestAnswer().",
+      "id": "param_multiply",
+      "type": "parameter",
+      "node_id": 12
+    },
+    {
+      "is_core": false,
+      "description": "address divide parameter of _get: non-zero value triggers division by that aggregator's latestAnswer().",
+      "id": "param_divide",
+      "type": "parameter",
+      "node_id": 13
+    },
+    {
+      "is_core": false,
+      "description": "uint256 decimals parameter of _get used as the final divisor for scaling the computed price.",
+      "id": "param_decimals",
+      "type": "parameter",
+      "node_id": 14
+    },
+    {
+      "is_core": false,
+      "description": "Local variable price inside _get, initialised to 1e36 and repeatedly multiplied/divided to produce the final rate.",
+      "id": "local_price",
+      "type": "local_var",
+      "node_id": 15
+    },
+    {
+      "is_core": false,
+      "description": "bytes calldata data parameter of get(), attacker-controlled encoding of (multiply, divide, decimals).",
+      "id": "param_data_get",
+      "type": "parameter",
+      "node_id": 16
+    },
+    {
+      "is_core": false,
+      "description": "bytes calldata data parameter of peek(), attacker-controlled encoding of (multiply, divide, decimals).",
+      "id": "param_data_peek",
+      "type": "parameter",
+      "node_id": 17
+    },
+    {
+      "is_core": false,
+      "description": "bytes calldata data parameter of peekSpot(), passed through unchanged to peek().",
+      "id": "param_data_peekSpot",
+      "type": "parameter",
+      "node_id": 18
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "The multiply address parameter selects which untrusted aggregator contract is externally called for latestAnswer().",
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "The divide address parameter selects which untrusted aggregator contract is externally called for latestAnswer().",
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "arithmetic",
+      "reason": "multiply gates whether the price multiplication with the oracle answer is executed, so it controls the arithmetic path.",
+      "type": "dataflow",
+      "from_id": 12
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "arithmetic",
+      "reason": "The local price variable is the multiplicand updated by price.mul(...).",
+      "type": "dataflow",
+      "from_id": 15
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "arithmetic",
+      "reason": "divide gates whether the division by the second oracle answer is executed.",
+      "type": "dataflow",
+      "from_id": 13
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "arithmetic",
+      "reason": "The local price variable is the dividend divided by the oracle answer.",
+      "type": "dataflow",
+      "from_id": 15
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "reason": "decimals is the divisor applied to price in the final scaling operation.",
+      "type": "dataflow",
+      "from_id": 14
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "reason": "The local price variable is the value scaled by the decimals division.",
+      "type": "dataflow",
+      "from_id": 15
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "reason": "get() decodes its attacker-controlled calldata parameter into multiply, divide and decimals.",
+      "type": "dataflow",
+      "from_id": 16
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "peek() decodes its attacker-controlled calldata parameter into multiply, divide and decimals.",
+      "type": "dataflow",
+      "from_id": 17
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "reason": "peekSpot() forwards its attacker-controlled calldata parameter directly into peek().",
+      "type": "dataflow",
+      "from_id": 18
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "get() invokes the internal helper _get() to compute the rate.",
+      "type": "controlflow",
+      "from_id": 2
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "reason": "peek() invokes the internal helper _get() to compute the rate.",
+      "type": "controlflow",
+      "from_id": 3
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "reason": "peekSpot() calls peek() and returns only the rate component.",
+      "type": "controlflow",
+      "from_id": 4
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "arithmetic",
+      "reason": "_get() executes the overflow-checked multiplication of price by the oracle answer.",
+      "type": "controlflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "arithmetic",
+      "reason": "_get() executes the unchecked division of price by the divide aggregator answer.",
+      "type": "controlflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "arithmetic",
+      "reason": "_get() executes the final division of price by decimals before returning.",
+      "type": "controlflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 10,
+      "vuln_type": "none",
+      "reason": "_get() performs the external staticcall to the caller-supplied aggregator address to read latestAnswer().",
+      "type": "controlflow",
+      "from_id": 0
+    },
+    {
+      "to_id": 11,
+      "vuln_type": "reentrancy",
+      "reason": "The external call from _get() enters the untrusted aggregator contract at latestAnswer(); a malicious address passed as multiply/divide is invoked during rate computation, enabling reentrancy or manipulation of the oracle path.",
+      "type": "callback",
+      "from_id": 10
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "unsafe_op_external_call_latestAnswer",
+      "reason": "The multiply address parameter exists only to select/be used by the untrusted external aggregator call and its arithmetic branch, so it is folded into that operation node.",
+      "normal_node": "param_multiply"
+    },
+    {
+      "merge_into": "unsafe_op_div_oracle_answer",
+      "reason": "The divide address parameter only supplies the divisor via the external aggregator call feeding the division, so it is folded into the division operation node.",
+      "normal_node": "param_divide"
+    },
+    {
+      "merge_into": "unsafe_op_div_decimals",
+      "reason": "The decimals parameter is used solely as the divisor of the final scaling division, so it is folded into that arithmetic operation node.",
+      "normal_node": "param_decimals"
+    },
+    {
+      "merge_into": "unsafe_op_mul_price",
+      "reason": "The local price variable is the accumulator of the mul/div sequence; it is anchored to the first multiplication operation that initialises its value.",
+      "normal_node": "local_price"
+    },
+    {
+      "merge_into": "ChainlinkOracleV2.get",
+      "reason": "The bytes data parameter of get() is only decoded inside get(), so it is folded into the get function node.",
+      "normal_node": "param_data_get"
+    },
+    {
+      "merge_into": "ChainlinkOracleV2.peek",
+      "reason": "The bytes data parameter of peek() is only decoded inside peek(), so it is folded into the peek function node.",
+      "normal_node": "param_data_peek"
+    },
+    {
+      "merge_into": "ChainlinkOracleV2.peekSpot",
+      "reason": "The bytes data parameter of peekSpot() is only passed through to peek(), so it is folded into the peekSpot function node.",
+      "normal_node": "param_data_peekSpot"
+    }
+  ]
+}

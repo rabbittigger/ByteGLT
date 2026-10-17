@@ -1,0 +1,975 @@
+{
+  "nodes": [
+    {
+      "type": "state_var",
+      "description": "Owner address inherited from Ownable; grants privileged access via onlyOwner.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "state_owner"
+    },
+    {
+      "type": "state_var",
+      "description": "Master address that receives the entry payment in create and MASTER_FEE in buy.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "state_master"
+    },
+    {
+      "type": "state_var",
+      "description": "Array of Heap structs storing all game state (ticket, timer, cap, bonus, players, owner).",
+      "is_core": true,
+      "node_id": 2,
+      "id": "state_heaps"
+    },
+    {
+      "type": "state_var",
+      "description": "Mapping ensuring each heap name is registered only once.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "state_used_names"
+    },
+    {
+      "type": "state_var",
+      "description": "uint8 constant PAGE_SIZE = 25 used for pagination.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "state_PAGE_SIZE"
+    },
+    {
+      "type": "state_var",
+      "description": "Fixed fee of 0.005 ether sent to master on every buy.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "state_MASTER_FEE"
+    },
+    {
+      "type": "state_var",
+      "description": "Minimum allowed ticket value (0.01 ether).",
+      "is_core": true,
+      "node_id": 6,
+      "id": "state_MIN_TICKET"
+    },
+    {
+      "type": "state_var",
+      "description": "Maximum allowed ticket value (10 ether).",
+      "is_core": true,
+      "node_id": 7,
+      "id": "state_MAX_TICKET"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "msg.sender, externally controlled caller address used for auth, ownership and payouts.",
+      "is_core": true,
+      "node_id": 8,
+      "id": "input_msg_sender"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "block.timestamp (now) used for heap timing and bonus logic.",
+      "is_core": true,
+      "node_id": 9,
+      "id": "input_block_timestamp"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "tx.origin used in the msg.sender == tx.origin anti-contract check.",
+      "is_core": true,
+      "node_id": 10,
+      "id": "input_tx_origin"
+    },
+    {
+      "type": "function",
+      "description": "Ownable constructor that sets owner = msg.sender.",
+      "is_core": true,
+      "node_id": 11,
+      "id": "func_Ownable_constructor"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner function that renounces ownership by setting owner to address(0).",
+      "is_core": true,
+      "node_id": 12,
+      "id": "func_renounceOwnership"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner function delegating to _transferOwnership.",
+      "is_core": true,
+      "node_id": 13,
+      "id": "func_transferOwnership"
+    },
+    {
+      "type": "function",
+      "description": "Internal ownership transfer that writes the owner state variable.",
+      "is_core": true,
+      "node_id": 14,
+      "id": "func__transferOwnership"
+    },
+    {
+      "type": "function",
+      "description": "onlyOwner function updating the master address.",
+      "is_core": true,
+      "node_id": 15,
+      "id": "func_set_master"
+    },
+    {
+      "type": "function",
+      "description": "Payable function creating a new Heap and forwarding msg.value to master.",
+      "is_core": true,
+      "node_id": 16,
+      "id": "func_create"
+    },
+    {
+      "type": "function",
+      "description": "Payable function joining a heap and distributing payouts via multiple external sends.",
+      "is_core": true,
+      "node_id": 17,
+      "id": "func_buy"
+    },
+    {
+      "type": "function",
+      "description": "View returning the number of heaps.",
+      "is_core": true,
+      "node_id": 18,
+      "id": "func_get_len"
+    },
+    {
+      "type": "function",
+      "description": "View returning paginated heap data with countdown timers.",
+      "is_core": true,
+      "node_id": 19,
+      "id": "func_get_heaps"
+    },
+    {
+      "type": "function",
+      "description": "View returning whether a heap name is already registered.",
+      "is_core": true,
+      "node_id": 20,
+      "id": "func_is_name_used"
+    },
+    {
+      "type": "function",
+      "description": "View returning detailed data for a single heap.",
+      "is_core": true,
+      "node_id": 21,
+      "id": "func_get_heap"
+    },
+    {
+      "type": "function",
+      "description": "SafeMath multiplication with overflow assertion.",
+      "is_core": true,
+      "node_id": 22,
+      "id": "func_SafeMath_mul"
+    },
+    {
+      "type": "function",
+      "description": "SafeMath division.",
+      "is_core": true,
+      "node_id": 23,
+      "id": "func_SafeMath_div"
+    },
+    {
+      "type": "function",
+      "description": "SafeMath subtraction with underflow assertion.",
+      "is_core": true,
+      "node_id": 24,
+      "id": "func_SafeMath_sub"
+    },
+    {
+      "type": "function",
+      "description": "SafeMath addition with overflow assertion.",
+      "is_core": true,
+      "node_id": 25,
+      "id": "func_SafeMath_add"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "master.transfer(msg.value) in create: external ether transfer to a stored address.",
+      "is_core": true,
+      "node_id": 26,
+      "id": "unsafe_master_transfer"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "master.send(MASTER_FEE) in buy: external ether send to master inside a loop-heavy flow.",
+      "is_core": true,
+      "node_id": 27,
+      "id": "unsafe_master_send"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "heaps[id].players[index].send(val) in a 10-iteration loop: sends ether to pseudo-randomly selected players.",
+      "is_core": true,
+      "node_id": 28,
+      "id": "unsafe_players_send"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "heaps[id].cur_addr.send(bonus_val): sends accumulated bonus to current address.",
+      "is_core": true,
+      "node_id": 29,
+      "id": "unsafe_cur_addr_send"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "heaps[id].owner.send(heaps[id].fee): sends the heap fee to the heap owner.",
+      "is_core": true,
+      "node_id": 30,
+      "id": "unsafe_owner_send"
+    },
+    {
+      "type": "parameter",
+      "description": "Constructor address parameter (unused in body).",
+      "is_core": false,
+      "node_id": 31,
+      "id": "param_ctor_addr"
+    },
+    {
+      "type": "parameter",
+      "description": "New master address passed to set_master.",
+      "is_core": false,
+      "node_id": 32,
+      "id": "param_setmaster_addr"
+    },
+    {
+      "type": "parameter",
+      "description": "_newOwner passed to transferOwnership.",
+      "is_core": false,
+      "node_id": 33,
+      "id": "param_transferowner_newOwner"
+    },
+    {
+      "type": "parameter",
+      "description": "_newOwner used by _transferOwnership to write owner.",
+      "is_core": false,
+      "node_id": 34,
+      "id": "param_transferown_internal_newOwner"
+    },
+    {
+      "type": "parameter",
+      "description": "ticket value for the new heap; bounded by MIN/MAX_TICKET and multiplied by 20 for msg.value.",
+      "is_core": false,
+      "node_id": 35,
+      "id": "param_create_ticket"
+    },
+    {
+      "type": "parameter",
+      "description": "bytes32 name of the new heap; uniqueness enforced through used_names.",
+      "is_core": false,
+      "node_id": 36,
+      "id": "param_create_name"
+    },
+    {
+      "type": "parameter",
+      "description": "fee paid to the heap owner, bounded relative to ticket.",
+      "is_core": false,
+      "node_id": 37,
+      "id": "param_create_fee"
+    },
+    {
+      "type": "parameter",
+      "description": "timer increment in seconds for the heap (30..10 days).",
+      "is_core": false,
+      "node_id": 38,
+      "id": "param_create_timer_inc"
+    },
+    {
+      "type": "parameter",
+      "description": "bonus fee accumulated per buy, bounded relative to ticket.",
+      "is_core": false,
+      "node_id": 39,
+      "id": "param_create_bonus_fee"
+    },
+    {
+      "type": "parameter",
+      "description": "Heap index passed to buy; bounds-checked against heaps.length.",
+      "is_core": false,
+      "node_id": 40,
+      "id": "param_buy_id"
+    },
+    {
+      "type": "parameter",
+      "description": "Page number used to compute the pagination start index.",
+      "is_core": false,
+      "node_id": 41,
+      "id": "param_getheaps_page"
+    },
+    {
+      "type": "parameter",
+      "description": "Heap index passed to get_heap.",
+      "is_core": false,
+      "node_id": 42,
+      "id": "param_getheap_id"
+    },
+    {
+      "type": "parameter",
+      "description": "Name queried in is_name_used.",
+      "is_core": false,
+      "node_id": 43,
+      "id": "param_isnameused_name"
+    },
+    {
+      "type": "local_var",
+      "description": "keccak256 hash combined from blockhash, msg.sender and heaps.length used for pseudo-random index.",
+      "is_core": false,
+      "node_id": 44,
+      "id": "local_buy_hash"
+    },
+    {
+      "type": "local_var",
+      "description": "Modulo-derived index into heaps[id].players receiving the payout.",
+      "is_core": false,
+      "node_id": 45,
+      "id": "local_buy_index"
+    },
+    {
+      "type": "local_var",
+      "description": "Per-player payout computed from ticket minus fee, MASTER_FEE and bonus_fee.",
+      "is_core": false,
+      "node_id": 46,
+      "id": "local_buy_val"
+    },
+    {
+      "type": "local_var",
+      "description": "Result of external send calls, returned bool ignored.",
+      "is_core": false,
+      "node_id": 47,
+      "id": "local_buy_res"
+    },
+    {
+      "type": "local_var",
+      "description": "Captured bonus to pay to cur_addr when the timer has expired.",
+      "is_core": false,
+      "node_id": 48,
+      "id": "local_buy_bonus_val"
+    },
+    {
+      "type": "local_var",
+      "description": "Loop counter (0..9) for the payout loop.",
+      "is_core": false,
+      "node_id": 49,
+      "id": "local_buy_i"
+    },
+    {
+      "type": "local_var",
+      "description": "In-memory Heap struct pushed into heaps.",
+      "is_core": false,
+      "node_id": 50,
+      "id": "local_create_heap"
+    },
+    {
+      "type": "local_var",
+      "description": "Empty players array initialising the new heap.",
+      "is_core": false,
+      "node_id": 51,
+      "id": "local_create_players"
+    },
+    {
+      "type": "local_var",
+      "description": "Pagination start index computed as page * PAGE_SIZE.",
+      "is_core": false,
+      "node_id": 52,
+      "id": "local_getheaps_start"
+    },
+    {
+      "type": "local_var",
+      "description": "Remaining countdown timer for a heap in get_heap.",
+      "is_core": false,
+      "node_id": 53,
+      "id": "local_getheap_timer"
+    },
+    {
+      "type": "local_var",
+      "description": "Remaining countdown timer per entry in get_heaps.",
+      "is_core": false,
+      "node_id": 54,
+      "id": "local_getheaps_timer"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "Ownable constructor sets owner from msg.sender, granting privileged control to the caller.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "msg.sender flows into the Ownable constructor that initialises the owner.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 12,
+      "type": "controlflow",
+      "reason": "onlyOwner modifier on renounceOwnership compares msg.sender with owner.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "msg.sender is checked against owner by the onlyOwner modifier.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "renounceOwnership writes owner = address(0).",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "controlflow",
+      "reason": "onlyOwner gate on transferOwnership.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "msg.sender checked against owner in transferOwnership.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "controlflow",
+      "reason": "transferOwnership delegates to internal _transferOwnership.",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 14,
+      "type": "controlflow",
+      "reason": "_transferOwnership reads/writes the privileged owner state.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "_transferOwnership writes owner = _newOwner and emits OwnershipTransferred.",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "_newOwner parameter flows into transferOwnership.",
+      "from_id": 33
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "_newOwner is forwarded into _transferOwnership.",
+      "from_id": 33
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "Internal _newOwner parameter feeds the ownership write.",
+      "from_id": 34
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "_newOwner becomes the new privileged owner.",
+      "from_id": 34
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 15,
+      "type": "controlflow",
+      "reason": "onlyOwner gate on set_master.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "msg.sender checked against owner in set_master.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "set_master updates the master address controlling fund flow.",
+      "from_id": 15
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "addr parameter flows into set_master.",
+      "from_id": 32
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "addr parameter is written into the master state variable.",
+      "from_id": 32
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "require(msg.sender == tx.origin) makes create depend on tx.origin.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "msg.sender is required, stored as heap owner and checked against master/owner.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "now is stored into heap.time and used to compute heap.timer, making game timing timestamp dependent.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "create pushes a new Heap into heaps.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "create sets used_names[name] = true.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "create reads master for the guard checks and for msg.value transfer.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "ticket parameter drives heap creation and the required msg.value.",
+      "from_id": 35
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "name parameter is stored in the heap and used_names.",
+      "from_id": 36
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "fee parameter is stored in the heap.",
+      "from_id": 37
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "timer_inc parameter sets the heap timer increment.",
+      "from_id": 38
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "bonus_fee parameter sets the heap bonus fee.",
+      "from_id": 39
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 26,
+      "type": "controlflow",
+      "reason": "create performs master.transfer(msg.value), an external value transfer.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 26,
+      "type": "dataflow",
+      "reason": "master address is the recipient of the transferred value.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 16,
+      "type": "callback",
+      "reason": "External transfer to master could re-enter create (limited 2300 gas).",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "msg.sender is added to players and is a possible payout recipient in buy.",
+      "from_id": 8
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "require(msg.sender == tx.origin) makes buy depend on tx.origin.",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "now and blockhash(block.number-...) drive the timer and pseudo-random payouts.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "buy reads heaps[id] fields (ticket, fee, timer, bonus, players, cur_addr).",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "dataflow",
+      "reason": "buy mutates heaps[id] (players, cur_addr, timer, bonus, cap).",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 17,
+      "type": "dataflow",
+      "reason": "id parameter indexes the heaps array in buy.",
+      "from_id": 40
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 27,
+      "type": "controlflow",
+      "reason": "buy performs master.send(MASTER_FEE), an external call before all state settles.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 28,
+      "type": "controlflow",
+      "reason": "buy performs a loop of players[index].send(val) external value transfers.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 29,
+      "type": "controlflow",
+      "reason": "buy performs cur_addr.send(bonus_val) external value transfer.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 30,
+      "type": "controlflow",
+      "reason": "buy performs owner.send(fee) external value transfer.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 27,
+      "type": "dataflow",
+      "reason": "master address receives MASTER_FEE.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 28,
+      "type": "dataflow",
+      "reason": "players array from heaps supplies send recipients.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "cur_addr field from heaps is the bonus recipient.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 30,
+      "type": "dataflow",
+      "reason": "owner state is a possible heap fee recipient and sender check.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 17,
+      "type": "callback",
+      "reason": "External send to master can re-enter buy before completion.",
+      "from_id": 27
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 17,
+      "type": "callback",
+      "reason": "External send to a player can re-enter buy repeatedly.",
+      "from_id": 28
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 17,
+      "type": "callback",
+      "reason": "External send to cur_addr can re-enter buy.",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 17,
+      "type": "callback",
+      "reason": "External send to heap owner can re-enter buy.",
+      "from_id": 30
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 18,
+      "type": "dataflow",
+      "reason": "get_len reads heaps.length.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "PAGE_SIZE determines the returned array lengths in get_heaps.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "get_heaps reads heap fields for the requested page.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "now is compared to heap timers to compute countdowns.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "page parameter drives the pagination logic.",
+      "from_id": 41
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "is_name_used reads used_names.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "name parameter is looked up in used_names.",
+      "from_id": 43
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "get_heap reads a single heap record.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "now is compared to heaps[id].timer to compute remaining time.",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 21,
+      "type": "dataflow",
+      "reason": "id parameter indexes the heap returned by get_heap.",
+      "from_id": 42
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "controlflow",
+      "reason": "create uses SafeMath.mul (ticket.mul(20)) for arithmetic guards.",
+      "from_id": 16
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 24,
+      "type": "controlflow",
+      "reason": "buy uses SafeMath.sub to compute the per-player payout value.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 25,
+      "type": "controlflow",
+      "reason": "buy uses SafeMath.add to update the heap cap.",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 24,
+      "type": "controlflow",
+      "reason": "get_heap uses SafeMath.sub to compute the payout preview.",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "controlflow",
+      "reason": "get_heaps uses SafeMath.mul to compute the page start index.",
+      "from_id": 19
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "func_Ownable_constructor",
+      "reason": "Constructor parameter is only meaningful as input to the Ownable constructor node.",
+      "normal_node": "param_ctor_addr"
+    },
+    {
+      "merge_into": "func_set_master",
+      "reason": "Address parameter exists solely to feed the set_master write.",
+      "normal_node": "param_setmaster_addr"
+    },
+    {
+      "merge_into": "func_transferOwnership",
+      "reason": "_newOwner is the direct input to transferOwnership.",
+      "normal_node": "param_transferowner_newOwner"
+    },
+    {
+      "merge_into": "func__transferOwnership",
+      "reason": "Internal _newOwner feeds the owner write in _transferOwnership.",
+      "normal_node": "param_transferown_internal_newOwner"
+    },
+    {
+      "merge_into": "func_create",
+      "reason": "Ticket value is only used inside create's bounds checks and heap initialisation.",
+      "normal_node": "param_create_ticket"
+    },
+    {
+      "merge_into": "func_create",
+      "reason": "Name parameter is consumed only by create to set used_names and heap data.",
+      "normal_node": "param_create_name"
+    },
+    {
+      "merge_into": "func_create",
+      "reason": "Fee parameter only participates in create's ratio checks and heap fields.",
+      "normal_node": "param_create_fee"
+    },
+    {
+      "merge_into": "func_create",
+      "reason": "timer_inc is used only within create to size the heap timer.",
+      "normal_node": "param_create_timer_inc"
+    },
+    {
+      "merge_into": "func_create",
+      "reason": "bonus_fee is only relevant to create's bounds checks and heap setup.",
+      "normal_node": "param_create_bonus_fee"
+    },
+    {
+      "merge_into": "func_buy",
+      "reason": "Heap id parameter is only meaningful inside the buy flow.",
+      "normal_node": "param_buy_id"
+    },
+    {
+      "merge_into": "func_get_heaps",
+      "reason": "Page parameter only drives get_heaps pagination arithmetic.",
+      "normal_node": "param_getheaps_page"
+    },
+    {
+      "merge_into": "func_get_heap",
+      "reason": "Heap id parameter only indexes get_heap's array access.",
+      "normal_node": "param_getheap_id"
+    },
+    {
+      "merge_into": "func_is_name_used",
+      "reason": "Name parameter is only used to query used_names in is_name_used.",
+      "normal_node": "param_isnameused_name"
+    },
+    {
+      "merge_into": "func_buy",
+      "reason": "Temporary pseudo-random hash used only inside buy to derive the payout index.",
+      "normal_node": "local_buy_hash"
+    },
+    {
+      "merge_into": "func_buy",
+      "reason": "Local index exists only to select a player in buy's payout loop.",
+      "normal_node": "local_buy_index"
+    },
+    {
+      "merge_into": "func_buy",
+      "reason": "Locally computed payout amount used only inside buy's send loop.",
+      "normal_node": "local_buy_val"
+    },
+    {
+      "merge_into": "func_buy",
+      "reason": "Return value of external sends, used only within buy and never checked.",
+      "normal_node": "local_buy_res"
+    },
+    {
+      "merge_into": "func_buy",
+      "reason": "Captured bonus is only used to feed the cur_addr send in buy.",
+      "normal_node": "local_buy_bonus_val"
+    },
+    {
+      "merge_into": "func_buy",
+      "reason": "Loop counter local to buy's ten-iteration payout loop.",
+      "normal_node": "local_buy_i"
+    },
+    {
+      "merge_into": "func_create",
+      "reason": "In-memory Heap struct exists solely to be pushed inside create.",
+      "normal_node": "local_create_heap"
+    },
+    {
+      "merge_into": "func_create",
+      "reason": "Empty players array is only used to initialise the new heap in create.",
+      "normal_node": "local_create_players"
+    },
+    {
+      "merge_into": "func_get_heaps",
+      "reason": "Pagination start index is local to get_heaps' loop setup.",
+      "normal_node": "local_getheaps_start"
+    },
+    {
+      "merge_into": "func_get_heap",
+      "reason": "Countdown timer is only computed for the get_heap return payload.",
+      "normal_node": "local_getheap_timer"
+    },
+    {
+      "merge_into": "func_get_heaps",
+      "reason": "Per-entry countdown timer is local to the get_heaps loop.",
+      "normal_node": "local_getheaps_timer"
+    }
+  ]
+}

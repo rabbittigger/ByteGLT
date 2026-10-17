@@ -1,0 +1,199 @@
+{
+  "nodes": [
+    {
+      "id": "fallback_proxy",
+      "is_core": true,
+      "description": "Unnamed payable external fallback function of StaticCallProxy: decodes target, gas and value from raw calldata, forwards the remaining calldata via a low-level CALL and reverts with the returned data.",
+      "node_id": 0,
+      "type": "function"
+    },
+    {
+      "id": "msg_sender",
+      "is_core": true,
+      "description": "External caller of the payable fallback function; there is no access restriction, so any address can trigger the proxy and thereby cause arbitrary outbound calls.",
+      "node_id": 1,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "unsafe_low_level_call",
+      "is_core": true,
+      "description": "Assembly CALL with fully calldata-controlled gas, destination and value: call(_gas,_dst,_value,0,_len,0,0). Anyone can make the contract call an arbitrary address and spend/forward its ether.",
+      "node_id": 2,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "unsafe_calldatasize_sub",
+      "is_core": true,
+      "description": "Assembly sub(calldatasize, 96) computes the payload length; if calldatasize < 96 the subtraction wraps around, giving an attacker-controlled huge length used for calldatacopy/CALL.",
+      "node_id": 3,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "local_dst",
+      "is_core": false,
+      "description": "Local _dst = calldataload(0): attacker-supplied destination address for the forwarded CALL.",
+      "node_id": 4,
+      "type": "local_var"
+    },
+    {
+      "id": "local_gas",
+      "is_core": false,
+      "description": "Local _gas = calldataload(32): attacker-supplied gas amount for the forwarded CALL.",
+      "node_id": 5,
+      "type": "local_var"
+    },
+    {
+      "id": "local_value",
+      "is_core": false,
+      "description": "Local _value = calldataload(64): attacker-supplied ether value sent with the forwarded CALL.",
+      "node_id": 6,
+      "type": "local_var"
+    },
+    {
+      "id": "local_len",
+      "is_core": false,
+      "description": "Local _len = sub(calldatasize, 96): length of the proxied calldata, computed from the untrusted calldata size.",
+      "node_id": 7,
+      "type": "local_var"
+    },
+    {
+      "id": "local_ret",
+      "is_core": false,
+      "description": "Local ret: raw 256-bit result flag returned by the low-level CALL, written to memory with mstore8.",
+      "node_id": 8,
+      "type": "local_var"
+    },
+    {
+      "id": "local_result_len",
+      "is_core": false,
+      "description": "Local result_len = returndatasize(): size of the data returned by the arbitrary external call, copied to memory and returned via revert.",
+      "node_id": 9,
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "vuln_type": "access_control",
+      "from_id": 1,
+      "type": "controlflow",
+      "reason": "Any external address can invoke the payable fallback; msg.sender is not checked, so the proxy's capability to perform arbitrary calls is open to everyone."
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "from_id": 0,
+      "type": "controlflow",
+      "reason": "The fallback unconditionally executes a low-level CALL whose target, gas and value are taken straight from untrusted calldata."
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "arithmetic",
+      "from_id": 0,
+      "type": "controlflow",
+      "reason": "The fallback computes sub(calldatasize, 96) without checking that calldatasize is at least 96."
+    },
+    {
+      "to_id": 4,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow",
+      "reason": "calldataload(0) provides the destination address _dst used by the forwarded call."
+    },
+    {
+      "to_id": 5,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow",
+      "reason": "calldataload(32) provides the gas amount _gas used by the forwarded call."
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow",
+      "reason": "calldataload(64) provides the value _value sent with the forwarded call."
+    },
+    {
+      "to_id": 7,
+      "vuln_type": "arithmetic",
+      "from_id": 3,
+      "type": "dataflow",
+      "reason": "_len is the result of sub(calldatasize, 96); an undersized calldata makes it wrap around to a huge value."
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "from_id": 4,
+      "type": "dataflow",
+      "reason": "Attacker-controlled _dst flows into the CALL destination, allowing arbitrary external calls."
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow",
+      "reason": "Attacker-controlled _gas flows into the CALL gas argument."
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "access_control",
+      "from_id": 6,
+      "type": "dataflow",
+      "reason": "Attacker-controlled _value flows into the CALL value argument, allowing the contract's ether to be forwarded arbitrarily."
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow",
+      "reason": "_len determines how many calldata bytes are forwarded as the call input."
+    },
+    {
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow",
+      "reason": "The CALL result flag is stored in _ret and written to memory before reverting."
+    },
+    {
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow",
+      "reason": "returndatasize() of the CALL provides result_len, which is copied and returned to the caller."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "local_dst",
+      "merge_into": "unsafe_low_level_call",
+      "reason": "_dst is only used as the destination of the low-level CALL; it is not a meaningful independent abstraction and should be folded into the unsafe call node."
+    },
+    {
+      "normal_node": "local_gas",
+      "merge_into": "unsafe_low_level_call",
+      "reason": "_gas is only consumed by the CALL as its gas parameter, so it can be merged into the unsafe call node."
+    },
+    {
+      "normal_node": "local_value",
+      "merge_into": "unsafe_low_level_call",
+      "reason": "_value is only consumed by the CALL as its value parameter; the ether-transfer risk is fully captured by the unsafe call node."
+    },
+    {
+      "normal_node": "local_len",
+      "merge_into": "unsafe_calldatasize_sub",
+      "reason": "_len is the direct result of sub(calldatasize, 96) and should be represented by the arithmetic unsafe operation that produces it."
+    },
+    {
+      "normal_node": "local_ret",
+      "merge_into": "unsafe_low_level_call",
+      "reason": "_ret simply holds the success flag returned by CALL and adds no separate semantics beyond the unsafe call itself."
+    },
+    {
+      "normal_node": "local_result_len",
+      "merge_into": "unsafe_low_level_call",
+      "reason": "result_len is the returndatasize of the same CALL; it is a direct by-product of the unsafe call and can be merged into it."
+    }
+  ]
+}

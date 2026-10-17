@@ -1,0 +1,237 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "description": "Private uint16 constant-like state variable (16595) used as a threshold and part of the modulo bound for the pseudo-random decision.",
+      "id": "FREE_WILL",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 1,
+      "description": "Private uint16 state variable (12587) used together with FREE_WILL as the modulo bound for the pseudo-random decision.",
+      "id": "FATE",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 2,
+      "description": "State variable holding a reference to the external IReflectionsDataChannel contract at a hard-coded address; used for outbound calls.",
+      "id": "channel",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 3,
+      "description": "Public address state variable set in the constructor and used as the sole access-control principal.",
+      "id": "owner",
+      "type": "state_var",
+      "is_core": true
+    },
+    {
+      "node_id": 4,
+      "description": "Constructor that initializes owner with msg.sender.",
+      "id": "constructor",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 5,
+      "description": "Owner-restricted function that derives a pseudo-random value from block data and calls the external channel to post a message and update the owner.",
+      "id": "decide",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 6,
+      "description": "Owner-restricted backup function that calls the external channel to set the owner back to the stored owner address.",
+      "id": "restoreOwner",
+      "type": "function",
+      "is_core": true
+    },
+    {
+      "node_id": 7,
+      "description": "Caller-controlled address used for access control and mixed into the pseudo-randomness.",
+      "id": "msg.sender",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 8,
+      "description": "Miner/validator-influenced timestamp mixed into the pseudo-randomness seed.",
+      "id": "block.timestamp",
+      "type": "untrusted_input",
+      "is_core": true
+    },
+    {
+      "node_id": 9,
+      "description": "Local uint256 computed from blockhash, coinbase, difficulty, timestamp and msg.sender, reduced modulo (FREE_WILL + FATE).",
+      "id": "random",
+      "type": "local_var",
+      "is_core": false
+    },
+    {
+      "node_id": 10,
+      "description": "External call to the untrusted channel contract posting a decision message.",
+      "id": "channel.postMessage",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 11,
+      "description": "External call to the untrusted channel contract updating the reflected owner from within decide().",
+      "id": "channel.updateOwner(decide)",
+      "type": "unsafe_operation",
+      "is_core": true
+    },
+    {
+      "node_id": 12,
+      "description": "External call to the untrusted channel contract updating the reflected owner from within restoreOwner().",
+      "id": "channel.updateOwner(restoreOwner)",
+      "type": "unsafe_operation",
+      "is_core": true
+    }
+  ],
+  "edges": [
+    {
+      "reason": "Constructor assigns the owner state variable directly from the caller-controlled msg.sender.",
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "reason": "decide() gates execution with require(msg.sender == owner), making the caller the access-control subject.",
+      "vuln_type": "access_control",
+      "to_id": 5,
+      "type": "controlflow",
+      "from_id": 7
+    },
+    {
+      "reason": "The owner state variable is read to authorize the caller inside decide().",
+      "vuln_type": "access_control",
+      "to_id": 5,
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "reason": "block.timestamp is hashed into the random local variable, making the outcome timestamp dependent.",
+      "vuln_type": "access_control",
+      "to_id": 9,
+      "type": "dataflow",
+      "from_id": 8
+    },
+    {
+      "reason": "msg.sender is hashed into the random local variable as part of the pseudo-random seed.",
+      "vuln_type": "access_control",
+      "to_id": 9,
+      "type": "dataflow",
+      "from_id": 7
+    },
+    {
+      "reason": "FREE_WILL participates in the modulo bound (FREE_WILL + FATE) applied to the hash.",
+      "vuln_type": "arithmetic",
+      "to_id": 9,
+      "type": "dataflow",
+      "from_id": 0
+    },
+    {
+      "reason": "FATE participates in the modulo bound (FREE_WILL + FATE) applied to the hash.",
+      "vuln_type": "arithmetic",
+      "to_id": 9,
+      "type": "dataflow",
+      "from_id": 1
+    },
+    {
+      "reason": "The comparison random < FREE_WILL selects the branch executed inside decide().",
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "controlflow",
+      "from_id": 0
+    },
+    {
+      "reason": "The random local variable feeds the branch selection and the emitted Decided event in decide().",
+      "vuln_type": "none",
+      "to_id": 5,
+      "type": "dataflow",
+      "from_id": 9
+    },
+    {
+      "reason": "The channel state variable is the target receiver of the postMessage external call.",
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "reason": "The random-based branch determines which message string is passed to channel.postMessage.",
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "controlflow",
+      "from_id": 9
+    },
+    {
+      "reason": "The channel state variable is the target receiver of the updateOwner external call in decide().",
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "reason": "The channel state variable is the target receiver of the updateOwner external call in restoreOwner().",
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "from_id": 2
+    },
+    {
+      "reason": "The owner state variable is passed as the argument to channel.updateOwner inside decide().",
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "reason": "restoreOwner() gates execution with require(msg.sender == owner), making the caller the access-control subject.",
+      "vuln_type": "access_control",
+      "to_id": 6,
+      "type": "controlflow",
+      "from_id": 7
+    },
+    {
+      "reason": "The owner state variable is read to authorize the caller inside restoreOwner().",
+      "vuln_type": "access_control",
+      "to_id": 6,
+      "type": "dataflow",
+      "from_id": 3
+    },
+    {
+      "reason": "The external call channel.postMessage hands control to an untrusted contract before decide() completes, allowing reentrant callbacks.",
+      "vuln_type": "reentrancy",
+      "to_id": 5,
+      "type": "callback",
+      "from_id": 10
+    },
+    {
+      "reason": "The external call channel.updateOwner inside decide() transfers control to an untrusted contract, enabling reentrancy.",
+      "vuln_type": "reentrancy",
+      "to_id": 5,
+      "type": "callback",
+      "from_id": 11
+    },
+    {
+      "reason": "The external call channel.updateOwner inside restoreOwner() transfers control to an untrusted contract, enabling reentrancy.",
+      "vuln_type": "reentrancy",
+      "to_id": 6,
+      "type": "callback",
+      "from_id": 12
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The non-core local variable random is only produced and consumed inside decide(); its dataflow contribution is folded into the decide() core function node.",
+      "merge_into": "decide",
+      "normal_node": "random"
+    }
+  ]
+}

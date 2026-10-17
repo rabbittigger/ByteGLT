@@ -1,0 +1,602 @@
+{
+  "nodes": [
+    {
+      "type": "function",
+      "description": "External update() that recomputes the 24h time-weighted average prices and rewrites cumulative snapshots",
+      "is_core": true,
+      "node_id": 0,
+      "id": "function::UniOracle.update"
+    },
+    {
+      "type": "function",
+      "description": "External view consult() that converts amountIn using the stored average price for token0 or token1",
+      "is_core": true,
+      "node_id": 1,
+      "id": "function::UniOracle.consult"
+    },
+    {
+      "type": "function",
+      "description": "Constructor that resolves the pair, caches token0/token1, cumulative prices, reserves and timestamp",
+      "is_core": true,
+      "node_id": 2,
+      "id": "function::UniOracle.constructor"
+    },
+    {
+      "type": "function",
+      "description": "External deploy() that creates a new UniOracle for a token pair and records it in lookups/_oracles/_pairs",
+      "is_core": true,
+      "node_id": 3,
+      "id": "function::UniOracleFactory.deploy"
+    },
+    {
+      "type": "function",
+      "description": "External update() that forwards to the stored oracle for the resolved token pair",
+      "is_core": true,
+      "node_id": 4,
+      "id": "function::UniOracleFactory.update"
+    },
+    {
+      "type": "function",
+      "description": "External view quote() that forwards to consult() of the stored oracle",
+      "is_core": true,
+      "node_id": 5,
+      "id": "function::UniOracleFactory.quote"
+    },
+    {
+      "type": "function",
+      "description": "Library helper that reads pair cumulative prices and computes counterfactual values plus current timestamp",
+      "is_core": true,
+      "node_id": 6,
+      "id": "function::UniswapV2OracleLibrary.currentCumulativePrices"
+    },
+    {
+      "type": "function",
+      "description": "Library helper that truncates block.timestamp into the uint32 range",
+      "is_core": true,
+      "node_id": 7,
+      "id": "function::UniswapV2OracleLibrary.currentBlockTimestamp"
+    },
+    {
+      "type": "state_var",
+      "description": "Immutable target pair reference used for all oracle queries",
+      "is_core": true,
+      "node_id": 8,
+      "id": "state_var::UniOracle.pair"
+    },
+    {
+      "type": "state_var",
+      "description": "Stored snapshot of pair price0CumulativeLast",
+      "is_core": true,
+      "node_id": 9,
+      "id": "state_var::UniOracle.price0CumulativeLast"
+    },
+    {
+      "type": "state_var",
+      "description": "Stored snapshot of pair price1CumulativeLast",
+      "is_core": true,
+      "node_id": 10,
+      "id": "state_var::UniOracle.price1CumulativeLast"
+    },
+    {
+      "type": "state_var",
+      "description": "Stored uint32 timestamp of the last successful update",
+      "is_core": true,
+      "node_id": 11,
+      "id": "state_var::UniOracle.blockTimestampLast"
+    },
+    {
+      "type": "state_var",
+      "description": "Time-weighted average price of token0 (uq112x112)",
+      "is_core": true,
+      "node_id": 12,
+      "id": "state_var::UniOracle.price0Average"
+    },
+    {
+      "type": "state_var",
+      "description": "Time-weighted average price of token1 (uq112x112)",
+      "is_core": true,
+      "node_id": 13,
+      "id": "state_var::UniOracle.price1Average"
+    },
+    {
+      "type": "state_var",
+      "description": "Public mapping from pair address to deployed oracle address",
+      "is_core": true,
+      "node_id": 14,
+      "id": "state_var::UniOracleFactory.lookups"
+    },
+    {
+      "type": "state_var",
+      "description": "Array of all deployed oracle addresses",
+      "is_core": true,
+      "node_id": 15,
+      "id": "state_var::UniOracleFactory._oracles"
+    },
+    {
+      "type": "state_var",
+      "description": "Array of all pair addresses for which oracles were deployed",
+      "is_core": true,
+      "node_id": 16,
+      "id": "state_var::UniOracleFactory._pairs"
+    },
+    {
+      "type": "state_var",
+      "description": "Hardcoded Uniswap V2 factory address used for pair derivation",
+      "is_core": true,
+      "node_id": 17,
+      "id": "state_var::UniOracleFactory.FACTORY"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Miner-influenceable block timestamp consumed by the oracle period calculation",
+      "is_core": true,
+      "node_id": 18,
+      "id": "untrusted_input::block.timestamp"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "timeElapsed = blockTimestamp - blockTimestampLast relies on intentional wrapping arithmetic over timestamps",
+      "is_core": true,
+      "node_id": 19,
+      "id": "unsafe_operation::timestamp_subtraction_overflow"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Cumulative price deltas are divided by timeElapsed to build the average prices",
+      "is_core": true,
+      "node_id": 20,
+      "id": "unsafe_operation::division_by_timeElapsed"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External calls to pair.price0CumulativeLast/price1CumulativeLast/getReserves on a user-influenced pair address",
+      "is_core": true,
+      "node_id": 21,
+      "id": "unsafe_operation::external_pair_calls"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "External call UniOracle(lookups[...]).update() on an address resolved from a public mapping",
+      "is_core": true,
+      "node_id": 22,
+      "id": "unsafe_operation::external_oracle_update_call"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Contract creation of a new UniOracle executed inside deploy()",
+      "is_core": true,
+      "node_id": 23,
+      "id": "unsafe_operation::new_UniOracle_deployment"
+    },
+    {
+      "type": "parameter",
+      "description": "tokenA argument used to derive the pair and build the oracle",
+      "is_core": false,
+      "node_id": 24,
+      "id": "parameter::deploy.tokenA"
+    },
+    {
+      "type": "parameter",
+      "description": "tokenB argument used to derive the pair and build the oracle",
+      "is_core": false,
+      "node_id": 25,
+      "id": "parameter::deploy.tokenB"
+    },
+    {
+      "type": "parameter",
+      "description": "Token address that selects price0Average or price1Average",
+      "is_core": false,
+      "node_id": 26,
+      "id": "parameter::consult.token"
+    },
+    {
+      "type": "parameter",
+      "description": "Input amount multiplied by the stored average price",
+      "is_core": false,
+      "node_id": 27,
+      "id": "parameter::consult.amountIn"
+    },
+    {
+      "type": "parameter",
+      "description": "Pair address that the library queries for reserves and cumulative prices",
+      "is_core": false,
+      "node_id": 28,
+      "id": "parameter::currentCumulativePrices.pair"
+    },
+    {
+      "type": "local_var",
+      "description": "uint32 seconds elapsed since the last update, used as divisor",
+      "is_core": false,
+      "node_id": 29,
+      "id": "local_var::UniOracle.update.timeElapsed"
+    },
+    {
+      "type": "local_var",
+      "description": "Fresh cumulative price returned for token0",
+      "is_core": false,
+      "node_id": 30,
+      "id": "local_var::UniOracle.update.price0Cumulative"
+    },
+    {
+      "type": "local_var",
+      "description": "Fresh cumulative price returned for token1",
+      "is_core": false,
+      "node_id": 31,
+      "id": "local_var::UniOracle.update.price1Cumulative"
+    },
+    {
+      "type": "local_var",
+      "description": "Current uint32 timestamp returned by the library helper",
+      "is_core": false,
+      "node_id": 32,
+      "id": "local_var::UniOracle.update.blockTimestamp"
+    },
+    {
+      "type": "local_var",
+      "description": "Address of the newly deployed oracle",
+      "is_core": false,
+      "node_id": 33,
+      "id": "local_var::UniOracleFactory.deploy._oracle"
+    },
+    {
+      "type": "local_var",
+      "description": "Pair address derived by UniswapV2Library.pairFor",
+      "is_core": false,
+      "node_id": 34,
+      "id": "local_var::UniOracleFactory.deploy._pair"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "access_control",
+      "to_id": 7,
+      "type": "dataflow",
+      "reason": "block.timestamp is read and truncated modulo 2**32 inside currentBlockTimestamp",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "Result of currentBlockTimestamp becomes the blockTimestamp value of currentCumulativePrices",
+      "from_id": 7
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 19,
+      "type": "dataflow",
+      "reason": "Timestamp derived values are subtracted with intentional wrapping to compute elapsed time",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "update enforces the PERIOD check and computes averages on miner-influenceable block.timestamp",
+      "from_id": 18
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "Cumulative prices and blockTimestamp returned by the library feed UniOracle.update",
+      "from_id": 6
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 6,
+      "type": "callback",
+      "reason": "External calls to pair.price0CumulativeLast/price1CumulativeLast/getReserves execute untrusted pair code",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "timeElapsed is computed inside update as blockTimestamp - blockTimestampLast",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 29,
+      "type": "dataflow",
+      "reason": "blockTimestamp local is subtracted from blockTimestampLast to produce timeElapsed",
+      "from_id": 32
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "blockTimestampLast state variable is read to compute timeElapsed",
+      "from_id": 11
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "timeElapsed is used as the divisor of the cumulative price delta",
+      "from_id": 29
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "price0Average is assigned from the division result",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "price1Average is assigned from the division result",
+      "from_id": 20
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 12,
+      "type": "dataflow",
+      "reason": "price0CumulativeLast is subtracted from the fresh cumulative price with desired wrapping",
+      "from_id": 9
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 13,
+      "type": "dataflow",
+      "reason": "price1CumulativeLast is subtracted from the fresh cumulative price with desired wrapping",
+      "from_id": 10
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "price0Cumulative local participates in the average computation",
+      "from_id": 30
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 20,
+      "type": "dataflow",
+      "reason": "price1Cumulative local participates in the average computation",
+      "from_id": 31
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 23,
+      "type": "controlflow",
+      "reason": "deploy triggers the creation of a new UniOracle instance",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 2,
+      "type": "callback",
+      "reason": "Contract creation executes the UniOracle constructor",
+      "from_id": 23
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 2,
+      "type": "callback",
+      "reason": "The constructor performs external pair calls (token0/token1/price cumulatives/getReserves) against an externally derived pair",
+      "from_id": 21
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 8,
+      "type": "dataflow",
+      "reason": "Constructor stores the resolved pair address",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 9,
+      "type": "dataflow",
+      "reason": "Constructor caches price0CumulativeLast from the pair",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 10,
+      "type": "dataflow",
+      "reason": "Constructor caches price1CumulativeLast from the pair",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 11,
+      "type": "dataflow",
+      "reason": "Constructor sets blockTimestampLast from pair getReserves",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "tokenA argument is used by pairFor and by the UniOracle constructor",
+      "from_id": 24
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "tokenB argument is used by pairFor and by the UniOracle constructor",
+      "from_id": 25
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "_pair local receives the derived pair address inside deploy",
+      "from_id": 34
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 33,
+      "type": "dataflow",
+      "reason": "_oracle local receives the address of the newly created oracle",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "lookups[_pair] is written with the new oracle address",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 15,
+      "type": "dataflow",
+      "reason": "_oracles array is pushed with the new oracle address",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 16,
+      "type": "dataflow",
+      "reason": "_pairs array is pushed with the pair address",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "FACTORY constant is used for pair derivation and oracle construction",
+      "from_id": 17
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 22,
+      "type": "controlflow",
+      "reason": "factory update invokes the resolved oracle update externally",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 0,
+      "type": "callback",
+      "reason": "External call to an oracle resolved from lookups executes UniOracle.update",
+      "from_id": 22
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 22,
+      "type": "dataflow",
+      "reason": "Oracle address is taken from the public lookups mapping without validation",
+      "from_id": 14
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "factory update reads the lookups mapping",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 14,
+      "type": "dataflow",
+      "reason": "factory quote reads the lookups mapping",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "callback",
+      "reason": "factory quote forwards to the oracle consult view function",
+      "from_id": 5
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "token argument decides which average price is consulted",
+      "from_id": 26
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "amountIn is multiplied by the selected average price",
+      "from_id": 27
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "price0Average state variable is read in consult",
+      "from_id": 12
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 1,
+      "type": "dataflow",
+      "reason": "price1Average state variable is read in consult",
+      "from_id": 13
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 6,
+      "type": "dataflow",
+      "reason": "pair parameter is the address queried by currentCumulativePrices",
+      "from_id": 28
+    }
+  ],
+  "normalization_plan": [
+    {
+      "merge_into": "function::UniOracleFactory.deploy",
+      "reason": "tokenA is only consumed as an argument of deploy to derive the pair and construct the oracle",
+      "normal_node": "parameter::deploy.tokenA"
+    },
+    {
+      "merge_into": "function::UniOracleFactory.deploy",
+      "reason": "tokenB is only consumed as an argument of deploy to derive the pair and construct the oracle",
+      "normal_node": "parameter::deploy.tokenB"
+    },
+    {
+      "merge_into": "function::UniOracle.consult",
+      "reason": "token is only used to branch between price0Average and price1Average inside consult",
+      "normal_node": "parameter::consult.token"
+    },
+    {
+      "merge_into": "function::UniOracle.consult",
+      "reason": "amountIn is only used as the multiplicand of the stored average price in consult",
+      "normal_node": "parameter::consult.amountIn"
+    },
+    {
+      "merge_into": "function::UniswapV2OracleLibrary.currentCumulativePrices",
+      "reason": "pair is only used to query cumulative prices and reserves in this helper",
+      "normal_node": "parameter::currentCumulativePrices.pair"
+    },
+    {
+      "merge_into": "unsafe_operation::division_by_timeElapsed",
+      "reason": "timeElapsed exists only to be the divisor of the cumulative price deltas",
+      "normal_node": "local_var::UniOracle.update.timeElapsed"
+    },
+    {
+      "merge_into": "function::UniOracle.update",
+      "reason": "price0Cumulative is a temporary returned by the library and consumed inside update",
+      "normal_node": "local_var::UniOracle.update.price0Cumulative"
+    },
+    {
+      "merge_into": "function::UniOracle.update",
+      "reason": "price1Cumulative is a temporary returned by the library and consumed inside update",
+      "normal_node": "local_var::UniOracle.update.price1Cumulative"
+    },
+    {
+      "merge_into": "function::UniOracle.update",
+      "reason": "blockTimestamp is a temporary returned by the library and consumed inside update",
+      "normal_node": "local_var::UniOracle.update.blockTimestamp"
+    },
+    {
+      "merge_into": "function::UniOracleFactory.deploy",
+      "reason": "_oracle is the freshly created oracle address stored and pushed inside deploy",
+      "normal_node": "local_var::UniOracleFactory.deploy._oracle"
+    },
+    {
+      "merge_into": "function::UniOracleFactory.deploy",
+      "reason": "_pair is the derived pair address used for existence checks and storage inside deploy",
+      "normal_node": "local_var::UniOracleFactory.deploy._pair"
+    }
+  ]
+}

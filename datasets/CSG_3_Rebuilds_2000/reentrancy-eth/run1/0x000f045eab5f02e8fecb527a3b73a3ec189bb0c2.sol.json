@@ -1,0 +1,112 @@
+{
+  "nodes": [
+    {
+      "description": "Constant uint256 prize worth 0.05 ether that the contract must be funded with.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "prize"
+    },
+    {
+      "description": "Public dynamic array of addresses that have won the prize; appended to in winPrizeAndFeelGoodAboutSelf.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "friends"
+    },
+    {
+      "description": "Payable constructor that requires msg.value >= prize to fund the contract.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 2,
+      "id": "constructor"
+    },
+    {
+      "description": "Public function that records the caller, checks msg.sender == tx.origin and transfers the entire balance to the caller.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 3,
+      "id": "winPrizeAndFeelGoodAboutSelf"
+    },
+    {
+      "description": "Caller-supplied address used as array element, authorization subject and transfer recipient.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 4,
+      "id": "msg.sender"
+    },
+    {
+      "description": "Origin transaction sender used as the only bot-prevention check via require(msg.sender == tx.origin).",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 5,
+      "id": "tx.origin"
+    },
+    {
+      "description": "payable(msg.sender).transfer(address(this).balance) sends the whole contract balance to an attacker-controlled address.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 6,
+      "id": "balance_transfer"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "The constructor reads the prize constant to validate the initial funding with require(msg.value >= prize).",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "msg.sender is pushed into the friends array inside winPrizeAndFeelGoodAboutSelf, letting an attacker write arbitrary addresses into state.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 3
+    },
+    {
+      "reason": "friends.push(msg.sender) mutates the friends state array from within the prize-winning function.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "require(msg.sender == tx.origin) uses tx.origin as an access-control gate, which is bypassable by contracts calling through intermediate contracts.",
+      "from_id": 5,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 3
+    },
+    {
+      "reason": "msg.sender is compared against tx.origin, so the authorization decision depends on the transaction origin rather than on an explicit owner check.",
+      "from_id": 4,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 5
+    },
+    {
+      "reason": "The function drains the entire contract balance through an external value transfer after state mutation, without reentrancy protection.",
+      "from_id": 3,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "The recipient of the full-balance transfer is the caller-controlled msg.sender, so any address can trigger and receive the payout.",
+      "from_id": 4,
+      "vuln_type": "reentrancy",
+      "type": "dataflow",
+      "to_id": 6
+    },
+    {
+      "reason": "The external transfer to a caller-controlled address may re-enter winPrizeAndFeelGoodAboutSelf before the balance is fully drained.",
+      "from_id": 6,
+      "vuln_type": "reentrancy",
+      "type": "callback",
+      "to_id": 3
+    }
+  ],
+  "normalization_plan": []
+}

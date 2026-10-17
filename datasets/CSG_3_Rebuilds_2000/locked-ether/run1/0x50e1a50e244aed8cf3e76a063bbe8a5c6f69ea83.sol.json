@@ -1,0 +1,116 @@
+{
+  "nodes": [
+    {
+      "id": "PROXIABLE_SLOT",
+      "is_core": true,
+      "description": "Storage slot at keccak256(\"PROXIABLE\") (0xc5f16f0fcc639fa48a6947836d9850f504798523bf8c9a3a87d5876cf622bcf7) that holds the delegatecall target / implementation address.",
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "constructor(address)",
+      "is_core": true,
+      "description": "Constructor that persists the given logic contract address into the PROXIABLE storage slot using inline assembly sstore.",
+      "node_id": 1,
+      "type": "function"
+    },
+    {
+      "id": "fallback()",
+      "is_core": true,
+      "description": "Payable fallback function that forwards all calldata and value to the stored implementation via delegatecall and bubbles up the return data or revert.",
+      "node_id": 2,
+      "type": "function"
+    },
+    {
+      "id": "delegatecall_forward",
+      "is_core": true,
+      "description": "Inline-assembly delegatecall(gas, contractLogic, ptr, calldatasize, 0, 0) executing arbitrary external code in the storage context of this proxy.",
+      "node_id": 3,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "msg.sender",
+      "is_core": true,
+      "description": "Caller-supplied address preserved across the delegatecall, so the external implementation observes the proxy's caller as its own msg.sender.",
+      "node_id": 4,
+      "type": "untrusted_input"
+    },
+    {
+      "id": "contractLogic_param",
+      "is_core": false,
+      "description": "Constructor parameter contractLogic: address of the initial implementation contract.",
+      "node_id": 5,
+      "type": "parameter"
+    },
+    {
+      "id": "contractLogic_local",
+      "is_core": false,
+      "description": "Assembly local variable in the fallback that holds the sload result of the PROXIABLE slot, used as the delegatecall target.",
+      "node_id": 6,
+      "type": "local_var"
+    }
+  ],
+  "edges": [
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow",
+      "reason": "The constructor writes the implementation address into the PROXIABLE storage slot."
+    },
+    {
+      "to_id": 0,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "dataflow",
+      "reason": "The contractLogic constructor parameter is the value sstored into the PROXIABLE storage slot."
+    },
+    {
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow",
+      "reason": "The fallback reads the implementation address from the PROXIABLE storage slot via sload into the contractLogic local."
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "controlflow",
+      "reason": "All calls reaching the fallback are routed into the assembly delegatecall block."
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "none",
+      "from_id": 6,
+      "type": "dataflow",
+      "reason": "The address loaded from the PROXIABLE slot becomes the target argument of the delegatecall."
+    },
+    {
+      "to_id": 3,
+      "vuln_type": "reentrancy",
+      "from_id": 4,
+      "type": "dataflow",
+      "reason": "msg.sender is forwarded unchanged into the delegatecall, giving untrusted caller identity to the external implementation executed in the proxy context."
+    },
+    {
+      "to_id": 2,
+      "vuln_type": "reentrancy",
+      "from_id": 3,
+      "type": "callback",
+      "reason": "A delegatecall into arbitrary implementation logic can call back into this proxy, re-entering the fallback before the original call's effects are settled."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "contractLogic_param",
+      "merge_into": "constructor(address)",
+      "reason": "The non-core constructor parameter is only an input binding of the constructor function and is merged into it for normalization."
+    },
+    {
+      "normal_node": "contractLogic_local",
+      "merge_into": "delegatecall_forward",
+      "reason": "The assembly local holding the sloaded implementation address is directly consumed by the delegatecall unsafe operation and is merged into it."
+    }
+  ]
+}

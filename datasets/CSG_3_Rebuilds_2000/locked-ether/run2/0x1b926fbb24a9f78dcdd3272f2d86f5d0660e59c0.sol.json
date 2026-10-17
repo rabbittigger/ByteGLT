@@ -1,0 +1,88 @@
+{
+  "nodes": [
+    {
+      "id": "NanoUniversalDeployer.fallback",
+      "description": "Payable fallback function of NanoUniversalDeployer; takes all calldata as deployment bytecode and deploys it via inline assembly create2, then emits Deploy.",
+      "type": "function",
+      "node_id": 0,
+      "is_core": true
+    },
+    {
+      "id": "asm.create2",
+      "description": "Inline assembly create2(callvalue(), add(code,32), mload(code), 0) that deploys arbitrary attacker-supplied bytecode with the sent value, executing the created contract's constructor.",
+      "type": "unsafe_operation",
+      "node_id": 1,
+      "is_core": true
+    },
+    {
+      "id": "local.code",
+      "description": "bytes memory code holding msg.data, i.e. the raw calldata used as the init code passed to create2.",
+      "type": "local_var",
+      "node_id": 2,
+      "is_core": false
+    },
+    {
+      "id": "local.addr",
+      "description": "address addr receiving the result of the create2 call and then emitted in the Deploy event.",
+      "type": "local_var",
+      "node_id": 3,
+      "is_core": false
+    }
+  ],
+  "edges": [
+    {
+      "type": "controlflow",
+      "reason": "The fallback body unconditionally reaches the inline assembly create2 deployment with caller-controlled calldata.",
+      "to_id": 1,
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "msg.data is copied into the local memory variable code (bytes memory code = msg.data), making the local a taint carrier of untrusted calldata.",
+      "to_id": 2,
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The memory buffer code (and its length via mload(code)) is passed as the init-code argument of create2, so the untrusted calldata flows into the deployment operation.",
+      "to_id": 1,
+      "from_id": 2,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The address returned by create2 is assigned to the local variable addr.",
+      "to_id": 3,
+      "from_id": 1,
+      "vuln_type": "none"
+    },
+    {
+      "type": "dataflow",
+      "reason": "The fallback declares addr and subsequently emits it in the Deploy event, tying the local variable's lifetime to the function.",
+      "to_id": 3,
+      "from_id": 0,
+      "vuln_type": "none"
+    },
+    {
+      "type": "callback",
+      "reason": "create2 executes the constructor of the attacker-supplied init code, which may call back into this contract's payable fallback before the current execution (including the Deploy event emission) completes.",
+      "to_id": 0,
+      "from_id": 1,
+      "vuln_type": "reentrancy"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The non-core local variable code is only a temporary carrier of msg.data and exists solely to feed the create2 unsafe operation, so it can be normalized into that operation.",
+      "normal_node": "local.code",
+      "merge_into": "asm.create2"
+    },
+    {
+      "reason": "The non-core local variable addr only holds the create2 return value and is consumed within the same fallback invocation by the Deploy event, so it can be normalized into the enclosing core function.",
+      "normal_node": "local.addr",
+      "merge_into": "NanoUniversalDeployer.fallback"
+    }
+  ]
+}

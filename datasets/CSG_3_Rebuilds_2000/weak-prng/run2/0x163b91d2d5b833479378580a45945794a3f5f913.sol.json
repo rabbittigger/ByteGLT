@@ -1,0 +1,98 @@
+{
+  "nodes": [
+    {
+      "type": "function",
+      "description": "Payable fallback function of contract Double that pays the caller twice the sent value whenever block.timestamp is even.",
+      "is_core": true,
+      "node_id": 0,
+      "id": "Double.fallback"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Block timestamp used directly in the parity check controlling the payout.",
+      "is_core": true,
+      "node_id": 1,
+      "id": "block.timestamp"
+    },
+    {
+      "type": "untrusted_input",
+      "description": "Caller address that receives the doubled transfer.",
+      "is_core": true,
+      "node_id": 2,
+      "id": "msg.sender"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Condition block.timestamp % 2 == 0, a miner-manipulable timestamp dependency gating fund release.",
+      "is_core": true,
+      "node_id": 3,
+      "id": "condition_block_timestamp_mod_2"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "Multiplication msg.value * 2 performed with unchecked arithmetic under pragma ^0.4.17, allowing overflow.",
+      "is_core": true,
+      "node_id": 4,
+      "id": "arith_msg_value_times_2"
+    },
+    {
+      "type": "unsafe_operation",
+      "description": "msg.sender.transfer(msg.value * 2) external value transfer executed on caller-controlled state and timestamp condition.",
+      "is_core": true,
+      "node_id": 5,
+      "id": "transfer_to_msg_sender"
+    }
+  ],
+  "edges": [
+    {
+      "vuln_type": "access_control",
+      "to_id": 3,
+      "type": "dataflow",
+      "reason": "block.timestamp flows directly into the modulo/equality condition that gates the contract logic.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 0,
+      "type": "controlflow",
+      "reason": "block.timestamp decides whether the fallback function body executes the payout branch.",
+      "from_id": 1
+    },
+    {
+      "vuln_type": "access_control",
+      "to_id": 5,
+      "type": "controlflow",
+      "reason": "The timestamp parity condition is the only guard before the transfer to the caller is executed.",
+      "from_id": 3
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 4,
+      "type": "dataflow",
+      "reason": "The fallback function computes msg.value * 2 without overflow protection.",
+      "from_id": 0
+    },
+    {
+      "vuln_type": "arithmetic",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "The result of msg.value * 2 is the amount passed into the external transfer.",
+      "from_id": 4
+    },
+    {
+      "vuln_type": "reentrancy",
+      "to_id": 5,
+      "type": "dataflow",
+      "reason": "msg.sender is the recipient of the external transfer, making the caller an untrusted external target.",
+      "from_id": 2
+    },
+    {
+      "vuln_type": "none",
+      "to_id": 0,
+      "type": "dataflow",
+      "reason": "msg.sender determines the payout recipient inside the fallback function.",
+      "from_id": 2
+    }
+  ],
+  "normalization_plan": []
+}

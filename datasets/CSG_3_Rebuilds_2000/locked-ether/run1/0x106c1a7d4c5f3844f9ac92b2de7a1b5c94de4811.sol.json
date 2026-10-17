@@ -1,0 +1,90 @@
+{
+  "nodes": [
+    {
+      "description": "Public address state variable 'owner', initialized to msg.sender at deployment and used as the authorization reference in the restricted modifier.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 0,
+      "id": "state_var_owner"
+    },
+    {
+      "description": "Public uint state variable 'last_completed_migration' that records the last completed migration index; written by setCompleted.",
+      "is_core": true,
+      "type": "state_var",
+      "node_id": 1,
+      "id": "state_var_last_completed_migration"
+    },
+    {
+      "description": "Public function setCompleted(uint completed) guarded by the restricted modifier; the only externally callable state-changing entry point.",
+      "is_core": true,
+      "type": "function",
+      "node_id": 2,
+      "id": "function_setCompleted"
+    },
+    {
+      "description": "msg.sender: caller-controlled address used both to initialize 'owner' and to perform the owner equality check in the restricted modifier.",
+      "is_core": true,
+      "type": "untrusted_input",
+      "node_id": 3,
+      "id": "untrusted_input_msg_sender"
+    },
+    {
+      "description": "Caller-supplied uint parameter 'completed' passed into setCompleted and assigned to last_completed_migration.",
+      "is_core": false,
+      "type": "parameter",
+      "node_id": 4,
+      "id": "param_completed"
+    },
+    {
+      "description": "State write 'last_completed_migration = completed' reached only after the restricted modifier's msg.sender == owner require check passes.",
+      "is_core": true,
+      "type": "unsafe_operation",
+      "node_id": 5,
+      "id": "unsafe_op_state_write_last_completed_migration"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "msg.sender is read during construction and stored into the owner state variable, fixing the privileged address.",
+      "from_id": 3,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 0
+    },
+    {
+      "reason": "The restricted modifier's require(msg.sender == owner) gate on msg.sender controls whether the state write unsafe operation can execute.",
+      "from_id": 3,
+      "vuln_type": "access_control",
+      "type": "controlflow",
+      "to_id": 5
+    },
+    {
+      "reason": "The caller-supplied parameter 'completed' flows directly into the state write operation as the assigned value.",
+      "from_id": 4,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 5
+    },
+    {
+      "reason": "The result of the state write operation is stored into the last_completed_migration state variable.",
+      "from_id": 5,
+      "vuln_type": "none",
+      "type": "dataflow",
+      "to_id": 1
+    },
+    {
+      "reason": "The setCompleted function body contains and executes the restricted state write operation.",
+      "from_id": 2,
+      "vuln_type": "none",
+      "type": "controlflow",
+      "to_id": 5
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "The non-core parameter 'completed' has no independent security semantics; it is fully consumed by the state write operation that assigns it to last_completed_migration.",
+      "normal_node": "param_completed",
+      "merge_into": "unsafe_op_state_write_last_completed_migration"
+    }
+  ]
+}

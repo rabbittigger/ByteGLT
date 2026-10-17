@@ -1,0 +1,950 @@
+{
+  "nodes": [
+    {
+      "node_id": 0,
+      "type": "state_var",
+      "id": "Oracle.PERIOD",
+      "is_core": true,
+      "description": "uint256 public constant PERIOD = 30 minutes; minimum elapsed time required between oracle price updates."
+    },
+    {
+      "node_id": 1,
+      "type": "state_var",
+      "id": "Oracle.factory",
+      "is_core": true,
+      "description": "address public immutable override factory; trusted factory used to resolve pairs and sort tokens."
+    },
+    {
+      "node_id": 2,
+      "type": "state_var",
+      "id": "Oracle.pairObservations",
+      "is_core": true,
+      "description": "mapping(address => Observation) private pairObservations; stores TWAP observations keyed by pair address."
+    },
+    {
+      "node_id": 3,
+      "type": "function",
+      "id": "Oracle.constructor",
+      "is_core": true,
+      "description": "Oracle constructor: validates _factory is non-zero and stores it in the immutable factory state variable."
+    },
+    {
+      "node_id": 4,
+      "type": "function",
+      "id": "Oracle.getObservation",
+      "is_core": true,
+      "description": "external view returning the stored observation fields (timestamps, cumulative prices, averages) for a token pair."
+    },
+    {
+      "node_id": 5,
+      "type": "function",
+      "id": "Oracle.updatePair",
+      "is_core": true,
+      "description": "public override updatePair(address pair): initialises or refreshes cumulative price observations, enforcing PERIOD between updates."
+    },
+    {
+      "node_id": 6,
+      "type": "function",
+      "id": "Oracle.update",
+      "is_core": true,
+      "description": "external override update(tokenA, tokenB): resolves the pair from the factory and delegates to updatePair."
+    },
+    {
+      "node_id": 7,
+      "type": "function",
+      "id": "Oracle.consult",
+      "is_core": true,
+      "description": "external view override consult: converts amountIn to amountOut using the stored TWAP average for the sorted pair."
+    },
+    {
+      "node_id": 8,
+      "type": "function",
+      "id": "CCOracleLibrary.currentBlockTimestamp",
+      "is_core": true,
+      "description": "internal view helper returning uint32(block.timestamp % 2**32) - direct read of the block timestamp."
+    },
+    {
+      "node_id": 9,
+      "type": "function",
+      "id": "CCOracleLibrary.currentCumulativePrices",
+      "is_core": true,
+      "description": "internal view computing counterfactual cumulative prices from pair reserves and elapsed time."
+    },
+    {
+      "node_id": 10,
+      "type": "function",
+      "id": "FixedPoint.fraction",
+      "is_core": true,
+      "description": "FixedPoint.fraction(numerator, denominator): left-shifts the numerator by 112 bits and divides by the denominator."
+    },
+    {
+      "node_id": 11,
+      "type": "function",
+      "id": "FixedPoint.mul",
+      "is_core": true,
+      "description": "FixedPoint.mul(self, y): multiplies the fixed point value by y, reverting on overflow."
+    },
+    {
+      "node_id": 12,
+      "type": "function",
+      "id": "FixedPoint.decode144",
+      "is_core": true,
+      "description": "FixedPoint.decode144(self): right-shifts by 112 bits to truncate the fixed point value to uint144."
+    },
+    {
+      "node_id": 13,
+      "type": "function",
+      "id": "SafeMath.add",
+      "is_core": true,
+      "description": "SafeMath.add: addition with overflow check wrapping the raw uint addition."
+    },
+    {
+      "node_id": 14,
+      "type": "function",
+      "id": "SafeMath.sub",
+      "is_core": true,
+      "description": "SafeMath.sub: subtraction with underflow check wrapping the raw uint subtraction."
+    },
+    {
+      "node_id": 15,
+      "type": "function",
+      "id": "SafeMath.mul",
+      "is_core": true,
+      "description": "SafeMath.mul: multiplication with overflow check wrapping the raw uint multiplication."
+    },
+    {
+      "node_id": 16,
+      "type": "untrusted_input",
+      "id": "untrusted.block.timestamp",
+      "is_core": true,
+      "description": "block.timestamp - miner/validator influenced value read by currentBlockTimestamp and used for TWAP period logic."
+    },
+    {
+      "node_id": 17,
+      "type": "unsafe_operation",
+      "id": "unsafe.updatePair.timeElapsedSub",
+      "is_core": true,
+      "description": "uint32 timeElapsed = blockTimestamp - observation.blockTimestampLast; unchecked uint32 subtraction (overflow intentionally desired)."
+    },
+    {
+      "node_id": 18,
+      "type": "unsafe_operation",
+      "id": "unsafe.updatePair.priceAverageDiv",
+      "is_core": true,
+      "description": "(price0Cumulative - observation.price0CumulativeLast) / timeElapsed and the price1 equivalent - unchecked cumulative subtraction and division."
+    },
+    {
+      "node_id": 19,
+      "type": "unsafe_operation",
+      "id": "unsafe.currentCumulativePrices.cumulativeAdd",
+      "is_core": true,
+      "description": "price0Cumulative += uint(fraction(reserve1,reserve0)._x) * timeElapsed and price1 equivalent - unchecked overflow-prone accumulation."
+    },
+    {
+      "node_id": 20,
+      "type": "unsafe_operation",
+      "id": "unsafe.fraction.shiftDiv",
+      "is_core": true,
+      "description": "(uint224(numerator) << 112) / denominator - bit-shift scaling and division in FixedPoint.fraction."
+    },
+    {
+      "node_id": 21,
+      "type": "unsafe_operation",
+      "id": "unsafe.fixedPointMul.overflow",
+      "is_core": true,
+      "description": "uint(self._x) * y performed inside FixedPoint.mul with an overflow require check."
+    },
+    {
+      "node_id": 22,
+      "type": "parameter",
+      "id": "param._factory",
+      "is_core": false,
+      "description": "Constructor parameter _factory (address)."
+    },
+    {
+      "node_id": 23,
+      "type": "parameter",
+      "id": "param.getObservation.tokenA",
+      "is_core": false,
+      "description": "tokenA parameter of getObservation."
+    },
+    {
+      "node_id": 24,
+      "type": "parameter",
+      "id": "param.getObservation.tokenB",
+      "is_core": false,
+      "description": "tokenB parameter of getObservation."
+    },
+    {
+      "node_id": 25,
+      "type": "local_var",
+      "id": "local.getObservation.pair",
+      "is_core": false,
+      "description": "Local pair address resolved via ICCFactory(factory).getPair(tokenA, tokenB)."
+    },
+    {
+      "node_id": 26,
+      "type": "local_var",
+      "id": "local.getObservation.observation",
+      "is_core": false,
+      "description": "Storage pointer Observation obtained from pairObservations[pair]."
+    },
+    {
+      "node_id": 27,
+      "type": "parameter",
+      "id": "param.updatePair.pair",
+      "is_core": false,
+      "description": "pair parameter of updatePair."
+    },
+    {
+      "node_id": 28,
+      "type": "local_var",
+      "id": "local.updatePair.observation",
+      "is_core": false,
+      "description": "Storage pointer Observation used to read and write the pair's accumulated prices."
+    },
+    {
+      "node_id": 29,
+      "type": "local_var",
+      "id": "local.updatePair.timeElapsed",
+      "is_core": false,
+      "description": "uint32 timeElapsed computed as the difference between current and stored block timestamps."
+    },
+    {
+      "node_id": 30,
+      "type": "local_var",
+      "id": "local.updatePair.price0Cumulative",
+      "is_core": false,
+      "description": "uint price0Cumulative returned from currentCumulativePrices."
+    },
+    {
+      "node_id": 31,
+      "type": "local_var",
+      "id": "local.updatePair.price1Cumulative",
+      "is_core": false,
+      "description": "uint price1Cumulative returned from currentCumulativePrices."
+    },
+    {
+      "node_id": 32,
+      "type": "local_var",
+      "id": "local.updatePair.blockTimestamp",
+      "is_core": false,
+      "description": "uint32 blockTimestamp returned from currentCumulativePrices."
+    },
+    {
+      "node_id": 33,
+      "type": "parameter",
+      "id": "param.update.tokenA",
+      "is_core": false,
+      "description": "tokenA parameter of update."
+    },
+    {
+      "node_id": 34,
+      "type": "parameter",
+      "id": "param.update.tokenB",
+      "is_core": false,
+      "description": "tokenB parameter of update."
+    },
+    {
+      "node_id": 35,
+      "type": "local_var",
+      "id": "local.update.pair",
+      "is_core": false,
+      "description": "Local pair address resolved from the factory and forwarded to updatePair."
+    },
+    {
+      "node_id": 36,
+      "type": "parameter",
+      "id": "param.consult.tokenIn",
+      "is_core": false,
+      "description": "tokenIn parameter of consult."
+    },
+    {
+      "node_id": 37,
+      "type": "parameter",
+      "id": "param.consult.amountIn",
+      "is_core": false,
+      "description": "amountIn parameter of consult; amount to be converted."
+    },
+    {
+      "node_id": 38,
+      "type": "parameter",
+      "id": "param.consult.tokenOut",
+      "is_core": false,
+      "description": "tokenOut parameter of consult."
+    },
+    {
+      "node_id": 39,
+      "type": "local_var",
+      "id": "local.consult.pair",
+      "is_core": false,
+      "description": "Pair address resolved via ICCFactory(factory).pairFor(tokenIn, tokenOut)."
+    },
+    {
+      "node_id": 40,
+      "type": "local_var",
+      "id": "local.consult.observation",
+      "is_core": false,
+      "description": "Storage pointer Observation read from pairObservations[pair]."
+    },
+    {
+      "node_id": 41,
+      "type": "local_var",
+      "id": "local.consult.token0",
+      "is_core": false,
+      "description": "Result of ICCFactory(factory).sortTokens(tokenIn, tokenOut)."
+    },
+    {
+      "node_id": 42,
+      "type": "local_var",
+      "id": "local.consult.token1",
+      "is_core": false,
+      "description": "Second sorted token returned by sortTokens."
+    },
+    {
+      "node_id": 43,
+      "type": "parameter",
+      "id": "param.currentCumulativePrices.pair",
+      "is_core": false,
+      "description": "pair parameter of currentCumulativePrices."
+    },
+    {
+      "node_id": 44,
+      "type": "local_var",
+      "id": "local.currentCumulativePrices.blockTimestamp",
+      "is_core": false,
+      "description": "uint32 blockTimestamp obtained from currentBlockTimestamp()."
+    },
+    {
+      "node_id": 45,
+      "type": "local_var",
+      "id": "local.currentCumulativePrices.timeElapsed",
+      "is_core": false,
+      "description": "uint32 timeElapsed = blockTimestamp - blockTimestampLast computed in currentCumulativePrices."
+    },
+    {
+      "node_id": 46,
+      "type": "parameter",
+      "id": "param.fraction.numerator",
+      "is_core": false,
+      "description": "numerator parameter of FixedPoint.fraction."
+    },
+    {
+      "node_id": 47,
+      "type": "parameter",
+      "id": "param.fraction.denominator",
+      "is_core": false,
+      "description": "denominator parameter of FixedPoint.fraction."
+    },
+    {
+      "node_id": 48,
+      "type": "parameter",
+      "id": "param.fixedPointMul.y",
+      "is_core": false,
+      "description": "y parameter of FixedPoint.mul."
+    },
+    {
+      "node_id": 49,
+      "type": "parameter",
+      "id": "param.safeMathAdd.x",
+      "is_core": false,
+      "description": "x parameter of SafeMath.add."
+    },
+    {
+      "node_id": 50,
+      "type": "parameter",
+      "id": "param.safeMathAdd.y",
+      "is_core": false,
+      "description": "y parameter of SafeMath.add."
+    },
+    {
+      "node_id": 51,
+      "type": "parameter",
+      "id": "param.safeMathSub.x",
+      "is_core": false,
+      "description": "x parameter of SafeMath.sub."
+    },
+    {
+      "node_id": 52,
+      "type": "parameter",
+      "id": "param.safeMathSub.y",
+      "is_core": false,
+      "description": "y parameter of SafeMath.sub."
+    },
+    {
+      "node_id": 53,
+      "type": "parameter",
+      "id": "param.safeMathMul.x",
+      "is_core": false,
+      "description": "x parameter of SafeMath.mul."
+    },
+    {
+      "node_id": 54,
+      "type": "parameter",
+      "id": "param.safeMathMul.y",
+      "is_core": false,
+      "description": "y parameter of SafeMath.mul."
+    }
+  ],
+  "edges": [
+    {
+      "reason": "_factory parameter is consumed by the Oracle constructor.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 22,
+      "to_id": 3
+    },
+    {
+      "reason": "Constructor writes the immutable factory state variable from _factory.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 3,
+      "to_id": 1
+    },
+    {
+      "reason": "getObservation reads the factory state variable to resolve the pair.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 1
+    },
+    {
+      "reason": "getObservation reads pairObservations for the resolved pair.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 2
+    },
+    {
+      "reason": "tokenA parameter feeds the pair lookup.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 23,
+      "to_id": 4
+    },
+    {
+      "reason": "tokenB parameter feeds the pair lookup.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 24,
+      "to_id": 4
+    },
+    {
+      "reason": "Local pair address is derived inside getObservation.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 25
+    },
+    {
+      "reason": "Observation storage pointer is derived inside getObservation.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 4,
+      "to_id": 26
+    },
+    {
+      "reason": "pair parameter is the update target of updatePair.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 27,
+      "to_id": 5
+    },
+    {
+      "reason": "updatePair reads and writes pairObservations[pair].",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 2
+    },
+    {
+      "reason": "updatePair compares timeElapsed against the PERIOD constant.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 0
+    },
+    {
+      "reason": "updatePair calls currentCumulativePrices to obtain cumulative prices.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 5,
+      "to_id": 9
+    },
+    {
+      "reason": "updatePair execution path contains the timeElapsed subtraction.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 5,
+      "to_id": 17
+    },
+    {
+      "reason": "updatePair execution path contains the average price division.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 5,
+      "to_id": 18
+    },
+    {
+      "reason": "blockTimestamp returned by currentCumulativePrices feeds the timeElapsed computation.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 32,
+      "to_id": 29
+    },
+    {
+      "reason": "timeElapsed is the result of the unchecked uint32 subtraction.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 17
+    },
+    {
+      "reason": "timeElapsed is the divisor of the average price computation.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 29,
+      "to_id": 18
+    },
+    {
+      "reason": "timeElapsed is derived from block.timestamp, making the period check miner-influenceable.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 16,
+      "to_id": 29
+    },
+    {
+      "reason": "Stored observation cumulative prices are subtracted in the average price computation.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 28,
+      "to_id": 18
+    },
+    {
+      "reason": "price0Cumulative is the minuend of the division.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 30,
+      "to_id": 18
+    },
+    {
+      "reason": "price1Cumulative is the minuend of the division.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 31,
+      "to_id": 18
+    },
+    {
+      "reason": "tokenA parameter feeds the pair lookup in update.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 33,
+      "to_id": 6
+    },
+    {
+      "reason": "tokenB parameter feeds the pair lookup in update.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 34,
+      "to_id": 6
+    },
+    {
+      "reason": "update reads the factory state variable to resolve the pair.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 6,
+      "to_id": 1
+    },
+    {
+      "reason": "update delegates the price refresh to updatePair.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 6,
+      "to_id": 5
+    },
+    {
+      "reason": "Local pair address is derived inside update.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 35,
+      "to_id": 6
+    },
+    {
+      "reason": "Resolved pair is forwarded as the argument of updatePair.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 35,
+      "to_id": 5
+    },
+    {
+      "reason": "tokenIn parameter feeds the consult lookup.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 36,
+      "to_id": 7
+    },
+    {
+      "reason": "amountIn parameter is the amount converted by consult.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 37,
+      "to_id": 7
+    },
+    {
+      "reason": "tokenOut parameter feeds the consult lookup.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 38,
+      "to_id": 7
+    },
+    {
+      "reason": "consult reads the factory state variable to resolve the pair and sort tokens.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 1
+    },
+    {
+      "reason": "consult reads the stored observation for the pair.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 2
+    },
+    {
+      "reason": "consult multiplies the stored price average by amountIn.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 7,
+      "to_id": 11
+    },
+    {
+      "reason": "Result of FixedPoint.mul is decoded with decode144.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 11,
+      "to_id": 12
+    },
+    {
+      "reason": "Stored price average is the receiver of FixedPoint.mul.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 40,
+      "to_id": 11
+    },
+    {
+      "reason": "Local pair address is derived inside consult.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 39,
+      "to_id": 7
+    },
+    {
+      "reason": "Sorted token0 determines which price average is used.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 41,
+      "to_id": 7
+    },
+    {
+      "reason": "Sorted token1 is used in the tokenIn == token1 branch.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 42,
+      "to_id": 7
+    },
+    {
+      "reason": "currentBlockTimestamp reads block.timestamp directly.",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 8,
+      "to_id": 16
+    },
+    {
+      "reason": "pair parameter determines which pair reserves and cumulative prices are read.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 43,
+      "to_id": 9
+    },
+    {
+      "reason": "currentCumulativePrices obtains the current time from currentBlockTimestamp (block.timestamp).",
+      "vuln_type": "access_control",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 8
+    },
+    {
+      "reason": "currentCumulativePrices calls FixedPoint.fraction on the reserves.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 9,
+      "to_id": 10
+    },
+    {
+      "reason": "currentCumulativePrices performs the counterfactual cumulative price additions.",
+      "vuln_type": "none",
+      "type": "controlflow",
+      "from_id": 9,
+      "to_id": 19
+    },
+    {
+      "reason": "blockTimestamp local feeds the elapsed-time computation used by the cumulative additions.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 44,
+      "to_id": 19
+    },
+    {
+      "reason": "timeElapsed scales the fraction added to the cumulative prices.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 45,
+      "to_id": 19
+    },
+    {
+      "reason": "numerator is left-shifted and divided in FixedPoint.fraction.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 46,
+      "to_id": 10
+    },
+    {
+      "reason": "denominator is the divisor in FixedPoint.fraction.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 47,
+      "to_id": 10
+    },
+    {
+      "reason": "fraction performs unchecked shift and division arithmetic.",
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "from_id": 10,
+      "to_id": 20
+    },
+    {
+      "reason": "y is multiplied with the fixed point value in FixedPoint.mul.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 48,
+      "to_id": 11
+    },
+    {
+      "reason": "FixedPoint.mul performs an overflow-checked multiplication.",
+      "vuln_type": "arithmetic",
+      "type": "controlflow",
+      "from_id": 11,
+      "to_id": 21
+    },
+    {
+      "reason": "x operand of SafeMath.add.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 49,
+      "to_id": 13
+    },
+    {
+      "reason": "y operand of SafeMath.add.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 50,
+      "to_id": 13
+    },
+    {
+      "reason": "x operand of SafeMath.sub.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 51,
+      "to_id": 14
+    },
+    {
+      "reason": "y operand of SafeMath.sub.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 52,
+      "to_id": 14
+    },
+    {
+      "reason": "x operand of SafeMath.mul.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 53,
+      "to_id": 15
+    },
+    {
+      "reason": "y operand of SafeMath.mul.",
+      "vuln_type": "none",
+      "type": "dataflow",
+      "from_id": 54,
+      "to_id": 15
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "Constructor parameter _factory is only used by the constructor; merge into the Oracle.constructor node.",
+      "merge_into": "Oracle.constructor",
+      "normal_node": "param._factory"
+    },
+    {
+      "reason": "tokenA is a parameter of getObservation; merge into that function node.",
+      "merge_into": "Oracle.getObservation",
+      "normal_node": "param.getObservation.tokenA"
+    },
+    {
+      "reason": "tokenB is a parameter of getObservation; merge into that function node.",
+      "merge_into": "Oracle.getObservation",
+      "normal_node": "param.getObservation.tokenB"
+    },
+    {
+      "reason": "pair is a local resolved inside getObservation; merge into that function node.",
+      "merge_into": "Oracle.getObservation",
+      "normal_node": "local.getObservation.pair"
+    },
+    {
+      "reason": "observation storage pointer is local to getObservation; merge into that function node.",
+      "merge_into": "Oracle.getObservation",
+      "normal_node": "local.getObservation.observation"
+    },
+    {
+      "reason": "pair is the parameter of updatePair; merge into that function node.",
+      "merge_into": "Oracle.updatePair",
+      "normal_node": "param.updatePair.pair"
+    },
+    {
+      "reason": "observation storage pointer is local to updatePair; merge into that function node.",
+      "merge_into": "Oracle.updatePair",
+      "normal_node": "local.updatePair.observation"
+    },
+    {
+      "reason": "timeElapsed is the direct result of the unchecked subtraction unsafe operation.",
+      "merge_into": "unsafe.updatePair.timeElapsedSub",
+      "normal_node": "local.updatePair.timeElapsed"
+    },
+    {
+      "reason": "price0Cumulative is a direct operand of the average price division unsafe operation.",
+      "merge_into": "unsafe.updatePair.priceAverageDiv",
+      "normal_node": "local.updatePair.price0Cumulative"
+    },
+    {
+      "reason": "price1Cumulative is a direct operand of the average price division unsafe operation.",
+      "merge_into": "unsafe.updatePair.priceAverageDiv",
+      "normal_node": "local.updatePair.price1Cumulative"
+    },
+    {
+      "reason": "blockTimestamp local feeds the subtraction that produces timeElapsed.",
+      "merge_into": "unsafe.updatePair.timeElapsedSub",
+      "normal_node": "local.updatePair.blockTimestamp"
+    },
+    {
+      "reason": "tokenA is a parameter of update; merge into that function node.",
+      "merge_into": "Oracle.update",
+      "normal_node": "param.update.tokenA"
+    },
+    {
+      "reason": "tokenB is a parameter of update; merge into that function node.",
+      "merge_into": "Oracle.update",
+      "normal_node": "param.update.tokenB"
+    },
+    {
+      "reason": "pair is a local resolved inside update; merge into that function node.",
+      "merge_into": "Oracle.update",
+      "normal_node": "local.update.pair"
+    },
+    {
+      "reason": "tokenIn is a parameter of consult; merge into that function node.",
+      "merge_into": "Oracle.consult",
+      "normal_node": "param.consult.tokenIn"
+    },
+    {
+      "reason": "amountIn is a parameter of consult; merge into that function node.",
+      "merge_into": "Oracle.consult",
+      "normal_node": "param.consult.amountIn"
+    },
+    {
+      "reason": "tokenOut is a parameter of consult; merge into that function node.",
+      "merge_into": "Oracle.consult",
+      "normal_node": "param.consult.tokenOut"
+    },
+    {
+      "reason": "pair is a local resolved inside consult; merge into that function node.",
+      "merge_into": "Oracle.consult",
+      "normal_node": "local.consult.pair"
+    },
+    {
+      "reason": "observation storage pointer is local to consult; merge into that function node.",
+      "merge_into": "Oracle.consult",
+      "normal_node": "local.consult.observation"
+    },
+    {
+      "reason": "token0 is a local sorted token in consult; merge into that function node.",
+      "merge_into": "Oracle.consult",
+      "normal_node": "local.consult.token0"
+    },
+    {
+      "reason": "token1 is a local sorted token in consult; merge into that function node.",
+      "merge_into": "Oracle.consult",
+      "normal_node": "local.consult.token1"
+    },
+    {
+      "reason": "pair is the parameter of currentCumulativePrices; merge into that function node.",
+      "merge_into": "CCOracleLibrary.currentCumulativePrices",
+      "normal_node": "param.currentCumulativePrices.pair"
+    },
+    {
+      "reason": "blockTimestamp local drives the elapsed time used by the cumulative addition unsafe operation.",
+      "merge_into": "unsafe.currentCumulativePrices.cumulativeAdd",
+      "normal_node": "local.currentCumulativePrices.blockTimestamp"
+    },
+    {
+      "reason": "timeElapsed directly scales the value added to the cumulative prices.",
+      "merge_into": "unsafe.currentCumulativePrices.cumulativeAdd",
+      "normal_node": "local.currentCumulativePrices.timeElapsed"
+    },
+    {
+      "reason": "numerator is a parameter of FixedPoint.fraction; merge into that function node.",
+      "merge_into": "FixedPoint.fraction",
+      "normal_node": "param.fraction.numerator"
+    },
+    {
+      "reason": "denominator is a parameter of FixedPoint.fraction; merge into that function node.",
+      "merge_into": "FixedPoint.fraction",
+      "normal_node": "param.fraction.denominator"
+    },
+    {
+      "reason": "y is a parameter of FixedPoint.mul; merge into that function node.",
+      "merge_into": "FixedPoint.mul",
+      "normal_node": "param.fixedPointMul.y"
+    },
+    {
+      "reason": "x is a parameter of SafeMath.add; merge into that function node.",
+      "merge_into": "SafeMath.add",
+      "normal_node": "param.safeMathAdd.x"
+    },
+    {
+      "reason": "y is a parameter of SafeMath.add; merge into that function node.",
+      "merge_into": "SafeMath.add",
+      "normal_node": "param.safeMathAdd.y"
+    },
+    {
+      "reason": "x is a parameter of SafeMath.sub; merge into that function node.",
+      "merge_into": "SafeMath.sub",
+      "normal_node": "param.safeMathSub.x"
+    },
+    {
+      "reason": "y is a parameter of SafeMath.sub; merge into that function node.",
+      "merge_into": "SafeMath.sub",
+      "normal_node": "param.safeMathSub.y"
+    },
+    {
+      "reason": "x is a parameter of SafeMath.mul; merge into that function node.",
+      "merge_into": "SafeMath.mul",
+      "normal_node": "param.safeMathMul.x"
+    },
+    {
+      "reason": "y is a parameter of SafeMath.mul; merge into that function node.",
+      "merge_into": "SafeMath.mul",
+      "normal_node": "param.safeMathMul.y"
+    }
+  ]
+}

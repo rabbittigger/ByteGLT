@@ -1,0 +1,201 @@
+{
+  "nodes": [
+    {
+      "is_core": true,
+      "type": "state_var",
+      "id": "implementation",
+      "description": "Implementation logic address stored at hardcoded storage slot 0xc5f16f0fcc639fa48a6947836d9850f504798523bf8c9a3a87d5876cf622bcf7; written via sstore in constructor and read via sload in fallback.",
+      "node_id": 0
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "constructor",
+      "description": "Constructor sets implementation address in storage slot via assembly sstore.",
+      "node_id": 1
+    },
+    {
+      "is_core": true,
+      "type": "function",
+      "id": "fallback",
+      "description": "External payable fallback; delegatecalls all calldata to implementation address read from storage.",
+      "node_id": 2
+    },
+    {
+      "is_core": true,
+      "type": "untrusted_input",
+      "id": "msg.sender",
+      "description": "Caller of fallback; no explicit access control before delegatecall.",
+      "node_id": 3
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "delegatecall",
+      "description": "Assembly delegatecall to implementation address with all calldata; executes untrusted code in proxy context.",
+      "node_id": 4
+    },
+    {
+      "is_core": true,
+      "type": "unsafe_operation",
+      "id": "sstore",
+      "description": "Assembly sstore writes implementation address to hardcoded storage slot in constructor.",
+      "node_id": 5
+    },
+    {
+      "is_core": false,
+      "type": "parameter",
+      "id": "contractLogic",
+      "description": "Constructor parameter; logic contract address used in sstore.",
+      "node_id": 6
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "contractLogic_local",
+      "description": "Local variable in fallback assembly; implementation address read from storage via sload.",
+      "node_id": 7
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "ptr",
+      "description": "Memory pointer for calldata/returndata in fallback assembly.",
+      "node_id": 8
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "success",
+      "description": "Delegatecall success flag in fallback assembly.",
+      "node_id": 9
+    },
+    {
+      "is_core": false,
+      "type": "local_var",
+      "id": "retSz",
+      "description": "Return data size in fallback assembly.",
+      "node_id": 10
+    }
+  ],
+  "edges": [
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 1,
+      "to_id": 5,
+      "reason": "Constructor executes assembly sstore."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 6,
+      "to_id": 5,
+      "reason": "contractLogic parameter is used as value written by sstore."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 5,
+      "to_id": 0,
+      "reason": "sstore writes contractLogic to implementation storage slot."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "none",
+      "from_id": 2,
+      "to_id": 4,
+      "reason": "Fallback executes assembly delegatecall."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 3,
+      "to_id": 2,
+      "reason": "Any external caller can invoke fallback; no authentication."
+    },
+    {
+      "type": "controlflow",
+      "vuln_type": "access_control",
+      "from_id": 3,
+      "to_id": 4,
+      "reason": "Caller's calldata is delegatecalled to implementation, enabling arbitrary external invocation."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 4,
+      "reason": "Implementation address read from storage is used as delegatecall target."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 0,
+      "to_id": 7,
+      "reason": "sload loads implementation address into local contractLogic."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 7,
+      "to_id": 4,
+      "reason": "Local implementation address is used as delegatecall target."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 8,
+      "to_id": 4,
+      "reason": "ptr points to calldata copied for delegatecall."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 4,
+      "to_id": 9,
+      "reason": "delegatecall returns success flag."
+    },
+    {
+      "type": "dataflow",
+      "vuln_type": "none",
+      "from_id": 4,
+      "to_id": 10,
+      "reason": "delegatecall returns returndata size."
+    },
+    {
+      "type": "callback",
+      "vuln_type": "reentrancy",
+      "from_id": 4,
+      "to_id": 2,
+      "reason": "Delegatecall to implementation may call back into proxy fallback, enabling reentrancy."
+    }
+  ],
+  "normalization_plan": [
+    {
+      "normal_node": "contractLogic",
+      "merge_into": "sstore",
+      "reason": "Parameter is directly used as value written by sstore; not independently security-relevant."
+    },
+    {
+      "normal_node": "contractLogic_local",
+      "merge_into": "delegatecall",
+      "reason": "Local holds delegatecall target read from storage; folds into delegatecall operation."
+    },
+    {
+      "normal_node": "ptr",
+      "merge_into": "delegatecall",
+      "reason": "Pointer used only to pass calldata to delegatecall."
+    },
+    {
+      "normal_node": "success",
+      "merge_into": "delegatecall",
+      "reason": "Success flag is result of delegatecall; not standalone."
+    },
+    {
+      "normal_node": "retSz",
+      "merge_into": "delegatecall",
+      "reason": "Return size is result of delegatecall; not standalone."
+    }
+  ]
+}

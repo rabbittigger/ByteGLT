@@ -1,0 +1,324 @@
+{
+  "nodes": [
+    {
+      "id": "oldTrueUSD",
+      "description": "Constant public address of the legacy TrueUSD proxy (OldTrueUSDInterface at 0x8dd5fbCe2F6a956C3022bA3663759011Dd51e73E) that UpgradeHelper takes ownership of and delegates to the new contract",
+      "is_core": true,
+      "node_id": 0,
+      "type": "state_var"
+    },
+    {
+      "id": "newTrueUSD",
+      "description": "Constant public address of the new TrueUSD proxy (NewTrueUSDInterface at 0x0000000000085d4780B73119b644AE5ecd22b376) that becomes the target of the migration",
+      "is_core": true,
+      "node_id": 1,
+      "type": "state_var"
+    },
+    {
+      "id": "tokenController",
+      "description": "Constant public address of the TokenController (TokenControllerInterface at 0x0000000000075EfBeE23fe2de1bd0b7690883cc9) used to perform ownership, storage and registry migration",
+      "is_core": true,
+      "node_id": 2,
+      "type": "state_var"
+    },
+    {
+      "id": "registry",
+      "description": "Constant registry address configured on the TokenController via setTusdRegistry",
+      "is_core": true,
+      "node_id": 3,
+      "type": "state_var"
+    },
+    {
+      "id": "globalPause",
+      "description": "Constant global pause address configured on the TokenController via setGlobalPause",
+      "is_core": true,
+      "node_id": 4,
+      "type": "state_var"
+    },
+    {
+      "id": "upgrade",
+      "description": "Public upgrade() entry point that performs the whole migration: takes ownership of controller and both tokens, rewires storage, and hands ownership back to the end owner",
+      "is_core": true,
+      "node_id": 5,
+      "type": "function"
+    },
+    {
+      "id": "upgrade.endOwner",
+      "description": "Local variable holding tokenController.owner() at the start of upgrade(); used as the final owner restored at the end of the migration",
+      "is_core": false,
+      "node_id": 6,
+      "type": "local_var"
+    },
+    {
+      "id": "upgrade.balanceSheetAddress",
+      "description": "Local variable holding the address returned by oldTrueUSD.balances(), the balance-sheet storage contract to be reclaimed and transferred",
+      "is_core": false,
+      "node_id": 7,
+      "type": "local_var"
+    },
+    {
+      "id": "upgrade.allowanceSheetAddress",
+      "description": "Local variable holding the address returned by oldTrueUSD.allowances(), the allowance-sheet storage contract to be reclaimed and transferred",
+      "is_core": false,
+      "node_id": 8,
+      "type": "local_var"
+    },
+    {
+      "id": "tokenController.claimOwnership()",
+      "description": "External call that makes UpgradeHelper the owner of the TokenController, granting full privileged control over the whole system",
+      "is_core": true,
+      "node_id": 9,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "newTrueUSD.claimOwnership()",
+      "description": "External call that makes UpgradeHelper the owner of the new TrueUSD proxy",
+      "is_core": true,
+      "node_id": 10,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "oldTrueUSD.claimOwnership()",
+      "description": "External call that makes UpgradeHelper the owner of the legacy TrueUSD proxy",
+      "is_core": true,
+      "node_id": 11,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "oldTrueUSD.delegateToNewContract(newTrueUSD)",
+      "description": "Privileged delegation call pointing the legacy TrueUSD proxy at the new contract, executed after UpgradeHelper has claimed ownership of oldTrueUSD",
+      "is_core": true,
+      "node_id": 12,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "tokenController.transferOwnership(endOwner)",
+      "description": "Final ownership hand-back of the TokenController to the previously recorded end owner",
+      "is_core": true,
+      "node_id": 13,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "newTrueUSD.transferOwnership(tokenController)",
+      "description": "Ownership transfer of the new TrueUSD proxy to the TokenController during the migration sequence",
+      "is_core": true,
+      "node_id": 14,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "tokenController.issueClaimOwnership(newTrueUSD)",
+      "description": "Controller-side claim of ownership over the new TrueUSD contract",
+      "is_core": true,
+      "node_id": 15,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "tokenController.setTrueUSD(newTrueUSD)",
+      "description": "Controller-side registration of the new TrueUSD address used by the controller for token operations",
+      "is_core": true,
+      "node_id": 16,
+      "type": "unsafe_operation"
+    },
+    {
+      "id": "tokenController.claimStorageForProxy(newTrueUSD,balanceSheetAddress,allowanceSheetAddress)",
+      "description": "Controller-side rewiring of the balance sheet, allowance sheet and delegate for the proxy during the migration",
+      "is_core": true,
+      "node_id": 17,
+      "type": "unsafe_operation"
+    }
+  ],
+  "edges": [
+    {
+      "reason": "upgrade() calls tokenController.claimOwnership() to become owner of the TokenController",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "controlflow"
+    },
+    {
+      "reason": "upgrade() calls newTrueUSD.claimOwnership() to become owner of the new TrueUSD",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "controlflow"
+    },
+    {
+      "reason": "upgrade() calls oldTrueUSD.claimOwnership() to become owner of the legacy TrueUSD",
+      "to_id": 11,
+      "vuln_type": "none",
+      "from_id": 5,
+      "type": "controlflow"
+    },
+    {
+      "reason": "upgrade() executes the privileged delegateToNewContract call after many external calls, allowing a malicious delegate target to re-enter the partially migrated state",
+      "to_id": 12,
+      "vuln_type": "reentrancy",
+      "from_id": 5,
+      "type": "controlflow"
+    },
+    {
+      "reason": "The tokenController state variable is the external contract whose claimOwnership() is invoked",
+      "to_id": 9,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The newTrueUSD state variable is the external contract whose claimOwnership() is invoked",
+      "to_id": 10,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "The oldTrueUSD state variable is the external contract whose claimOwnership() is invoked",
+      "to_id": 11,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "oldTrueUSD is the proxy on which the privileged delegateToNewContract delegation is performed, changing its implementation to newTrueUSD",
+      "to_id": 12,
+      "vuln_type": "reentrancy",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "newTrueUSD is passed as the delegation target, so all legacy proxy calls start executing new contract code that can re-enter upgrade()",
+      "to_id": 12,
+      "vuln_type": "reentrancy",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "endOwner is populated from tokenController.owner() before any ownership is taken over",
+      "to_id": 6,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "endOwner read from the external controller is used as the destination of the final ownership transfer, so a stale or malicious owner value controls who ends up owning the TokenController",
+      "to_id": 13,
+      "vuln_type": "access_control",
+      "from_id": 6,
+      "type": "dataflow"
+    },
+    {
+      "reason": "tokenController is the contract whose ownership is transferred to endOwner at the end of the migration",
+      "to_id": 13,
+      "vuln_type": "access_control",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "newTrueUSD ownership is handed to the TokenController, centralising privileged control of the token",
+      "to_id": 14,
+      "vuln_type": "access_control",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "tokenController receives ownership of newTrueUSD during the migration",
+      "to_id": 14,
+      "vuln_type": "access_control",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "newTrueUSD is the child contract whose ownership the controller claims via issueClaimOwnership",
+      "to_id": 15,
+      "vuln_type": "access_control",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "tokenController is the external contract executing issueClaimOwnership over newTrueUSD",
+      "to_id": 15,
+      "vuln_type": "access_control",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "newTrueUSD is registered as the TrueUSD address on the controller",
+      "to_id": 16,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "tokenController is the contract on which setTrueUSD(newTrueUSD) is invoked",
+      "to_id": 16,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "balanceSheetAddress is assigned from the external oldTrueUSD.balances() call",
+      "to_id": 7,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "allowanceSheetAddress is assigned from the external oldTrueUSD.allowances() call",
+      "to_id": 8,
+      "vuln_type": "none",
+      "from_id": 0,
+      "type": "dataflow"
+    },
+    {
+      "reason": "balanceSheetAddress obtained from the legacy token is used to rewire the controller storage via claimStorageForProxy",
+      "to_id": 17,
+      "vuln_type": "none",
+      "from_id": 7,
+      "type": "dataflow"
+    },
+    {
+      "reason": "allowanceSheetAddress obtained from the legacy token is used to rewire the controller storage via claimStorageForProxy",
+      "to_id": 17,
+      "vuln_type": "none",
+      "from_id": 8,
+      "type": "dataflow"
+    },
+    {
+      "reason": "newTrueUSD is the delegate proxy bound to the reclaimed balance and allowance sheets",
+      "to_id": 17,
+      "vuln_type": "none",
+      "from_id": 1,
+      "type": "dataflow"
+    },
+    {
+      "reason": "tokenController executes claimStorageForProxy to bind the storage contracts to the new proxy",
+      "to_id": 17,
+      "vuln_type": "none",
+      "from_id": 2,
+      "type": "dataflow"
+    },
+    {
+      "reason": "delegateToNewContract causes subsequent calls on oldTrueUSD to execute code inside newTrueUSD, a callback path that can re-enter UpgradeHelper while the migration is incomplete",
+      "to_id": 1,
+      "vuln_type": "reentrancy",
+      "from_id": 12,
+      "type": "callback"
+    }
+  ],
+  "normalization_plan": [
+    {
+      "reason": "endOwner is a temporary local produced by tokenController.owner() and consumed only by the final ownership transfer, so it can be absorbed into that unsafe ownership operation",
+      "normal_node": "upgrade.endOwner",
+      "merge_into": "tokenController.transferOwnership(endOwner)"
+    },
+    {
+      "reason": "balanceSheetAddress is a transient handle returned by oldTrueUSD.balances() whose only meaningful sink is the storage rewiring call, so it collapses into that unsafe operation",
+      "normal_node": "upgrade.balanceSheetAddress",
+      "merge_into": "tokenController.claimStorageForProxy(newTrueUSD,balanceSheetAddress,allowanceSheetAddress)"
+    },
+    {
+      "reason": "allowanceSheetAddress is a transient handle returned by oldTrueUSD.allowances() whose only meaningful sink is the storage rewiring call, so it collapses into that unsafe operation",
+      "normal_node": "upgrade.allowanceSheetAddress",
+      "merge_into": "tokenController.claimStorageForProxy(newTrueUSD,balanceSheetAddress,allowanceSheetAddress)"
+    }
+  ]
+}
